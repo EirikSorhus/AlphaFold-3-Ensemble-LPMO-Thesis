@@ -20,6 +20,13 @@ AF3_OUTPUT_DIR=${SUBMITDIR}/result
 AF3_MODEL_PARAMETERS_DIR=${AF3_DIR}/weights
 AF3_DATABASES_DIR=/cluster/shared/databases/AlphaFold3/2025-04-15
 
+AF3_JSON_FILE=alphafold_input_test.json
+
+if [[ ! -f "${AF3_INPUT_DIR}/${AF3_JSON_FILE}" ]]; then
+  echo "[ERROR] Fant ikke ${AF3_INPUT_DIR}/${AF3_JSON_FILE}"
+  exit 2
+fi
+
 singularity exec --nv \
   --pwd /app/alphafold \
   --bind "${AF3_INPUT_DIR}:/root/af_input" \
@@ -33,3 +40,5 @@ singularity exec --nv \
     --model_dir=/root/models \
     --db_dir=/root/public_databases \
     --output_dir=/root/af_output
+
+echo "[INFO] Ferdig. Resultater ligger i ${AF3_OUTPUT_DIR}"
