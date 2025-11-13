@@ -1,0 +1,45 @@
+{
+  "name": "7o1r_1_chain_pmm",
+  "modelSeeds": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10
+  ],
+  "sequences": [
+    {
+      "protein": {
+        "id": [
+          "A"
+        ],
+        "sequence": "MKSLSFSLALGFGSTLVYSAPSPSSGWQAPGPNDVRAPCPMLNTLANHGFLPHDGKGITVNKTIDALGSALNIDANLSTLLFGFAATTNPQPNATFFDLDHLSRHNILEHDASLSRQDSYFGPADVFNEAVFNQTKSFWTGDIIDVQMAANARIVRLLTSNLTNPEYSLSDLGSAFSIGESAAYIGILGDKKSATVPKSWVEYLFENERLPYELGFKRPNDPFTTDDLGDLSTQIINAQHFPQSPGKVEKRGDTRCPYGYH"
+      }
+    },
+    {
+      "ligand": {
+        "id": [
+          "PMM"
+        ],
+        "smiles": "CCCC1=CC(=C(C(=C1)OC)O)OC"
+      }
+    },
+    {
+      "ligand": {
+        "id": [
+          "G"
+        ],
+        "ccdCodes": [
+          "HEM"
+        ]
+      }
+    }
+  ],
+  "dialect": "alphafold3",
+  "version": 1
+}

@@ -1,0 +1,203 @@
+Starting job 15533541 on gpu-12-3 on saga at Mon Jun 30 13:39:06 CEST 2025
+
+The following modules were not unloaded:
+  (Use "module --force purge" to unload all):
+
+  1) StdEnv
+INFO:    underlay of /usr/bin/nvidia-smi required more than 50 (496) bind mounts
+I0630 13:39:15.214073 22401399181312 xla_bridge.py:895] Unable to initialize backend 'rocm': module 'jaxlib.xla_extension' has no attribute 'GpuAllocatorConfig'
+I0630 13:39:15.236452 22401399181312 xla_bridge.py:895] Unable to initialize backend 'tpu': INTERNAL: Failed to open libtpu.so: libtpu.so: cannot open shared object file: No such file or directory
+I0630 13:39:30.427297 22401399181312 pipeline.py:474] Skipping MSA and template search for protein chain A because it already has MSAs and templates.
+I0630 13:39:36.681842 22401399181312 pipeline.py:164] processing 7o1r_1_chain_pmm, random_seed=1
+I0630 13:39:36.729014 22401399181312 pipeline.py:257] Calculating bucket size for input with 318 tokens.
+I0630 13:39:36.729339 22401399181312 pipeline.py:263] Got bucket size 512 for input with 318 tokens, resulting in 194 padded tokens.
+[13:39:39] UFFTYPER: Unrecognized atom type: Fe4+2 (34)
+I0630 13:39:39.660759 22401399181312 features.py:1518] Using SMILES for: LIG_PMM - CCCC1=CC(=C(C(=C1)OC)O)OC
+[13:39:41] UFFTYPER: Unrecognized atom type: Fe4+2 (34)
+I0630 13:39:41.756050 22401399181312 features.py:1518] Using SMILES for: LIG_PMM - CCCC1=CC(=C(C(=C1)OC)O)OC
+I0630 13:39:41.816510 22401399181312 pipeline.py:164] processing 7o1r_1_chain_pmm, random_seed=2
+I0630 13:39:41.842460 22401399181312 pipeline.py:257] Calculating bucket size for input with 318 tokens.
+I0630 13:39:41.842601 22401399181312 pipeline.py:263] Got bucket size 512 for input with 318 tokens, resulting in 194 padded tokens.
+[13:39:43] UFFTYPER: Unrecognized atom type: Fe4+2 (34)
+I0630 13:39:44.380188 22401399181312 features.py:1518] Using SMILES for: LIG_PMM - CCCC1=CC(=C(C(=C1)OC)O)OC
+[13:39:45] UFFTYPER: Unrecognized atom type: Fe4+2 (34)
+I0630 13:39:46.094766 22401399181312 features.py:1518] Using SMILES for: LIG_PMM - CCCC1=CC(=C(C(=C1)OC)O)OC
+I0630 13:39:46.134577 22401399181312 pipeline.py:164] processing 7o1r_1_chain_pmm, random_seed=3
+I0630 13:39:46.154771 22401399181312 pipeline.py:257] Calculating bucket size for input with 318 tokens.
+I0630 13:39:46.154877 22401399181312 pipeline.py:263] Got bucket size 512 for input with 318 tokens, resulting in 194 padded tokens.
+[13:39:48] UFFTYPER: Unrecognized atom type: Fe4+2 (34)
+I0630 13:39:48.548500 22401399181312 features.py:1518] Using SMILES for: LIG_PMM - CCCC1=CC(=C(C(=C1)OC)O)OC
+[13:39:50] UFFTYPER: Unrecognized atom type: Fe4+2 (34)
+I0630 13:39:50.206949 22401399181312 features.py:1518] Using SMILES for: LIG_PMM - CCCC1=CC(=C(C(=C1)OC)O)OC
+I0630 13:39:50.247851 22401399181312 pipeline.py:164] processing 7o1r_1_chain_pmm, random_seed=4
+I0630 13:39:50.268671 22401399181312 pipeline.py:257] Calculating bucket size for input with 318 tokens.
+I0630 13:39:50.268780 22401399181312 pipeline.py:263] Got bucket size 512 for input with 318 tokens, resulting in 194 padded tokens.
+[13:39:52] UFFTYPER: Unrecognized atom type: Fe4+2 (34)
+I0630 13:39:52.474188 22401399181312 features.py:1518] Using SMILES for: LIG_PMM - CCCC1=CC(=C(C(=C1)OC)O)OC
+[13:39:54] UFFTYPER: Unrecognized atom type: Fe4+2 (34)
+I0630 13:39:54.179886 22401399181312 features.py:1518] Using SMILES for: LIG_PMM - CCCC1=CC(=C(C(=C1)OC)O)OC
+I0630 13:39:54.220861 22401399181312 pipeline.py:164] processing 7o1r_1_chain_pmm, random_seed=5
+I0630 13:39:54.241641 22401399181312 pipeline.py:257] Calculating bucket size for input with 318 tokens.
+I0630 13:39:54.241716 22401399181312 pipeline.py:263] Got bucket size 512 for input with 318 tokens, resulting in 194 padded tokens.
+[13:39:56] UFFTYPER: Unrecognized atom type: Fe4+2 (34)
+I0630 13:39:56.411450 22401399181312 features.py:1518] Using SMILES for: LIG_PMM - CCCC1=CC(=C(C(=C1)OC)O)OC
+[13:39:57] UFFTYPER: Unrecognized atom type: Fe4+2 (34)
+I0630 13:39:58.097575 22401399181312 features.py:1518] Using SMILES for: LIG_PMM - CCCC1=CC(=C(C(=C1)OC)O)OC
+I0630 13:39:58.138115 22401399181312 pipeline.py:164] processing 7o1r_1_chain_pmm, random_seed=6
+I0630 13:39:58.158407 22401399181312 pipeline.py:257] Calculating bucket size for input with 318 tokens.
+I0630 13:39:58.158519 22401399181312 pipeline.py:263] Got bucket size 512 for input with 318 tokens, resulting in 194 padded tokens.
+[13:40:00] UFFTYPER: Unrecognized atom type: Fe4+2 (34)
+I0630 13:40:00.330490 22401399181312 features.py:1518] Using SMILES for: LIG_PMM - CCCC1=CC(=C(C(=C1)OC)O)OC
+[13:40:01] UFFTYPER: Unrecognized atom type: Fe4+2 (34)
+I0630 13:40:02.070698 22401399181312 features.py:1518] Using SMILES for: LIG_PMM - CCCC1=CC(=C(C(=C1)OC)O)OC
+I0630 13:40:02.111252 22401399181312 pipeline.py:164] processing 7o1r_1_chain_pmm, random_seed=7
+I0630 13:40:02.131772 22401399181312 pipeline.py:257] Calculating bucket size for input with 318 tokens.
+I0630 13:40:02.131870 22401399181312 pipeline.py:263] Got bucket size 512 for input with 318 tokens, resulting in 194 padded tokens.
+[13:40:04] UFFTYPER: Unrecognized atom type: Fe4+2 (34)
+I0630 13:40:04.430383 22401399181312 features.py:1518] Using SMILES for: LIG_PMM - CCCC1=CC(=C(C(=C1)OC)O)OC
+[13:40:06] UFFTYPER: Unrecognized atom type: Fe4+2 (34)
+I0630 13:40:06.148556 22401399181312 features.py:1518] Using SMILES for: LIG_PMM - CCCC1=CC(=C(C(=C1)OC)O)OC
+I0630 13:40:06.188938 22401399181312 pipeline.py:164] processing 7o1r_1_chain_pmm, random_seed=8
+I0630 13:40:06.209659 22401399181312 pipeline.py:257] Calculating bucket size for input with 318 tokens.
+I0630 13:40:06.209752 22401399181312 pipeline.py:263] Got bucket size 512 for input with 318 tokens, resulting in 194 padded tokens.
+[13:40:08] UFFTYPER: Unrecognized atom type: Fe4+2 (34)
+I0630 13:40:08.585354 22401399181312 features.py:1518] Using SMILES for: LIG_PMM - CCCC1=CC(=C(C(=C1)OC)O)OC
+[13:40:10] UFFTYPER: Unrecognized atom type: Fe4+2 (34)
+I0630 13:40:10.349121 22401399181312 features.py:1518] Using SMILES for: LIG_PMM - CCCC1=CC(=C(C(=C1)OC)O)OC
+I0630 13:40:10.389822 22401399181312 pipeline.py:164] processing 7o1r_1_chain_pmm, random_seed=9
+I0630 13:40:10.410559 22401399181312 pipeline.py:257] Calculating bucket size for input with 318 tokens.
+I0630 13:40:10.410639 22401399181312 pipeline.py:263] Got bucket size 512 for input with 318 tokens, resulting in 194 padded tokens.
+[13:40:12] UFFTYPER: Unrecognized atom type: Fe4+2 (34)
+I0630 13:40:12.735941 22401399181312 features.py:1518] Using SMILES for: LIG_PMM - CCCC1=CC(=C(C(=C1)OC)O)OC
+[13:40:14] UFFTYPER: Unrecognized atom type: Fe4+2 (34)
+I0630 13:40:14.486034 22401399181312 features.py:1518] Using SMILES for: LIG_PMM - CCCC1=CC(=C(C(=C1)OC)O)OC
+I0630 13:40:14.528261 22401399181312 pipeline.py:164] processing 7o1r_1_chain_pmm, random_seed=10
+I0630 13:40:14.549669 22401399181312 pipeline.py:257] Calculating bucket size for input with 318 tokens.
+I0630 13:40:14.549884 22401399181312 pipeline.py:263] Got bucket size 512 for input with 318 tokens, resulting in 194 padded tokens.
+[13:40:16] UFFTYPER: Unrecognized atom type: Fe4+2 (34)
+I0630 13:40:16.870633 22401399181312 features.py:1518] Using SMILES for: LIG_PMM - CCCC1=CC(=C(C(=C1)OC)O)OC
+[13:40:18] UFFTYPER: Unrecognized atom type: Fe4+2 (34)
+I0630 13:40:18.876497 22401399181312 features.py:1518] Using SMILES for: LIG_PMM - CCCC1=CC(=C(C(=C1)OC)O)OC
+Running AlphaFold 3. Please note that standard AlphaFold 3 model parameters are
+only available under terms of use provided at
+https://github.com/google-deepmind/alphafold3/blob/main/WEIGHTS_TERMS_OF_USE.md.
+If you do not agree to these terms and are using AlphaFold 3 derived model
+parameters, cancel execution of AlphaFold 3 inference with CTRL-C, and do not
+use the model parameters.
+Found local devices: [CudaDevice(id=0)], using device 0: cuda:0
+Building model from scratch...
+Processing fold inputs.
+Processing fold input #1
+Processing fold input 7o1r_1_chain_pmm
+Checking we can load the model parameters...
+Running data pipeline...
+Processing chain A
+Processing chain A took 0.00 seconds
+Processing chain PMM
+Processing chain PMM took 0.00 seconds
+Processing chain G
+Processing chain G took 0.00 seconds
+Output directory: /root/af_output/7o1r_1_chain_pmm
+Writing model input JSON to /root/af_output/7o1r_1_chain_pmm
+Predicting 3D structure for 7o1r_1_chain_pmm for seed(s) (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)...
+Featurising data for seeds (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)...
+Featurising 7o1r_1_chain_pmm with rng_seed 1.
+Featurising 7o1r_1_chain_pmm with rng_seed 1 took 5.13 seconds.
+Featurising 7o1r_1_chain_pmm with rng_seed 2.
+Featurising 7o1r_1_chain_pmm with rng_seed 2 took 4.32 seconds.
+Featurising 7o1r_1_chain_pmm with rng_seed 3.
+Featurising 7o1r_1_chain_pmm with rng_seed 3 took 4.11 seconds.
+Featurising 7o1r_1_chain_pmm with rng_seed 4.
+Featurising 7o1r_1_chain_pmm with rng_seed 4 took 3.97 seconds.
+Featurising 7o1r_1_chain_pmm with rng_seed 5.
+Featurising 7o1r_1_chain_pmm with rng_seed 5 took 3.92 seconds.
+Featurising 7o1r_1_chain_pmm with rng_seed 6.
+Featurising 7o1r_1_chain_pmm with rng_seed 6 took 3.97 seconds.
+Featurising 7o1r_1_chain_pmm with rng_seed 7.
+Featurising 7o1r_1_chain_pmm with rng_seed 7 took 4.08 seconds.
+Featurising 7o1r_1_chain_pmm with rng_seed 8.
+Featurising 7o1r_1_chain_pmm with rng_seed 8 took 4.20 seconds.
+Featurising 7o1r_1_chain_pmm with rng_seed 9.
+Featurising 7o1r_1_chain_pmm with rng_seed 9 took 4.14 seconds.
+Featurising 7o1r_1_chain_pmm with rng_seed 10.
+Featurising 7o1r_1_chain_pmm with rng_seed 10 took 4.40 seconds.
+Featurising data for seeds (1, 2, 3, 4, 5, 6, 7, 8, 9, 10) took  48.31 seconds.
+Running model inference for seed 1...
+Running model inference for seed 1 took  63.90 seconds.
+Extracting output structures (one per sample) for seed 1...
+Extracting output structures (one per sample) for seed 1 took  0.33 seconds.
+Running model inference and extracting output structures for seed 1 took 64.23 seconds.
+Running model inference for seed 2...
+Running model inference for seed 2 took  19.33 seconds.
+Extracting output structures (one per sample) for seed 2...
+Extracting output structures (one per sample) for seed 2 took  0.31 seconds.
+Running model inference and extracting output structures for seed 2 took 19.64 seconds.
+Running model inference for seed 3...
+Running model inference for seed 3 took  19.32 seconds.
+Extracting output structures (one per sample) for seed 3...
+Extracting output structures (one per sample) for seed 3 took  0.31 seconds.
+Running model inference and extracting output structures for seed 3 took 19.63 seconds.
+Running model inference for seed 4...
+Running model inference for seed 4 took  19.31 seconds.
+Extracting output structures (one per sample) for seed 4...
+Extracting output structures (one per sample) for seed 4 took  0.31 seconds.
+Running model inference and extracting output structures for seed 4 took 19.62 seconds.
+Running model inference for seed 5...
+Running model inference for seed 5 took  19.31 seconds.
+Extracting output structures (one per sample) for seed 5...
+Extracting output structures (one per sample) for seed 5 took  0.30 seconds.
+Running model inference and extracting output structures for seed 5 took 19.61 seconds.
+Running model inference for seed 6...
+Running model inference for seed 6 took  19.31 seconds.
+Extracting output structures (one per sample) for seed 6...
+Extracting output structures (one per sample) for seed 6 took  0.30 seconds.
+Running model inference and extracting output structures for seed 6 took 19.62 seconds.
+Running model inference for seed 7...
+Running model inference for seed 7 took  19.32 seconds.
+Extracting output structures (one per sample) for seed 7...
+Extracting output structures (one per sample) for seed 7 took  0.30 seconds.
+Running model inference and extracting output structures for seed 7 took 19.62 seconds.
+Running model inference for seed 8...
+Running model inference for seed 8 took  19.32 seconds.
+Extracting output structures (one per sample) for seed 8...
+Extracting output structures (one per sample) for seed 8 took  0.30 seconds.
+Running model inference and extracting output structures for seed 8 took 19.62 seconds.
+Running model inference for seed 9...
+Running model inference for seed 9 took  19.31 seconds.
+Extracting output structures (one per sample) for seed 9...
+Extracting output structures (one per sample) for seed 9 took  0.44 seconds.
+Running model inference and extracting output structures for seed 9 took 19.76 seconds.
+Running model inference for seed 10...
+Running model inference for seed 10 took  19.32 seconds.
+Extracting output structures (one per sample) for seed 10...
+Extracting output structures (one per sample) for seed 10 took  0.30 seconds.
+Running model inference and extracting output structures for seed 10 took 19.62 seconds.
+Running model inference and extracting output structures for seeds (1, 2, 3, 4, 5, 6, 7, 8, 9, 10) took 240.96 seconds.
+Writing outputs for 7o1r_1_chain_pmm for seed(s) (1, 2, 3, 4, 5, 6, 7, 8, 9, 10)...
+Done processing fold input 7o1r_1_chain_pmm.
+Done processing 1 fold inputs.
+
+Job 15533541 consumed 0.7 billing hours from project nn1003k.
+
+Submitted 2025-06-30T12:59:45; waited 1.0 seconds in the queue after becoming eligible to run.
+
+Requested wallclock time: 60.0 minutes
+Elapsed wallclock time:   5.5 minutes
+
+Job exited normally.
+
+Task and CPU statistics:
+ID              CPUs  Tasks  CPU util                Start  Elapsed  Exit status
+15533541           1            0.0 %  2025-06-30T13:39:06  330.0 s  0
+15533541.batch     1      1    91.3 %  2025-06-30T13:39:06  330.0 s  0
+
+Used CPU time:   5.0 CPU minutes
+Unused CPU time: 28.6 CPU seconds
+
+Memory statistics, in GiB:
+ID               Alloc   Usage
+15533541          80.0        
+15533541.batch    80.0     8.7
+
+GPU usage stats:
+Job 15533541 completed at Mon Jun 30 13:44:36 CEST 2025
