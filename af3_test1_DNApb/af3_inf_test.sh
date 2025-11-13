@@ -36,7 +36,7 @@ singularity exec --nv \
   --bind "${AF3_DIR}:/root/image" \
   "${AF3_IMAGE}" \
   python run_alphafold.py \
-    --json_path=/root/af_input/input_msa.json \
+    --json_path="/root/af_input/${AF3_JSON_FILE}" \
     --model_dir=/root/models \
     --db_dir=/root/public_databases \
     --output_dir=/root/af_output
