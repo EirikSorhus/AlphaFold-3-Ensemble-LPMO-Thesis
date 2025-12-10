@@ -1,0 +1,22 @@
+{
+  "run_id": "20251210_143259",
+  "timestamp": "2025-12-10T14:33:46.818738",
+  "date": "2025-12-10",
+  "time": "14:33:46",
+  "families": [
+    "AA13"
+  ],
+  "uniprot_query": "(family:\"AA13\")",
+  "num_families": 1,
+  "uniprot_results": {
+    "AA13": 1887
+  },
+  "cazy_results": {
+    "AA13": {
+      "success": 85,
+      "failed": 0
+    }
+  },
+  "merge_total": 85,
+  "merge_unique": 72
+}
