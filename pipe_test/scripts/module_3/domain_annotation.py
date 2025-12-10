@@ -303,7 +303,7 @@ def load_metadata_table(metadata_path: Path) -> Dict[str, Dict[str, str]]:
     with open(metadata_path, "r", encoding="utf-8", newline="") as handle:
         reader = csv.DictReader(handle)
         for row in reader:
-            seq_id = (row.get("seq_id") or row.get("id") or "").split()[0]
+            seq_id = (row.get("seq_id") or row.get("id") or row.get("protein_id") or "").split()[0]
             if seq_id:
                 rows[seq_id] = row
     print(f"[INPUT] Loaded metadata for {len(rows)} sequences from {metadata_path}")

@@ -108,44 +108,50 @@ def get_run_id() -> str:
 def get_family_output_filename(family: str, run_id: str = None, source: str = "") -> str:
     """
     Generate output filename for a specific family.
-    Format: lpmo_AA9_raw.fasta (stable naming without timestamp)
+    Format: lpmo_AA9_{run_id}_raw.fasta (includes run_id to prevent overwrites)
     
     Args:
         family: CAZy family name (e.g., 'AA9')
-        run_id: Run ID from get_run_id() (ignored for compatibility)
-        source: Optional source identifier (ignored for compatibility)
+        run_id: Run ID from get_run_id() (used for unique naming)
+        source: Optional source identifier (e.g., 'uniprot', 'ncbi')
         
     Returns:
-        str: Filename in format lpmo_{FAMILY}_raw.fasta
+        str: Filename in format lpmo_{FAMILY}_{run_id}_raw.fasta
     """
+    if run_id:
+        return f"lpmo_{family}_{run_id}_raw.fasta"
     return f"lpmo_{family}_raw.fasta"
 
 
 def get_merged_output_filename(run_id: str = None) -> str:
     """
     Generate merged output filename.
-    Format: lpmo_all_raw.fasta (stable name)
+    Format: lpmo_all_{run_id}_raw.fasta (includes run_id to prevent overwrites)
     
     Args:
-        run_id: Run ID from get_run_id() (ignored, kept for compatibility)
+        run_id: Run ID from get_run_id() (used for unique naming)
         
     Returns:
         str: Filename
     """
+    if run_id:
+        return f"lpmo_all_{run_id}_raw.fasta"
     return "lpmo_all_raw.fasta"
 
 
 def get_metadata_filename(run_id: str = None) -> str:
     """
     Generate metadata filename for a run.
-    Format: m2_run_metadata.json (stable name)
+    Format: m2_run_metadata_{run_id}.json (includes run_id to prevent overwrites)
     
     Args:
-        run_id: Run ID from get_run_id() (ignored, kept for compatibility)
+        run_id: Run ID from get_run_id() (used for unique naming)
         
     Returns:
         str: Filename
     """
+    if run_id:
+        return f"m2_run_metadata_{run_id}.json"
     return "m2_run_metadata.json"
 
 
@@ -286,7 +292,6 @@ def validate_config(families: Optional[List[str]] = None) -> bool:
 
 def ensure_data_directory():
     """Ensure all data directories exist."""
-    DATA_RAW_DIR.mkdir(parents=True, exist_ok=True)
     DATA_SEQUENCES_DIR.mkdir(parents=True, exist_ok=True)
     DATA_METADATA_DIR.mkdir(parents=True, exist_ok=True)
     print(f"[CONFIG] Data directories ready:")

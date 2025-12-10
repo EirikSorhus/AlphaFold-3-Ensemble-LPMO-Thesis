@@ -138,16 +138,21 @@ def merge_family_files(
     print(f"[MERGE] Sources: {', '.join(sources)}")
     print()
     
-    # Collect all input files
+    # Collect all input files (deduplicate by path to avoid same file twice)
     input_files = []
+    seen_paths = set()
     for family in families:
         for source in sources:
             filename = get_family_output_filename(family, run_id, source)
             filepath = output_dir / filename
             
-            if filepath.exists():
+            # Avoid adding the same file multiple times (sources may map to same filename)
+            if filepath.exists() and str(filepath) not in seen_paths:
                 input_files.append(filepath)
+                seen_paths.add(str(filepath))
                 print(f"[MERGE] Will include: {filename}")
+            elif filepath.exists():
+                print(f"[MERGE] Skipping (already added): {filename}")
             else:
                 print(f"[MERGE] Skipping (not found): {filename}")
     

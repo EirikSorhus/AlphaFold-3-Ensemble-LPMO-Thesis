@@ -290,22 +290,12 @@ def run_module2_pipeline(
         print()
     
     # ========================================================================
-    # STEP 4: Save Metadata
+    # STEP 4: Save Metadata (MOVED TO AFTER VALIDATION - see below)
     # ========================================================================
-    print("STEP 4: Save Metadata")
+    # Metadata will be saved after all pipeline steps are complete
+    # to avoid partial/false success records
+    print("STEP 4: Save Metadata [DEFERRED - will save after validation]")
     print("-" * 70)
-    
-    try:
-        metadata_file = save_metadata(
-            run_id=run_id,
-            families=families,
-            uniprot_query=uniprot_query,
-            output_dir=DATA_METADATA_DIR,
-            additional_info=metadata_info
-        )
-        print(f"[PIPELINE] ✓ Run metadata saved: {metadata_file.name}")
-    except Exception as e:
-        print(f"[PIPELINE] ⚠ WARNING: Could not save run metadata: {e}")
     print()
 
     # ========================================================================
@@ -351,8 +341,8 @@ def run_module2_pipeline(
             SeqIO.write(merged_records, merged_file, "fasta")
             print(f"[PIPELINE] ✓ Created {merged_file.name} ({len(merged_records)} total sequences)")
         
-        # Generate CSV metadata with 3D structure info
-        csv_metadata_path = DATA_METADATA_DIR / "m2_sequence_3d_metadata.csv"
+        # Generate CSV metadata with 3D structure info (include run_id in filename)
+        csv_metadata_path = DATA_METADATA_DIR / f"m2_sequence_3d_metadata_{run_id}.csv"
         print(f"[PIPELINE] Fetching 3D structure info for {len(all_sequences)} sequences...")
         
         csv_rows = []
@@ -452,7 +442,7 @@ def run_module2_pipeline(
         
         # Check 1: All IDs in metadata CSV exist in lpmo_all_raw.fasta
         merged_file = DATA_SEQUENCES_DIR / get_merged_output_filename(run_id)
-        csv_metadata_path = DATA_METADATA_DIR / "m2_sequence_3d_metadata.csv"
+        csv_metadata_path = DATA_METADATA_DIR / f"m2_sequence_3d_metadata_{run_id}.csv"
         
         if merged_file.exists() and csv_metadata_path.exists():
             fasta_ids = {rec.id for rec in SeqIO.parse(str(merged_file), "fasta")}
@@ -533,6 +523,25 @@ def run_module2_pipeline(
     print()
     
     # ========================================================================
+    # NOW: Save Metadata (AFTER all steps and validation)
+    # ========================================================================
+    print("SAVING METADATA (after all pipeline steps)")
+    print("-" * 70)
+    
+    try:
+        metadata_file = save_metadata(
+            run_id=run_id,
+            families=families,
+            uniprot_query=uniprot_query,
+            output_dir=DATA_METADATA_DIR,
+            additional_info=metadata_info
+        )
+        print(f"[PIPELINE] ✓ Run metadata saved: {metadata_file.name}")
+    except Exception as e:
+        print(f"[PIPELINE] ⚠ WARNING: Could not save run metadata: {e}")
+    print()
+    
+    # ========================================================================
     # Summary
     # ========================================================================
     print("=" * 70)
@@ -567,7 +576,7 @@ def run_module2_pipeline(
         print(f"  ✓ {run_meta_file.name} (run metadata)")
     
     # Sequence metadata
-    seq_meta_file = DATA_METADATA_DIR / "m2_sequence_3d_metadata.csv"
+    seq_meta_file = DATA_METADATA_DIR / f"m2_sequence_3d_metadata_{run_id}.csv"
     if seq_meta_file.exists():
         print(f"  ✓ {seq_meta_file.name} (per-sequence 3D info)")
     

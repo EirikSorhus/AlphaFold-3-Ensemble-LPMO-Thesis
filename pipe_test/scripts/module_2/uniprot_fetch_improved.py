@@ -42,7 +42,7 @@ def fetch_uniprot_lpmos(
     
     try:
         u = UniProt(verbose=False)
-        fasta_text = u.search(query, format="fasta")
+        fasta_text = u.search(query, frmt="fasta")
     except Exception as e:
         print(f"[UniProt] ERROR: API call failed: {e}")
         return 0

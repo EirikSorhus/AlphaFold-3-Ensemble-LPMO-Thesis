@@ -27,44 +27,78 @@ def fetch_cazy_genbank_ids_for_family(family: str, timeout: int = REQUEST_TIMEOU
         timeout: HTTP request timeout in seconds
         
     Returns:
-        list: List of GenBank accession IDs found on the page
+        list: List of GenBank accession IDs found in the CAZy data file
         
     Note:
-        This function uses web scraping and may break if CAZy changes their HTML structure.
-        Consider checking CAZy for API access or alternative data sources.
+        CAZy now provides direct text files at /IMG/cazy_data/{family}.txt
+        These contain tab-separated data with GenBank IDs in column 2.
     """
-    url = f"{BASE_URL}/{family}_family.html"
-    print(f"[CAZy] Fetching: {url}")
+    # CAZy now provides direct .txt files with all data
+    txt_url = f"{BASE_URL}/IMG/cazy_data/{family}.txt"
+    candidate_urls = [txt_url]
+    response = None
+    for url in candidate_urls:
+        print(f"[CAZy] Attempting: {url}")
+        try:
+            response = requests.get(url, timeout=timeout, headers={"User-Agent": "Mozilla/5.0 (LPMO Pipeline)"})
+            response.raise_for_status()
+            print(f"[CAZy] SUCCESS: Got response {response.status_code} from {url}")
+            break  # success
+        except requests.exceptions.Timeout:
+            print(f"[CAZy] ERROR: Request timeout for {family} (>{timeout}s) at {url}")
+            return []
+        except requests.exceptions.HTTPError as e:
+            print(f"[CAZy] WARNING: HTTP {e.response.status_code} for {url}")
+            response = None
+        except requests.exceptions.RequestException as e:
+            print(f"[CAZy] ERROR: Request failed for {url}: {e}")
+            return []
+
+    if response is None:
+        print(f"[CAZy] ERROR: All URL patterns failed for {family}")
+        return []
     
-    try:
-        response = requests.get(url, timeout=timeout)
-        response.raise_for_status()
-    except requests.exceptions.Timeout:
-        print(f"[CAZy] ERROR: Request timeout for {family} (>{timeout}s)")
-        return []
-    except requests.exceptions.HTTPError as e:
-        print(f"[CAZy] ERROR: HTTP error for {family}: {e}")
-        return []
-    except requests.exceptions.RequestException as e:
-        print(f"[CAZy] ERROR: Request failed for {family}: {e}")
-        return []
+    print(f"[CAZy] Data file length: {len(response.text)} bytes")
     
-    # Parse HTML
-    try:
-        soup = BeautifulSoup(response.text, "html.parser")
-    except Exception as e:
-        print(f"[CAZy] ERROR: Failed to parse HTML for {family}: {e}")
-        return []
-    
+    # Parse tab-separated text file
+    # Format: Family\tKingdom\tOrganism\tProtein_ID\tSource
+    # Column 4 (index 3) contains protein IDs
+    # Column 5 (index 4) contains source: "jgi", "ncbi", "uniprot", etc.
     genbank_ids = []
     
-    # Find all links pointing to NCBI Protein database
-    for link in soup.find_all("a", href=True):
-        href = link["href"]
-        if "ncbi.nlm.nih.gov/protein" in href:
-            acc = link.text.strip()
-            if acc and acc not in genbank_ids:  # Avoid immediate duplicates
-                genbank_ids.append(acc)
+    try:
+        lines = response.text.strip().split('\n')
+        print(f"[CAZy] Parsing {len(lines)} lines from data file...")
+        
+        for i, line in enumerate(lines):
+            # Skip header line or comments
+            if i == 0 or line.startswith('#') or not line.strip():
+                continue
+            
+            parts = line.split('\t')
+            if len(parts) >= 5:
+                protein_id = parts[3].strip()
+                source = parts[4].strip().lower()
+                
+                # Only take NCBI entries (skip JGI, Uniprot if we want pure GenBank)
+                # NCBI GenBank/Protein IDs typically: letters + numbers (e.g., RYN72100.1)
+                # or pure numbers representing GI numbers
+                if source == 'ncbi' and protein_id:
+                    if protein_id not in genbank_ids:
+                        genbank_ids.append(protein_id)
+                # Also accept entries that look like GenBank accessions even if source unclear
+                elif protein_id and '.' in protein_id and not source == 'jgi':
+                    # Pattern like ABC12345.1 (letters followed by digits and version)
+                    if protein_id not in genbank_ids:
+                        genbank_ids.append(protein_id)
+        
+        print(f"[CAZy] Extracted {len(genbank_ids)} unique GenBank/NCBI IDs from data file")
+        if genbank_ids:
+            print(f"[CAZy] Example IDs: {', '.join(genbank_ids[:5])}")
+        
+    except Exception as e:
+        print(f"[CAZy] ERROR: Failed to parse data file for {family}: {e}")
+        return []
     
     print(f"[CAZy] {family}: Found {len(genbank_ids)} GenBank IDs")
     return genbank_ids
