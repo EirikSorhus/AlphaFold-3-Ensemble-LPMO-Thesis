@@ -32,8 +32,30 @@ DATA_DOMAINS_DIR = DATA_DIR / "domains"
 RAW_DOMTBL_DIR = DATA_DOMAINS_DIR / "raw"
 
 # Module 2 outputs used as inputs here
-M2_FASTA = DATA_SEQUENCES_DIR / "lpmo_all_raw.fasta"
-M2_METADATA = DATA_METADATA_DIR / "m2_sequence_3d_metadata.csv"
+# Note: Module 2 now includes run_id in filenames to prevent overwrites
+# This config tries to find the most recent ones, or you can override via --fasta/--metadata
+def _find_latest_m2_fasta() -> Path:
+    """Find the most recent module 2 output FASTA file."""
+    pattern = DATA_SEQUENCES_DIR / "lpmo_all_*_raw.fasta"
+    files = list(DATA_SEQUENCES_DIR.glob("lpmo_all_*_raw.fasta"))
+    if files:
+        # Return the most recently modified
+        return sorted(files, key=lambda p: p.stat().st_mtime, reverse=True)[0]
+    # Fallback to old filename
+    return DATA_SEQUENCES_DIR / "lpmo_all_raw.fasta"
+
+def _find_latest_m2_metadata() -> Path:
+    """Find the most recent module 2 metadata CSV file."""
+    pattern = DATA_METADATA_DIR / "m2_sequence_3d_metadata_*.csv"
+    files = list(DATA_METADATA_DIR.glob("m2_sequence_3d_metadata_*.csv"))
+    if files:
+        # Return the most recently modified
+        return sorted(files, key=lambda p: p.stat().st_mtime, reverse=True)[0]
+    # Fallback to old filename
+    return DATA_METADATA_DIR / "m2_sequence_3d_metadata.csv"
+
+M2_FASTA = _find_latest_m2_fasta()
+M2_METADATA = _find_latest_m2_metadata()
 
 # Module 3 outputs
 DOMAINS_PARSED = DATA_DOMAINS_DIR / "m3_domains_parsed.csv"
@@ -60,8 +82,8 @@ class Module3Config:
     prefer_family_from_metadata: bool = True
 
     # HMM sources
-    dbcan_hmm: Path = PROJECT_ROOT / "data" / "hmms" / "dbCAN-HMMdb-V12.txt"
-    dbcan_sub_hmm: Path = PROJECT_ROOT / "data" / "hmms" / "dbCAN-subfamily.hmm"
+    dbcan_hmm: Path = PROJECT_ROOT / "data" / "hmms" / "dbCAN-HMMdb-V14.hmm"
+    dbcan_sub_hmm: Path = PROJECT_ROOT / "data" / "hmms" / "dbCAN_sub.hmm"
     cbm_hmm: Path = PROJECT_ROOT / "data" / "hmms" / "cbm_profiles.hmm"
     use_subfamily_hmms: bool = True
     hmmscan_binary: str = "hmmscan"
