@@ -29,7 +29,7 @@ DATA_DIR = PROJECT_ROOT / "data"
 DATA_SEQUENCES_DIR = DATA_DIR / "sequences"
 DATA_METADATA_DIR = DATA_DIR / "metadata"
 DATA_DOMAINS_DIR = DATA_DIR / "domains"
-RAW_DOMTBL_DIR = DATA_DOMAINS_DIR / "raw"
+RAW_DOMTBL_DIR = DATA_DOMAINS_DIR / "dbcan"  # Changed to dbcan/ instead of raw/
 
 # Module 2 outputs used as inputs here
 # Note: Module 2 now includes run_id in filenames to prevent overwrites
@@ -81,10 +81,10 @@ class Module3Config:
     max_domain_overlap_fraction: float = 0.25
     prefer_family_from_metadata: bool = True
 
-    # HMM sources
-    dbcan_hmm: Path = PROJECT_ROOT / "data" / "hmms" / "dbCAN-HMMdb-V14.hmm"
-    dbcan_sub_hmm: Path = PROJECT_ROOT / "data" / "hmms" / "dbCAN_sub.hmm"
-    cbm_hmm: Path = PROJECT_ROOT / "data" / "hmms" / "cbm_profiles.hmm"
+    # HMM sources (new structure: data/domains/dbcan/)
+    dbcan_hmm: Path = PROJECT_ROOT / "data" / "domains" / "dbcan" / "dbCAN-HMMdb-V14.hmm"
+    dbcan_sub_hmm: Path = PROJECT_ROOT / "data" / "domains" / "dbcan" / "dbCAN_sub.hmm"
+    cbm_hmm: Path = None  # Not used anymore - CBM domains are in dbCAN
     use_subfamily_hmms: bool = True
     hmmscan_binary: str = "hmmscan"
     hmmscan_cpu: int = 2

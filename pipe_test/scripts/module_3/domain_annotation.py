@@ -283,11 +283,17 @@ def summarise_cbms(hits: Sequence[DomainHit]) -> Tuple[bool, str]:
 # -----------------------------------------------------------------------------
 
 def load_sequences(fasta_path: Path) -> Dict[str, str]:
-    """Load sequences into dict keyed by seq_id (first token in header)."""
+    """
+    Load sequences into dict keyed by seq_id (first token in header).
+    
+    FASTA header format: >XDG07670.1 AA13
+    seq_id is the first token after '>' (here: XDG07670.1)
+    """
     if not fasta_path.exists():
         raise FileNotFoundError(f"FASTA file not found: {fasta_path}")
     sequences: Dict[str, str] = {}
     for record in SeqIO.parse(fasta_path, "fasta"):
+        # Extract seq_id as first token (space-separated)
         seq_id = record.id.split()[0]
         sequences[seq_id] = str(record.seq)
     print(f"[INPUT] Loaded {len(sequences)} sequences from {fasta_path}")
@@ -303,6 +309,7 @@ def load_metadata_table(metadata_path: Path) -> Dict[str, Dict[str, str]]:
     with open(metadata_path, "r", encoding="utf-8", newline="") as handle:
         reader = csv.DictReader(handle)
         for row in reader:
+            # Try multiple column names for seq_id
             seq_id = (row.get("seq_id") or row.get("id") or row.get("protein_id") or "").split()[0]
             if seq_id:
                 rows[seq_id] = row
@@ -533,15 +540,22 @@ def run_domain_pipeline(
         hmms.append(("dbcan", Path(config.dbcan_hmm)))
     if config.use_subfamily_hmms and config.dbcan_sub_hmm:
         hmms.append(("dbcan_sub", Path(config.dbcan_sub_hmm)))
-    if config.cbm_hmm:
-        hmms.append(("cbm", Path(config.cbm_hmm)))
+    # cbm_hmm is now part of dbCAN.hmm, so we don't need a separate file
 
     all_hits: List[DomainHit] = []
     for source, hmm_path in hmms:
-        if not hmm_path.exists():
-            print(f"[HMMER] WARNING: Skipping {source} (file missing: {hmm_path})")
+        if not hmm_path or not hmm_path.exists():
+            print(f"[HMMER] WARNING: Skipping {source} (file missing or None: {hmm_path})")
             continue
-        domtblout = RAW_DOMTBL_DIR / f"{source}.domtblout"
+        
+        # New naming: m3_dbcan_raw.tbl and m3_dbcan_sub_raw.tbl
+        if source == "dbcan":
+            domtblout = RAW_DOMTBL_DIR / "m3_dbcan_raw.tbl"
+        elif source == "dbcan_sub":
+            domtblout = RAW_DOMTBL_DIR / "m3_dbcan_sub_raw.tbl"
+        else:
+            domtblout = RAW_DOMTBL_DIR / f"{source}.domtblout"
+        
         if domtblout.exists() and config.reuse_existing_domtbl:
             print(f"[HMMER] Reusing existing domtblout for {source}: {domtblout}")
         else:
