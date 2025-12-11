@@ -35,7 +35,7 @@ from scripts.module_2.config_improved import (
     get_family_output_filename
 )
 from scripts.module_2.uniprot_fetch_improved import fetch_uniprot_by_families
-from scripts.module_2.ncbi_fetch_improved import fetch_ncbi_by_families
+from scripts.module_2.ncbi_fetch_improved import fetch_ncbi_by_families, get_cazy_taxonomy_cache
 from scripts.module_2.merge_sequences_improved import merge_family_files
 
 
@@ -345,9 +345,22 @@ def run_module2_pipeline(
         csv_metadata_path = DATA_METADATA_DIR / f"m2_sequence_3d_metadata_{run_id}.csv"
         print(f"[PIPELINE] Fetching 3D structure info for {len(all_sequences)} sequences...")
         
+        # Get CAZy taxonomy information
+        cazy_taxonomy = get_cazy_taxonomy_cache()
+        print(f"[PIPELINE] Using {len(cazy_taxonomy)} taxonomy entries from CAZy")
+        
         csv_rows = []
         for rec, family in all_sequences:
             seq_id = rec.id
+            
+            # Get taxonomy info if available (organism → kingdom, species → organism from CAZy)
+            organism = ""  # This should be Kingdom (Eukaryota, Bacteria, etc.)
+            species = ""   # This should be Organism/Species (Alternaria alternata, etc.)
+            
+            if seq_id in cazy_taxonomy:
+                kingdom, organism_name = cazy_taxonomy[seq_id]
+                organism = kingdom
+                species = organism_name
             
             # Try to get UniProt ID for structure lookup
             uniprot_id = None
@@ -382,10 +395,12 @@ def run_module2_pipeline(
                     "alphafold_confidence_summary": None
                 }
             
-            # Build CSV row
+            # Build CSV row (with organism/species from CAZy)
             csv_rows.append({
                 "protein_id": seq_id,
                 "family": family,
+                "organism": organism,
+                "species": species,
                 "sequence_length": len(rec.seq),
                 "has_experimental_structure": struct_info["has_experimental_structure"],
                 "pdb_ids": ",".join(struct_info["pdb_ids"]) if struct_info["pdb_ids"] else "",
@@ -397,7 +412,7 @@ def run_module2_pipeline(
         # Write CSV
         if csv_rows:
             with open(csv_metadata_path, "w", newline="", encoding="utf-8") as f:
-                fieldnames = ["protein_id", "family", "sequence_length", "has_experimental_structure", 
+                fieldnames = ["protein_id", "family", "organism", "species", "sequence_length", "has_experimental_structure", 
                              "pdb_ids", "best_pdb_resolution", "has_alphafold_model", "alphafold_accession"]
                 writer = csv.DictWriter(f, fieldnames=fieldnames)
                 writer.writeheader()

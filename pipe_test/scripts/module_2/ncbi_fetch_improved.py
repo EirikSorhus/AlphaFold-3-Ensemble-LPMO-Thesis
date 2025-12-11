@@ -21,8 +21,12 @@ from scripts.module_2.config_improved import (
 )
 from scripts.module_2.cazy_fetch_improved import (
     fetch_all_cazy_genbank_ids,
-    fetch_cazy_genbank_ids_by_family
+    fetch_cazy_genbank_ids_by_family,
+    fetch_cazy_data_by_family
 )
+
+# Global store for taxonomy info from CAZy (used by run_module2_improved.py)
+_cazy_taxonomy_cache: Dict[str, Tuple[str, str]] = {}
 
 
 def fetch_ncbi_fasta(
@@ -142,6 +146,7 @@ def fetch_ncbi_by_families(
 ) -> Dict[str, Tuple[int, int]]:
     """
     Fetch NCBI sequences for multiple families, saving each to separate files.
+    Also extracts and caches taxonomy information from CAZy.
     
     Args:
         families: List of CAZy family names
@@ -159,9 +164,14 @@ def fetch_ncbi_by_families(
     print(f"[NCBI] Families: {', '.join(families)}")
     print()
     
-    # Step 1: Fetch GenBank IDs per family from CAZy
-    print("[NCBI] Step 1: Fetching GenBank IDs from CAZy per family...")
-    family_ids = fetch_cazy_genbank_ids_by_family(families)
+    # Step 1: Fetch GenBank IDs per family from CAZy (with taxonomy)
+    print("[NCBI] Step 1: Fetching GenBank IDs and taxonomy from CAZy per family...")
+    family_ids, all_taxonomy = fetch_cazy_data_by_family(families)
+    
+    # Cache taxonomy for later use in metadata generation
+    global _cazy_taxonomy_cache
+    _cazy_taxonomy_cache.update(all_taxonomy)
+    print(f"[NCBI] Cached {len(_cazy_taxonomy_cache)} taxonomy entries from CAZy")
     print()
     
     # Step 2: Fetch sequences per family from NCBI
@@ -208,6 +218,23 @@ def fetch_ncbi_by_families(
     print("=" * 60)
     
     return results
+
+
+def get_cazy_taxonomy_cache() -> Dict[str, Tuple[str, str]]:
+    """
+    Get the cached taxonomy information from CAZy (populated by fetch_ncbi_by_families).
+    
+    Returns:
+        dict: Mapping of protein_id → (kingdom, organism) tuples
+        
+    Note:
+        This cache is populated during fetch_ncbi_by_families() execution.
+        For each CAZy family, taxonomy info is extracted and stored here.
+        Keys follow the naming convention:
+        - "organism" column should contain Kingdom (Eukaryota, Bacteria, etc.)
+        - "species" column should contain Organism/Species (Alternaria alternata, etc.)
+    """
+    return _cazy_taxonomy_cache
 
 
 if __name__ == "__main__":
