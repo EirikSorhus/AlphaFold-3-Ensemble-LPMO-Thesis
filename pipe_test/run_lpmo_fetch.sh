@@ -46,6 +46,7 @@ set -euo pipefail
 module purge
 module load NRIS/CPU
 module load hpc-container-wrapper
+module load Python/3.11.5-GCCcore-13.2.0
 
 # Pek PATH til lpmo_pipe_env (conda-containerize laget dette bin/-området)
 export PATH=/cluster/projects/nn1003k/eirik/conda/lpmo_pipe_env/bin:$PATH
