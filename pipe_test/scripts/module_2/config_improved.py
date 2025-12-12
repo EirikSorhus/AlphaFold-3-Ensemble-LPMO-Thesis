@@ -292,6 +292,7 @@ def validate_config(families: Optional[List[str]] = None) -> bool:
 
 def ensure_data_directory():
     """Ensure all data directories exist."""
+    # Only create the new data/ structure; data_raw/ is legacy and not used
     DATA_SEQUENCES_DIR.mkdir(parents=True, exist_ok=True)
     DATA_METADATA_DIR.mkdir(parents=True, exist_ok=True)
     print(f"[CONFIG] Data directories ready:")

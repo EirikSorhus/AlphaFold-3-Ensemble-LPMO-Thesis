@@ -39,10 +39,28 @@ def fetch_uniprot_lpmos(
     ensure_data_directory()
     
     print(f"[UniProt] Starting fetch with query: {query}")
+    print(f"[UniProt] Timeout set to 60 seconds")
     
     try:
         u = UniProt(verbose=False)
-        fasta_text = u.search(query, frmt="fasta")
+        # Set timeout on the request
+        import signal
+        
+        def timeout_handler(signum, frame):
+            raise TimeoutError("UniProt API request timed out after 60 seconds")
+        
+        # Set signal handler
+        signal.signal(signal.SIGALRM, timeout_handler)
+        signal.alarm(60)  # 60 second timeout
+        
+        try:
+            fasta_text = u.search(query, frmt="fasta")
+        finally:
+            signal.alarm(0)  # Cancel the alarm
+            
+    except TimeoutError as e:
+        print(f"[UniProt] ERROR: {e}")
+        return 0
     except Exception as e:
         print(f"[UniProt] ERROR: API call failed: {e}")
         return 0
