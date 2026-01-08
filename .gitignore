@@ -1,6 +1,6 @@
 .venv/
-data
+data/
 .cache
-logs
+logs/
 *.pyc
 __pycache__/
