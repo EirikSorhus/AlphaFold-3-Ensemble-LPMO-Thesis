@@ -29,10 +29,9 @@ DATA_DIR = PROJECT_ROOT / "data"
 DATA_SEQUENCES_DIR = DATA_DIR / "sequences"
 DATA_METADATA_DIR = DATA_DIR / "metadata"
 DATA_DOMAINS_DIR = DATA_DIR / "domains"
-RAW_DOMTBL_DIR = DATA_DOMAINS_DIR / "dbcan"  # Changed to dbcan/ instead of raw/
+RAW_DOMTBL_DIR = DATA_DOMAINS_DIR / "dbcan"  
 
 # Module 2 outputs used as inputs here
-# Note: Module 2 now includes run_id in filenames to prevent overwrites
 # This config tries to find the most recent ones, or you can override via --fasta/--metadata
 def _find_latest_m2_fasta() -> Path:
     """Find the most recent module 2 output FASTA file."""

@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH --job-name=lpmo_fetch          # Navn på jobben i SLURM-køen
 #SBATCH --account=nn1003k              # ENDRE: Ditt prosjekt-ID
-#SBATCH --time=02:00:00                # Maks kjøretid (2 timer)
-#SBATCH --mem=4G                       # Minne per node
+#SBATCH --time=00:30:00                # Maks kjøretid (30 minutter)
+#SBATCH --mem=1G                       # Minne per node
 #SBATCH --cpus-per-task=1              # Antall CPU-kjerner
 #SBATCH --ntasks=1
 #SBATCH --output=logs/lpmo_m2_%j.out      # Output-fil (%j = job ID)
@@ -124,7 +124,7 @@ echo "Starting pipeline execution with 10-minute timeout per step..."
 echo "======================================================================"
 
 # Kjør med timeout
-timeout 600 python -m scripts.module_2.run_module2_improved --families AA13
+timeout 600 python -m scripts.module_2.run_module2_improved --families AA9
 PIPELINE_EXIT=$?
 
 if [ $PIPELINE_EXIT -eq 124 ]; then
