@@ -1,6 +1,6 @@
 .venv/
-data/
-.cache
-logs/
+pipe_test/data/
+.cache/
+pipe_test/logs/
 *.pyc
-__pycache__/
+**/__pycache__/
