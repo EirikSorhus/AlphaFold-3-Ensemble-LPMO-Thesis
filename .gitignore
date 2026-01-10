@@ -4,3 +4,4 @@ pipe_test/data/
 pipe_test/logs/
 *.pyc
 **/__pycache__/
+discovery_cache.json
