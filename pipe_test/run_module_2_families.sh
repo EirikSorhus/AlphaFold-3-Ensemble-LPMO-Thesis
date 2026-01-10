@@ -16,9 +16,10 @@ set -euo pipefail
 # Environment
 export PATH=/cluster/work/projects/nn1003k/eirik/conda/lpmo_pipe_env/bin:$PATH
 
+FAMILIES="AA15"
 CONTACT_EMAIL="eirik.sorhus@nmbu.no"
 PROJECT_DIR="/cluster/work/projects/nn1003k/eirik/Masteroppgave/pipe_test"
-FASTA_INPUT="${PROJECT_DIR}/data/test_data/test_fasta.fasta"
+
 
 cd "$PROJECT_DIR"
 mkdir -p logs
@@ -34,7 +35,7 @@ echo "======================================================================"
 
 timeout 900 \
 python scripts/module_2/main_driver.py \
-  --input-fasta "$FASTA_INPUT" \
+  --families "$FAMILIES" \
   --project-dir "$PROJECT_DIR" \
   --contact-email "$CONTACT_EMAIL" \
   --allow-ncbi-fallback
