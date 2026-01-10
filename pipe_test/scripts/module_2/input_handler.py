@@ -1,5 +1,6 @@
 from pathlib import Path
 import time
+import re
 from typing import Dict, Iterable, List, Optional, Tuple
 import requests
 
@@ -12,6 +13,7 @@ from cazy_parser import (
 from ncbi_fallback import fetch_from_ncbi_with_metadata
 from paths_config import PipelinePaths
 from utils_io import read_fasta
+from sequence_search import run_blast_search
 
 
 def _download_cazy_txt(family: str, contact_email: Optional[str]) -> Path:
@@ -115,6 +117,7 @@ def handle_input(
         "input_file": 0,
         "fasta_matched": 0,
         "fasta_unmatched": 0,
+        "lookup_limit_exceeded": 0,
         "failed": 0,
     }
 
@@ -183,29 +186,42 @@ def handle_input(
 
     # === Fasta input ===
     elif fasta_path:
+        # Helper: robust UniProt accession extraction from FASTA header
+        def extract_uniprot_id(header_line: str) -> Optional[str]:
+            # Try pipe-separated tokens (sp|AC|, tr|AC|, etc.)
+            if "|" in header_line:
+                for token in header_line.split("|"):
+                    token = token.strip()
+                    m = re.match(r"^([OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9]{5})$", token)
+                    if m:
+                        return m.group(1)
+            # Fallback: search anywhere in header
+            m = re.search(r"([OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9]{5})", header_line)
+            return m.group(1) if m else None
+
         seqs = read_fasta(Path(fasta_path))
-        for i, (header, seq) in enumerate(seqs.items()):
-            if i >= max_seq_search:
-                print(f"[!] Max sequence search limit ({max_seq_search}) reached.")
-                break
-            uid = None
-            if "|" in header:
-                parts = header.split("|")
-                if len(parts) >= 2 and 2 <= len(parts[1]) <= 12:
-                    uid = parts[1]
+        seq_lookups = 0
+        for header, seq in seqs.items():
+            uid = extract_uniprot_id(header)
             if uid:
                 ids.add(uid)
                 source_log["fasta_matched"] += 1
-            elif allow_ncbi:
-                seq_text, meta = fetch_from_ncbi_with_metadata(header.strip(), contact_email=contact_email)
-                if seq_text and meta:
-                    ncbi_id = f"NCBI_{meta['UniProt_ID']}"
-                    ncbi_metadata_dict[ncbi_id] = meta
-                    ids.add(ncbi_id)
-                    source_log["ncbi_fallback"] += 1
+                continue
+
+            # No ID in header; optionally try sequence-based lookup (BLAST), limited by max_seq_search
+            if allow_ncbi:
+                if seq_lookups >= max_seq_search:
+                    source_log["lookup_limit_exceeded"] += 1
+                    failed.append((header, "", "lookup_limit_exceeded"))
+                    continue
+                acc = run_blast_search(seq)
+                seq_lookups += 1
+                if acc:
+                    ids.add(acc)
+                    source_log["jgi_mapped"] += 1  # reuse counter as generic sequence-mapped
                 else:
                     source_log["fasta_unmatched"] += 1
-                    failed.append((header, "", "fasta_unmatched"))
+                    failed.append((header, "", "blast_no_exact_match"))
             else:
                 source_log["fasta_unmatched"] += 1
                 failed.append((header, "", "fasta_unmatched"))

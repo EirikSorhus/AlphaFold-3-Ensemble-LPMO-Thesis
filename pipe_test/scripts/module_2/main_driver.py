@@ -23,7 +23,7 @@ def main():
     parser.add_argument("--contact-email", help="Email for API courtesy header")
     parser.add_argument("--allow-ncbi-fallback", action="store_true", help="Use NCBI for unmatched proteins")
     parser.add_argument("--batch-size", type=int, default=100, help="Batch size for UniProt queries")
-    parser.add_argument("--max-seq-search", type=int, default=10, help="Max FASTA sequence lookups")
+    parser.add_argument("--max-seq-search", type=int, default=50, help="Max fallback sequence lookups (no limit for header ID parsing)")
     args = parser.parse_args()
 
     PipelinePaths.configure_base(Path(args.project_dir))
