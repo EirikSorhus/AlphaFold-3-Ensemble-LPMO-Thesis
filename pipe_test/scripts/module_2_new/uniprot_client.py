@@ -57,8 +57,17 @@ class UniProtClient:
         if not id_list:
             return []
 
-        # Bygg query: accession:ID1 OR accession:ID2...
-        query = " OR ".join([f"accession:{i}" for i in id_list])
+        # Fix: Only use 'accession:' for valid UniProt Accessions (alphanumeric, no dots).
+        # GenBank IDs (e.g. AGE49160.1) cause HTTP 400 if used with accession field.
+        query_parts = []
+        for i in id_list:
+             # Basic heuristic: UniProt IDs are alphanumeric and 6-10 chars. GenBank usually has dots or differs.
+             if '.' in i or not i.isalnum():
+                 query_parts.append(f'"{i}"')
+             else:
+                 query_parts.append(f"accession:{i}")
+
+        query = " OR ".join(query_parts)
         params = {
             "query": query,
             "fields": "accession,sequence,organism_name,protein_name,xref_interpro,ft_signal,ft_domain,ft_region,ft_binding,ft_site,ft_act_site,ft_zn_fing,ft_motif",
@@ -92,6 +101,36 @@ class UniProtClient:
             logger.error(f"Nettverksfeil: {e}. Prøver exponential backoff...")
             time.sleep(5) # Enkel backoff
             return self._request_with_bisection(id_list)
+
+    def search_by_query(self, query):
+        """
+        Executes a direct search query (e.g. for JGI grouped searches).
+        """
+        params = {
+            "query": query,
+            "fields": "accession,sequence,organism_name,protein_name,xref_interpro,ft_signal,ft_domain,ft_region,ft_binding,ft_site,ft_act_site,ft_zn_fing,ft_motif",
+            "format": "json"
+        }
+        
+        try:
+            response = requests.get(self.base_url, params=params, timeout=30)
+            if response.status_code == 200:
+                results = response.json().get('results', [])
+                
+                # Cache results found via query
+                for entry in results:
+                    acc = entry.get('primaryAccession')
+                    if acc:
+                        self.cache[acc] = entry
+                self._save_cache()
+                
+                return results
+            else:
+                logger.warning(f"Query failed: {query} (HTTP {response.status_code})")
+                return []
+        except Exception as e:
+            logger.error(f"Network error in search_by_query: {e}")
+            return []
 
     def search_by_sequence(self, sequence):
         """

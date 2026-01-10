@@ -4,17 +4,19 @@ import os
 import sys
 import pandas as pd
 import json
+import requests
+import re
 from datetime import datetime
 from tqdm import tqdm
 
 # Import local modules - robust check for package vs script execution
 try:
-    from .input_handler import parse_fasta_file, parse_fasta_header, format_jgi_query
+    from .input_handler import parse_fasta_file, parse_fasta_header, CAZyHandler
     from .uniprot_client import UniProtClient
     from .feature_parser import parse_uniprot_features
     from .blast_client import run_blast_search
 except ImportError:
-    from input_handler import parse_fasta_file, parse_fasta_header, format_jgi_query
+    from input_handler import parse_fasta_file, parse_fasta_header, CAZyHandler
     from uniprot_client import UniProtClient
     from feature_parser import parse_uniprot_features
     from blast_client import run_blast_search
@@ -22,6 +24,11 @@ except ImportError:
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+# Constants for CAZy download
+CAZY_BASE_URL = "https://www.cazy.org"
+USER_AGENT = "LPMO-Pipeline/1.0 (eirik.sorhus@nmbu.no)"
+REQUEST_TIMEOUT = 30
 
 def main():
     parser = argparse.ArgumentParser(description="Module 2: Metadata Enrichment")
@@ -59,8 +66,105 @@ def main():
     
     logger.info(f"Starting Module 2 in {args.mode} mode. Output will be timestamped: {timestamp}")
     
+    # --- MODE: CAZy ---
+    if args.mode == 'cazy':
+        # Check if input is a file or a family name
+        if not os.path.exists(args.input):
+            # Regex for CAZy families (e.g., AA9, GH10, etc., optionally with .txt)
+            family_match = re.match(r'^((AA|GH|GT|PL|CE|CBM)\d+)(\.txt)?$', args.input, re.I)
+            
+            if family_match:
+                family = family_match.group(1).upper()
+                # Create storage directory: data/cazy_raw
+                raw_dir = os.path.join(args.output_dir, "cazy_raw")
+                os.makedirs(raw_dir, exist_ok=True)
+                
+                target_file = os.path.join(raw_dir, f"{family}.txt")
+                
+                # Check if file already exists
+                if os.path.exists(target_file):
+                    logger.info(f"Found existing CAZy file for {family} at {target_file}")
+                else:
+                    url = f"{CAZY_BASE_URL}/IMG/cazy_data/{family}.txt"
+                    logger.info(f"Downloading CAZy data for {family} from {url}...")
+                    
+                    try:
+                        resp = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=REQUEST_TIMEOUT)
+                        resp.raise_for_status()
+                        
+                        # Validate that we didn't just DL an error page or empty file
+                        if not resp.text.strip():
+                            logger.error(f"Downloaded file for {family} is empty.")
+                            sys.exit(1)
+                            
+                        with open(target_file, 'w', encoding='utf-8') as f:
+                            f.write(resp.text)
+                        logger.info(f"Saved to {target_file}")
+                        
+                    except Exception as e:
+                        logger.error(f"Failed to download CAZy data: {e}")
+                        sys.exit(1)
+                
+                # Update args.input to point to the local file
+                args.input = target_file
+            else:
+                 logger.error(f"Input file not found and input '{args.input}' is not a valid CAZy family ID.")
+                 sys.exit(1)
+
+        logger.info(f"Reading CAZy input file: {args.input}")
+        cazy_handler = CAZyHandler()
+        ncbi_ids, jgi_groups = cazy_handler.process_cazy_file(args.input)
+        
+        logger.info(f"Parsers found: {len(ncbi_ids)} NCBI IDs and {len(jgi_groups)} JGI organism groups.")
+        
+        # 1. Process NCBI IDs (Batch fetch)
+        if ncbi_ids:
+            chunk_size = client.batch_size
+            for i in tqdm(range(0, len(ncbi_ids), chunk_size), desc="Fetching NCBI-linked IDs"):
+                batch = ncbi_ids[i:i+chunk_size]
+                results = client.fetch_batch(batch)
+                
+                for data in results:
+                    features = parse_uniprot_features(data)
+                    uid = features['UniProt_ID']
+                    features['Protein_Name'] = data.get('proteinDescription', {}).get('recommendedName', {}).get('fullName', {}).get('value', 'Unknown')
+                    features['Organism'] = data.get('organism', {}).get('scientificName', 'Unknown')
+                    ecs = [db.get('id') for db in data.get('uniProtKBCrossReferences', []) if db.get('database') == 'EC']
+                    features['EC_Number'] = ";".join(ecs)
+                    features['Match_Status'] = "Success_CAZy_NCBI"
+                    successful_entries.append(features)
+                    
+                    seq = data.get('sequence', {}).get('value', '')
+                    new_header = f">UniProtID|{uid}|{features['Organism']}|{features['Protein_Name']}"
+                    raw_fasta_entries.append((new_header, seq))
+                    
+        # 2. Process JGI Groups (Query)
+        if jgi_groups:
+            queries = cazy_handler.generate_jgi_queries(jgi_groups)
+            logger.info(f"Generated {len(queries)} grouped queries for JGI entries.")
+            
+            for query in tqdm(queries, desc="Searching JGI Groups"):
+                results = client.search_by_query(query)
+                
+                if not results:
+                    failed_ids.append(f"JGI_Query_Failed: {query}")
+                
+                for data in results:
+                    features = parse_uniprot_features(data)
+                    uid = features['UniProt_ID']
+                    features['Protein_Name'] = data.get('proteinDescription', {}).get('recommendedName', {}).get('fullName', {}).get('value', 'Unknown')
+                    features['Organism'] = data.get('organism', {}).get('scientificName', 'Unknown')
+                    ecs = [db.get('id') for db in data.get('uniProtKBCrossReferences', []) if db.get('database') == 'EC']
+                    features['EC_Number'] = ";".join(ecs)
+                    features['Match_Status'] = "Success_CAZy_JGI"
+                    successful_entries.append(features)
+                    
+                    seq = data.get('sequence', {}).get('value', '')
+                    new_header = f">UniProtID|{uid}|{features['Organism']}|{features['Protein_Name']}"
+                    raw_fasta_entries.append((new_header, seq))
+
     # --- MODE: FASTA ---
-    if args.mode == 'fasta':
+    elif args.mode == 'fasta':
         entries = []
         unknown_headers = []
         
@@ -227,11 +331,24 @@ def main():
     # Write JSON Run Stats
     end_time = datetime.now()
     duration = (end_time - start_time).total_seconds()
+    
+    # Calculate processed count based on mode
+    total_processed = 0
+    if args.mode == 'fasta':
+        total_processed = len(entries) + len(unknown_headers)
+    elif args.mode == 'cazy':
+        # Safely calculate total from available variables
+        c_ncbi = len(ncbi_ids) if 'ncbi_ids' in locals() else 0
+        c_jgi = sum(len(v) for v in jgi_groups.values()) if 'jgi_groups' in locals() else 0
+        total_processed = c_ncbi + c_jgi
+    elif args.mode == 'list':
+         total_processed = len(ids) if 'ids' in locals() else 0
+
     run_stats = {
         "run_id": timestamp,
         "input_file": args.input,
         "mode": args.mode,
-        "total_processed": len(entries) + len(unknown_headers) if args.mode == 'fasta' else len(ids),
+        "total_processed": total_processed,
         "success_count": len(successful_entries),
         "failed_count": len(failed_ids),
         "duration_seconds": duration,
