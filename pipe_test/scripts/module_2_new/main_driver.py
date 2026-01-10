@@ -13,11 +13,13 @@ from tqdm import tqdm
 try:
     from .input_handler import parse_fasta_file, parse_fasta_header, CAZyHandler
     from .uniprot_client import UniProtClient
+    from .interpro_client import InterProClient
     from .feature_parser import parse_uniprot_features
     from .blast_client import run_blast_search
 except ImportError:
     from input_handler import parse_fasta_file, parse_fasta_header, CAZyHandler
     from uniprot_client import UniProtClient
+    from interpro_client import InterProClient
     from feature_parser import parse_uniprot_features
     from blast_client import run_blast_search
 
@@ -58,7 +60,8 @@ def main():
     out_run_json = os.path.join(run_dir, f"run_metadata_{timestamp}.json")
 
     client = UniProtClient()
-    
+    ip_client = InterProClient() # New InterPro client instance
+
     successful_entries = []
     failed_ids = []
     raw_fasta_entries = []
@@ -125,7 +128,11 @@ def main():
                 results = client.fetch_batch(batch)
                 
                 for data in results:
-                    features = parse_uniprot_features(data)
+                    acc = data.get('primaryAccession')
+                    # Fetch InterPro data for precision
+                    ipr_domains = ip_client.fetch_domains(acc)
+
+                    features = parse_uniprot_features(data, ipr_domains)
                     uid = features['UniProt_ID']
                     features['Protein_Name'] = data.get('proteinDescription', {}).get('recommendedName', {}).get('fullName', {}).get('value', 'Unknown')
                     features['Organism'] = data.get('organism', {}).get('scientificName', 'Unknown')
@@ -150,7 +157,10 @@ def main():
                     failed_ids.append(f"JGI_Query_Failed: {query}")
                 
                 for data in results:
-                    features = parse_uniprot_features(data)
+                    acc = data.get('primaryAccession')
+                    ipr_domains = ip_client.fetch_domains(acc)
+                    
+                    features = parse_uniprot_features(data, ipr_domains)
                     uid = features['UniProt_ID']
                     features['Protein_Name'] = data.get('proteinDescription', {}).get('recommendedName', {}).get('fullName', {}).get('value', 'Unknown')
                     features['Organism'] = data.get('organism', {}).get('scientificName', 'Unknown')
@@ -201,7 +211,11 @@ def main():
         for uid, header, seq in entries:
             if uid in metadata_map:
                 data = metadata_map[uid]
-                features = parse_uniprot_features(data)
+                
+                # Fetch InterPro
+                ipr_domains = ip_client.fetch_domains(uid)
+                
+                features = parse_uniprot_features(data, ipr_domains)
                 
                 # Add extra fields standardisation
                 features['Protein_Name'] = data.get('proteinDescription', {}).get('recommendedName', {}).get('fullName', {}).get('value', 'Unknown')
@@ -246,7 +260,11 @@ def main():
                         
                         if results:
                             data = results[0]
-                            features = parse_uniprot_features(data)
+                            acc = data.get('primaryAccession')
+                            # Precision fetch
+                            ipr_domains = ip_client.fetch_domains(acc)
+                            
+                            features = parse_uniprot_features(data, ipr_domains)
                             uid = features['UniProt_ID']
                             
                             features['Protein_Name'] = data.get('proteinDescription', {}).get('recommendedName', {}).get('fullName', {}).get('value', 'Unknown')
@@ -286,7 +304,10 @@ def main():
             metadata_results.extend(results)
             
         for data in metadata_results:
-             features = parse_uniprot_features(data)
+             acc = data.get('primaryAccession')
+             ipr_domains = ip_client.fetch_domains(acc)
+             
+             features = parse_uniprot_features(data, ipr_domains)
              uid = features['UniProt_ID']
              features['Protein_Name'] = data.get('proteinDescription', {}).get('recommendedName', {}).get('fullName', {}).get('value', 'Unknown')
              features['Organism'] = data.get('organism', {}).get('scientificName', 'Unknown')
@@ -313,6 +334,12 @@ def main():
                 df[c] = None
         
         df = df[desired_cols]
+
+        # Force integer types for coordinate columns (handling NaNs via Int64)
+        for int_col in ['Signal_End', 'LPMO_Core_Start', 'LPMO_Core_End']:
+            if int_col in df.columns:
+                df[int_col] = df[int_col].astype('Int64')
+
         df.to_csv(out_tsv, sep='\t', index=False)
         logger.info(f"Wrote metadata to {out_tsv}")
     
