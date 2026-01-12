@@ -140,8 +140,17 @@ def parse_v2000_mol(text: str) -> Tuple[List[dict], List[dict]]:
     count_tokens = counts_prefix.split()
     if len(count_tokens) < 2:
         raise ValueError("Malformed V2000 counts line")
-    num_atoms = int(count_tokens[0])
-    num_bonds = int(count_tokens[1])
+    
+    # Handle cases where atom and bond counts are concatenated (e.g., "108112" instead of "108 112")
+    first_token = count_tokens[0]
+    if len(first_token) > 3 and first_token.isdigit():
+        # Try to split concatenated counts (assume 3 digits each for atom/bond counts)
+        mid = len(first_token) // 2
+        num_atoms = int(first_token[:mid])
+        num_bonds = int(first_token[mid:])
+    else:
+        num_atoms = int(count_tokens[0])
+        num_bonds = int(count_tokens[1])
     atom_start = counts_idx + 1
     atom_end = atom_start + num_atoms
     bond_end = atom_end + num_bonds
@@ -171,11 +180,23 @@ def _parse_v2000_atom(idx: int, line: str) -> dict:
 
 def _parse_v2000_bond(line: str) -> dict:
     parts = line.split()
-    if len(parts) < 3:
+    
+    # Handle concatenated atom indices (e.g., "91105" instead of "91 105")
+    # Normal bond line has 7 tokens: a1 a2 order flag flag flag flag
+    # If we have 6 tokens and first token is long digits, it's likely concatenated
+    if len(parts) == 6 and len(parts[0]) > 3 and parts[0].isdigit():
+        # Likely concatenated: split in half
+        first_token = parts[0]
+        mid = len(first_token) // 2
+        a1 = int(first_token[:mid])
+        a2 = int(first_token[mid:])
+        order = parts[1]
+    elif len(parts) < 3:
         raise ValueError(f"Malformed V2000 bond line: {line}")
-    a1 = int(parts[0])
-    a2 = int(parts[1])
-    order = parts[2]
+    else:
+        a1 = int(parts[0])
+        a2 = int(parts[1])
+        order = parts[2]
     return {"order": order, "a1": a1, "a2": a2, "props": {}}
 
 
