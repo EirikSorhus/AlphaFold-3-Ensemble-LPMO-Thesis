@@ -1,0 +1,28 @@
+name: lpmo_chitin_trimer
+chains:
+  - protein:
+      id: A
+      fasta: lpmo.fasta
+
+  - ligand:
+      id: B
+      ccd: NAG
+  - ligand:
+      id: C
+      ccd: NAG
+  - ligand:
+      id: D
+      ccd: NAG
+
+  - ligand:
+      id: E
+      ccd: CU
+
+constraints:
+  # glycosidic bonds
+  - bond: [B, 1, C1, C, 1, O4] # Binder glukoseneenhetene sammen til oligo
+  - bond: [C, 1, C1, D, 1, O4] # --||--
+
+  # Cu coordination (example: His brace)
+  - bond: [A, 1, ND1, E, 1, CU] # Denne delen er for å fiksere hvor kobberet binder
+  - bond: [A, 1, NE2, E, 1, CU] # --||--

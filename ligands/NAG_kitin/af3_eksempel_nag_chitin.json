@@ -1,0 +1,17 @@
+{
+  "name": "lpmo__GlcNAc_b1-4_trimer",
+  "modelSeeds": [1, 2, 3],
+  "sequences": [
+    { "protein": { "id": "A", "sequence": "YOUR_LPMO_SEQUENCE" } },
+
+    {"ligand": {"id": "B", "ccdCodes": ["CU"] } },
+
+    { "ligand": { "id": "E", "ccdCodes": ["NAG"] } },
+    { "ligand": { "id": "F", "ccdCodes": ["NAG"] } },
+    { "ligand": { "id": "G", "ccdCodes": ["NAG"] } }
+  ],
+  "bondedAtomPairs": [
+    { "a": { "chainId": "E", "atomName": "C1" }, "b": { "chainId": "F", "atomName": "O4" } },
+    { "a": { "chainId": "F", "atomName": "C1" }, "b": { "chainId": "G", "atomName": "O4" } }
+  ]
+}
