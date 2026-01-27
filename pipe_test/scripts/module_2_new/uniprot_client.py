@@ -10,9 +10,11 @@ logger = logging.getLogger(__name__)
 class UniProtClient:
     def __init__(self, cache_path="discovery_cache.json", batch_size=50):
         self.base_url = "https://rest.uniprot.org/uniprotkb/search"
+        self.accession_url = "https://rest.uniprot.org/uniprotkb/accessions"
         self.cache_path = cache_path
         self.batch_size = batch_size
         self.cache = self._load_cache()
+        self.obsolete_mapping_cache = {}
 
     def _load_cache(self):
         if os.path.exists(self.cache_path):
@@ -27,13 +29,96 @@ class UniProtClient:
         with open(self.cache_path, 'w') as f:
             json.dump(self.cache, f)
 
+    def _lookup_primary_via_search(self, acc):
+        """Fallback: try search endpoint to retrieve a matching entry for an accession."""
+        try:
+            params = {
+                "query": f"accession:{acc}",
+                "fields": "accession",
+                "format": "json",
+                "size": 1,
+            }
+            response = requests.get(self.base_url, params=params, timeout=15)
+            if response.status_code == 200:
+                results = response.json().get('results', [])
+                if results:
+                    return results[0].get('primaryAccession')
+            else:
+                logger.debug(f"Search fallback failed for {acc} (HTTP {response.status_code})")
+        except Exception as e:
+            logger.debug(f"Search fallback error for {acc}: {e}")
+        return None
+
+    def resolve_obsolete_ids(self, ids):
+        """
+        Resolves obsolete/secondary UniProt accessions to their current primary accessions using the
+        UniProt accessions endpoint. Returns a dict mapping: {original_id: primary_id or None}.
+        """
+        mapping = {}
+
+        # Use cached mappings first
+        pending = []
+        for acc in ids:
+            if acc in self.obsolete_mapping_cache:
+                mapping[acc] = self.obsolete_mapping_cache[acc]
+            else:
+                pending.append(acc)
+
+        if pending:
+            try:
+                params = {"accessions": ",".join(pending)}
+                response = requests.get(self.accession_url, params=params, timeout=20)
+                if response.status_code == 200:
+                    data = response.json()
+                    for item in data.get("results", []):
+                        old = item.get("from")
+                        new = item.get("to")
+                        if old:
+                            mapping[old] = new
+                            self.obsolete_mapping_cache[old] = new
+                    # Anything not returned is unmapped
+                    for acc in pending:
+                        if acc not in mapping:
+                            mapping[acc] = None
+                            self.obsolete_mapping_cache[acc] = None
+                else:
+                    logger.warning(f"Accessions endpoint failed (HTTP {response.status_code}); falling back to search for {len(pending)} IDs")
+            except Exception as e:
+                logger.warning(f"Accessions endpoint error: {e}; falling back to search for {len(pending)} IDs")
+
+        # Fallback search for any still unresolved
+        for acc in ids:
+            if mapping.get(acc) is None:
+                primary = self._lookup_primary_via_search(acc)
+                mapping[acc] = primary
+                self.obsolete_mapping_cache[acc] = primary
+                if primary and primary != acc:
+                    logger.info(f"Obsolete ID {acc} -> {primary}")
+
+        return mapping
+
     def fetch_batch(self, ids):
         """
         Hovedmetode for å hente metadata. Bruker bisection hvis batchen feiler.
         """
+        # First resolve any obsolete IDs to their primary accessions
+        obsolete_mapping = self.resolve_obsolete_ids(ids)
+        
+        # Map original IDs to resolved (or keep original if not obsolete)
+        resolved_ids = []
+        original_to_resolved = {}
+        for orig_id in ids:
+            resolved = obsolete_mapping.get(orig_id, orig_id)
+            if resolved:
+                resolved_ids.append(resolved)
+                original_to_resolved[orig_id] = resolved
+            else:
+                # Could not resolve, skip
+                logger.warning(f"Could not resolve obsolete ID: {orig_id}")
+        
         # Filtrer ut ID-er som allerede er i cache
-        to_fetch = [i for i in ids if i not in self.cache]
-        results = [self.cache[i] for i in ids if i in self.cache]
+        to_fetch = [i for i in resolved_ids if i not in self.cache]
+        results = [self.cache[i] for i in resolved_ids if i in self.cache]
 
         if not to_fetch:
             return results

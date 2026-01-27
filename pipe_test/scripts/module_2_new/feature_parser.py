@@ -41,13 +41,14 @@ LPMO_FAMILIES = [
     r"Fusolin", r"Spindle" # AA15 aliases
 ]
 
-def parse_uniprot_features(json_entry, interpro_entries=None):
+def parse_uniprot_features(json_entry, interpro_domains=None):
     """
-    Parser UniProt JSON-data med mulighet for å forbedre domenegrenser ved hjelp av InterPro-data.
+    Parser UniProt JSON-data med forbedret domenegrenser fra InterPro domain-type entries.
     
     Args:
         json_entry (dict): Rå JSON fra UniProt API.
-        interpro_entries (list, optional): Liste med domener fra InterProClient.
+        interpro_domains (list, optional): Liste med domener fra InterProClient.fetch_domains()
+                                           (already deduplicated and H-adjusted)
     """
     acc = json_entry.get('primaryAccession', 'Unknown')
     sequence = json_entry.get('sequence', {}).get('value', '')
@@ -68,88 +69,94 @@ def parse_uniprot_features(json_entry, interpro_entries=None):
         if found_aa.upper() == 'H':
             h1_verified = True
             
-    # --- 3. DOMENE OG CBM MAPPING (Hybrid Approach) ---
+    # --- 3. DOMENE OG CBM MAPPING (InterPro Priority) ---
     core_data = {"type": "Unknown", "start": None, "end": None}
     found_cbms = []
     
-    # A. Parse UniProt internal features (Legacy/Fallback)
-    for f in features:
-        desc = f.get('description') or str(f.get('note', ''))
-        start = f['location']['start']['value']
-        end = f['location']['end']['value']
+    # A. Use InterPro domains if available (already deduplicated and H-adjusted)
+    if interpro_domains:
+        # Separate LPMO core and CBM domains
+        lpmo_candidates = []
+        cbm_candidates = []
         
-        # CBM Detection
-        if any(re.search(p, desc, re.I) for p in CBM_PATTERNS):
-            found_cbms.append(f"{desc} ({start}-{end})")
+        for domain in interpro_domains:
+            domain_name = domain.get("name", "")
             
-        # LPMO Core (UniProt internal) - only use if we don't prefer InterPro later
-        is_lpmo = any(re.search(p, desc, re.I) for p in LPMO_FAMILIES)
-        if is_lpmo:
-             current_is_better = core_data["start"] is not None and abs(core_data["start"] - (sig_end + 1)) <= 1
-             new_is_n_term = abs(start - (sig_end + 1)) <= 1
-             if not current_is_better or new_is_n_term:
-                 core_data = {"type": desc, "start": start, "end": end}
-
-    # B. Apply InterPro Data (Priority)
-    if interpro_entries:
-        # Filter for relevant domains (Families or Domains, ignore minimal repeats if better exist)
-        # We look for something that contains "LPMO", "Polysaccharide monooxygenase", "Auxiliary Activity" or specific ID
-        # Or simply the largest domain that starts near N-term.
+            # Check if CBM
+            is_cbm = any(re.search(p, domain_name, re.I) for p in CBM_PATTERNS)
+            if is_cbm:
+                cbm_candidates.append(domain)
+                continue
+            
+            # Check if LPMO
+            is_lpmo = any(re.search(p, domain_name, re.I) for p in LPMO_FAMILIES)
+            if is_lpmo:
+                lpmo_candidates.append(domain)
         
-        best_ipr = None
-        
-        # 1. Look for specific LPMO text match in name
-        lpmo_candidates = [
-            e for e in interpro_entries 
-            if any(re.search(p, e['name'], re.I) for p in LPMO_FAMILIES) or 
-               any(re.search(p, e['id'], re.I) for p in LPMO_FAMILIES) # Check ID too
-        ]
-        
+        # Pick LPMO core: prefer one that starts closest to signal end
         if lpmo_candidates:
-            # Pick one that starts earliest (closest to signal) but is after signal start
-            # Sort by start position
-            lpmo_candidates.sort(key=lambda x: x['start'])
-            best_ipr = lpmo_candidates[0]
-        
-        if best_ipr:
-            # LOGIC REFINEMENT:
-            # If H1 is verified, we FORCE the start to be exactly at H1 (SigEnd + 1).
-            # Because InterPro often includes the Signal Peptide region (e.g. starts at 1, 11) 
-            # or starts inside the domain (e.g. 25).
-            
-            ipr_start = best_ipr['start']
-            ipr_end = best_ipr['end']
-            
-            final_start = ipr_start
-            
-            if h1_verified:
-                final_start = sig_end + 1
-            else:
-                # If no H1, but InterPro starts BEFORE signal end, we must trim it
-                if ipr_start <= sig_end:
-                    final_start = sig_end + 1
-            
+            lpmo_candidates.sort(key=lambda d: abs(d["start"] - (sig_end + 1)))
+            best_lpmo = lpmo_candidates[0]
+            source_label = f"{best_lpmo['source'].upper()}:{best_lpmo['model']}"
+            ipr_label = f" (IPR:{best_lpmo['integrated_ipr']})" if best_lpmo.get('integrated_ipr') else ""
             core_data = {
-                "type": f"{best_ipr['name']} ({best_ipr['id']})",
-                "start": final_start,
-                "end": ipr_end
+                "type": f"{best_lpmo['name']} [{source_label}]{ipr_label}",
+                "start": best_lpmo["start"],
+                "end": best_lpmo["end"]
             }
+        
+        # Collect CBMs
+        for cbm in cbm_candidates:
+            source_label = f"{cbm['source'].upper()}:{cbm['model']}"
+            cbm_desc = f"{cbm['name']} [{source_label}] ({cbm['start']}-{cbm['end']})"
+            found_cbms.append(cbm_desc)
+    
+    # B. Fallback: Parse UniProt internal features if InterPro didn't provide domains
+    if core_data["start"] is None:
+        for f in features:
+            desc = f.get('description') or str(f.get('note', ''))
+            start = f['location']['start']['value']
+            end = f['location']['end']['value']
+            
+            # CBM Detection
+            if any(re.search(p, desc, re.I) for p in CBM_PATTERNS):
+                found_cbms.append(f"{desc} ({start}-{end})")
+                
+            # LPMO Core (UniProt internal)
+            is_lpmo = any(re.search(p, desc, re.I) for p in LPMO_FAMILIES)
+            if is_lpmo:
+                current_is_better = core_data["start"] is not None and abs(core_data["start"] - (sig_end + 1)) <= 1
+                new_is_n_term = abs(start - (sig_end + 1)) <= 1
+                if not current_is_better or new_is_n_term:
+                    core_data = {"type": desc, "start": start, "end": end}
 
-    # C. Fallback: Implicit
+    # C. Fallback: Implicit domain if H1 verified but no domain found
     if core_data["start"] is None and h1_verified:
         core_data["start"] = sig_end + 1
         core_data["type"] = "Inferred (H1)"
         if core_data["end"] is None:
             core_data["end"] = len(sequence)
 
-    # --- 4. INTERPRO IDS LIST ---
-    # Merge both UniProt refs and fetched refs
+    # --- 4. RE-CHECK H1 FOR CASES WHERE sig_end=0 BUT LPMO DOMAIN FOUND ---
+    if sig_end == 0 and core_data["start"] is not None and not h1_verified:
+        lpmo_start_0based = core_data["start"] - 1  # Convert 1-based to 0-based
+        if 0 <= lpmo_start_0based < len(sequence):
+            found_aa = sequence[lpmo_start_0based]
+            if found_aa.upper() == 'H':
+                h1_verified = True
+
+    # --- 5. INTERPRO IDS LIST ---
+    # Merge UniProt refs and InterPro domain IDs
     uni_refs = [
         db.get('id') for db in json_entry.get('uniProtKBCrossReferences', [])
         if db.get('database') == 'InterPro'
     ]
-    if interpro_entries:
-        uni_refs.extend([e['id'] for e in interpro_entries])
+    if interpro_domains:
+        for domain in interpro_domains:
+            if domain.get("integrated_ipr"):
+                uni_refs.append(domain["integrated_ipr"])
+            if domain.get("entry_id"):
+                uni_refs.append(domain["entry_id"])
     
     unique_refs = sorted(list(set(uni_refs)))
 

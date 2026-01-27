@@ -1,4 +1,6 @@
+import csv
 import re
+from typing import Dict, List, Set, Tuple
 
 class CAZyHandler:
     def __init__(self):
@@ -96,4 +98,120 @@ def parse_fasta_file(file_path):
         
         if current_header:
             yield current_header, "".join(current_seq)
+
+
+SEMICOLON_REQUIRED_HEADERS = {
+    'protein name': 'Protein Name',
+    'ec#': 'EC#',
+    'reference': 'Reference',
+    'organism': 'Organism',
+    'genbank': 'GenBank',
+    'uniprot': 'Uniprot',
+    'pdb/3d': 'PDB/3D',
+}
+
+
+def _normalize_uniprot_cell(cell: str) -> List[str]:
+    """Extract UniProt accessions; tolerant to spaces/commas/semicolons."""
+    if not cell:
+        return []
+    tokens = re.findall(r'[A-Z0-9]{6,10}', cell.upper())
+    return tokens
+
+
+def _normalize_genbank_cell(cell: str) -> List[str]:
+    """Extract GenBank-like accessions, keeping version suffixes."""
+    if not cell:
+        return []
+    toks: List[str] = []
+    for raw in re.split(r'[;,\s]+', cell.strip()):
+        tok = re.sub(r'[^A-Za-z0-9_.]', '', raw)
+        if tok:
+            toks.append(tok)
+    return toks
+
+
+class CharacterizedHandler:
+    """Parse semicolon-delimited characterized CSV (CAZy layout)."""
+
+    def __init__(self, file_path: str):
+        self.file_path = file_path
+
+    def process_characterized_file(self) -> Tuple[List[str], List[str], List[Dict]]:
+        """
+        Strictly parses a semicolon-delimited CSV with the CAZy characterized layout.
+        Returns (uniprot_ids, genbank_ids, rows_meta).
+        rows_meta keeps per-row context for later failure reporting and grouping.
+        """
+
+        # Quick delimiter sanity check: require semicolon, reject comma as delimiter
+        with open(self.file_path, 'r', encoding='utf-8') as fh:
+            first_line = fh.readline()
+            if ';' not in first_line or ',' in first_line:
+                raise ValueError("Characterized CSV must be semicolon-delimited (;) and must not contain commas.")
+
+        with open(self.file_path, newline='', encoding='utf-8') as handle:
+            reader = csv.reader(handle, delimiter=';')
+            try:
+                header = next(reader)
+            except StopIteration:
+                raise ValueError("Characterized CSV is empty; expected header row.")
+
+            normalized = [h.strip().lower() for h in header]
+            header_map = {name: idx for idx, name in enumerate(normalized)}
+
+            missing = [col for col in SEMICOLON_REQUIRED_HEADERS if col not in header_map]
+            if missing:
+                raise ValueError(
+                    "Characterized CSV header missing columns or wrong delimiter (expected ';'): "
+                    + ", ".join(sorted(missing))
+                )
+
+            def _get(col_name: str, row: List[str]) -> str:
+                idx = header_map[col_name]
+                if idx < len(row):
+                    return row[idx].strip()
+                return ""
+
+            uniprot_ids: List[str] = []
+            genbank_ids: List[str] = []
+            seen: Set[str] = set()
+            rows_meta: List[Dict] = []
+
+            for line_no, row in enumerate(reader, start=2):  # account for header line
+                if not row or all(not cell.strip() for cell in row):
+                    continue
+
+                # Pad short rows if needed
+                if len(row) < len(header):
+                    row = row + [""] * (len(header) - len(row))
+
+                uni_cell = _get('uniprot', row)
+                gb_cell = _get('genbank', row)
+
+                uni_tokens = _normalize_uniprot_cell(uni_cell)
+                gb_tokens = _normalize_genbank_cell(gb_cell)
+
+                for tok in uni_tokens:
+                    if tok not in seen:
+                        uniprot_ids.append(tok)
+                        seen.add(tok)
+                for tok in gb_tokens:
+                    if tok not in seen:
+                        genbank_ids.append(tok)
+                        seen.add(tok)
+
+                rows_meta.append({
+                    "line_no": line_no,
+                    "raw": ";".join(row),
+                    "protein": _get('protein name', row),
+                    "organism": _get('organism', row),
+                    "ec": _get('ec#', row),
+                    "reference": _get('reference', row),
+                    "pdb": _get('pdb/3d', row),
+                    "uniprot_ids": uni_tokens,
+                    "genbank_ids": gb_tokens,
+                })
+
+        return uniprot_ids, genbank_ids, rows_meta
 

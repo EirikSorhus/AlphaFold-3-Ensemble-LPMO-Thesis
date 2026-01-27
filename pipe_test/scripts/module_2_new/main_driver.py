@@ -8,16 +8,17 @@ import requests
 import re
 from datetime import datetime
 from tqdm import tqdm
+import hashlib
 
 # Import local modules - robust check for package vs script execution
 try:
-    from .input_handler import parse_fasta_file, parse_fasta_header, CAZyHandler
+    from .input_handler import parse_fasta_file, parse_fasta_header, CAZyHandler, CharacterizedHandler
     from .uniprot_client import UniProtClient
     from .interpro_client import InterProClient
     from .feature_parser import parse_uniprot_features
     from .blast_client import run_blast_search
 except ImportError:
-    from input_handler import parse_fasta_file, parse_fasta_header, CAZyHandler
+    from input_handler import parse_fasta_file, parse_fasta_header, CAZyHandler, CharacterizedHandler
     from uniprot_client import UniProtClient
     from interpro_client import InterProClient
     from feature_parser import parse_uniprot_features
@@ -34,7 +35,16 @@ REQUEST_TIMEOUT = 30
 
 def main():
     parser = argparse.ArgumentParser(description="Module 2: Metadata Enrichment")
-    parser.add_argument("--mode", choices=['fasta', 'cazy', 'list'], required=True, help="Input mode")
+    parser.add_argument(
+        "--mode",
+        choices=['fasta', 'cazy', 'list', 'characterized'],
+        required=True,
+        help=(
+            "Input mode: fasta (FASTA headers with UniProt IDs), cazy (CAZy export), "
+            "list (plain ID list), characterized (semikolonskilt CSV med samme oppsett som CAZy characterized: "
+            "Protein Name;EC#;Reference;Organism;GenBank;Uniprot;PDB/3D)."
+        ),
+    )
     parser.add_argument("--input", required=True, help="Input file path")
     parser.add_argument("--output_dir", default="data", help="Base output directory (default: data)")
     parser.add_argument("--allow-ncbi-fallback", action="store_true", help="Enable NCBI fallback (not currently active)")
@@ -129,8 +139,12 @@ def main():
                 
                 for data in results:
                     acc = data.get('primaryAccession')
-                    # Fetch InterPro data for precision
-                    ipr_domains = ip_client.fetch_domains(acc)
+                    seq = data.get('sequence', {}).get('value', '')
+                    # Extract signal peptide end from UniProt features
+                    signal_ends = [f['location']['end']['value'] for f in data.get('features', []) if f.get('type') == 'Signal']
+                    sig_end = max(signal_ends) if signal_ends else 0
+                    # Fetch InterPro domains with sequence and signal_end for H-adjustment
+                    ipr_domains = ip_client.fetch_domains(acc, sequence=seq, signal_end=sig_end)
 
                     features = parse_uniprot_features(data, ipr_domains)
                     uid = features['UniProt_ID']
@@ -158,7 +172,11 @@ def main():
                 
                 for data in results:
                     acc = data.get('primaryAccession')
-                    ipr_domains = ip_client.fetch_domains(acc)
+                    seq = data.get('sequence', {}).get('value', '')
+                    # Extract signal peptide end
+                    signal_ends = [f['location']['end']['value'] for f in data.get('features', []) if f.get('type') == 'Signal']
+                    sig_end = max(signal_ends) if signal_ends else 0
+                    ipr_domains = ip_client.fetch_domains(acc, sequence=seq, signal_end=sig_end)
                     
                     features = parse_uniprot_features(data, ipr_domains)
                     uid = features['UniProt_ID']
@@ -169,9 +187,260 @@ def main():
                     features['Match_Status'] = "Success_CAZy_JGI"
                     successful_entries.append(features)
                     
-                    seq = data.get('sequence', {}).get('value', '')
                     new_header = f">UniProtID|{uid}|{features['Organism']}|{features['Protein_Name']}"
                     raw_fasta_entries.append((new_header, seq))
+
+    # --- MODE: CHARACTERIZED CSV ---
+    elif args.mode == 'characterized':
+        try:
+            handler = CharacterizedHandler(args.input)
+            uni_ids, genbank_ids, rows_meta = handler.process_characterized_file()
+        except ValueError as exc:
+            logger.error(str(exc))
+            sys.exit(1)
+
+        # Split rows into those with UniProt IDs and those without
+        rows_with_uniprot = [r for r in rows_meta if r['uniprot_ids']]
+        rows_without_uniprot = [r for r in rows_meta if not r['uniprot_ids'] and r['genbank_ids']]
+        rows_no_ids = [r for r in rows_meta if not r['uniprot_ids'] and not r['genbank_ids']]
+
+        # Ordered unique UniProt IDs from rows that have UniProt
+        uni_like_ordered = []
+        seen_uni = set()
+        for r in rows_with_uniprot:
+            for uid in r['uniprot_ids']:
+                if uid not in seen_uni:
+                    uni_like_ordered.append(uid)
+                    seen_uni.add(uid)
+
+        logger.info(
+            f"Characterized CSV parsed: {len(uni_like_ordered)} UniProt IDs (rows with UniProt), "
+            f"{len(rows_without_uniprot)} rows without UniProt but with GenBank/RefSeq, {len(rows_no_ids)} rows without IDs."
+        )
+
+        features_by_uid = {}
+        seq_groups = {}  # seq string -> list of ids in order
+        failed_id_set = set()
+        success_id_set = set()
+
+        def choose_primary(id_list):
+            for cid in id_list:
+                if re.fullmatch(r"[A-Z0-9]{6,10}", cid):
+                    return cid
+            return id_list[0] if id_list else None
+
+        # Helper: fetch UniProt entries for UniProt IDs
+        def fetch_uniprot_ids(id_list):
+            chunk_size = client.batch_size
+            for i in tqdm(range(0, len(id_list), chunk_size), desc="Fetching UniProt IDs"):
+                batch = id_list[i:i+chunk_size]
+                results = client.fetch_batch(batch)
+                for data in results:
+                    acc = data.get('primaryAccession')
+                    if not acc:
+                        continue
+                    seq = data.get('sequence', {}).get('value', '')
+                    if not seq:
+                        failed_id_set.add(acc)
+                        continue
+
+                    # Extract signal peptide end
+                    signal_ends = [f['location']['end']['value'] for f in data.get('features', []) if f.get('type') == 'Signal']
+                    sig_end = max(signal_ends) if signal_ends else 0
+                    ipr_domains = ip_client.fetch_domains(acc, sequence=seq, signal_end=sig_end)
+
+                    features = parse_uniprot_features(data, ipr_domains)
+                    uid = features['UniProt_ID']
+                    features['Protein_Name'] = data.get('proteinDescription', {}).get('recommendedName', {}).get('fullName', {}).get('value', 'Unknown')
+                    features['Organism'] = data.get('organism', {}).get('scientificName', 'Unknown')
+                    ecs = [db.get('id') for db in data.get('uniProtKBCrossReferences', []) if db.get('database') == 'EC']
+                    features['EC_Number'] = ";".join(ecs)
+                    features['Match_Status'] = "Success_Characterized"
+                    features_by_uid[uid] = {**features, "_seq": seq}
+                    success_id_set.add(uid)
+
+                    if seq not in seq_groups:
+                        seq_groups[seq] = []
+                    seq_groups[seq].append(uid)
+
+        # Helper: map GenBank/RefSeq IDs to UniProt via crossref query
+        def map_non_uniprot_to_uniprot(id_token):
+            token = id_token.strip()
+            # RefSeq proteins: NP_, XP_, YP_, WP_, ZP_
+            is_refseq = bool(re.match(r"^(NP_|XP_|YP_|WP_|ZP_)", token, re.IGNORECASE))
+            candidates = []
+            if is_refseq:
+                candidates.append(f"xref:RefSeq:{token}")
+                if '.' in token:
+                    candidates.append(f"xref:RefSeq:{token.split('.')[0]}")
+            else:
+                # GenBank protein_id via EMBL-CDS cross-ref
+                candidates.append(f"xref:EMBL-CDS:{token}")
+                if '.' in token:
+                    candidates.append(f"xref:EMBL-CDS:{token.split('.')[0]}")
+
+            for q in candidates:
+                results = client.search_by_query(q)
+                if results:
+                    return results[0]
+            return None
+
+        # Helper: NCBI FASTA fallback
+        def fetch_ncbi_fasta(genbank_acc):
+            try:
+                params = {
+                    "db": "protein",
+                    "id": genbank_acc,
+                    "rettype": "fasta",
+                    "retmode": "text",
+                }
+                resp = requests.get("https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi", params=params, timeout=30)
+                if not resp.ok:
+                    return None, None, None
+                lines = [ln.strip() for ln in resp.text.splitlines() if ln.strip()]
+                if not lines or not lines[0].startswith('>'):
+                    return None, None, None
+                header = lines[0]
+                seq = "".join(lines[1:])
+                org = None
+                m = re.search(r"\[(.*?)\]\s*$", header)
+                if m:
+                    org = m.group(1)
+                prot = header.lstrip('>').split(' ', 1)[1] if ' ' in header else genbank_acc
+                return seq, org or "Unknown", prot or "Unknown"
+            except Exception:
+                return None, None, None
+
+        # Fetch UniProt IDs from rows that already have UniProt
+        if uni_like_ordered:
+            fetch_uniprot_ids(uni_like_ordered)
+        
+        # Fallback: Try InterPro SignalP for entries with sig_end=0
+        for uid, feat_data in list(features_by_uid.items()):
+            if feat_data.get('Signal_End') == 0:
+                ipr_signal = ip_client.fetch_signal_peptide(uid)
+                if ipr_signal and ipr_signal.get('end'):
+                    # Re-parse features with corrected signal_end
+                    seq = feat_data.get('_seq', '')
+                    sig_end_corrected = ipr_signal['end']
+                    # Fetch domains again with correct signal_end
+                    try:
+                        ipr_domains = ip_client.fetch_domains(uid, sequence=seq, signal_end=sig_end_corrected)
+                    except Exception:
+                        ipr_domains = []
+                    # Find original UniProt entry to re-parse
+                    # We don't have it cached, so just update signal_end manually
+                    feat_data['Signal_End'] = sig_end_corrected
+                    # Re-check H1 with corrected signal end
+                    if len(seq) > sig_end_corrected:
+                        found_aa = seq[sig_end_corrected]
+                        feat_data['H1_AminoAcid'] = found_aa
+                        if found_aa.upper() == 'H':
+                            feat_data['H1_Verified'] = True
+                    logger.info(f"Applied InterPro SignalP fallback for {uid}: sig_end={sig_end_corrected}")
+
+        mapped_non_uni_ids = set()
+
+        # Map rows without UniProt: try GenBank/RefSeq -> UniProt; optional NCBI fallback
+        for row in tqdm(rows_without_uniprot, desc="Mapping GenBank/RefSeq IDs"):
+            mapped_any = False
+            for nid in row['genbank_ids']:
+                mapped = map_non_uniprot_to_uniprot(nid)
+                if mapped:
+                    acc = mapped.get('primaryAccession')
+                    seq = mapped.get('sequence', {}).get('value', '')
+                    if not acc or not seq:
+                        failed_id_set.add(nid)
+                        continue
+                    
+                    # Extract signal peptide end
+                    signal_ends = [f['location']['end']['value'] for f in mapped.get('features', []) if f.get('type') == 'Signal']
+                    sig_end = max(signal_ends) if signal_ends else 0
+                    
+                    try:
+                        ipr_domains = ip_client.fetch_domains(acc, sequence=seq, signal_end=sig_end)
+                    except Exception:
+                        ipr_domains = []
+
+                    feats = parse_uniprot_features(mapped, ipr_domains)
+                    uid = feats['UniProt_ID']
+                    feats['Protein_Name'] = mapped.get('proteinDescription', {}).get('recommendedName', {}).get('fullName', {}).get('value', 'Unknown')
+                    feats['Organism'] = mapped.get('organism', {}).get('scientificName', 'Unknown')
+                    ecs = [db.get('id') for db in mapped.get('uniProtKBCrossReferences', []) if db.get('database') == 'EC']
+                    feats['EC_Number'] = ";".join(ecs)
+                    feats['Match_Status'] = "Success_Characterized_Mapped"
+                    features_by_uid[uid] = {**feats, "_seq": seq}
+                    success_id_set.add(uid)
+                    mapped_non_uni_ids.add(nid)
+                    mapped_any = True
+                    if seq not in seq_groups:
+                        seq_groups[seq] = []
+                    seq_groups[seq].append(uid)
+                else:
+                    if args.allow_ncbi_fallback:
+                        seq, org, prot = fetch_ncbi_fasta(nid)
+                        if seq:
+                            new_header = f">UniProtIDs|{nid}|{org}|{prot}"
+                            raw_fasta_entries.append((new_header, seq))
+                            md = {
+                                'UniProt_ID': nid,
+                                'InterPro_IDs': '',
+                                'Protein_Name': prot,
+                                'Organism': org,
+                                'EC_Number': '',
+                                'Signal_End': None,
+                                'LPMO_Core_Start': None,
+                                'LPMO_Core_End': None,
+                                'Binding_Modules': None,
+                                'H1_Verified': None,
+                                'H1_AminoAcid': None,
+                                'Match_Status': 'NCBI_Fallback',
+                                'Sequence_Group': nid,
+                                'CoAccessions': '',
+                            }
+                            successful_entries.append(md)
+                            success_id_set.add(nid)
+                            mapped_non_uni_ids.add(nid)
+                            mapped_any = True
+                        else:
+                            failed_id_set.add(nid)
+                    else:
+                        failed_id_set.add(nid)
+
+            if not mapped_any:
+                failed_ids.append(f"No valid IDs (line {row['line_no']}): {row['raw']}")
+
+        # Missing IDs (not returned) + empty sequence cases
+        # Build metadata rows with Sequence_Group and CoAccessions; dedupe FASTA
+        for seq, ids_in_group in seq_groups.items():
+            if not ids_in_group:
+                continue
+            primary = choose_primary(ids_in_group)
+            if not primary:
+                primary = ids_in_group[0]
+            co_ids = [cid for cid in ids_in_group if cid != primary]
+
+            # FASTA header uses primary + coaccessions
+            primary_feat = features_by_uid.get(primary)
+            org = primary_feat.get('Organism', 'Unknown') if primary_feat else 'Unknown'
+            pname = primary_feat.get('Protein_Name', 'Unknown') if primary_feat else 'Unknown'
+            header_ids = [primary] + co_ids
+            new_header = f">UniProtIDs|{';'.join(header_ids)}|{org}|{pname}"
+            raw_fasta_entries.append((new_header, seq))
+
+            # Metadata rows
+            for cid in ids_in_group:
+                feats = features_by_uid.get(cid)
+                if not feats:
+                    continue
+                feats = feats.copy()
+                feats.pop('_seq', None)
+                feats['Sequence_Group'] = primary
+                feats['CoAccessions'] = ";".join([i for i in ids_in_group if i != cid])
+                successful_entries.append(feats)
+
+        for mid in sorted(failed_id_set):
+            failed_ids.append(f"{mid} (Not found or unmapped)")
 
     # --- MODE: FASTA ---
     elif args.mode == 'fasta':
@@ -212,8 +481,12 @@ def main():
             if uid in metadata_map:
                 data = metadata_map[uid]
                 
+                # Extract signal peptide
+                signal_ends = [f['location']['end']['value'] for f in data.get('features', []) if f.get('type') == 'Signal']
+                sig_end = max(signal_ends) if signal_ends else 0
+                
                 # Fetch InterPro
-                ipr_domains = ip_client.fetch_domains(uid)
+                ipr_domains = ip_client.fetch_domains(uid, sequence=seq, signal_end=sig_end)
                 
                 features = parse_uniprot_features(data, ipr_domains)
                 
@@ -261,8 +534,13 @@ def main():
                         if results:
                             data = results[0]
                             acc = data.get('primaryAccession')
+                            seq = data.get('sequence', {}).get('value', '')
+                            # Extract signal peptide
+                            signal_ends = [f['location']['end']['value'] for f in data.get('features', []) if f.get('type') == 'Signal']
+                            sig_end = max(signal_ends) if signal_ends else 0
+                            
                             # Precision fetch
-                            ipr_domains = ip_client.fetch_domains(acc)
+                            ipr_domains = ip_client.fetch_domains(acc, sequence=seq, signal_end=sig_end)
                             
                             features = parse_uniprot_features(data, ipr_domains)
                             uid = features['UniProt_ID']
@@ -304,21 +582,25 @@ def main():
             metadata_results.extend(results)
             
         for data in metadata_results:
-             acc = data.get('primaryAccession')
-             ipr_domains = ip_client.fetch_domains(acc)
-             
-             features = parse_uniprot_features(data, ipr_domains)
-             uid = features['UniProt_ID']
-             features['Protein_Name'] = data.get('proteinDescription', {}).get('recommendedName', {}).get('fullName', {}).get('value', 'Unknown')
-             features['Organism'] = data.get('organism', {}).get('scientificName', 'Unknown')
-             ecs = [db.get('id') for db in data.get('uniProtKBCrossReferences', []) if db.get('database') == 'EC']
-             features['EC_Number'] = ";".join(ecs)
-             features['Match_Status'] = "Success"
-             successful_entries.append(features)
-             
-             seq = data.get('sequence', {}).get('value', '')
-             new_header = f">UniProtID|{uid}|{features['Organism']}|{features['Protein_Name']}"
-             raw_fasta_entries.append((new_header, seq))
+            acc = data.get('primaryAccession')
+            seq = data.get('sequence', {}).get('value', '')
+            # Extract signal peptide
+            signal_ends = [f['location']['end']['value'] for f in data.get('features', []) if f.get('type') == 'Signal']
+            sig_end = max(signal_ends) if signal_ends else 0
+            
+            ipr_domains = ip_client.fetch_domains(acc, sequence=seq, signal_end=sig_end)
+            
+            features = parse_uniprot_features(data, ipr_domains)
+            uid = features['UniProt_ID']
+            features['Protein_Name'] = data.get('proteinDescription', {}).get('recommendedName', {}).get('fullName', {}).get('value', 'Unknown')
+            features['Organism'] = data.get('organism', {}).get('scientificName', 'Unknown')
+            ecs = [db.get('id') for db in data.get('uniProtKBCrossReferences', []) if db.get('database') == 'EC']
+            features['EC_Number'] = ";".join(ecs)
+            features['Match_Status'] = "Success"
+            successful_entries.append(features)
+            
+            new_header = f">UniProtID|{uid}|{features['Organism']}|{features['Protein_Name']}"
+            raw_fasta_entries.append((new_header, seq))
              
     # --- OUTPUT ---
     if successful_entries:
@@ -326,7 +608,7 @@ def main():
         # Reorder columns
         desired_cols = ['UniProt_ID', 'InterPro_IDs', 'Protein_Name', 'Organism', 'EC_Number', 
                         'Signal_End', 'LPMO_Core_Start', 'LPMO_Core_End', 'Binding_Modules', 
-                        'H1_Verified', 'H1_AminoAcid', 'Match_Status']
+                        'H1_Verified', 'H1_AminoAcid', 'Match_Status', 'Sequence_Group', 'CoAccessions']
         
         # Ensure all cols exist
         for c in desired_cols:
@@ -368,16 +650,31 @@ def main():
         c_ncbi = len(ncbi_ids) if 'ncbi_ids' in locals() else 0
         c_jgi = sum(len(v) for v in jgi_groups.values()) if 'jgi_groups' in locals() else 0
         total_processed = c_ncbi + c_jgi
+    elif args.mode == 'characterized':
+        uni_cnt = len(seen_uni) if 'seen_uni' in locals() else 0
+        mapped_cnt = len(mapped_non_uni_ids) if 'mapped_non_uni_ids' in locals() else 0
+        total_processed = uni_cnt + mapped_cnt
     elif args.mode == 'list':
          total_processed = len(ids) if 'ids' in locals() else 0
+
+    # Derive success/failed counts more accurately for characterized mode
+    if args.mode == 'characterized':
+        success_ids_count = len(success_id_set) if 'success_id_set' in locals() else len(successful_entries)
+        rows_no_ids_count = len(rows_no_ids) if 'rows_no_ids' in locals() else 0
+        failed_ids_count = len(failed_id_set) if 'failed_id_set' in locals() else len(failed_ids)
+        scount = success_ids_count
+        fcount = failed_ids_count + rows_no_ids_count
+    else:
+        scount = len(successful_entries)
+        fcount = len(failed_ids)
 
     run_stats = {
         "run_id": timestamp,
         "input_file": args.input,
         "mode": args.mode,
         "total_processed": total_processed,
-        "success_count": len(successful_entries),
-        "failed_count": len(failed_ids),
+        "success_count": scount,
+        "failed_count": fcount,
         "duration_seconds": duration,
         "output_files": {
             "metadata": out_tsv,
