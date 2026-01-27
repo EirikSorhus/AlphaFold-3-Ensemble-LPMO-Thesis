@@ -7,3 +7,5 @@ pipe_test/logs/
 discovery_cache.json
 **/results/
 **/result/
+pipe_test/scripts/__pycache__/__init__.cpython-36.pyc
+pipe_test/scripts/__pycache__/__init__.cpython-311.pyc
