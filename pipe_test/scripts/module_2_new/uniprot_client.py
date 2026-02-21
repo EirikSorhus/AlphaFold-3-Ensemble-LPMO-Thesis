@@ -26,8 +26,17 @@ class UniProtClient:
         return {}
 
     def _save_cache(self):
-        with open(self.cache_path, 'w') as f:
-            json.dump(self.cache, f)
+        import tempfile
+        try:
+            # Write to a temp file in the same directory as the cache file,
+            # then atomically rename to avoid corruption on crash.
+            cache_dir = os.path.dirname(os.path.abspath(self.cache_path))
+            with tempfile.NamedTemporaryFile(mode='w', dir=cache_dir, delete=False, suffix='.tmp') as tmp:
+                json.dump(self.cache, tmp)
+                tmp_path = tmp.name
+            os.replace(tmp_path, self.cache_path)
+        except Exception as e:
+            logger.warning(f"Failed to save UniProt cache: {e}")
 
     def _lookup_primary_via_search(self, acc):
         """Fallback: try search endpoint to retrieve a matching entry for an accession."""

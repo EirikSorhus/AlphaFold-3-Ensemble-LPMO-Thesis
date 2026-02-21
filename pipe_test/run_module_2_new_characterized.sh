@@ -1,14 +1,14 @@
 #!/bin/bash
-#SBATCH --job-name=mod2_char_test
+#SBATCH --job-name=mod2_new_char_AA17
 #SBATCH --account=nn1003k
-#SBATCH --time=00:10:00
-#SBATCH --mem=2G
+#SBATCH --time=02:30:00
+#SBATCH --mem=1G
 #SBATCH --cpus-per-task=1
 #SBATCH --ntasks=1
-#SBATCH --output=logs/mod2_new_characterized_%j.out
-#SBATCH --error=logs/mod2_new_characterized_%j.err
+#SBATCH --output=logs/mod2_new_char_AA17_%j.out
+#SBATCH --error=logs/mod2_new_char_AA17_%j.err
 
-# Test runner for the reimplemented Module 2 (scripts/module_2_new)
+# Runner for the reimplemented Module 2 (scripts/module_2_new)
 # using the 'characterized' mode with CAZy characterized CSV format
 
 set -euo pipefail
@@ -21,7 +21,7 @@ SCRIPT_PATH="scripts/module_2_new/main_driver.py"
 
 # Input Configuration
 MODE="characterized"
-INPUT_FILE="data/test_data/characterized_AA9.csv"
+INPUT_FILE="data/test_data/characterized_AA17.csv"
 OUTPUT_DIR="data"
 
 cd "$PROJECT_DIR"
@@ -46,11 +46,12 @@ if [ ! -f "$INPUT_FILE" ]; then
     exit 1
 fi
 
-timeout 900 \
+
 python "$SCRIPT_PATH" \
   --mode "$MODE" \
   --input "$INPUT_FILE" \
-  --output_dir "$OUTPUT_DIR"
+  --output_dir "$OUTPUT_DIR" \
+  --cazy-family "AA17"                # Remeber to change this!!!
 
 EXIT_CODE=$?
 

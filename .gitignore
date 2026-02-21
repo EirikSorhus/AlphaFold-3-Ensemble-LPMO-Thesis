@@ -9,3 +9,8 @@ discovery_cache.json
 **/result/
 pipe_test/scripts/__pycache__/__init__.cpython-36.pyc
 pipe_test/scripts/__pycache__/__init__.cpython-311.pyc
+pipe_test/interpro_cache.json
+**/output/
+*.out
+*.err
+**/work/

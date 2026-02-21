@@ -33,7 +33,7 @@ echo "Working directory: $(pwd)"
 echo "Python: $(which python)"
 echo "======================================================================"
 
-timeout 900 \
+
 python scripts/module_2/main_driver.py \
   --families "$FAMILIES" \
   --project-dir "$PROJECT_DIR" \

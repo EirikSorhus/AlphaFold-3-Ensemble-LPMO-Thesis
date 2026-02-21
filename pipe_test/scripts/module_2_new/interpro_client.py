@@ -1,3 +1,4 @@
+import os
 import requests
 import time
 import logging
@@ -26,7 +27,6 @@ class InterProClient:
     
     def _load_cache(self):
         """Load InterPro cache from JSON file."""
-        import os
         if os.path.exists(self.cache_path):
             try:
                 with open(self.cache_path, 'r') as f:
@@ -37,10 +37,16 @@ class InterProClient:
         return {}
     
     def _save_cache(self):
-        """Save InterPro cache to JSON file."""
+        """Save InterPro cache to JSON file (atomic write)."""
+        import tempfile
         try:
-            with open(self.cache_path, 'w') as f:
-                json.dump(self.cache, f)
+            # Write to a temp file in the same directory as the cache file,
+            # then atomically rename to avoid corruption on crash.
+            cache_dir = os.path.dirname(os.path.abspath(self.cache_path))
+            with tempfile.NamedTemporaryFile(mode='w', dir=cache_dir, delete=False, suffix='.tmp') as tmp:
+                json.dump(self.cache, tmp)
+                tmp_path = tmp.name
+            os.replace(tmp_path, self.cache_path)
         except Exception as e:
             logger.warning(f"Could not save InterPro cache: {e}")
 
@@ -111,7 +117,7 @@ class InterProClient:
         attempt = 0
         while attempt < self.max_retries:
             try:
-                response = requests.get(url, headers=headers, params=params, timeout=10)
+                response = requests.get(url, headers=headers, params=params, timeout=30)
                 
                 if response.status_code in [404, 204]:
                     self.cache[cache_key] = None
@@ -164,21 +170,37 @@ class InterProClient:
         attempt = 0
         while attempt < self.max_retries:
             try:
-                response = requests.get(url, headers=headers, params=params, timeout=10)
+                response = requests.get(url, headers=headers, params=params, timeout=30)
                 
                 if response.status_code in [404, 204]:
+                    logger.debug(f"No {source_db} domains found for {uniprot_acc} (HTTP {response.status_code})")
                     return []
+                
+                if response.status_code >= 500:
+                    logger.warning(f"InterPro API error for {source_db}/{uniprot_acc}: HTTP {response.status_code}")
+                    attempt += 1
+                    if attempt >= self.max_retries:
+                        logger.error(f"Failed to fetch {source_db} for {uniprot_acc} after {self.max_retries} attempts: HTTP {response.status_code}")
+                        return []
+                    time.sleep(self.delay * attempt)
+                    continue
                 
                 response.raise_for_status()
                 data = response.json()
                 
-                return self._parse_response(data, uniprot_acc, source_db)
+                parsed = self._parse_response(data, uniprot_acc, source_db)
+                if parsed:
+                    logger.debug(f"Fetched {len(parsed)} domains from {source_db} for {uniprot_acc}")
+                    for p in parsed:
+                        logger.debug(f"  - {source_db}:{p['entry_id']} ({p['name']}) type={p['type']} {p['start']}-{p['end']}")
+                return parsed
 
             except (json.JSONDecodeError, requests.exceptions.RequestException) as e:
                 attempt += 1
                 if attempt >= self.max_retries:
                     logger.error(f"Failed to fetch {source_db} for {uniprot_acc}: {e}")
                     return []
+                logger.warning(f"Retry {attempt}/{self.max_retries} for {source_db}/{uniprot_acc}: {e}")
                 time.sleep(self.delay * attempt)
         
         return []
@@ -234,13 +256,16 @@ class InterProClient:
         if not domains:
             return []
         
+        logger.debug(f"Deduplicating {len(domains)} domains:")
+        for d in domains:
+            prio = self.SOURCE_PRIORITY.get(d["source"], 99)
+            logger.debug(f"  - {d['source']}:{d['entry_id']} prio={prio} {d['start']}-{d['end']} '{d['name']}'")
+        
         # Sort ONLY by priority (Pfam=1, CDD=2, SMART=3, etc.)
         domains_sorted = sorted(
             domains,
             key=lambda d: self.SOURCE_PRIORITY.get(d["source"], 99)
         )
-        
-        logger.debug(f"Dedup: Sorted by priority: {[(d['source'], d['model'], d['start'], d['end']) for d in domains_sorted]}")
         
         kept = []
         for domain in domains_sorted:
@@ -250,14 +275,15 @@ class InterProClient:
                 if self._domains_overlap(domain, kept_domain):
                     # Since we sorted by priority, current domain has equal or lower priority
                     # Skip it (keep the higher-priority one already in kept)
-                    logger.debug(f"Dedup: Dropping {domain['source']}:{domain['model']} ({domain['start']}-{domain['end']}) - overlaps with kept {kept_domain['source']}:{kept_domain['model']}")
+                    logger.debug(f"  Dropping {domain['source']}:{domain['entry_id']} (overlaps with {kept_domain['source']}:{kept_domain['entry_id']})")
                     overlaps_with_kept = True
                     break
             
             if not overlaps_with_kept:
-                logger.debug(f"Dedup: Keeping {domain['source']}:{domain['model']} ({domain['start']}-{domain['end']})")
+                logger.debug(f"  Kept {domain['source']}:{domain['entry_id']}")
                 kept.append(domain)
         
+        logger.info(f"After dedup: {len(kept)} domains kept from {len(domains)} total")
         return kept
 
     def _domains_overlap(self, d1, d2, threshold=0.5):
@@ -277,20 +303,32 @@ class InterProClient:
         overlap_len = overlap_end - overlap_start
         min_len = min(end1 - start1, end2 - start2)
         
+        # Prevent division by zero if domain has zero length
+        if min_len == 0:
+            return False
+        
         return (overlap_len / min_len) > threshold
 
     def _adjust_lpmo_starts(self, domains, sequence, signal_end):
         """
         Adjust LPMO domain starts to first Histidine after signal peptide.
         Only modifies domains identified as LPMO-related.
+        Preserves original start/end for provenance tracking.
+        Uses is_lpmo_domain for robust detection.
         """
-        lpmo_keywords = ["lpmo", "aa9", "aa10", "aa11", "aa13", "aa14", "aa15", 
-                         "aa16", "aa17", "polysaccharide monooxygenase", 
-                         "cbm33", "gh61"]
+        # Import here to avoid circular dependency.
+        # Ensure the module directory is on sys.path so this works
+        # regardless of the working directory (e.g. when run via sbatch).
+        import sys
+        _mod_dir = os.path.dirname(os.path.abspath(__file__))
+        if _mod_dir not in sys.path:
+            sys.path.insert(0, _mod_dir)
+        from feature_parser import is_lpmo_domain
         
         adjusted = []
         for domain in domains:
-            is_lpmo = any(kw in domain["name"].lower() for kw in lpmo_keywords)
+            # Use robust LPMO detection
+            is_lpmo = is_lpmo_domain(domain)
             
             if is_lpmo:
                 domain_start = domain["start"] - 1  # Convert to 0-indexed
@@ -300,15 +338,19 @@ class InterProClient:
                     adjusted.append(domain)
                     continue
                 
-                # Search backward for first H (not before signal_end)
+                # Search FORWARD from signal_end to find FIRST H after signal peptide
+                # This ensures we find H1 (first histidine of mature protein), not a random H before domain
                 first_h_pos = None
-                for pos in range(domain_start - 1, signal_end, -1):
+                for pos in range(signal_end, domain_start):
                     if pos < len(sequence) and sequence[pos].upper() == 'H':
                         first_h_pos = pos
-                        break
+                        break  # Found first H, stop searching
                 
                 if first_h_pos is not None:
                     domain_copy = domain.copy()
+                    # Preserve original positions for provenance tracking
+                    domain_copy["original_start"] = domain["start"]
+                    domain_copy["original_end"] = domain["end"]
                     domain_copy["start"] = first_h_pos + 1  # Convert back to 1-indexed
                     domain_copy["adjusted"] = True
                     adjusted.append(domain_copy)

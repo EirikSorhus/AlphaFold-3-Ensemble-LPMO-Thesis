@@ -1,0 +1,104 @@
+# Structure Pipeline Configuration
+# Multi-model structure prediction for LPMO proteins
+# 
+# This config is pre-filled with paths from your existing scripts on Olivia/Betzy
+# Adjust paths as needed for your environment
+
+paths:
+  # AF3 paths (from af3_msa.sh and af3_inf.sh)
+  af3_dir: /cluster/projects/nn1003k/prog/af3
+  af3_cpu_image: /cluster/projects/nn1003k/prog/af3/af3_cpu_amd64.sif
+  af3_gpu_image: /cluster/projects/nn1003k/prog/af3/af3_gpu_arm64.sif
+  af3_weights: /cluster/projects/nn1003k/prog/af3/weights
+  af3_databases: /cluster/work/shared/alphafold_uncompressed.squashfs
+
+  # Boltz-2 paths (from run_boltz.sh)
+  boltz_image: /cluster/projects/nn1003k/prog/boltz/boltz2_alt.sif
+  boltz_weights: /cluster/projects/nn1003k/prog/boltz/weights
+
+  # RF3/Foundry paths (from rf3_test.sh)
+  rf3_foundry_root: /cluster/projects/nn1003k/prog/foundry
+  rf3_image: /cluster/projects/nn1003k/prog/foundry/foundry.sif
+  rf3_checkpoint: /cluster/projects/nn1003k/prog/foundry/checkpoints/rf3_foundry_01_24_latest_remapped.ckpt
+
+# SLURM settings for Olivia/Betzy
+slurm:
+  account: nn1003k
+  partition_cpu: normal
+  partition_gpu: accel
+  mem_per_gpu: 20G          # Based on your testing (11-15GB actual usage)
+  # Per-model memory overrides (uncomment to customise):
+  # mem_per_gpu_af3: 32G
+  # mem_per_gpu_boltz: 20G
+  # mem_per_gpu_rf3: 20G
+  time_msa: "02:00:00"      # AF3 MSA generation
+  time_inference: "01:00:00" # GPU inference jobs
+  gpus: 1
+  cpus_msa: 8
+  mem_per_cpu_msa: 10G
+  tmp_base: /cluster/work/projects/nn1003k/eirik/tmp
+
+# AF3 settings
+# CLI overrides: --af3-seeds, --af3-diffusion-samples
+af3:
+  seeds: 10                    # Number of model seeds
+  num_diffusion_samples: 5     # Diffusion samples per seed
+
+# Boltz-2 settings
+# CLI overrides: --boltz-diffusion-samples, --boltz-recycling-steps
+boltz:
+  seeds: 5                     # Unused (for compatibility)
+  diffusion_samples: 5         # --diffusion_samples
+  recycling_steps: 10          # --recycling_steps
+  use_affinity: true           # Binding affinity prediction (via YAML properties field)
+  use_msa_server: false        # Use pre-computed MSA (not --use_msa_server)
+
+# RF3 settings
+# CLI overrides: --rf3-seed, --rf3-diffusion-batch-size, --rf3-n-recycles, --rf3-num-steps
+rf3:
+  seed: 42                     # Model seed
+  diffusion_batch_size: 5      # Number of structures per run
+  n_recycles: 10               # Recycling iterations
+  num_steps: 50                # Diffusion steps (200 standard, 50 fast)
+  early_stopping_plddt_threshold: 0.5  # Skip low-confidence predictions
+  skip_existing: false         # Don't recompute existing outputs
+
+# Input file locations
+# All inputs are in the input/ directory under the project root
+inputs:
+  # FASTA file with proteins (pipe-separated format: >UniProtIDs|ID|Organism|Annotation)
+  # Place your .fasta files in: input/fasta/
+  proteins_fasta: input/fasta/proteins.fasta
+
+  # Ligand CIF files organized by category
+  # Place your CIF files in: input/ligand/{category}/*.cif
+  # Categories: cellulose, amylose, chitin, or any custom category
+  ligands_dir: input/ligand
+
+  # MSA files (a3m format)
+  # Place your .a3m files in: input/msa/
+  # Named as: UniProtIDs_{protein_id}_....a3m
+  msa_dir: input/msa
+
+  # Squashfs files containing pre-computed a3m MSAs (optional)
+  # Place your .sqsh files in: input/msa/
+  msa_sqsh_files: []
+
+  # Mount point for squashfs MSAs inside container/job
+  msa_sqsh_mount_point: /msa
+
+# Output locations
+outputs:
+  work_dir: work                 # Job outputs and intermediate files
+  manifest_dir: manifest         # Generated manifest CSVs
+  results_dir: results           # Aggregated results
+
+# Models to run (can be overridden with --model)
+models_enabled:
+  - af3
+  - boltz
+  - rf3
+
+# Global settings
+dry_run: false
+verbose: false

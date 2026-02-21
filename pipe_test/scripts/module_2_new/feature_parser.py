@@ -41,6 +41,47 @@ LPMO_FAMILIES = [
     r"Fusolin", r"Spindle" # AA15 aliases
 ]
 
+def is_lpmo_domain(domain):
+    """
+    Robust LPMO detection by checking multiple fields and patterns.
+    Matches against: name, entry_id, model, integrated_ipr, source.
+    Handles variations like "mono-oxygenase", "monooxygenase", "mono oxygenase".
+    """
+    lpmo_patterns = [
+        r"AA\d+",  # AA9, AA10, AA11, etc.
+        r"LPMO",
+        r"lytic\s+polysaccharide",  # "lytic polysaccharide" 
+        r"mono[-\s]?oxygenase",  # "monooxygenase", "mono-oxygenase", "mono oxygenase"
+        r"cellulose.{0,20}degrad",  # "cellulose-degrading", "cellulose degrading"
+        r"CBM33",
+        r"GH61",
+        # Pfam/CDD/InterPro specific IDs
+        r"PF03067", r"PF03468", r"PF14497",  # Pfam LPMO families
+        r"IPR004302", r"IPR005123", r"IPR027003", r"IPR026998",
+        r"IPR031548", r"IPR031154", r"IPR043232", r"IPR044679",
+        r"cd21175", r"cd21177", r"cd21183",  # CDD LPMO domains
+    ]
+    
+    # Check all relevant fields
+    fields_to_check = [
+        domain.get("name", ""),
+        domain.get("entry_id", ""),
+        domain.get("model", ""),
+        domain.get("integrated_ipr", ""),
+        domain.get("source", "")
+    ]
+    
+    for field in fields_to_check:
+        if not field:
+            continue
+        field_str = str(field).lower()
+        for pattern in lpmo_patterns:
+            if re.search(pattern, field_str, re.IGNORECASE):
+                logger.debug(f"LPMO match: field='{field}' pattern='{pattern}'")
+                return True
+    
+    return False
+
 def parse_uniprot_features(json_entry, interpro_domains=None):
     """
     Parser UniProt JSON-data med forbedret domenegrenser fra InterPro domain-type entries.
@@ -61,7 +102,19 @@ def parse_uniprot_features(json_entry, interpro_domains=None):
     ]
     sig_end = max(signal_ends) if signal_ends else 0
     
-    # --- 2. H1-VALIDERING (LPMO-spesifikk) ---
+    # --- 2. TRANSMEMBRANE REGIONS ---
+    transmembrane_regions = []
+    for f in features:
+        if f.get('type') == 'Transmembrane':
+            start = f['location']['start']['value']
+            end = f['location']['end']['value']
+            transmembrane_regions.append({
+                'start': start,
+                'end': end,
+                'description': f.get('description', 'Transmembrane')
+            })
+    
+    # --- 3. H1-VALIDERING (LPMO-spesifikk) ---
     h1_verified = False
     found_aa = None
     if sig_end > 0 and len(sequence) > sig_end:
@@ -69,28 +122,34 @@ def parse_uniprot_features(json_entry, interpro_domains=None):
         if found_aa.upper() == 'H':
             h1_verified = True
             
-    # --- 3. DOMENE OG CBM MAPPING (InterPro Priority) ---
+    # --- 4. DOMENE OG CBM MAPPING (InterPro Priority) ---
     core_data = {"type": "Unknown", "start": None, "end": None}
+    domain_provenance = "None"
     found_cbms = []
     
     # A. Use InterPro domains if available (already deduplicated and H-adjusted)
     if interpro_domains:
+        logger.debug(f"Processing {len(interpro_domains)} InterPro domains for {acc}")
         # Separate LPMO core and CBM domains
         lpmo_candidates = []
         cbm_candidates = []
         
         for domain in interpro_domains:
             domain_name = domain.get("name", "")
+            logger.debug(f"  Checking domain: {domain_name}")
             
             # Check if CBM
             is_cbm = any(re.search(p, domain_name, re.I) for p in CBM_PATTERNS)
             if is_cbm:
+                logger.debug(f"    -> Identified as CBM")
                 cbm_candidates.append(domain)
                 continue
             
-            # Check if LPMO
-            is_lpmo = any(re.search(p, domain_name, re.I) for p in LPMO_FAMILIES)
+            # Check if LPMO using robust detection function
+            is_lpmo = is_lpmo_domain(domain)
+            
             if is_lpmo:
+                logger.debug(f"    -> Identified as LPMO (via is_lpmo_domain)")
                 lpmo_candidates.append(domain)
         
         # Pick LPMO core: prefer one that starts closest to signal end
@@ -104,6 +163,14 @@ def parse_uniprot_features(json_entry, interpro_domains=None):
                 "start": best_lpmo["start"],
                 "end": best_lpmo["end"]
             }
+            
+            # Build domain_provenance with source, model, and original positions if adjusted
+            prov_parts = [source_label]
+            if best_lpmo.get("adjusted") and "original_start" in best_lpmo:
+                orig_start = best_lpmo.get("original_start")
+                orig_end = best_lpmo.get("original_end")
+                prov_parts.append(f"original:{orig_start}-{orig_end}")
+            domain_provenance = "|".join(prov_parts)
         
         # Collect CBMs
         for cbm in cbm_candidates:
@@ -122,13 +189,17 @@ def parse_uniprot_features(json_entry, interpro_domains=None):
             if any(re.search(p, desc, re.I) for p in CBM_PATTERNS):
                 found_cbms.append(f"{desc} ({start}-{end})")
                 
-            # LPMO Core (UniProt internal)
-            is_lpmo = any(re.search(p, desc, re.I) for p in LPMO_FAMILIES)
+            # LPMO Core (UniProt internal) - use robust detection
+            # Create a temporary domain object for compatibility
+            temp_domain = {"name": desc, "entry_id": "", "model": "", "integrated_ipr": "", "source": "uniprot"}
+            is_lpmo = is_lpmo_domain(temp_domain)
             if is_lpmo:
                 current_is_better = core_data["start"] is not None and abs(core_data["start"] - (sig_end + 1)) <= 1
                 new_is_n_term = abs(start - (sig_end + 1)) <= 1
-                if not current_is_better or new_is_n_term:
+                # Only override if current is NOT N-terminal AND new IS N-terminal
+                if not current_is_better and new_is_n_term:
                     core_data = {"type": desc, "start": start, "end": end}
+                    domain_provenance = "UniProt:internal"
 
     # C. Fallback: Implicit domain if H1 verified but no domain found
     if core_data["start"] is None and h1_verified:
@@ -136,6 +207,7 @@ def parse_uniprot_features(json_entry, interpro_domains=None):
         core_data["type"] = "Inferred (H1)"
         if core_data["end"] is None:
             core_data["end"] = len(sequence)
+        domain_provenance = "Inferred:H1_verification"
 
     # --- 4. RE-CHECK H1 FOR CASES WHERE sig_end=0 BUT LPMO DOMAIN FOUND ---
     if sig_end == 0 and core_data["start"] is not None and not h1_verified:
@@ -163,11 +235,13 @@ def parse_uniprot_features(json_entry, interpro_domains=None):
     return {
         "UniProt_ID": acc,
         "Signal_End": int(sig_end),
+        "Transmembrane_Regions": "; ".join([f"{tm['start']}-{tm['end']}" for tm in transmembrane_regions]) if transmembrane_regions else "None",
         "H1_Verified": h1_verified,
         "H1_AminoAcid": found_aa,
         "LPMO_Core_Type": core_data["type"],
         "LPMO_Core_Start": int(core_data["start"]) if core_data["start"] is not None else None,
         "LPMO_Core_End": int(core_data["end"]) if core_data["end"] is not None else None,
+        "Domain_Provenance": domain_provenance,
         "Binding_Modules": "; ".join(found_cbms) if found_cbms else "None",
         "InterPro_IDs": "; ".join(unique_refs) if unique_refs else "None"
     }

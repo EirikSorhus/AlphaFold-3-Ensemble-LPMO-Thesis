@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=mod2_new_test
 #SBATCH --account=nn1003k
-#SBATCH --time=00:30:00
+#SBATCH --time=01:00:00
 #SBATCH --mem=2G
 #SBATCH --cpus-per-task=1
 #SBATCH --ntasks=1
@@ -46,13 +46,14 @@ if [ ! -f "$INPUT_FILE" ]; then
     exit 1
 fi
 
-timeout 900 \
+
 python "$SCRIPT_PATH" \
   --mode "$MODE" \
   --input "$INPUT_FILE" \
   --output_dir "$PROJECT_DIR/data" \
   --allow-sequence-search \
-  --max-sequence-searches 1                 # This should be low. I think under 50
+  --max-sequence-searches 1 \ # This should be low. I think under 50
+  --cazy-family "test"
 
 EXIT_CODE=$?
 

@@ -1,0 +1,9 @@
+#!/bin/bash
+# Wrapper script to run structure-pipeline CLI
+# Add to PATH or call directly
+
+# Use the containerized environment
+export PATH="/cluster/work/projects/nn1003k/eirik/conda/structure_pipeline_env/bin:$PATH"
+
+# Run the CLI as a module (avoids pip install path issues)
+python -m structure_pipeline.cli "$@"

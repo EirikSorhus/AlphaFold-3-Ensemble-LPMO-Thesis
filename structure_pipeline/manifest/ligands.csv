@@ -1,0 +1,4 @@
+ligand_id,category,ccd_code,filename,cif_path,cif_sha256
+L001,amylose,STA6,STA6.cif,/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/input/ligand/amylose/STA6.cif,13d9306e8905bc5bdddf747ebf6654fb7929ea19fde869987883b85964c68bde
+L002,cellulose,CEL6,CEL6.cif,/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/input/ligand/cellulose/CEL6.cif,797f03222195f2c16ae0df703b414879e425c8459d9ac6f27b71f1827695ef33
+L003,chitin,NAG6,NAG6.cif,/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/input/ligand/chitin/NAG6.cif,2b257493ab567a4993330a4b5162dd260819e7ad9e1886198d307cd2ff93a16f

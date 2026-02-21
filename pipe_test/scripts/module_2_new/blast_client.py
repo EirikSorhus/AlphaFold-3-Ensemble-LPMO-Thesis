@@ -40,7 +40,10 @@ def run_blast_search(sequence):
         
         # 2. Wait for results
         logger.info(f"   [BLAST] Job submitted. RID: {rid}. Waiting...")
-        while True:
+        max_polls = 60  # Max 60 polls = 10 minutes total wait time
+        poll_count = 0
+        while poll_count < max_polls:
+            poll_count += 1
             time.sleep(10)  # Polling interval
             check_params = {"CMD": "Get", "FORMAT_OBJECT": "SearchInfo", "RID": rid}
             try:
@@ -52,9 +55,16 @@ def run_blast_search(sequence):
                     return None
                 elif "Status=READY" in check_r.text:
                     break
+                else:
+                    logger.warning(f"   [BLAST] Unexpected status in response. Continuing...")
+                    continue
             except requests.exceptions.Timeout:
                 # If polling times out, just retry
                 continue
+        
+        if poll_count >= max_polls:
+            logger.error(f"   [BLAST] Timeout: Job did not complete after {max_polls} polls (10 min)")
+            return None
         
         # 3. Retrieve and parse results
         result_params = {"CMD": "Get", "FORMAT_TYPE": "XML", "RID": rid}

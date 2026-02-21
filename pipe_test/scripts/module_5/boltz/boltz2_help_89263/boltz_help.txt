@@ -1,0 +1,9 @@
+Usage: boltz [OPTIONS] COMMAND [ARGS]...
+
+  Boltz.
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  predict  Run predictions with Boltz.

@@ -50,8 +50,21 @@ def main():
     parser.add_argument("--allow-ncbi-fallback", action="store_true", help="Enable NCBI fallback (not currently active)")
     parser.add_argument("--allow-sequence-search", action="store_true", help="Allow BLAST sequence search for unknown FASTA headers")
     parser.add_argument("--max-sequence-searches", type=int, default=20, help="Maximum number of sequences to search via BLAST (default: 20)")
+    parser.add_argument(
+        "--cazy-family",
+        default=None,
+        help=(
+            "CAZy family name written to the CAZy_family metadata column (e.g. AA9). "
+            "Required for modes fasta, list, and characterized. "
+            "Optional for cazy mode: if omitted, the family name is auto-detected from --input."
+        ),
+    )
     
     args = parser.parse_args()
+
+    # --cazy-family is required for all modes except cazy (where it is auto-detected)
+    if args.mode != 'cazy' and args.cazy_family is None:
+        parser.error(f"--cazy-family is required when --mode is '{args.mode}'")
     
     # Setup Output Directories with Metadata
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -69,8 +82,11 @@ def main():
     out_failed = os.path.join(run_dir, f"failed_ids_{timestamp}.txt")
     out_run_json = os.path.join(run_dir, f"run_metadata_{timestamp}.json")
 
-    client = UniProtClient()
-    ip_client = InterProClient() # New InterPro client instance
+    # Use absolute cache paths resolved relative to this script file,
+    # so cache is reused regardless of the working directory (e.g. sbatch vs interactive).
+    _script_dir = os.path.dirname(os.path.abspath(__file__))
+    client = UniProtClient(cache_path=os.path.join(_script_dir, "discovery_cache.json"))
+    ip_client = InterProClient(cache_path=os.path.join(_script_dir, "interpro_cache.json"))
 
     successful_entries = []
     failed_ids = []
@@ -81,114 +97,115 @@ def main():
     
     # --- MODE: CAZy ---
     if args.mode == 'cazy':
-        # Check if input is a file or a family name
-        if not os.path.exists(args.input):
-            # Regex for CAZy families (e.g., AA9, GH10, etc., optionally with .txt)
-            family_match = re.match(r'^((AA|GH|GT|PL|CE|CBM)\d+)(\.txt)?$', args.input, re.I)
-            
-            if family_match:
-                family = family_match.group(1).upper()
-                # Create storage directory: data/cazy_raw
-                raw_dir = os.path.join(args.output_dir, "cazy_raw")
-                os.makedirs(raw_dir, exist_ok=True)
-                
-                target_file = os.path.join(raw_dir, f"{family}.txt")
-                
-                # Check if file already exists
-                if os.path.exists(target_file):
-                    logger.info(f"Found existing CAZy file for {family} at {target_file}")
-                else:
-                    url = f"{CAZY_BASE_URL}/IMG/cazy_data/{family}.txt"
-                    logger.info(f"Downloading CAZy data for {family} from {url}...")
-                    
-                    try:
-                        resp = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=REQUEST_TIMEOUT)
-                        resp.raise_for_status()
-                        
-                        # Validate that we didn't just DL an error page or empty file
-                        if not resp.text.strip():
-                            logger.error(f"Downloaded file for {family} is empty.")
-                            sys.exit(1)
-                            
-                        with open(target_file, 'w', encoding='utf-8') as f:
-                            f.write(resp.text)
-                        logger.info(f"Saved to {target_file}")
-                        
-                    except Exception as e:
-                        logger.error(f"Failed to download CAZy data: {e}")
-                        sys.exit(1)
-                
-                # Update args.input to point to the local file
-                args.input = target_file
+        # Resolve one or more families from --input (comma-separated family names or a single file path)
+        input_tokens = [t.strip() for t in args.input.split(',')]
+        families_to_process = []  # list of (local_file_path, family_name)
+
+        for token in input_tokens:
+            if os.path.exists(token):
+                # Existing file: derive family name from filename
+                fname = os.path.splitext(os.path.basename(token))[0].upper()
+                families_to_process.append((token, fname))
             else:
-                 logger.error(f"Input file not found and input '{args.input}' is not a valid CAZy family ID.")
-                 sys.exit(1)
+                family_match = re.match(r'^((AA|GH|GT|PL|CE|CBM)\d+)(\.txt)?$', token, re.I)
+                if family_match:
+                    family = family_match.group(1).upper()
+                    raw_dir = os.path.join(args.output_dir, "cazy_raw")
+                    os.makedirs(raw_dir, exist_ok=True)
+                    target_file = os.path.join(raw_dir, f"{family}.txt")
+                    if os.path.exists(target_file):
+                        logger.info(f"Found existing CAZy file for {family} at {target_file}")
+                    else:
+                        url = f"{CAZY_BASE_URL}/IMG/cazy_data/{family}.txt"
+                        logger.info(f"Downloading CAZy data for {family} from {url}...")
+                        try:
+                            resp = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=REQUEST_TIMEOUT)
+                            resp.raise_for_status()
+                            if not resp.text.strip():
+                                logger.error(f"Downloaded file for {family} is empty.")
+                                sys.exit(1)
+                            with open(target_file, 'w', encoding='utf-8') as f:
+                                f.write(resp.text)
+                            logger.info(f"Saved to {target_file}")
+                        except Exception as e:
+                            logger.error(f"Failed to download CAZy data for {family}: {e}")
+                            sys.exit(1)
+                    families_to_process.append((target_file, family))
+                else:
+                    logger.error(f"Input '{token}' is not a valid file path or CAZy family ID.")
+                    sys.exit(1)
 
-        logger.info(f"Reading CAZy input file: {args.input}")
-        cazy_handler = CAZyHandler()
-        ncbi_ids, jgi_groups = cazy_handler.process_cazy_file(args.input)
-        
-        logger.info(f"Parsers found: {len(ncbi_ids)} NCBI IDs and {len(jgi_groups)} JGI organism groups.")
-        
-        # 1. Process NCBI IDs (Batch fetch)
-        if ncbi_ids:
-            chunk_size = client.batch_size
-            for i in tqdm(range(0, len(ncbi_ids), chunk_size), desc="Fetching NCBI-linked IDs"):
-                batch = ncbi_ids[i:i+chunk_size]
-                results = client.fetch_batch(batch)
-                
-                for data in results:
-                    acc = data.get('primaryAccession')
-                    seq = data.get('sequence', {}).get('value', '')
-                    # Extract signal peptide end from UniProt features
-                    signal_ends = [f['location']['end']['value'] for f in data.get('features', []) if f.get('type') == 'Signal']
-                    sig_end = max(signal_ends) if signal_ends else 0
-                    # Fetch InterPro domains with sequence and signal_end for H-adjustment
-                    ipr_domains = ip_client.fetch_domains(acc, sequence=seq, signal_end=sig_end)
+        for cazy_file, current_family in families_to_process:
+            # --cazy-family overrides auto-detected family label for all rows if provided
+            cazy_family_label = args.cazy_family if args.cazy_family else current_family
 
-                    features = parse_uniprot_features(data, ipr_domains)
-                    uid = features['UniProt_ID']
-                    features['Protein_Name'] = data.get('proteinDescription', {}).get('recommendedName', {}).get('fullName', {}).get('value', 'Unknown')
-                    features['Organism'] = data.get('organism', {}).get('scientificName', 'Unknown')
-                    ecs = [db.get('id') for db in data.get('uniProtKBCrossReferences', []) if db.get('database') == 'EC']
-                    features['EC_Number'] = ";".join(ecs)
-                    features['Match_Status'] = "Success_CAZy_NCBI"
-                    successful_entries.append(features)
-                    
-                    seq = data.get('sequence', {}).get('value', '')
-                    new_header = f">UniProtID|{uid}|{features['Organism']}|{features['Protein_Name']}"
-                    raw_fasta_entries.append((new_header, seq))
-                    
-        # 2. Process JGI Groups (Query)
-        if jgi_groups:
-            queries = cazy_handler.generate_jgi_queries(jgi_groups)
-            logger.info(f"Generated {len(queries)} grouped queries for JGI entries.")
-            
-            for query in tqdm(queries, desc="Searching JGI Groups"):
-                results = client.search_by_query(query)
-                
-                if not results:
-                    failed_ids.append(f"JGI_Query_Failed: {query}")
-                
-                for data in results:
-                    acc = data.get('primaryAccession')
-                    seq = data.get('sequence', {}).get('value', '')
-                    # Extract signal peptide end
-                    signal_ends = [f['location']['end']['value'] for f in data.get('features', []) if f.get('type') == 'Signal']
-                    sig_end = max(signal_ends) if signal_ends else 0
-                    ipr_domains = ip_client.fetch_domains(acc, sequence=seq, signal_end=sig_end)
-                    
-                    features = parse_uniprot_features(data, ipr_domains)
-                    uid = features['UniProt_ID']
-                    features['Protein_Name'] = data.get('proteinDescription', {}).get('recommendedName', {}).get('fullName', {}).get('value', 'Unknown')
-                    features['Organism'] = data.get('organism', {}).get('scientificName', 'Unknown')
-                    ecs = [db.get('id') for db in data.get('uniProtKBCrossReferences', []) if db.get('database') == 'EC']
-                    features['EC_Number'] = ";".join(ecs)
-                    features['Match_Status'] = "Success_CAZy_JGI"
-                    successful_entries.append(features)
-                    
-                    new_header = f">UniProtID|{uid}|{features['Organism']}|{features['Protein_Name']}"
-                    raw_fasta_entries.append((new_header, seq))
+            logger.info(f"Reading CAZy input file: {cazy_file} (CAZy_family label: {cazy_family_label})")
+            cazy_handler = CAZyHandler()
+            ncbi_ids, jgi_groups = cazy_handler.process_cazy_file(cazy_file)
+
+            logger.info(f"Parsers found: {len(ncbi_ids)} NCBI IDs and {len(jgi_groups)} JGI organism groups.")
+
+            # 1. Process NCBI IDs (Batch fetch)
+            if ncbi_ids:
+                chunk_size = client.batch_size
+                for i in tqdm(range(0, len(ncbi_ids), chunk_size), desc=f"Fetching NCBI-linked IDs ({current_family})"):
+                    batch = ncbi_ids[i:i+chunk_size]
+                    results = client.fetch_batch(batch)
+
+                    for data in results:
+                        acc = data.get('primaryAccession')
+                        seq = data.get('sequence', {}).get('value', '')
+                        # Extract signal peptide end from UniProt features
+                        signal_ends = [f['location']['end']['value'] for f in data.get('features', []) if f.get('type') == 'Signal']
+                        sig_end = max(signal_ends) if signal_ends else 0
+                        # Fetch InterPro domains with sequence and signal_end for H-adjustment
+                        ipr_domains = ip_client.fetch_domains(acc, sequence=seq, signal_end=sig_end)
+
+                        features = parse_uniprot_features(data, ipr_domains)
+                        uid = features['UniProt_ID']
+                        features['Protein_Name'] = data.get('proteinDescription', {}).get('recommendedName', {}).get('fullName', {}).get('value', 'Unknown')
+                        features['Organism'] = data.get('organism', {}).get('scientificName', 'Unknown')
+                        ecs = [db.get('id') for db in data.get('uniProtKBCrossReferences', []) if db.get('database') == 'EC']
+                        features['EC_Number'] = ";".join(ecs)
+                        features['Match_Status'] = "Success_CAZy_NCBI"
+                        features['CAZy_family'] = cazy_family_label
+                        successful_entries.append(features)
+
+                        seq = data.get('sequence', {}).get('value', '')
+                        new_header = f">UniProtID|{uid}|{features['Organism']}|{features['Protein_Name']}"
+                        raw_fasta_entries.append((new_header, seq))
+
+            # 2. Process JGI Groups (Query)
+            if jgi_groups:
+                queries = cazy_handler.generate_jgi_queries(jgi_groups)
+                logger.info(f"Generated {len(queries)} grouped queries for JGI entries.")
+
+                for query in tqdm(queries, desc=f"Searching JGI Groups ({current_family})"):
+                    results = client.search_by_query(query)
+
+                    if not results:
+                        failed_ids.append(f"JGI_Query_Failed: {query}")
+
+                    for data in results:
+                        acc = data.get('primaryAccession')
+                        seq = data.get('sequence', {}).get('value', '')
+                        # Extract signal peptide end
+                        signal_ends = [f['location']['end']['value'] for f in data.get('features', []) if f.get('type') == 'Signal']
+                        sig_end = max(signal_ends) if signal_ends else 0
+                        ipr_domains = ip_client.fetch_domains(acc, sequence=seq, signal_end=sig_end)
+
+                        features = parse_uniprot_features(data, ipr_domains)
+                        uid = features['UniProt_ID']
+                        features['Protein_Name'] = data.get('proteinDescription', {}).get('recommendedName', {}).get('fullName', {}).get('value', 'Unknown')
+                        features['Organism'] = data.get('organism', {}).get('scientificName', 'Unknown')
+                        ecs = [db.get('id') for db in data.get('uniProtKBCrossReferences', []) if db.get('database') == 'EC']
+                        features['EC_Number'] = ";".join(ecs)
+                        features['Match_Status'] = "Success_CAZy_JGI"
+                        features['CAZy_family'] = cazy_family_label
+                        successful_entries.append(features)
+
+                        new_header = f">UniProtID|{uid}|{features['Organism']}|{features['Protein_Name']}"
+                        raw_fasta_entries.append((new_header, seq))
 
     # --- MODE: CHARACTERIZED CSV ---
     elif args.mode == 'characterized':
@@ -220,6 +237,7 @@ def main():
 
         features_by_uid = {}
         seq_groups = {}  # seq string -> list of ids in order
+        id_to_sequence = {}  # Map UniProt ID -> amino acid sequence string
         failed_id_set = set()
         success_id_set = set()
 
@@ -256,12 +274,13 @@ def main():
                     ecs = [db.get('id') for db in data.get('uniProtKBCrossReferences', []) if db.get('database') == 'EC']
                     features['EC_Number'] = ";".join(ecs)
                     features['Match_Status'] = "Success_Characterized"
-                    features_by_uid[uid] = {**features, "_seq": seq}
+                    features_by_uid[uid] = {**features, "_seq": seq, "CAZy_family": args.cazy_family}
                     success_id_set.add(uid)
 
                     if seq not in seq_groups:
                         seq_groups[seq] = []
                     seq_groups[seq].append(uid)
+                    id_to_sequence[uid] = seq
 
         # Helper: map GenBank/RefSeq IDs to UniProt via crossref query
         def map_non_uniprot_to_uniprot(id_token):
@@ -319,10 +338,16 @@ def main():
         for uid, feat_data in list(features_by_uid.items()):
             if feat_data.get('Signal_End') == 0:
                 ipr_signal = ip_client.fetch_signal_peptide(uid)
-                if ipr_signal and ipr_signal.get('end'):
+                if ipr_signal and ipr_signal.get('end') is not None:
                     # Re-parse features with corrected signal_end
                     seq = feat_data.get('_seq', '')
                     sig_end_corrected = ipr_signal['end']
+                    
+                    # Validate sig_end_corrected is within sequence bounds
+                    if not isinstance(sig_end_corrected, int) or sig_end_corrected < 0:
+                        logger.warning(f"Invalid signal_end from InterPro for {uid}: {sig_end_corrected}")
+                        continue
+                    
                     # Fetch domains again with correct signal_end
                     try:
                         ipr_domains = ip_client.fetch_domains(uid, sequence=seq, signal_end=sig_end_corrected)
@@ -335,8 +360,8 @@ def main():
                     if len(seq) > sig_end_corrected:
                         found_aa = seq[sig_end_corrected]
                         feat_data['H1_AminoAcid'] = found_aa
-                        if found_aa.upper() == 'H':
-                            feat_data['H1_Verified'] = True
+                        # ALWAYS update H1_Verified to match the actual amino acid (fixes consistency bug)
+                        feat_data['H1_Verified'] = (found_aa.upper() == 'H')
                     logger.info(f"Applied InterPro SignalP fallback for {uid}: sig_end={sig_end_corrected}")
 
         mapped_non_uni_ids = set()
@@ -369,12 +394,13 @@ def main():
                     ecs = [db.get('id') for db in mapped.get('uniProtKBCrossReferences', []) if db.get('database') == 'EC']
                     feats['EC_Number'] = ";".join(ecs)
                     feats['Match_Status'] = "Success_Characterized_Mapped"
-                    features_by_uid[uid] = {**feats, "_seq": seq}
+                    features_by_uid[uid] = {**feats, "_seq": seq, "CAZy_family": args.cazy_family}
                     success_id_set.add(uid)
                     mapped_non_uni_ids.add(nid)
                     mapped_any = True
                     if seq not in seq_groups:
                         seq_groups[seq] = []
+                    id_to_sequence[uid] = seq
                     seq_groups[seq].append(uid)
                 else:
                     if args.allow_ncbi_fallback:
@@ -397,6 +423,7 @@ def main():
                                 'Match_Status': 'NCBI_Fallback',
                                 'Sequence_Group': nid,
                                 'CoAccessions': '',
+                                'CAZy_family': args.cazy_family,
                             }
                             successful_entries.append(md)
                             success_id_set.add(nid)
@@ -441,6 +468,31 @@ def main():
 
         for mid in sorted(failed_id_set):
             failed_ids.append(f"{mid} (Not found or unmapped)")
+
+        # Detect CSV rows that split into multiple sequences
+        row_splits = []  # List of {"line_no": int, "uniprot_ids": list, "sequences_produced": int}
+        if 'rows_meta' in locals():
+            for row in rows_meta:
+                row_uniprot_ids = row.get('uniprot_ids', [])
+                if not row_uniprot_ids:
+                    # Skip rows without UniProt IDs (GenBank-only rows)
+                    continue
+                
+                # Collect unique sequences for all UniProt IDs in this row
+                sequences_in_row = set()
+                valid_ids_in_row = []
+                for uid in row_uniprot_ids:
+                    if uid in id_to_sequence:
+                        sequences_in_row.add(id_to_sequence[uid])
+                        valid_ids_in_row.append(uid)
+                
+                # If more than 1 unique sequence, this row was split
+                if len(sequences_in_row) > 1:
+                    row_splits.append({
+                        "line_no": row['line_no'],
+                        "uniprot_ids": valid_ids_in_row,
+                        "sequences_produced": len(sequences_in_row)
+                    })
 
     # --- MODE: FASTA ---
     elif args.mode == 'fasta':
@@ -496,9 +548,10 @@ def main():
                 ecs = [db.get('id') for db in data.get('uniProtKBCrossReferences', []) if db.get('database') == 'EC']
                 features['EC_Number'] = ";".join(ecs)
                 features['Match_Status'] = "Success"
-                
+                features['CAZy_family'] = args.cazy_family
+
                 successful_entries.append(features)
-                
+
                 # Normalized Header
                 new_header = f">UniProtID|{uid}|{features['Organism']}|{features['Protein_Name']}"
                 raw_fasta_entries.append((new_header, seq))
@@ -550,9 +603,10 @@ def main():
                             ecs = [db.get('id') for db in data.get('uniProtKBCrossReferences', []) if db.get('database') == 'EC']
                             features['EC_Number'] = ";".join(ecs)
                             features['Match_Status'] = "Success_SeqMatch"
-                            
+                            features['CAZy_family'] = args.cazy_family
+
                             successful_entries.append(features)
-                            
+
                             # Add to fasta output with new header
                             new_header = f">UniProtID|{uid}|{features['Organism']}|{features['Protein_Name']}"
                             raw_fasta_entries.append((new_header, seq))
@@ -597,17 +651,18 @@ def main():
             ecs = [db.get('id') for db in data.get('uniProtKBCrossReferences', []) if db.get('database') == 'EC']
             features['EC_Number'] = ";".join(ecs)
             features['Match_Status'] = "Success"
+            features['CAZy_family'] = args.cazy_family
             successful_entries.append(features)
-            
+
             new_header = f">UniProtID|{uid}|{features['Organism']}|{features['Protein_Name']}"
             raw_fasta_entries.append((new_header, seq))
-             
+
     # --- OUTPUT ---
     if successful_entries:
         df = pd.DataFrame(successful_entries)
         # Reorder columns
-        desired_cols = ['UniProt_ID', 'InterPro_IDs', 'Protein_Name', 'Organism', 'EC_Number', 
-                        'Signal_End', 'LPMO_Core_Start', 'LPMO_Core_End', 'Binding_Modules', 
+        desired_cols = ['UniProt_ID', 'CAZy_family', 'InterPro_IDs', 'Protein_Name', 'Organism', 'EC_Number',
+                        'Signal_End', 'Transmembrane_Regions', 'LPMO_Core_Start', 'LPMO_Core_End', 'Domain_Provenance', 'Binding_Modules',
                         'H1_Verified', 'H1_AminoAcid', 'Match_Status', 'Sequence_Group', 'CoAccessions']
         
         # Ensure all cols exist
@@ -651,9 +706,8 @@ def main():
         c_jgi = sum(len(v) for v in jgi_groups.values()) if 'jgi_groups' in locals() else 0
         total_processed = c_ncbi + c_jgi
     elif args.mode == 'characterized':
-        uni_cnt = len(seen_uni) if 'seen_uni' in locals() else 0
-        mapped_cnt = len(mapped_non_uni_ids) if 'mapped_non_uni_ids' in locals() else 0
-        total_processed = uni_cnt + mapped_cnt
+        # For characterized mode, total_processed should be the number of ROWS in the CSV, not unique IDs
+        total_processed = len(rows_meta) if 'rows_meta' in locals() else 0
     elif args.mode == 'list':
          total_processed = len(ids) if 'ids' in locals() else 0
 
@@ -664,6 +718,20 @@ def main():
         failed_ids_count = len(failed_id_set) if 'failed_id_set' in locals() else len(failed_ids)
         scount = success_ids_count
         fcount = failed_ids_count + rows_no_ids_count
+        
+        # Calculate FASTA-related statistics
+        fasta_sequences_count = len(seq_groups) if 'seq_groups' in locals() else 0
+        row_splits_count = len(row_splits) if 'row_splits' in locals() else 0
+        # Count unique CSV rows that produced at least one sequence
+        rows_with_sequences = set()
+        if 'rows_meta' in locals() and 'id_to_sequence' in locals():
+            for row in rows_meta:
+                for uid in row.get('uniprot_ids', []):
+                    if uid in id_to_sequence:
+                        rows_with_sequences.add(row['line_no'])
+                        break
+        rows_with_sequences_count = len(rows_with_sequences)
+        additional_sequences_from_splits = fasta_sequences_count - rows_with_sequences_count
     else:
         scount = len(successful_entries)
         fcount = len(failed_ids)
@@ -682,9 +750,30 @@ def main():
             "failed_ids": out_failed
         }
     }
+    
+    # Add FASTA and split tracking info for characterized mode
+    if args.mode == 'characterized':
+        run_stats["fasta_sequences_count"] = fasta_sequences_count
+        run_stats["row_splits_count"] = row_splits_count
+        run_stats["additional_sequences_from_splits"] = additional_sequences_from_splits
+        run_stats["split_rows"] = row_splits
+    
     with open(out_run_json, 'w') as f:
         json.dump(run_stats, f, indent=2)
     logger.info(f"Wrote run stats to {out_run_json}")
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        logger.warning("\n⚠️  Pipeline interrupted by user (Ctrl+C)")
+        logger.warning("   Partial results may have been written to output files.")
+        sys.exit(130)  # Standard exit code for SIGINT
+    except Exception as e:
+        logger.error("\n❌ CRITICAL ERROR: Pipeline crashed unexpectedly")
+        logger.error(f"   Error type: {type(e).__name__}")
+        logger.error(f"   Error message: {e}")
+        logger.error("\n   Traceback:", exc_info=True)
+        logger.error("\n   ℹ️  Partial results may have been written to output files.")
+        logger.error("   Check 'data/metadata/' and 'data/sequences/' directories.")
+        sys.exit(1)

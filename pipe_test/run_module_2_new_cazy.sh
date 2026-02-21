@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=mod2_new_test
 #SBATCH --account=nn1003k
-#SBATCH --time=00:30:00
+#SBATCH --time=03:00:00
 #SBATCH --mem=2G
 #SBATCH --cpus-per-task=1
 #SBATCH --ntasks=1
@@ -9,7 +9,7 @@
 #SBATCH --error=logs/mod2_new_cazy_%j.err
 
 # Test runner for the reimplemented Module 2 (scripts/module_2_new)
-# using the 'fasta' mode and test data found in pipe_test/data/test_data
+# using the 'cazy' mode and test data found in pipe_test/data/test_data
 
 set -euo pipefail
 
@@ -43,7 +43,7 @@ echo "======================================================================"
 # Note: In cazy mode with a family name (e.g. "AA15"),
 # the script handles the download itself, so we don't check for file existence here unless we provide a path.
 
-timeout 900 \
+
 python "$SCRIPT_PATH" \
   --mode "$MODE" \
   --input "$INPUT" \
