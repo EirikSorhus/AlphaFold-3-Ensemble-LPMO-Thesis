@@ -26,11 +26,11 @@ slurm:
   account: nn1003k
   partition_cpu: normal
   partition_gpu: accel
-  mem_per_gpu: 20G          # Based on your testing (11-15GB actual usage)
+  mem_per_gpu: 80G          # Uniform 80G on accel nodes
   # Per-model memory overrides (uncomment to customise):
-  # mem_per_gpu_af3: 32G
-  # mem_per_gpu_boltz: 20G
-  # mem_per_gpu_rf3: 20G
+  # mem_per_gpu_af3: 80G
+  # mem_per_gpu_boltz: 80G
+  # mem_per_gpu_rf3: 80G
   time_msa: "02:00:00"      # AF3 MSA generation
   time_inference: "01:00:00" # GPU inference jobs
   gpus: 1

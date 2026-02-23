@@ -46,7 +46,7 @@ class SlurmConfig(BaseModel):
     account: str = Field(default="nn1003k", description="SLURM account")
     partition_cpu: str = Field(default="normal", description="CPU partition name")
     partition_gpu: str = Field(default="accel", description="GPU partition name")
-    mem_per_gpu: str = Field(default="20G", description="Default memory per GPU")
+    mem_per_gpu: str = Field(default="80G", description="Default memory per GPU")
     mem_per_gpu_af3: str | None = Field(
         default=None, description="Memory per GPU for AF3 (overrides mem_per_gpu)"
     )

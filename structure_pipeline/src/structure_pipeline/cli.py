@@ -737,11 +737,11 @@ slurm:
   account: nn1003k
   partition_cpu: normal
   partition_gpu: accel
-  mem_per_gpu: 20G
-  # Per-model memory overrides (uncomment to customise):
-  # mem_per_gpu_af3: 32G
-  # mem_per_gpu_boltz: 20G
-  # mem_per_gpu_rf3: 20G
+    mem_per_gpu: 80G
+    # Per-model memory overrides (uncomment to customise):
+    # mem_per_gpu_af3: 80G
+    # mem_per_gpu_boltz: 80G
+    # mem_per_gpu_rf3: 80G
   time_msa: "02:00:00"
   time_inference: "01:00:00"
   gpus: 1

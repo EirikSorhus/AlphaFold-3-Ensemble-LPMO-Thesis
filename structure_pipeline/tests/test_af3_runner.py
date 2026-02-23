@@ -35,7 +35,7 @@ def mock_config():
     cfg.slurm.time_msa = "02:00:00"
     cfg.slurm.time_inference = "01:00:00"
     cfg.slurm.gpus = 1
-    cfg.slurm.get_mem_per_gpu.return_value = "20G"
+    cfg.slurm.get_mem_per_gpu.return_value = "80G"
     return cfg
 
 
