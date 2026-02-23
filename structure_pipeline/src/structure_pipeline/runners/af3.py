@@ -25,6 +25,7 @@ from ..cases import Case
 from ..config import PipelineConfig
 from .base import RunnerInterface, RunnerResult
 from .ligand_utils import build_af3_ligand_entries
+from .oligo import OligoRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,14 @@ class AF3Runner(RunnerInterface):
     The ``build_slurm_script`` method generates the *inference* script.
     Use ``build_msa_slurm_script`` for the MSA stage.
     """
+
+    def __init__(
+        self,
+        config: PipelineConfig,
+        oligo_registry: OligoRegistry | None = None,
+    ) -> None:
+        super().__init__(config)
+        self.oligo_registry = oligo_registry or OligoRegistry.empty()
 
     @property
     def model_name(self) -> str:
@@ -87,9 +96,14 @@ class AF3Runner(RunnerInterface):
         protein_seq = protein_sequences[case.protein_id]
         seeds = list(range(1, self.config.af3.seeds + 1))
 
+        ligand_entries, bonded_atom_pairs = build_af3_ligand_entries(
+            case.ligand_ccd_code, oligo_registry=self.oligo_registry,
+        )
+        is_oligo = len(bonded_atom_pairs) > 0
+
         sequences: list[dict[str, Any]] = [
             {"protein": {"id": "A", "sequence": protein_seq}},
-            *build_af3_ligand_entries(case.ligand_ccd_code),
+            *ligand_entries,
         ]
 
         input_data: dict[str, Any] = {
@@ -100,9 +114,18 @@ class AF3Runner(RunnerInterface):
             "sequences": sequences,
         }
 
-        if ligand_cif_path is not None:
+        if bonded_atom_pairs:
+            input_data["bondedAtomPairs"] = bonded_atom_pairs
+
+        # Oligo ligands use CCD monomers, not a custom CIF.
+        if ligand_cif_path is not None and not is_oligo:
             input_data["userCCDPath"] = str(ligand_cif_path)
             logger.info("AF3 input: set userCCDPath for %s", case.ligand_ccd_code)
+        elif is_oligo and ligand_cif_path is not None:
+            logger.info(
+                "AF3 input: skipping userCCDPath for oligo %s (using CCD monomers)",
+                case.ligand_ccd_code,
+            )
 
         output_dir.mkdir(parents=True, exist_ok=True)
         input_path = output_dir / "af3_input.json"
@@ -131,6 +154,11 @@ class AF3Runner(RunnerInterface):
             ligand_cif_path: Optional path to custom CIF file.  When
                 provided, ``userCCDPath`` is added to the JSON.
         """
+        ligand_entries, bonded_atom_pairs = build_af3_ligand_entries(
+            ligand_ccd_code, oligo_registry=self.oligo_registry,
+        )
+        is_oligo = len(bonded_atom_pairs) > 0
+
         input_data: dict[str, Any] = {
             "name": f"{protein_id}_{ligand_ccd_code}",
             "dialect": "alphafold3",
@@ -138,13 +166,22 @@ class AF3Runner(RunnerInterface):
             "modelSeeds": list(range(1, self.config.af3.seeds + 1)),
             "sequences": [
                 {"protein": {"id": "A", "sequence": protein_sequence}},
-                *build_af3_ligand_entries(ligand_ccd_code),
+                *ligand_entries,
             ],
         }
 
-        if ligand_cif_path is not None:
+        if bonded_atom_pairs:
+            input_data["bondedAtomPairs"] = bonded_atom_pairs
+
+        # Oligo ligands use CCD monomers, not a custom CIF.
+        if ligand_cif_path is not None and not is_oligo:
             input_data["userCCDPath"] = str(ligand_cif_path)
             logger.info("AF3 MSA input: set userCCDPath for %s", ligand_ccd_code)
+        elif is_oligo and ligand_cif_path is not None:
+            logger.info(
+                "AF3 MSA input: skipping userCCDPath for oligo %s (using CCD monomers)",
+                ligand_ccd_code,
+            )
 
         output_dir.mkdir(parents=True, exist_ok=True)
         input_path = output_dir / "af3_msa_input.json"
@@ -231,12 +268,17 @@ class AF3Runner(RunnerInterface):
         weights = self.config.paths.af3_weights
         databases = self.config.paths.af3_databases
 
+        # Check if this ligand is an oligosaccharide
+        oligo_info = self.oligo_registry.parse(ligand_ccd_code)
+        is_oligo = oligo_info is not None
+
         # Build input file (includes userCCDPath when ligand_cif_path is given)
         # When a custom CIF is provided, copy it into input_dir so it
         # gets rsync'd to scratch.  The JSON's userCCDPath is written
         # to point to the container-local path (/root/af_input/<name>).
+        # For oligo ligands we skip CIF handling — the JSON uses CCD monomers.
         container_cif_path: str | None = None
-        if ligand_cif_path is not None:
+        if ligand_cif_path is not None and not is_oligo:
             import shutil
             input_dir.mkdir(parents=True, exist_ok=True)
             dest = input_dir / ligand_cif_path.name
@@ -337,7 +379,11 @@ echo "AF3 MSA completed at $(date)"
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _write_patch_script(output_path: Path) -> None:
+    def _write_patch_script(
+        output_path: Path,
+        oligo_ccd_codes: list[str] | None = None,
+        oligo_bonded_atom_pairs: list[list[list]] | None = None,
+    ) -> None:
         """Write a standalone JSON-patching helper to *output_path*.
 
         The generated script accepts positional args::
@@ -347,48 +393,92 @@ echo "AF3 MSA completed at $(date)"
         It reads the MSA ``_data.json`` from *src*, patches
         name / ligand / CCD fields, and writes the result to *dst*.
 
+        When *oligo_ccd_codes* and *oligo_bonded_atom_pairs* are
+        provided, the ligand entry uses the multi-monomer ``ccdCodes``
+        list and ``bondedAtomPairs`` is written at the top level.
+
         Using a standalone script (invoked with ``/usr/bin/python3``)
         avoids any PATH-dependent Python resolution — critical on
         mixed-architecture clusters where the submission environment
         may inject an AMD64 Python into ``$PATH``.
         """
-        script = textwrap.dedent("""\
-            #!/usr/bin/env python3
-            \"\"\"Patch AF3 MSA _data.json for inference – auto-generated.\"\"\"
-            import json, sys
+        # Embed oligo data as Python literals when applicable.
+        if oligo_ccd_codes and oligo_bonded_atom_pairs:
+            oligo_codes_repr = repr(oligo_ccd_codes)
+            oligo_bap_repr = repr(oligo_bonded_atom_pairs)
+            script = textwrap.dedent(f"""\
+                #!/usr/bin/env python3
+                \"\"\"Patch AF3 MSA _data.json for inference (oligo mode) – auto-generated.\"\"\"
+                import json, sys
 
-            src, dst, name, ligand = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
-            user_ccd_path = sys.argv[5] if len(sys.argv) > 5 else ""
+                src, dst, name, ligand = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 
-            with open(src) as fh:
-                data = json.load(fh)
+                with open(src) as fh:
+                    data = json.load(fh)
 
-            data["name"] = name
+                data["name"] = name
 
-            seqs = [entry for entry in data.get("sequences", []) if "ligand" not in entry]
+                seqs = [entry for entry in data.get("sequences", []) if "ligand" not in entry]
 
-            if ligand == "CU":
-                seqs.append({"ligand": {"id": "B", "ccdCodes": ["CU"]}})
-            else:
-                seqs.append({"ligand": {"id": "B", "ccdCodes": ["CU"]}})
-                seqs.append({"ligand": {"id": "C", "ccdCodes": [ligand]}})
+                # CU is always present
+                seqs.append({{"ligand": {{"id": "B", "ccdCodes": ["CU"]}}}})
 
-            data["sequences"] = seqs
+                # Oligo ligand with multi-monomer ccdCodes
+                oligo_codes = {oligo_codes_repr}
+                seqs.append({{"ligand": {{"id": "C", "ccdCodes": oligo_codes}}}})
 
-            if "userCCD" in data:
-                print("Removing inline userCCD from AF3 JSON", file=sys.stderr)
-                del data["userCCD"]
+                data["sequences"] = seqs
 
-            if user_ccd_path:
-                data["userCCDPath"] = user_ccd_path
-                print(f"Set userCCDPath to {user_ccd_path}", file=sys.stderr)
-            elif "userCCDPath" in data:
-                print("Removing userCCDPath (no CIF path provided)", file=sys.stderr)
-                del data["userCCDPath"]
+                # bondedAtomPairs for the oligosaccharide chain
+                data["bondedAtomPairs"] = {oligo_bap_repr}
 
-            with open(dst, "w") as fh:
-                json.dump(data, fh, indent=2)
-        """)
+                # Remove CIF-related keys – oligo uses CCD monomers
+                for key in ("userCCD", "userCCDPath"):
+                    if key in data:
+                        print(f"Removing {{key}} from AF3 JSON (oligo mode)", file=sys.stderr)
+                        del data[key]
+
+                with open(dst, "w") as fh:
+                    json.dump(data, fh, indent=2)
+            """)
+        else:
+            script = textwrap.dedent("""\
+                #!/usr/bin/env python3
+                \"\"\"Patch AF3 MSA _data.json for inference – auto-generated.\"\"\"
+                import json, sys
+
+                src, dst, name, ligand = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+                user_ccd_path = sys.argv[5] if len(sys.argv) > 5 else ""
+
+                with open(src) as fh:
+                    data = json.load(fh)
+
+                data["name"] = name
+
+                seqs = [entry for entry in data.get("sequences", []) if "ligand" not in entry]
+
+                if ligand == "CU":
+                    seqs.append({"ligand": {"id": "B", "ccdCodes": ["CU"]}})
+                else:
+                    seqs.append({"ligand": {"id": "B", "ccdCodes": ["CU"]}})
+                    seqs.append({"ligand": {"id": "C", "ccdCodes": [ligand]}})
+
+                data["sequences"] = seqs
+
+                if "userCCD" in data:
+                    print("Removing inline userCCD from AF3 JSON", file=sys.stderr)
+                    del data["userCCD"]
+
+                if user_ccd_path:
+                    data["userCCDPath"] = user_ccd_path
+                    print(f"Set userCCDPath to {user_ccd_path}", file=sys.stderr)
+                elif "userCCDPath" in data:
+                    print("Removing userCCDPath (no CIF path provided)", file=sys.stderr)
+                    del data["userCCDPath"]
+
+                with open(dst, "w") as fh:
+                    json.dump(data, fh, indent=2)
+            """)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         with open(output_path, "w") as f:
             f.write(script)
@@ -443,17 +533,23 @@ echo "AF3 MSA completed at $(date)"
 
         input_dir.mkdir(parents=True, exist_ok=True)
 
+        # Check if this ligand is an oligosaccharide
+        oligo_info = self.oligo_registry.parse(ligand_ccd)
+        is_oligo = oligo_info is not None
+
         # Copy custom CIF files into input_dir for bind-mounting
         # Map ligand_id -> container path (only for ligands in this batch)
+        # For oligo ligands we skip CIF — the JSON uses CCD monomers.
         container_cif_map: dict[str, str] = {}
-        batch_ligand_ids = {case.ligand_id for case in cases}
-        for lig_id, cif_path in ligand_cif_paths.items():
-            if lig_id not in batch_ligand_ids:
-                continue
-            import shutil
-            dest = input_dir / cif_path.name
-            shutil.copy2(cif_path, dest)
-            container_cif_map[lig_id] = f"/root/af_input/{cif_path.name}"
+        if not is_oligo:
+            batch_ligand_ids = {case.ligand_id for case in cases}
+            for lig_id, cif_path in ligand_cif_paths.items():
+                if lig_id not in batch_ligand_ids:
+                    continue
+                import shutil
+                dest = input_dir / cif_path.name
+                shutil.copy2(cif_path, dest)
+                container_cif_map[lig_id] = f"/root/af_input/{cif_path.name}"
 
         protein_list = ", ".join(c.protein_id for c in cases[:6])
         if len(cases) > 6:
@@ -463,17 +559,31 @@ echo "AF3 MSA completed at $(date)"
         # into the input dir and run AF3 inference.
         # Determine container CIF path for this ligand (if any)
         container_cif = ""
-        for case in cases:
-            cif = container_cif_map.get(case.ligand_id, "")
-            if cif:
-                container_cif = cif
-                break
+        if not is_oligo:
+            for case in cases:
+                cif = container_cif_map.get(case.ligand_id, "")
+                if cif:
+                    container_cif = cif
+                    break
 
         # Write standalone JSON-patch helper into input_dir so the bash
         # script can invoke it with /usr/bin/python3 (guaranteed native
         # architecture) instead of a PATH-dependent ``python3``.
+        # For oligo ligands, embed the monomer codes and bond pairs.
         patch_script = input_dir / "_patch_json.py"
-        self._write_patch_script(patch_script)
+        if is_oligo:
+            _prefix, n, spec = oligo_info  # type: ignore[misc]
+            from .ligand_utils import AF3_MAIN_LIGAND_ID
+            from .oligo import build_af3_bonded_atom_pairs
+            oligo_codes = [spec.monomer] * n
+            oligo_bap = build_af3_bonded_atom_pairs(AF3_MAIN_LIGAND_ID, spec, n)
+            self._write_patch_script(
+                patch_script,
+                oligo_ccd_codes=oligo_codes,
+                oligo_bonded_atom_pairs=oligo_bap,
+            )
+        else:
+            self._write_patch_script(patch_script)
 
         inference_blocks = []
         for case in cases:

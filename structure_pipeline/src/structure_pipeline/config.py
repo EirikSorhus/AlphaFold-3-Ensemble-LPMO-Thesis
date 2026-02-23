@@ -129,6 +129,16 @@ class InputsConfig(BaseModel):
         default=Path("/msa"),
         description="Mount point for squashfs MSAs inside container/job",
     )
+    oligo_definitions: Path | None = Field(
+        default=None,
+        description=(
+            "Path to a YAML file defining oligosaccharide prefixes, "
+            "their monomer CCD codes, and bond atom pairs. "
+            "When provided, AF3 builds multi-monomer ccdCodes and "
+            "bondedAtomPairs for matching ligands instead of using "
+            "custom CIF files."
+        ),
+    )
 
     @field_validator("msa_sqsh_files", mode="before")
     @classmethod

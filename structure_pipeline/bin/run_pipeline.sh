@@ -22,6 +22,7 @@
 #   --dry-run                   Show what would be submitted (no actual jobs)
 #   --no-resume                 Rerun completed jobs
 #   --ligand-ccd-list FILE.txt  Use plain CCD codes from a text file
+#   --oligo-definitions FILE    YAML with oligo prefix→monomer+bond mappings
 #
 # Examples:
 #   sbatch bin/run_pipeline.sh                             # Run all models, all proteins
@@ -29,6 +30,7 @@
 #   sbatch bin/run_pipeline.sh --dry-run                   # Preview without submitting
 #   sbatch bin/run_pipeline.sh --protein A0A1Y2N3J1        # Single protein
 #   sbatch bin/run_pipeline.sh --ligand-ccd-list ccd.txt   # CCD-list mode
+#   sbatch bin/run_pipeline.sh --oligo-definitions config/oligo_definitions.yaml
 #
 # ============================================================================
 
@@ -57,6 +59,7 @@ echo ""
 
 # ── Parse flags that must go to BOTH manifest and run ──
 MANIFEST_EXTRA=()
+RUN_EXTRA=()
 i=1
 while [[ $i -le $# ]]; do
 	case "${!i}" in
@@ -65,6 +68,14 @@ while [[ $i -le $# ]]; do
 			((i++))
 			if [[ $i -le $# ]]; then
 				MANIFEST_EXTRA+=("${!i}")
+			fi
+			;;
+		--oligo-definitions)
+			# Only passed to 'run', not 'manifest'
+			RUN_EXTRA+=("${!i}")
+			((i++))
+			if [[ $i -le $# ]]; then
+				RUN_EXTRA+=("${!i}")
 			fi
 			;;
 	esac
@@ -87,7 +98,7 @@ echo ""
 echo "Step 3: Submitting prediction jobs..."
 echo "---"
 # Pass through any command-line arguments to the run command
-python -m structure_pipeline.cli run --config config/pipeline.yaml "$@"
+python -m structure_pipeline.cli run --config config/pipeline.yaml "${RUN_EXTRA[@]}" "$@"
 
 echo ""
 echo "============================================"

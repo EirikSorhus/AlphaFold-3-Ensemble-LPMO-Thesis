@@ -277,7 +277,7 @@ slurm:
 ```
   -c, --config PATH               Config YAML
   -n, --dry-run                    Preview jobs without submitting
-  -r, --resume / --no-resume       Skip completed jobs (default: resume)
+  -r, --resume       Skip completed jobs (default: resume)
   -m, --model TEXT                 af3 / boltz / rf3
   -p, --protein TEXT               Single protein ID
   --local                          Run as subprocess (no SLURM)

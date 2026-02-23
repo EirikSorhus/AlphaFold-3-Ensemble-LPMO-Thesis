@@ -1,0 +1,19 @@
+# Oligosaccharide definitions for AF3 ligand building.
+#
+# Each entry maps an oligo prefix (used in CIF filenames like CEL6.cif)
+# to the CCD monomer code and the bond atom pair that connects
+# successive residues.
+#
+# The pipeline parses e.g. "CEL6" → prefix="CEL", n=6, and builds
+# AF3 input with 6× GLC monomers linked via C1–O4 bonds.
+
+oligo_definitions:
+  NAG:
+    monomer: NAG
+    bond_atom_pair: ["C1", "O4"]
+  CEL:
+    monomer: BGC
+    bond_atom_pair: ["C1", "O4"]
+  STA:
+    monomer: GLC
+    bond_atom_pair: ["C1", "O4"]

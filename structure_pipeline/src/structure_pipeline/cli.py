@@ -44,6 +44,7 @@ from .manifest.proteins import (
 from .resume import StatusTracker
 from .runners import AF3Runner, BoltzRunner, RF3Runner
 from .runners.mounts import compute_bind_mounts, log_mount_plan
+from .runners.oligo import OligoRegistry
 
 app = typer.Typer(
     name="structure-pipeline",
@@ -375,6 +376,20 @@ def run(
             ),
         ),
     ] = None,
+    oligo_definitions: Annotated[
+        Optional[Path],
+        typer.Option(
+            "--oligo-definitions",
+            help=(
+                "Path to a YAML file defining oligosaccharide prefixes, "
+                "monomer CCD codes, and bond atom pairs. "
+                "When provided, AF3 builds multi-monomer ccdCodes and "
+                "bondedAtomPairs for matching ligands instead of using "
+                "custom CIF files. Overrides inputs.oligo_definitions "
+                "in the config file."
+            ),
+        ),
+    ] = None,
 ):
     """Run the structure prediction pipeline.
 
@@ -477,10 +492,32 @@ def run(
         console.print("\n[yellow]Dry run mode — no jobs submitted[/yellow]")
         return
 
+    # ── Load oligo registry ────────────────────────────────
+    oligo_registry = OligoRegistry.empty()
+    oligo_path = oligo_definitions or cfg.inputs.oligo_definitions
+    if oligo_path is not None:
+        oligo_path = Path(oligo_path)
+        if not oligo_path.is_absolute():
+            oligo_path = oligo_path.resolve()
+        if not oligo_path.exists():
+            console.print(
+                f"[red]Error:[/red] oligo definitions file not found: {oligo_path}"
+            )
+            raise typer.Exit(1)
+        try:
+            oligo_registry = OligoRegistry.from_yaml(oligo_path)
+            console.print(
+                f"  Loaded oligo definitions from {oligo_path} "
+                f"({len(oligo_registry.specs)} prefixes)"
+            )
+        except Exception as e:
+            console.print(f"[red]Error loading oligo definitions:[/red] {e}")
+            raise typer.Exit(1)
+
     # ── Setup ──────────────────────────────────────────────────
     executor = LocalExecutor(dry_run=dry_run) if local else SlurmExecutor(dry_run=dry_run)
     runners = {
-        "af3": AF3Runner(cfg),
+        "af3": AF3Runner(cfg, oligo_registry=oligo_registry),
         "boltz": BoltzRunner(cfg),
         "rf3": RF3Runner(cfg),
     }
