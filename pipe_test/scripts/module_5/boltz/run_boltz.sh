@@ -4,7 +4,7 @@
 #SBATCH --partition=accel
 #SBATCH --gpus=1
 #SBATCH --time=00:20:00
-#SBATCH --mem-per-gpu=20G
+#SBATCH --mem-per-gpu=80G
 #SBATCH --output=slurm-%j.out
 #SBATCH --error=slurm-%j.err
 
@@ -14,7 +14,7 @@ module load NRIS/GPU
 IMG=/cluster/projects/nn1003k/prog/boltz/boltz2_alt.sif
 WEIGHTS_HOST=/cluster/projects/nn1003k/prog/boltz/weights
 
-INPUT="${SUBMITDIR}/input/boltz_eksempel_amylase.yaml"
+INPUT="${SUBMITDIR}/input/boltz_test_pkl_NAG6.yaml"
 OUT_DIR="${SUBMITDIR}/result"
 
 [[ -f "$IMG" ]]   || { echo "ERROR: image not found: $IMG"; exit 2; }

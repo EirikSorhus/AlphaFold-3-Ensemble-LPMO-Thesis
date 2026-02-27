@@ -6,7 +6,7 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --ntasks=1
 #SBATCH --output=logs/cif_pkl_test_%j.out
-#SBATCH --error=logs/cif_pkl_test_%j.err
+
 
 # Test runner for CIF to PKL conversion using boltz_ccd_lib
 
