@@ -1,0 +1,35 @@
+# ──────────────────────────────────────────────────────────
+# Cross-validation hierarchy & stratification rules
+# ──────────────────────────────────────────────────────────
+
+# Grouping hierarchy (outer → inner)
+# Folds must not split observations from the same level-1 group
+hierarchy:
+  - level: 1
+    name: structure_source     # e.g., crystal PDB id or "predicted"
+  - level: 2
+    name: protein_family       # AA9, AA10, … AA17
+  - level: 3
+    name: protein_id           # UniProt or custom ID
+  - level: 4
+    name: ligand_id            # polymer type + DP (e.g., chitin_dp4)
+  - level: 5
+    name: model                # AF3, RF3, Boltz2
+  - level: 6
+    name: seed_pose            # i.i.d. sampling — within-fold
+
+# Grouped CV: group_col for GroupKFold
+group_col: protein_id           # never split same protein across folds
+
+# Stratification targets (maintain balance in each fold)
+stratify_cols:
+  - activity_class             # C1 / C4 / mixed
+  - substrate_type             # chitin / cellulose / amylose
+
+# CV settings
+n_splits: 5
+random_state: 42
+
+# Class weights (for imbalanced classes in predictive models)
+use_class_weights: true         # balanced weighting
+metric: balanced_accuracy       # not raw accuracy

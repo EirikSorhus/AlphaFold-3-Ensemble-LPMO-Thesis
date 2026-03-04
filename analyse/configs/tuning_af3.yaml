@@ -1,0 +1,41 @@
+# ──────────────────────────────────────────────────────────
+# AF3 tuning parameter grid
+# ──────────────────────────────────────────────────────────
+
+model: AF3
+
+# ── Phase A: Refinement ──
+refinement:
+  vary:
+    num_recycles: [10, 15, 20]
+  hold:
+    num_diffusion_samples: 5   # default, low reported effect
+    num_seeds: 10              # reduce seed noise during refinement
+
+# ── Phase B: Diversity ──
+diversity:
+  vary:
+    num_seeds: [20, 50, 100]
+  hold:
+    num_recycles: null         # filled from refinement best
+    num_diffusion_samples: 5
+
+# ── Tuning dataset ──
+tuning_dataset: "data/tuning_subset.yaml"
+
+# ── Metrics to compute at each grid point ──
+metrics:
+  - posebusters_pass_rate
+  - privateer_pass_rate
+  - hdbscan_outlier_rate
+  - hdbscan_n_clusters
+  - cluster_occupancy_std
+  - crystal_ifp_mean_similarity   # sanity (if crystal exists)
+  - crystal_pocket_rmsd_mean
+
+# ── Decision rule ──
+decision:
+  primary: posebusters_pass_rate   # maximise
+  secondary: hdbscan_outlier_rate  # minimise
+  tertiary: cluster_occupancy_std  # minimise (stability)
+  sanity: crystal_ifp_mean_similarity  # must not degrade

@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "run_manifest.json",
+  "type": "object",
+  "required": ["pipeline_version", "timestamp", "mode", "config_hash", "tool_versions",
+               "seeds", "input_checksums", "gates_passed"],
+  "properties": {
+    "pipeline_version": { "type": "string" },
+    "timestamp":        { "type": "string", "format": "date-time" },
+    "mode":             { "enum": ["tune", "production"] },
+    "git_commit":       { "type": ["string", "null"] },
+    "config_hash":      { "type": "string", "description": "SHA-256 of full config" },
+    "tool_versions": {
+      "type": "object",
+      "properties": {
+        "gemmi":        { "type": "string" },
+        "placer":       { "type": "string" },
+        "posebusters":  { "type": "string" },
+        "privateer":    { "type": "string" },
+        "mdanalysis":   { "type": "string" },
+        "prolif":       { "type": "string" },
+        "hdbscan":      { "type": "string" }
+      }
+    },
+    "seeds": {
+      "type": "object",
+      "description": "All sources of randomness",
+      "additionalProperties": true
+    },
+    "input_checksums": {
+      "type": "object",
+      "description": "SHA-256 of each input file",
+      "additionalProperties": { "type": "string" }
+    },
+    "gates_passed": {
+      "type": "object",
+      "properties": {
+        "atom_mapping_coverage_100":     { "type": "boolean" },
+        "privateer_recognized_100":      { "type": "boolean" },
+        "no_critical_posebusters":       { "type": "boolean" },
+        "cu_his_in_range":               { "type": "boolean" }
+      }
+    },
+    "tuning_reference": { "type": ["string", "null"] }
+  }
+}

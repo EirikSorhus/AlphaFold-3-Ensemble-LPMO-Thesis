@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "qc_report.json",
+  "description": "Per-pose QC validation output from Step 6.",
+  "type": "object",
+  "required": ["timestamp", "run_id", "poses"],
+  "properties": {
+    "timestamp": { "type": "string", "format": "date-time" },
+    "run_id":    { "type": "string" },
+    "poses": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["pose_id", "posebusters", "privateer", "cu_geometry", "overall_status"],
+        "properties": {
+          "pose_id":       { "type": "string" },
+          "overall_status": { "enum": ["pass", "soft_flag", "hard_fail"] },
+          "posebusters": {
+            "type": "object",
+            "properties": {
+              "passed":       { "type": "boolean" },
+              "errors":       { "type": "object", "additionalProperties": { "type": "integer" } },
+              "critical":     { "type": "boolean" },
+              "warnings":     { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "privateer": {
+            "type": "object",
+            "properties": {
+              "recognized_sugars": { "type": "integer" },
+              "total_sugars":      { "type": "integer" },
+              "recognition_rate":  { "type": "number" },
+              "anomer_ok":         { "type": "boolean" },
+              "ring_pucker_ok":    { "type": "boolean" },
+              "linkage_ok":        { "type": "boolean" },
+              "errors":            { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "cu_geometry": {
+            "type": "object",
+            "properties": {
+              "cu_his_distances_a": { "type": "array", "items": { "type": "number" } },
+              "all_in_range":       { "type": "boolean" },
+              "cu_c1_dist_a":       { "type": ["number", "null"] },
+              "cu_c4_dist_a":       { "type": ["number", "null"] }
+            }
+          }
+        }
+      }
+    }
+  }
+}

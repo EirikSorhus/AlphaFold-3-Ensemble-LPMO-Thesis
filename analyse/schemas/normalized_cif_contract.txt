@@ -1,0 +1,56 @@
+NORMALIZED.CIF CONTRACT
+========================
+
+Every `normalized.cif` output by Step 2 must satisfy ALL of the following.
+
+1. CHAIN IDS
+   - Protein chain(s)   → "A"
+   - Glycan chain(s)    → "B", "C", "D" (one per oligosaccharide chain)
+   - Metal (Cu)         → "E"
+
+2. ATOM-LEVEL FIELDS (required in _atom_site)
+   - group_PDB          (ATOM / HETATM)
+   - id                 (serial)
+   - type_symbol        (element)
+   - label_atom_id      (CANONICAL atom name — mapped via cross-model mapping)
+   - label_comp_id      (CCD 3-letter code)
+   - label_asym_id      (canonical chain ID per §1)
+   - label_seq_id       (residue number, sequential within chain)
+   - Cartn_x/y/z        (Å)
+   - B_iso_or_equiv     (confidence / B-factor — REQUIRED for ALL models)
+   - occupancy           (default 1.0)
+
+3. RESIDUE-LEVEL CONFIDENCE (AF3 only)
+   - _ma_qa_metric_local.metric_value   (pLDDT 0–100)
+   - If absent for other models: derive as MEDIAN of B_iso per residue
+
+4. _CHEM_COMP
+   - Every unique comp_id in _atom_site MUST have an entry in _chem_comp
+   - Fields: id, name, type (PEPTIDE / SACCHARIDE / NON-POLYMER)
+
+5. _CHEM_COMP_BOND
+   - COMPLETE bond table for every comp_id
+   - Fields: comp_id, atom_id_1, atom_id_2, value_order (SING/DOUB/TRIP/AROM)
+
+6. _STRUCT_CONN
+   - Glycosidic linkages between monosaccharide residues (type = covale)
+   - Cu-coordinating bonds to His N atoms (type = metalc)
+   - Fields: id, conn_type_id, ptnr1_label_asym_id, ptnr1_label_comp_id,
+             ptnr1_label_seq_id, ptnr1_label_atom_id,
+             ptnr2_label_asym_id, ptnr2_label_comp_id,
+             ptnr2_label_seq_id, ptnr2_label_atom_id,
+             pdbx_dist_value
+
+7. GLYCAN RESIDUES
+   - Each comp_id MUST belong to the CCD monosaccharide whitelist
+     (see configs/defaults.yaml → ccd_monosaccharides)
+   - NO custom oligomer codes (CEL6, OLI, etc.)
+
+8. METAL
+   - Cu recorded as HETATM with comp_id = "CU" on chain E
+   - Cu-His distances stored in _struct_conn (1.9–2.6 Å expected)
+
+9. ATOM MAPPING PROVENANCE
+   - Accompanying atom_map.tsv: old_name → new_name per atom
+   - Accompanying rename_log.json: {total, mapped, coverage, unmapped, reason}
+   - Coverage MUST = 100% for file to pass Step 2 gate

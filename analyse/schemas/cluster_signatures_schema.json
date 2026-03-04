@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "cluster_signatures.json",
+  "type": "object",
+  "required": ["protein_id", "ligand_id", "clusters"],
+  "properties": {
+    "protein_id": { "type": "string" },
+    "ligand_id":  { "type": "string" },
+    "n_clusters": { "type": "integer" },
+    "outlier_rate": { "type": "number" },
+    "clusters": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["cluster_id", "occupancy", "medoid_pose_id", "geometry", "interactions"],
+        "properties": {
+          "cluster_id":      { "type": "integer" },
+          "occupancy":       { "type": "number" },
+          "n_poses":         { "type": "integer" },
+          "medoid_pose_id":  { "type": "string" },
+          "mechanism_tag":   { "enum": ["C1_like", "C4_like", "mixed", "unknown"] },
+          "geometry": {
+            "type": "object",
+            "properties": {
+              "cu_c1_mean_a": { "type": "number" },
+              "cu_c1_std_a":  { "type": "number" },
+              "cu_c4_mean_a": { "type": "number" },
+              "cu_c4_std_a":  { "type": "number" },
+              "his_angle_mean_deg": { "type": "number" },
+              "his_angle_std_deg":  { "type": "number" },
+              "planarity_mean":     { "type": "number" }
+            }
+          },
+          "interactions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "residue":    { "type": "string" },
+                "type":       { "type": "string" },
+                "frequency":  { "type": "number" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

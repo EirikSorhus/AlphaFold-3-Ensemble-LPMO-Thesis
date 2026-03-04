@@ -1,0 +1,62 @@
+# ──────────────────────────────────────────────────────────
+# LPMO Pipeline — Global defaults (v2.1)
+# ──────────────────────────────────────────────────────────
+
+pipeline_version: "2.1"
+
+# ── Chain normalisation ──
+chain_schema:
+  protein: "A"
+  glycans: ["B", "C", "D"]
+  metal: "E"
+
+# ── Confidence policy ──
+confidence:
+  atom_level_field: "_atom_site.B_iso_or_equiv"   # all models
+  residue_level_field: "_ma_qa_metric_local"        # AF3 only
+  derive_residue_from_biso: true                    # median B_iso if field missing
+
+# ── Cross-model atom mapping ──
+atom_mapping:
+  key: ["element", "residue_ccd", "local_bond_graph", "3D_proximity"]
+  proximity_threshold_a: 0.5     # max Å deviation for 3D match
+  outputs: ["atom_map.tsv", "rename_log.json"]
+
+# ── Connectivity requirements ──
+connectivity:
+  require_chem_comp_bond: true   # complete _chem_comp_bond for all comp_id
+  require_struct_conn: true      # _struct_conn for glycosidic + Cu-coord
+
+# ── PLACER ──
+placer:
+  n_modes_min: 50
+  n_modes_max: 200
+  rank_by: ["placer_score", "clash_count", "cu_geom_sanity"]
+
+# ── Protonation / export ──
+protonation:
+  reduce_flags: ["-HIS"]         # prioritise Cu-coordinating His
+  export_formats:
+    posebusters: "pdb"           # with CONECT
+    prolif: "mol2"               # bond orders + Gasteiger charges
+    analysis: "pdb"              # full-H complex
+
+# ── CCD monosaccharide whitelist (Privateer prep) ──
+ccd_monosaccharides:
+  - NAG    # N-acetyl-D-glucosamine (chitin)
+  - BGC    # beta-D-glucose (cellulose)
+  - GLC    # D-glucose
+  - MAN    # D-mannose
+  - GAL    # D-galactose
+  - XYS    # D-xylose
+  - ARA    # L-arabinose
+  - FUC    # L-fucose
+  - SIA    # neuraminic acid
+  - GLA    # D-glucuronic acid
+  - GAC    # N-acetyl-D-galactosamine
+
+# ── Analysis defaults ──
+analysis:
+  cu_c_proximity_flag_a: 7.0     # flag Cu-C > 7 Å
+  crystal_ifp_similarity_soft: 0.3
+  c1_vs_c4_offset_a: 0.5        # C1-like if Cu-C1 < Cu-C4 + offset

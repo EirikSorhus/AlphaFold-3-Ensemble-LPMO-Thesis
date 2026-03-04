@@ -1,0 +1,329 @@
+Research questions (ikke helt oppdatert)
+RQ1 (Regioselectivity as a geometry problem):
+Do predicted complex geometries place C1- versus C4-hydrogen-bearing carbons into distinct, reproducible spatial relationships with the copper active site (proxy metrics such as Cu–substrate distances and orientations), and are these patterns altered when ligands are modeled as “solution-like” oligosaccharides versus surface-constrained presentations? (Vil kun teste surface-like sheet som et proof-of-concept og ikke analyseres annet enn at oligo-sheet ser ca riktig ut)
+RQ2 (Oligosaccharide binding and substrate specificity):
+Which quantifiable features of the substrate-binding surface (loop-derived topography, aromatic/polar residue distribution, and contact patterns) correlate with stable binding modes for chitin (NAG oligomers), cellulose oligomers, and amylose-like oligomers across DP2–DP81, and do these features match known trends in characterized AA enzymes?
+RQ3 (CBM contribution and possible “recruitment”):
+For CBM-containing LPMOs, does modeling the full-length protein (vs catalytic domain alone) shift predicted ligand poses toward configurations consistent with CBM-assisted positioning (e.g., increased ligand contacts with CBM and/or altered placement on the catalytic surface), and are such effects substrate-class- or size-dependent?
+RQ4 (Model credibility via crystallographic comparison):
+Where crystallographic LPMO structures with bound ligands are available, to what extent do AF/RF/Boltz-predicted complexes reproduce the experimentally observed binding region, orientation, and contact “fingerprint,” and how do these benchmarks inform interpretation of predictions on systems lacking experimental complexes?
+Plan for parameter tuning
+Testdatasett
+(Problem som ikke nevnes er at filformater trenger konverteringer og ekstraksjoner)
+Subsett: 
+Familie
+Struktur
+ligand
+Ingen
+AA9
+4
+2
+1
+AA10
+4
+-
+1
+AA11
+1
+-
+-
+AA13
+1
+1
+-
+AA14
+1
+-
+-
+AA15
+1
+-
+-
+AA16
+1
+-
+-
+AA17
+1
+-
+-
+(Det er kun AA9 og AA13 som har struktur med oligosacharider som ligand)
+C1 og C4 2og begge, med og uten ligand, Finne minst én vanskelig case. 
+Hovedobjektiv med tuning er ensamble stabilitet, sekundært krav er enighet med eksperimentelt bestemte strukturer. 
+Test av AF3
+Num_diffusion_samples holdes til default (5) grunnet liten rapportert effekt av flere diffusion samples.
+To deler:
+Refinement:
+Num_recycles varieres (10, 15, 20). Num_diffusion_samples og num_seeds (10, for å ikke skape støy).
+A) Refinement-test (AF3)
+Varier: num_recycles ? {10, 15, 20}
+Hold fast: num_diffusion_samples = 5 (default), num_seeds = 10 (for å ikke skape støy)
+Oppskrift per (protein, ligand) i tuning-subsett:
+1. Kjør AF3 med valgt num_recycles
+2. PoseBuster på alle poser ? logg pass-rate + feiltyper
+3. Privateer ? logg ring/anomer/stereo-feil
+4. MDAnalysis (Lett):
+o align på “core” (ikke loops)
+o mål Cu–C1 og Cu–C4 (terskel: innen 7 Å)
+5. ProLIF ? lag IFP3-matrise
+6. HDBSCAN på IFP (eller Jaccard-avstand av IFP):
+o logg outlier-rate
+o logg antall clustere per (protein, ligand)
+7. Hvis krystallkompleks finnes:
+o ProLIF: beregn IFP-likhet mot krystall-IFP (Tanimoto/Jaccard) og tell andel over “moderat terskel” (ikke sikker på hva terskel bør være 0,8?)
+o MDAnalysis: lokal pocket RMSD mot krystall (kun pocket-residuer)
+Hvordan velge best num_recycles:
+* prioriter: høyere PoseBuster/Privateer pass-rate + lavere outlier-rate + mer stabile (færre, tydeligere) clustere
+* krystall-likhet brukes som sanity-check: “ikke bli verre for ny verdi”
+
+Diversity-test (AF3)
+Varier: num_seeds ? {20, 50, 100}
+Hold fast: num_recycles = valgt fra refinement-test, num_diffusion_samples = 5 (default).
+Samme oppskrift og verktøy som over, men nå ser du etter:
+* stabilisering av cluster-landskap (samme clustere igjen når seeds øker?)
+* diminishing returns: seeds? men nye clustere/outliers dominerer ? for mye støy
+Test av RF3
+one_model_per_file = TRUE, early_stopping_plddt_treshold = 0.0 (False)
+To deler:
+A) Refinement-test (RF3)
+Innstilling: “Ingen early stop”
+Varier: n_recycles ? {10, 20, 30}
+Hold fast: seed= 42 (default), diffusion_batch_size = 5 (default), num_steps = 200 (default). “; we see no deterioration in performance with 50 steps, but significant (>2x) speed improvements” (READ_ME_RF3)
+Oppskrift per (protein, ligand): samme QC/IFP/cluster/3D som AF3:
+1. RF3 run
+2. PoseBuster
+3. Privateer (ved glykan)
+4. MDAnalysis (Cu–C1/C4 + lokal pocket RMSD) (Lett analyse)
+5. ProLIF ? IFP
+6. HDBSCAN ? outlier-rate + antall clustere
+7. Krystallkompleks: IFP-likhet + pocket RMSD sanity
+Diversity:
+Varierer: Seed ? {42, 80, 120}
+Holdes fast: n_recycles (fra refinement) og diffusion_batch_size=5 (default) og num_steps = 200 (default). 
+Samme oppskrift som over.
+Test av Boltz 2
+use_potentials = False (alltid)
+step_scale = 1.638
+Affinity blir ikke tunet, og standardparametere blir brukt. 
+Tre deler:
+Refinement 1:
+Varier: recycling_steps ? {3, 6, 10}
+Hold fast: diffusion_samples = 5, sampling_steps = 200 (default)
+Oppskrift (samme testpakke):
+1. Kjør Boltz2
+2. PoseBuster
+3. Privateer (glykan)
+4. MDAnalysis (Cu–C1/C4 + pocket RMSD) (Lett analyse)
+5. ProLIF ? IFP
+6. HDBSCAN ? outlier-rate + antall clustere
+7. Krystall: IFP-likhet sanity
+Refinement 2
+ Varier: sampling_steps ? {200, 400, 600}
+Hold fast: recycling_steps valgt fra Refinement 1, diffusion_samples = 5
+Samme oppskrift
+Diversity:
+Varier: diffusion_samples ? {3, 10, 15}
+Hold fast: recycling_steps + sampling_steps fra refinement ½.
+Samme oppskrift
+Analyse av test
+For hver sjekk som gjøres testes lavest først og deretter verdien som er høyere. Dersom verdien høyere gir «samme» resultater som laveste testes lavere enn den første verdien. 
+PTM test for å fjerne de under en viss verdi, kanskje 70. 
+Testfase: hva som faktisk rapporteres og hvordan bestemmes “best”
+For hver modell/parameter-setting i tuning-subsett:
+2.1 QC-rapport (PoseBuster + Privateer)
+* PoseBuster: andel bestått + fordeling av feiltyper (clashes, chem/valence, osv.)
+* Privateer: andel glykaner som er “akseptable” vs feiltyper (ring/anomer/stereo)
+Program: PoseBuster, Privateer
+2.2 Struktur-/mekanisme-mål (MDAnalysis)
+* Cu–C1 og Cu–C4 (flag innen 7 Å)
+* vinkel/tilt-mål relatert til His-brace
+* pocket RMSD mot krystall (når krystall finnes), beregnet på pocket-residuer (robust mot loop-mobilitet)
+Program: MDAnalysis
+2.3 Binding-mode klynger (ProLIF + HDBSCAN)
+* ProLIF IFP-matrise per (protein, ligand)
+* HDBSCAN:
+o outlier-rate
+o antall clustere
+o cluster-størrelser (occupancy)
+Program: ProLIF, HDBSCAN (R eller Python)
+2.4 Krystall-anchoring (når tilgjengelig)
+* IFP-likhet: ProLIF fingerprint for krystallkompleks vs prediksjoner (moderat terskel, lager empirisk distrubisjon og setter terskel etterpå, kanskje rundt 0.5-0.7)
+* pocket RMSD: MDAnalysis lokalt
+Program: ProLIF, MDAnalysis
+2.5 Beslutningsregel
+Velger parameter-setting som gir:
+1. best QC-pass (PoseBuster/Privateer)
+2. lav outlier-rate
+3. stabile clustere (få, tydelige; occupancy stabil når sampling øker)
+4. krystall-sanity: ikke systematisk dårligere IFP-likhet/pocket RMSD
+
+
+
+Plan for analyse
+* Genere strukturer
+* Kvalitetskontroll med PoseBuster og Privateer
+* Placer (local assembly)
+* ProLIF (IFP)
+* HDBSCAN (clustering) 
+* For hver cluster identifisere dominerende interaksjoner og måle 3D geometri med MDAnalysis.
+* Sammenlikne mot eksperimentell aktivitet: C1/C4, substratspesifisitet og LPMO familie. 
+* Koble cluster til 3D struktur:
+Avstand Cu–C1 karbon
+Avstand Cu–C4 karbon
+Vinkel mellom substrat og His-brace
+Planaritet av sukker-ring mot kobbersenter
+Hvilke sidekjeder stabiliserer hvilken ringorientering
+* Features som forklarer cluster strategier:
+Frekvensanalyse for hver interaksjon beregne forekomst i cluster A vs. B, logs odds ratio, chi test.
+Supervised model med å bruke cluster-label som target og kjøre Random forest, lasso, gradiant boosting for å finne hvilke features som driver clusteringen. 
+SHARP-verdier for å finne per-structure forklaringer på hvilke interaksjoner som avgjør en cluster. [ES1]
+###
+Clustring er basert på IFP så kan ikke bruke dette som target for å finne features som driver clustring. Må bruke geometri, aktivitet og C1/C4.
+###
+
+ Bruke normalisering/standardisering og forhold for å håndtere skjevheter i data mellom modeller og pga. feilede ligander osv. 
+Huske å låse HDBSCAN hyperparametere fra tuning for å unngå overfitting og p-hacking via clusterparameter. Min clustersize skal bestemmes fra tuningset og ikke endres i hovedanalyse. 
+For prediksjonsmodellene må jeg huske å bruke grouped cross-validation. Må huske at det er hierarki og ikke ca 150x21x3 uavhengige datapunkter. 
+Bruke stratified cross-validation for å sørge for at i treningssettet er det samme andel av C1/C4, cellulose/amylose/chitin som i hele datasettet. Bruke Class weights og Balanced accuracy, ikke accuracy. 
+
+DEL A: LPMO-domene (alle proteiner)
+Alle proteiner x 21 ligander x 3 modeller
+Steg A1 — Generer strukturer (AF3/RF3/Boltz2)
+* bruk parameterne du ender med fra tuning:
+o AF3: num_recycles = valgt, num_seeds = valgt, num_diffusion_samples = fast
+o RF3: n_recycles = valgt, seed = valgt, diffusion_batch_size/num_steps fast, one_model_per_file=TRUE
+o Boltz2: use_potentials=OFF, step_scale=1.638, recycling_steps/sampling_steps/diffusion_samples = valgt
+Program: AF3 / RF3 / Boltz2
+
+Steg A2 — Hard QC (pose/ligand)
+1. PoseBuster på alle poser
+2. Privateer på alle oligosakkarider (dp2–dp8)
+3. Filter/regler:
+o dropp hard-fails
+o beholder “soft flags” som metadata, men blandes ikke med “pass” uten å merke
+Program: PoseBuster, Privateer
+
+Steg A3 — PLACER (local assembly)
+* Kjører PLACER på poser som passerer QC
+* Kjører PoseBuster igjen etter PLACER for å dokumentere forbedring og fange nye clashes
+Program: PLACER (+ PoseBuster re-check)
+
+Steg A4 — ProLIF IFP (per pose)
+* Generer IFP for hver pose:
+o residu-nivå + interaksjonstype
+* Lagre som matrise per (protein, ligand, modell)
+Program: ProLIF
+
+Steg A5 — Clustering av binding modes
+1. Cluster innen en kjøring for å komprimere (seed/sample-støy)
+2. Deretter cluster på tvers for binding modes per (protein, ligand) med å bruke en gjennomsnitts/median IFP vektor fra hver av clustrene fra hver protein-ligand-modell. 
+Kjør HDBSCAN på IFP (Jaccard/Tanimoto-likhet fungerer bra for binære IFP).
+Rapportér per (protein, ligand):
+* #clustere
+* occupancy per cluster
+* outlier-rate
+Program: HDBSCAN (R eller Python)
+
+Steg A6 — 3D-geometri per cluster (mekanisme)
+For hvert cluster:
+1. Velg medoid (den mest sentrale observasjonen, representant)
+2. Mål med MDAnalysis:
+o Cu–C1
+o Cu–C4
+o vinkel/tilt mot His-brace (definer en enkel vinkelregel)
+o planaritet/stacking (kan operationaliseres som avstand og normalvektor-vinkel mellom aromatisk ring og sukkerplan, om du vil)
+3. Lag “cluster signatur”:
+o dominerende interaksjoner (fra ProLIF-frekvenser)
+o geometri-statistikk
+Program: MDAnalysis, ProLIF
+
+Steg A7 — Krystall-anchoring (for de som har struktur)
+For proteiner med krystall:
+* Hvis krystall har ligand:
+o ProLIF IFP-likhet mot krystall
+* Hvis apo:
+o pocket RMSD (lokal) + nøkkelresiduer nær Cu
+Dette brukes som “sanity + kvalitetssjekk”, ikke som eneste sannhet.
+Program: ProLIF, MDAnalysis
+
+Steg A8 — Koble til aktivitet (C1/C4, substratspesifisitet, familie)
+På enzymnivå:
+* aggreger cluster-occupancy til features:
+o “C1-like occupancy” vs “C4-like occupancy” (basert på Cu–C1/C4-geometri)
+o interaksjonsfrekvenser (signaturinteraksjoner)
+o ligandtype/dp-respons
+Program: MDAnalysis + ProLIF + (R/Python for statistikk)
+
+DEL B: Full-lengde (proteiner med CBM)
+Kjør Steg B1–B8 som en “parallell” pipeline til Del A, men med nesten eksakt samme CBM-analyse.
+
+Dette er paired data og må sammenliknes med paired tester, Mixed models og ikke uavhengige tester.
+Steg B1–B5
+Steg B2.5: MDAnalysis for å måle avstand mellom ligand-aktivt sete, ligand-CBM og kanskje CBM-aktivt sete, per pose. Dette er for å sortere på proksimitet til CBM og om ligand er plassert med CBM, aktivt sete eller begge likt. Muliggjør inndeling av clustring. 
+Steg 4: Vurderer å lage to IFP-er, der en er ligand-CBM og den andre er ligand-aktivt sete. Lettere å styre grupperingen bort fra «kontakt med CBM eller ikke» og får fortsatt samme ligand-aktivt sete IFP som over og kan svare på om binding/aktivitet er annerledes med CBM til stede. 
+Steg 5: Ved clustering så kjøres det hvertfall for ligand-aktivt sete IFP, og kanskje for CBM også. Etter clustring for aktivt sete vil det bli annotert med CBM-distance distribution. Paralellt kan det også bli gjort clustring eller annen annalyse på CBM IFP. 
+Samme som A1–A5, men input er full-lengde-sekvens (LPMO+CBM).
+Program: AF3/RF3/Boltz2, PoseBuster, Privateer, PLACER, ProLIF, HDBSCAN
+
+Steg B6 — CBM-spesifikk interaksjonsanalyse
+For hver pose/cluster:
+1. ProLIF: merk interaksjoner som kommer fra:
+o LPMO-domene-residuer
+o CBM-residuer
+2. Rapportér:
+o IFP_CBM (subsett)
+o IFP_LPMO (subsett)
+o delt/overlapp
+Program: ProLIF
+
+Steg B7 — Proksimitet CBM ? aktivt sete ? ligand
+Med MDAnalysis:
+* minste avstand CBM–ligand (f.eks. heavy atoms)
+* minste avstand CBM–Cu (eller Cu-ligand karbon)
+* “er CBM og aktivt sete samtidig nær samme ligandfragment?” (enkelt kriterium: begge < X Å til ligand)
+Dette gir deg et direkte svar på:
+finnes det geometrier der CBM faktisk kan påvirke aktivt sete/substratorientering?
+Program: MDAnalysis
+
+Steg B8 — Sammenlign Del A vs Del B
+For CBM-proteiner:
+* sammenlign binding-mode clustere (IFP og geometri) mellom
+o LPMO-domene alene
+o full-lengde
+Dette avslører om CBM tilstedeværelse “låser” bestemte binding modes.
+Program: ProLIF, HDBSCAN, MDAnalysis
+
+4) Prediktive modeller
+Modell 1: Enzym ? aktivitet (C1/C4/mixed)
+Input-features (enzymnivå):
+* occupancy av geometrisk C1-like/C4-like clusters
+* signaturinteraksjoner (ProLIF frekvenser)
+* (for CBM-enzymer) CBM–ligand occupancy + CBM–Cu proksimitet
+Modeller:
+* multinomial logistisk regresjon (tolkbar baseline)[ES2]
+###
+Risikerer veldig mange features, kan bruke regularisering (L1/L2) og redusere features, vurdere PCA og sparce modellen først. Stor fare for Perfect separation og overfitting
+###
+* XGBoost / Random Forest (sterk prediksjon)
+Modell 2: (enzym, ligand) ? sannsynlig binding mode / orientering
+Input-features:
+* Dp (lengde på polymer), polymer-type (cellulose/chitin/amylose)
+* IFP + geometri
+* cluster membership probabilities
+Modeller:
+* gradient boosting eller regularisert logistisk regresjon
+
+
+1 Degree of polymerization (DP) viser lengden av oligosacharid/polysacharid.
+2 C1 og C4 refererer til hvilket karbon i sukker monomer hvor kutting skjer.
+3 Interaction Finger Print (IFP) er vektor med informasjon om bindinger og interaksjoner mellom to objekter, i dette tilfelle mellom ligand og protein. 
+[ES1]Clustring er basert på IFP så kan ikke bruke dette som target for å finne features som driver clustring. Må bruke geometri, aktivitet og C1/C4.
+[ES2]Risikerer veldig mange features, kan bruke regularisering (L1/L2) og redusere features, vurdere PCA og sparce modellen først. Stor fare for Perfect separation og overfitting
+---------------
+
+------------------------------------------------------------
+
+---------------
+
+------------------------------------------------------------
+

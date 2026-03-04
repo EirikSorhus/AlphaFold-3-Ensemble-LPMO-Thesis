@@ -1,0 +1,35 @@
+# ──────────────────────────────────────────────────────────
+# LPMO Pipeline — Pass/fail gates & thresholds
+# ──────────────────────────────────────────────────────────
+
+# ── Hard gates (failure → drop / skip) ──
+hard_gates:
+  atom_mapping_coverage_min: 1.0        # 100 % — no exceptions
+  privateer_recognized_sugars_min: 1.0  # 100 %
+  no_critical_posebusters_errors: true
+  cu_his_distance_min_a: 1.9
+  cu_his_distance_max_a: 2.6
+
+# PoseBusters error types classified as critical
+posebusters_critical_errors:
+  - steric_clash
+  - chem_valence_error
+  - sanitization_fail
+
+# ── Soft thresholds (flag, don't drop) ──
+soft_thresholds:
+  crystal_ifp_similarity_min: 0.3   # below → flag as possible alternative mode
+  cu_c_proximity_max_a: 7.0         # Cu–C1/C4 > 7 Å → flag, not drop
+  posebusters_soft_warnings:        # keep pose, add metadata
+    - minor_clash
+    - ring_pucker_deviation
+    - bond_length_outlier
+
+# ── HDBSCAN (LOCKED after tuning — never edited in production) ──
+hdbscan:
+  min_cluster_size: 10          # PLACEHOLDER — overwritten by tuning
+  metric: jaccard
+  cluster_selection_epsilon: 0.0
+  cluster_selection_method: eom # excess-of-mass
+  # After tuning, copy best value here and commit
+  locked: false                 # set to true after tuning run

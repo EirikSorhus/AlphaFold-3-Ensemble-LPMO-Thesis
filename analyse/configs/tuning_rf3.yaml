@@ -1,0 +1,45 @@
+# ──────────────────────────────────────────────────────────
+# RF3 tuning parameter grid
+# ──────────────────────────────────────────────────────────
+
+model: RF3
+
+# Fixed RF3 flags
+fixed:
+  one_model_per_file: true
+  early_stopping_plddt_threshold: 0.0   # effectively disabled
+
+# ── Phase A: Refinement ──
+refinement:
+  vary:
+    n_recycles: [10, 20, 30]
+  hold:
+    seed: 42
+    diffusion_batch_size: 5
+    num_steps: 200
+
+# ── Phase B: Diversity ──
+diversity:
+  vary:
+    seed: [42, 80, 120]
+  hold:
+    n_recycles: null            # filled from refinement best
+    diffusion_batch_size: 5
+    num_steps: 200
+
+tuning_dataset: "data/tuning_subset.yaml"
+
+metrics:
+  - posebusters_pass_rate
+  - privateer_pass_rate
+  - hdbscan_outlier_rate
+  - hdbscan_n_clusters
+  - cluster_occupancy_std
+  - crystal_ifp_mean_similarity
+  - crystal_pocket_rmsd_mean
+
+decision:
+  primary: posebusters_pass_rate
+  secondary: hdbscan_outlier_rate
+  tertiary: cluster_occupancy_std
+  sanity: crystal_ifp_mean_similarity

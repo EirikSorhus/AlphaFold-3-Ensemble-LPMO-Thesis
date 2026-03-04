@@ -1,0 +1,53 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "summary.json",
+  "type": "object",
+  "required": ["pipeline_version", "timestamp", "mode", "dataset_stats", "qc_stats", "cluster_stats"],
+  "properties": {
+    "pipeline_version": { "type": "string" },
+    "timestamp":        { "type": "string", "format": "date-time" },
+    "mode":             { "enum": ["tune", "production"] },
+    "dataset_stats": {
+      "type": "object",
+      "properties": {
+        "n_proteins":   { "type": "integer" },
+        "n_ligands":    { "type": "integer" },
+        "n_models":     { "type": "integer" },
+        "n_total_poses": { "type": "integer" },
+        "n_passed_qc":  { "type": "integer" },
+        "n_dropped":    { "type": "integer" }
+      }
+    },
+    "qc_stats": {
+      "type": "object",
+      "properties": {
+        "posebusters_pass_rate": { "type": "number" },
+        "privateer_pass_rate":   { "type": "number" },
+        "cu_his_pass_rate":      { "type": "number" },
+        "atom_mapping_pass_rate": { "type": "number" },
+        "error_type_distribution": { "type": "object" }
+      }
+    },
+    "cluster_stats": {
+      "type": "object",
+      "properties": {
+        "total_clusters":       { "type": "integer" },
+        "mean_clusters_per_pair": { "type": "number" },
+        "mean_outlier_rate":    { "type": "number" },
+        "occupancy_distribution": { "type": "object" }
+      }
+    },
+    "geometry_stats": {
+      "type": "object",
+      "properties": {
+        "cu_c1_mean_a": { "type": "number" },
+        "cu_c4_mean_a": { "type": "number" },
+        "his_angle_mean_deg": { "type": "number" }
+      }
+    },
+    "tuning_results": {
+      "type": ["object", "null"],
+      "description": "Present only in tune mode"
+    }
+  }
+}

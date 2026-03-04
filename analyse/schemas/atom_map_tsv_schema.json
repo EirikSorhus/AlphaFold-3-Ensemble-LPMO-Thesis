@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "atom_map.tsv schema",
+  "description": "Cross-model atom mapping table (Tab-separated).",
+  "type": "object",
+  "properties": {
+    "columns": {
+      "type": "array",
+      "items": { "type": "string" },
+      "enum": [
+        ["old_atom_name", "new_atom_name", "element", "residue_ccd",
+         "chain_id", "seq_id", "confidence", "reason"]
+      ]
+    }
+  },
+  "column_definitions": {
+    "old_atom_name": "Original atom name from model output",
+    "new_atom_name": "Canonical atom name after mapping",
+    "element":       "Element symbol (C, N, O, S, CU, …)",
+    "residue_ccd":   "3-letter CCD comp_id",
+    "chain_id":      "Canonical chain (A/B/C/D/E)",
+    "seq_id":        "Residue sequence number",
+    "confidence":    "Mapping confidence 0.0–1.0",
+    "reason":        "Matching method (topology_match | 3d_proximity | ccd_lookup | element_only)"
+  },
+  "notes": [
+    "One row per atom in the structure.",
+    "File must have 100% coverage (no atoms may be missing).",
+    "Accompanying rename_log.json contains aggregate statistics."
+  ],
+  "rename_log_json": {
+    "type": "object",
+    "required": ["total_atoms", "mapped_atoms", "mapping_coverage", "unmapped_atoms", "reason"],
+    "properties": {
+      "total_atoms":      { "type": "integer" },
+      "mapped_atoms":     { "type": "integer" },
+      "mapping_coverage": { "type": "number", "minimum": 0, "maximum": 1 },
+      "unmapped_atoms":   { "type": "array", "items": { "type": "string" } },
+      "reason":           { "type": "string" }
+    }
+  }
+}

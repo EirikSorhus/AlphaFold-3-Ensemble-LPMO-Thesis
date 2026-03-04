@@ -1,0 +1,78 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "lpmo-pipeline"
+version = "0.1.0"
+description = "LPMO enzyme–oligosaccharide structure-prediction analysis pipeline"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+authors = [
+    {name = "Eirik", email = "eirik@example.com"},
+]
+
+dependencies = [
+    # --- Structure parsing & manipulation ---
+    "gemmi>=0.6.4",
+
+    # --- QC ---
+    "posebusters>=0.3.0",
+    # privateer: system install (not pip-installable)
+
+    # --- Protonation ---
+    "openbabel-wheel>=3.1.1",
+    # reduce: from AmberTools or MolProbity (system install)
+
+    # --- Analysis ---
+    "MDAnalysis>=2.6.0",
+    "prolif>=2.0.0",
+    "hdbscan>=0.8.33",
+    "scipy>=1.11.0",
+    "numpy>=1.24.0",
+    "pandas>=2.0.0",
+    "scikit-learn>=1.3.0",
+
+    # --- Utilities ---
+    "pyyaml>=6.0",
+    "jsonschema>=4.20.0",
+    "jinja2>=3.1.2",
+
+    # --- CLI ---
+    "click>=8.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "ruff>=0.1.0",
+    "mypy>=1.7.0",
+]
+
+[project.scripts]
+lpmo-pipeline = "lpmo_pipeline.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"
+markers = [
+    "slow: marks tests that require external tools (deselect with '-m \"not slow\"')",
+    "gpu: marks tests that need GPU (PLACER)",
+]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 99
+select = ["E", "F", "W", "I", "N", "UP", "B", "A", "SIM"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
