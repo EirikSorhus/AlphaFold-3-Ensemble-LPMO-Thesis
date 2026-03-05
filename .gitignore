@@ -14,3 +14,5 @@ pipe_test/interpro_cache.json
 *.out
 *.err
 **/work/
+pipe_test/run_metadata_20251215.json
+pipe_test/scripts/module_2_new/interpro_cache.json
