@@ -1,6 +1,8 @@
 .venv/
 pipe_test/data/
+pipe_test/data_test_runs/
 .cache/
+*cache*
 pipe_test/logs/
 *.pyc
 **/__pycache__/
@@ -16,3 +18,4 @@ pipe_test/interpro_cache.json
 **/work/
 pipe_test/run_metadata_20251215.json
 pipe_test/scripts/module_2_new/interpro_cache.json
+
