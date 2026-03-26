@@ -364,6 +364,18 @@ def run(
         Optional[int],
         typer.Option("--rf3-num-steps", help="Override RF3 diffusion steps"),
     ] = None,
+        af3_num_recycles: Annotated[
+            Optional[int],
+            typer.Option("--af3-num-recycles", help="Override AF3 recycle count"),
+        ] = None,
+        boltz_sampling_steps: Annotated[
+            Optional[int],
+            typer.Option("--boltz-sampling-steps", help="Override Boltz sampling steps"),
+        ] = None,
+        boltz_use_potentials: Annotated[
+            Optional[bool],
+            typer.Option("--boltz-use-potentials", help="Override Boltz use_potentials flag"),
+        ] = None,
     ligand_ccd_list: Annotated[
         Optional[Path],
         typer.Option(
@@ -416,6 +428,12 @@ def run(
         cfg.rf3.n_recycles = rf3_n_recycles
     if rf3_num_steps is not None:
         cfg.rf3.num_steps = rf3_num_steps
+        if af3_num_recycles is not None:
+            cfg.af3.num_recycles = af3_num_recycles
+        if boltz_sampling_steps is not None:
+            cfg.boltz.sampling_steps = boltz_sampling_steps
+        if boltz_use_potentials is not None:
+            cfg.boltz.use_potentials = boltz_use_potentials
 
     # ── Load manifests ─────────────────────────────────────────
     manifest_dir = cfg.outputs.manifest_dir
@@ -752,11 +770,14 @@ slurm:
 af3:
   seeds: 10
   num_diffusion_samples: 5
+  # num_recycles: null              # (optional) use AF3 default if not specified
 
 boltz:
   seeds: 5
   diffusion_samples: 5
   recycling_steps: 10
+  # sampling_steps: null            # (optional) use Boltz default if not specified
+  # use_potentials: null            # (optional) use Boltz default if not specified
   use_affinity: true
   use_msa_server: false
 

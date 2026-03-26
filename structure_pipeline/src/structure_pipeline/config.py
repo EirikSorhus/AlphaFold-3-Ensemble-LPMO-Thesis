@@ -81,6 +81,9 @@ class AF3Config(BaseModel):
     num_diffusion_samples: int = Field(
         default=5, ge=1, description="Diffusion samples per seed"
     )
+    num_recycles: int | None = Field(
+        default=None, ge=1, description="Number of recycles (None = use AF3 default)"
+    )
     # MSA-specific
     jackhmmer_n_cpu: int = Field(default=8, description="CPUs for jackhmmer")
 
@@ -91,6 +94,12 @@ class BoltzConfig(BaseModel):
     seeds: int = Field(default=5, ge=1, description="Number of seeds (recycling_steps)")
     diffusion_samples: int = Field(default=5, ge=1, description="Diffusion samples")
     recycling_steps: int = Field(default=10, ge=1, description="Recycling steps")
+    sampling_steps: int | None = Field(
+        default=None, ge=1, description="Sampling steps (None = use Boltz default)"
+    )
+    use_potentials: bool | None = Field(
+        default=None, description="Use potentials (None = use Boltz default)"
+    )
     use_affinity: bool = Field(default=True, description="Enable affinity prediction")
     use_msa_server: bool = Field(
         default=False, description="Use MSA server (vs pre-computed)"

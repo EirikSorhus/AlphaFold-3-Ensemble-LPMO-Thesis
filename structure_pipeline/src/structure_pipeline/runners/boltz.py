@@ -154,6 +154,12 @@ class BoltzRunner(RunnerInterface):
         if self.config.boltz.use_msa_server:
             cmd.append("--use_msa_server")
 
+        if self.config.boltz.sampling_steps is not None:
+            cmd.extend(["--sampling_steps", str(self.config.boltz.sampling_steps)])
+
+        if self.config.boltz.use_potentials is not None:
+            cmd.append(f"--use_potentials={str(self.config.boltz.use_potentials).lower()}")
+
         return cmd
 
     # ------------------------------------------------------------------
@@ -227,6 +233,14 @@ class BoltzRunner(RunnerInterface):
         if self.config.boltz.diffusion_samples != 5:
             boltz_extra_args.append(
                 f"--diffusion_samples {self.config.boltz.diffusion_samples}"
+            )
+        if self.config.boltz.sampling_steps is not None:
+            boltz_extra_args.append(
+                f"--sampling_steps {self.config.boltz.sampling_steps}"
+            )
+        if self.config.boltz.use_potentials is not None:
+            boltz_extra_args.append(
+                f"--use_potentials={str(self.config.boltz.use_potentials).lower()}"
             )
         if self.config.boltz.use_msa_server:
             boltz_extra_args.append("--use_msa_server")

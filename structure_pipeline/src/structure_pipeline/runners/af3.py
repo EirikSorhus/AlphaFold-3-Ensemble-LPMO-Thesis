@@ -224,6 +224,8 @@ class AF3Runner(RunnerInterface):
             cmd.append(
                 f"--num_diffusion_samples={self.config.af3.num_diffusion_samples}"
             )
+            if self.config.af3.num_recycles is not None:
+                cmd.append(f"--num_recycles={self.config.af3.num_recycles}")
 
         return cmd
 
@@ -604,6 +606,11 @@ echo "AF3 MSA completed at $(date)"
             if container_cif:
                 patch_args += f' "{container_cif}"'
 
+            # Build num_recycles arg conditionally
+            num_recycles_arg = ""
+            if self.config.af3.num_recycles is not None:
+                num_recycles_arg = f" \\\n      --num_recycles={self.config.af3.num_recycles}"
+
             inference_blocks.append(f'''
 echo "── Inference: {pid} + {ligand_ccd} ──"
 DATA_JSON={data_json}
@@ -625,7 +632,7 @@ else
       --json_path=/root/af_input/{job_input_name} \\
       --model_dir=/root/models \\
       --db_dir=/root/public_databases \\
-      --num_diffusion_samples={self.config.af3.num_diffusion_samples} \\
+      --num_diffusion_samples={self.config.af3.num_diffusion_samples}{num_recycles_arg} \\
       --output_dir=/root/af_output
 
   echo "  done: {pid}"
