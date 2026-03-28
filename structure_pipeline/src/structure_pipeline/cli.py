@@ -569,6 +569,15 @@ def run(
             msa_job_name = f"af3_msa_{msa_key}"
             msa_ligand = af3_msa_ligand.get(case.protein_id, ligand_ccd)
 
+            # Skip MSA jobs that are already completed
+            if (msa_work_dir / "DONE.ok").exists():
+                af3_msa_jobs[msa_key] = {
+                    "job": None,  # No pending job — already done
+                    "work_dir": msa_work_dir,
+                }
+                console.print(f"  [blue]↩[/blue] {msa_job_name} already done, skipping")
+                continue
+
             # Get CIF path for this ligand
             ligand_cif_path = ligand_cif_paths.get(case.ligand_id)
 
@@ -613,7 +622,8 @@ def run(
                 msa_info = af3_msa_jobs.get(msa_key)
                 if msa_info:
                     msa_work_dirs[case.protein_id] = msa_info["work_dir"]
-                    dep_job_ids.append(msa_info["job"].job_id)
+                    if msa_info["job"] is not None:  # None = already done, no dependency needed
+                        dep_job_ids.append(msa_info["job"].job_id)
 
             # Build inference script
             inf_script = af3_runner.build_slurm_script(
