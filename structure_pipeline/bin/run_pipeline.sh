@@ -2,7 +2,7 @@
 #SBATCH --job-name=structure-pipeline
 #SBATCH --account=nn1003k
 #SBATCH --time=00:30:00
-#SBATCH --partition=normal
+#SBATCH --partition=small
 #SBATCH --mem=4G
 #SBATCH --cpus-per-task=1
 #SBATCH --output=logs/pipeline_%j.out

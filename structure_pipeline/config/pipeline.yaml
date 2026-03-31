@@ -24,7 +24,7 @@ paths:
 # SLURM settings for Olivia/Betzy
 slurm:
   account: nn1003k
-  partition_cpu: normal
+  partition_cpu: small
   partition_gpu: accel
   mem_per_gpu: 80G          # Uniform 80G on accel nodes
   # Per-model memory overrides (uncomment to customise):
@@ -32,7 +32,7 @@ slurm:
   # mem_per_gpu_boltz: 80G
   # mem_per_gpu_rf3: 80G
   time_msa: "02:00:00"      # AF3 MSA generation
-  time_inference: "01:00:00" # GPU inference jobs
+  time_inference: "10:00:00" # GPU inference jobs
   gpus: 1
   cpus_msa: 8
   mem_per_cpu_msa: 10G
@@ -68,7 +68,7 @@ rf3:
 inputs:
   # FASTA file with proteins (pipe-separated format: >UniProtIDs|ID|Organism|Annotation)
   # Place your .fasta files in: input/fasta/
-  proteins_fasta: input/fasta/proteins.fasta
+  proteins_fasta: input/fasta/lpmo_core_domain_2026-03-14_06-52-15_deduplicated.fasta
 
   # Ligand CIF files organized by category
   # Place your CIF files in: input/ligand/{category}/*.cif

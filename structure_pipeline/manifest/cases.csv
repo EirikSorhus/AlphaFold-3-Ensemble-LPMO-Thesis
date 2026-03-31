@@ -1,46 +1,3106 @@
 case_id,protein_id,ligand_id,ligand_ccd_code,model,msa_source,msa_path,status,error_message
-aa0b18d90fe6,B6EQJ6,L001,STA6,af3,native,,pending,
-d38cb04b7265,B6EQJ6,L001,STA6,boltz,mmseqs,UniProtIDs_B6EQJ6_Aliivibrio_salmonicida__strain_LFI1238__Unknown.a3m,pending,
-dd88126fe61d,B6EQJ6,L001,STA6,rf3,mmseqs,UniProtIDs_B6EQJ6_Aliivibrio_salmonicida__strain_LFI1238__Unknown.a3m,pending,
-338be468920a,B6EQJ6,L002,CEL6,af3,native,,pending,
-2ffa1df2326d,B6EQJ6,L002,CEL6,boltz,mmseqs,UniProtIDs_B6EQJ6_Aliivibrio_salmonicida__strain_LFI1238__Unknown.a3m,pending,
-b70032bab710,B6EQJ6,L002,CEL6,rf3,mmseqs,UniProtIDs_B6EQJ6_Aliivibrio_salmonicida__strain_LFI1238__Unknown.a3m,pending,
-8874c2ab39b9,B6EQJ6,L003,NAG6,af3,native,,pending,
-3b52e781fbbb,B6EQJ6,L003,NAG6,boltz,mmseqs,UniProtIDs_B6EQJ6_Aliivibrio_salmonicida__strain_LFI1238__Unknown.a3m,pending,
-8e72f296343c,B6EQJ6,L003,NAG6,rf3,mmseqs,UniProtIDs_B6EQJ6_Aliivibrio_salmonicida__strain_LFI1238__Unknown.a3m,pending,
-9fda74410927,D0EW65,L001,STA6,af3,native,,pending,
-1b741680c56f,D0EW65,L001,STA6,boltz,mmseqs,UniProtIDs_D0EW65_Bacillus_thuringiensis_subsp._kurstaki_Unknown.a3m,pending,
-3e003082687e,D0EW65,L001,STA6,rf3,mmseqs,UniProtIDs_D0EW65_Bacillus_thuringiensis_subsp._kurstaki_Unknown.a3m,pending,
-bb3b2540a2f2,D0EW65,L002,CEL6,af3,native,,pending,
-0f0c51f570d6,D0EW65,L002,CEL6,boltz,mmseqs,UniProtIDs_D0EW65_Bacillus_thuringiensis_subsp._kurstaki_Unknown.a3m,pending,
-633c087cc7d6,D0EW65,L002,CEL6,rf3,mmseqs,UniProtIDs_D0EW65_Bacillus_thuringiensis_subsp._kurstaki_Unknown.a3m,pending,
-5a24e7ad3928,D0EW65,L003,NAG6,af3,native,,pending,
-4cd1eef0df4e,D0EW65,L003,NAG6,boltz,mmseqs,UniProtIDs_D0EW65_Bacillus_thuringiensis_subsp._kurstaki_Unknown.a3m,pending,
-34facc999019,D0EW65,L003,NAG6,rf3,mmseqs,UniProtIDs_D0EW65_Bacillus_thuringiensis_subsp._kurstaki_Unknown.a3m,pending,
-1b1318aa7a27,Q9RFX5,L001,STA6,af3,native,,pending,
-37f4f913ec1d,Q9RFX5,L001,STA6,boltz,mmseqs,UniProtIDs_Q9RFX5__Caldibacillus__cellulovorans_cellulase.a3m,pending,
-e6f454e3ed17,Q9RFX5,L001,STA6,rf3,mmseqs,UniProtIDs_Q9RFX5__Caldibacillus__cellulovorans_cellulase.a3m,pending,
-defc8ffab298,Q9RFX5,L002,CEL6,af3,native,,pending,
-4b83237cf4ec,Q9RFX5,L002,CEL6,boltz,mmseqs,UniProtIDs_Q9RFX5__Caldibacillus__cellulovorans_cellulase.a3m,pending,
-d60dc0d72fcb,Q9RFX5,L002,CEL6,rf3,mmseqs,UniProtIDs_Q9RFX5__Caldibacillus__cellulovorans_cellulase.a3m,pending,
-6a7bc0aaa127,Q9RFX5,L003,NAG6,af3,native,,pending,
-06e6315e6ae7,Q9RFX5,L003,NAG6,boltz,mmseqs,UniProtIDs_Q9RFX5__Caldibacillus__cellulovorans_cellulase.a3m,pending,
-491ddce60cfd,Q9RFX5,L003,NAG6,rf3,mmseqs,UniProtIDs_Q9RFX5__Caldibacillus__cellulovorans_cellulase.a3m,pending,
-fb07376cd35d,F4H6A3,L001,STA6,af3,native,,pending,
-ecb18ea7c03d,F4H6A3,L001,STA6,boltz,mmseqs,UniProtIDs_F4H6A3_Cellulomonas_fimi__strain_ATCC_484___DSM_20113___JCM_1341___CCUG_24087___LMG_16345___NBRC_15513___NCIMB_8980___NCTC_7547___NRS-133__Unknown.a3m,pending,
-165188108584,F4H6A3,L001,STA6,rf3,mmseqs,UniProtIDs_F4H6A3_Cellulomonas_fimi__strain_ATCC_484___DSM_20113___JCM_1341___CCUG_24087___LMG_16345___NBRC_15513___NCIMB_8980___NCTC_7547___NRS-133__Unknown.a3m,pending,
-017908603dbb,F4H6A3,L002,CEL6,af3,native,,pending,
-6ea41a39b541,F4H6A3,L002,CEL6,boltz,mmseqs,UniProtIDs_F4H6A3_Cellulomonas_fimi__strain_ATCC_484___DSM_20113___JCM_1341___CCUG_24087___LMG_16345___NBRC_15513___NCIMB_8980___NCTC_7547___NRS-133__Unknown.a3m,pending,
-a1fcf539f1cc,F4H6A3,L002,CEL6,rf3,mmseqs,UniProtIDs_F4H6A3_Cellulomonas_fimi__strain_ATCC_484___DSM_20113___JCM_1341___CCUG_24087___LMG_16345___NBRC_15513___NCIMB_8980___NCTC_7547___NRS-133__Unknown.a3m,pending,
-515e122f8f6c,F4H6A3,L003,NAG6,af3,native,,pending,
-44646e31fc05,F4H6A3,L003,NAG6,boltz,mmseqs,UniProtIDs_F4H6A3_Cellulomonas_fimi__strain_ATCC_484___DSM_20113___JCM_1341___CCUG_24087___LMG_16345___NBRC_15513___NCIMB_8980___NCTC_7547___NRS-133__Unknown.a3m,pending,
-8c5799efb9d2,F4H6A3,L003,NAG6,rf3,mmseqs,UniProtIDs_F4H6A3_Cellulomonas_fimi__strain_ATCC_484___DSM_20113___JCM_1341___CCUG_24087___LMG_16345___NBRC_15513___NCIMB_8980___NCTC_7547___NRS-133__Unknown.a3m,pending,
-3dff7893349b,D5UGB1,L001,STA6,af3,native,,pending,
-90b9595e840f,D5UGB1,L001,STA6,boltz,mmseqs,UniProtIDs_D5UGB1_Cellulomonas_flavigena__strain_ATCC_482___DSM_20109___BCRC_11376___JCM_18109___NBRC_3775___NCIMB_8073___NRS_134__Unknown.a3m,pending,
-f7762747688d,D5UGB1,L001,STA6,rf3,mmseqs,UniProtIDs_D5UGB1_Cellulomonas_flavigena__strain_ATCC_482___DSM_20109___BCRC_11376___JCM_18109___NBRC_3775___NCIMB_8073___NRS_134__Unknown.a3m,pending,
-675d8e0d69dd,D5UGB1,L002,CEL6,af3,native,,pending,
-1ed912a9116d,D5UGB1,L002,CEL6,boltz,mmseqs,UniProtIDs_D5UGB1_Cellulomonas_flavigena__strain_ATCC_482___DSM_20109___BCRC_11376___JCM_18109___NBRC_3775___NCIMB_8073___NRS_134__Unknown.a3m,pending,
-4e0903034fe8,D5UGB1,L002,CEL6,rf3,mmseqs,UniProtIDs_D5UGB1_Cellulomonas_flavigena__strain_ATCC_482___DSM_20109___BCRC_11376___JCM_18109___NBRC_3775___NCIMB_8073___NRS_134__Unknown.a3m,pending,
-262fd2c3d635,D5UGB1,L003,NAG6,af3,native,,pending,
-ed2f1d881d11,D5UGB1,L003,NAG6,boltz,mmseqs,UniProtIDs_D5UGB1_Cellulomonas_flavigena__strain_ATCC_482___DSM_20109___BCRC_11376___JCM_18109___NBRC_3775___NCIMB_8073___NRS_134__Unknown.a3m,pending,
-847d77c6514b,D5UGB1,L003,NAG6,rf3,mmseqs,UniProtIDs_D5UGB1_Cellulomonas_flavigena__strain_ATCC_482___DSM_20109___BCRC_11376___JCM_18109___NBRC_3775___NCIMB_8073___NRS_134__Unknown.a3m,pending,
+91a280961f2e,P9WEM3,L001,STA4,af3,native,,pending,
+ccd682a73f26,P9WEM3,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+0ad25524ace3,P9WEM3,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+6869f6c7dbf6,P9WEM3,L002,STA6,af3,native,,pending,
+0578b3ad4c94,P9WEM3,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+d48b4a37fae3,P9WEM3,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+2a10d10e3acb,P9WEM3,L003,STA8,af3,native,,pending,
+b9a3dbb034bd,P9WEM3,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+13d02907ac2a,P9WEM3,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+69fb8c5e47de,P9WEM3,L004,CEL4,af3,native,,pending,
+d0c606be1871,P9WEM3,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+543cc0279d6e,P9WEM3,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+adffcefc9965,P9WEM3,L005,CEL6,af3,native,,pending,
+aba5c56bb788,P9WEM3,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+81ca9a84b19e,P9WEM3,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+f0a86e1d68f0,P9WEM3,L006,CEL8,af3,native,,pending,
+4193aa892de1,P9WEM3,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+03607073cec1,P9WEM3,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+4aae91d93519,P9WEM3,L007,NAG4,af3,native,,pending,
+1b159e8012db,P9WEM3,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+2b3345d6f5b7,P9WEM3,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+ef045baa9bf2,P9WEM3,L008,NAG6,af3,native,,pending,
+cddf7a505cb6,P9WEM3,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+94f7ac9c34f7,P9WEM3,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+e4fc505bb0bd,P9WEM3,L009,NAG8,af3,native,,pending,
+2ea56db0d67e,P9WEM3,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+cd052c5ba366,P9WEM3,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+6f0e143f88f9,A3KKC4,L001,STA4,af3,native,,pending,
+524b591c85ac,A3KKC4,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+cd442107d58e,A3KKC4,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+a8f6e73ce759,A3KKC4,L002,STA6,af3,native,,pending,
+c2e0e49fdddf,A3KKC4,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+8109f6ff8f81,A3KKC4,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+65677ea7b1c7,A3KKC4,L003,STA8,af3,native,,pending,
+022ac21b2c9e,A3KKC4,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+56db629da0dc,A3KKC4,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+93581c9473f9,A3KKC4,L004,CEL4,af3,native,,pending,
+cc7c6b2a0a4c,A3KKC4,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+51539d9f0c50,A3KKC4,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+85f51e60d881,A3KKC4,L005,CEL6,af3,native,,pending,
+abf7306e3dfb,A3KKC4,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+034a69391c05,A3KKC4,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+3535c7c1081a,A3KKC4,L006,CEL8,af3,native,,pending,
+101c70e3a388,A3KKC4,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+df38d6c67084,A3KKC4,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+7d4f965b797a,A3KKC4,L007,NAG4,af3,native,,pending,
+0c3e096fb669,A3KKC4,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+0c6049daeabe,A3KKC4,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+1c7c81b5248c,A3KKC4,L008,NAG6,af3,native,,pending,
+6641db4c0178,A3KKC4,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+51ed01e64b6c,A3KKC4,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+58be78d40627,A3KKC4,L009,NAG8,af3,native,,pending,
+ef63343f646d,A3KKC4,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+3200ce124b2c,A3KKC4,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+5992f9cd3d59,A3KIM2,L001,STA4,af3,native,,pending,
+92372c31ad9e,A3KIM2,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+5f8e6ce2b354,A3KIM2,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+30a01f31f663,A3KIM2,L002,STA6,af3,native,,pending,
+9ed4c46f8c01,A3KIM2,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+7b4570b30ad3,A3KIM2,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+0755c38c4bed,A3KIM2,L003,STA8,af3,native,,pending,
+9640b124eda3,A3KIM2,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+7ab72b7d12bc,A3KIM2,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+0bc4eeb1aa19,A3KIM2,L004,CEL4,af3,native,,pending,
+f591741d7b0e,A3KIM2,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+8ce934139e03,A3KIM2,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+2a831ee5c8ac,A3KIM2,L005,CEL6,af3,native,,pending,
+00c005199290,A3KIM2,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+804240128f4d,A3KIM2,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+f9e041d63176,A3KIM2,L006,CEL8,af3,native,,pending,
+0c447ae69f4f,A3KIM2,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+c988fda4b140,A3KIM2,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+5e6947887e63,A3KIM2,L007,NAG4,af3,native,,pending,
+fda817cf598a,A3KIM2,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+34dc3cfa1ff4,A3KIM2,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+ba6c15bee622,A3KIM2,L008,NAG6,af3,native,,pending,
+67068a4d7cde,A3KIM2,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+4b2ca22b81ff,A3KIM2,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+8ac75569feea,A3KIM2,L009,NAG8,af3,native,,pending,
+b54c614cbe09,A3KIM2,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+6d8c0a6c90af,A3KIM2,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+88f34d13201a,Q838S1,L001,STA4,af3,native,,pending,
+0926e725475a,Q838S1,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+4d1e7bc859d4,Q838S1,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+7585977f58f0,Q838S1,L002,STA6,af3,native,,pending,
+eca184d98190,Q838S1,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+9ecd0efae601,Q838S1,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+f356c52cb2c7,Q838S1,L003,STA8,af3,native,,pending,
+5f95819c8886,Q838S1,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+632c1e646786,Q838S1,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+a3d4e17d0def,Q838S1,L004,CEL4,af3,native,,pending,
+ad5ff802d5e1,Q838S1,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+3de084337274,Q838S1,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+a444dc654835,Q838S1,L005,CEL6,af3,native,,pending,
+0b223e88d52e,Q838S1,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+184d03a408cf,Q838S1,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+a9f759c87b22,Q838S1,L006,CEL8,af3,native,,pending,
+9da1c83d7685,Q838S1,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+67f311bc7002,Q838S1,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+c1a43e698ac0,Q838S1,L007,NAG4,af3,native,,pending,
+a38751d8601d,Q838S1,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+4e2b08d0b641,Q838S1,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+ad54b4817171,Q838S1,L008,NAG6,af3,native,,pending,
+c52a8a8192cb,Q838S1,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+25b9aea3c5dd,Q838S1,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+b491f7d5f0eb,Q838S1,L009,NAG8,af3,native,,pending,
+ceda02ff6a34,Q838S1,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+e6ca6527e37e,Q838S1,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+cd5e2c7f97ff,Q9I589,L001,STA4,af3,native,,pending,
+6ff89c3d4cb6,Q9I589,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+e51ee5bc36d4,Q9I589,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+ebea33f2b3ec,Q9I589,L002,STA6,af3,native,,pending,
+52fcda802333,Q9I589,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+aa0787e51c09,Q9I589,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+d46a3c80ce54,Q9I589,L003,STA8,af3,native,,pending,
+4bd85bd6ce61,Q9I589,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+8a9b11154567,Q9I589,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+183e1db90eb1,Q9I589,L004,CEL4,af3,native,,pending,
+e02a4a1d7024,Q9I589,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+61000a0f4948,Q9I589,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+56b5bc30c23e,Q9I589,L005,CEL6,af3,native,,pending,
+74f7587fd6fb,Q9I589,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+37bb8d274d26,Q9I589,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+beaaf8d3ef3b,Q9I589,L006,CEL8,af3,native,,pending,
+675b141d7823,Q9I589,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+325035ba3750,Q9I589,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+c49585eba088,Q9I589,L007,NAG4,af3,native,,pending,
+f1f7a18c2b7f,Q9I589,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+178d2b83e3c4,Q9I589,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+e4f5a7cae2a9,Q9I589,L008,NAG6,af3,native,,pending,
+f941a8025b1f,Q9I589,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+9315d542dd70,Q9I589,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+44cc12e70fb8,Q9I589,L009,NAG8,af3,native,,pending,
+3e7fde899c19,Q9I589,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+c9fd77ef5083,Q9I589,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+eb53913a2960,A7N3J0,L001,STA4,af3,native,,pending,
+de477472633f,A7N3J0,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+0ef481bb3983,A7N3J0,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+91e77d14fdae,A7N3J0,L002,STA6,af3,native,,pending,
+d32fed203c26,A7N3J0,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+450099aa7364,A7N3J0,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+d7cee62972b6,A7N3J0,L003,STA8,af3,native,,pending,
+0329eb07cfab,A7N3J0,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+c61bd70120eb,A7N3J0,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+e5c03ab56055,A7N3J0,L004,CEL4,af3,native,,pending,
+83505dd17ebd,A7N3J0,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+a5c6aebefabd,A7N3J0,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+2bb23a18a968,A7N3J0,L005,CEL6,af3,native,,pending,
+e5305aad1042,A7N3J0,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+ec8215d473aa,A7N3J0,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+402bef6fd3b0,A7N3J0,L006,CEL8,af3,native,,pending,
+3a2b7e4de587,A7N3J0,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+ed66c5b9e379,A7N3J0,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+c16e5fcd943c,A7N3J0,L007,NAG4,af3,native,,pending,
+4ee91c8679be,A7N3J0,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+8ab00886f3e0,A7N3J0,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+4c2f3661eb2f,A7N3J0,L008,NAG6,af3,native,,pending,
+2450f88203a5,A7N3J0,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+37e641b85b54,A7N3J0,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+28004bde9d60,A7N3J0,L009,NAG8,af3,native,,pending,
+6208cf69b1b7,A7N3J0,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+bffeaffd416e,A7N3J0,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+eb7600bb566a,B6EQB6,L001,STA4,af3,native,,pending,
+8382ef5c9d82,B6EQB6,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+296fbc3421ae,B6EQB6,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+b687f301ec7a,B6EQB6,L002,STA6,af3,native,,pending,
+9ad128963179,B6EQB6,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+0b7585a149f0,B6EQB6,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+9fbc94217006,B6EQB6,L003,STA8,af3,native,,pending,
+cf6d8e50b528,B6EQB6,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+98112310b4bc,B6EQB6,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+b805c65dfc62,B6EQB6,L004,CEL4,af3,native,,pending,
+1f04ecfc07b8,B6EQB6,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+ece729f8aee4,B6EQB6,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+22fda69669a1,B6EQB6,L005,CEL6,af3,native,,pending,
+1990291bb2e4,B6EQB6,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+803cbe3cc6f8,B6EQB6,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+8c5e8b158b9e,B6EQB6,L006,CEL8,af3,native,,pending,
+329ea9ee0b4b,B6EQB6,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+8c1bbfcd9361,B6EQB6,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+e15789c3a672,B6EQB6,L007,NAG4,af3,native,,pending,
+de824d4dfd7e,B6EQB6,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+bdebd8911a22,B6EQB6,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+608a2448f4d0,B6EQB6,L008,NAG6,af3,native,,pending,
+6c7b47d3eca6,B6EQB6,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+536792546446,B6EQB6,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+fc601fff282a,B6EQB6,L009,NAG8,af3,native,,pending,
+a95abf7af456,B6EQB6,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+257f36ce7792,B6EQB6,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+0a46962bccd6,A0A7D5JVI4,L001,STA4,af3,native,,pending,
+f119ff45fdfe,A0A7D5JVI4,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+f719031868af,A0A7D5JVI4,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+a85d60e65cd2,A0A7D5JVI4,L002,STA6,af3,native,,pending,
+d1cefa1caa1e,A0A7D5JVI4,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+ff4dc762276a,A0A7D5JVI4,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+3c258de70faf,A0A7D5JVI4,L003,STA8,af3,native,,pending,
+7d2a813a7b14,A0A7D5JVI4,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+0d305b3774e5,A0A7D5JVI4,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+2e63608bf2b6,A0A7D5JVI4,L004,CEL4,af3,native,,pending,
+5a1416afb6fc,A0A7D5JVI4,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+cb28c8ab0f9f,A0A7D5JVI4,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+dae93f580a21,A0A7D5JVI4,L005,CEL6,af3,native,,pending,
+25a55a3c82ce,A0A7D5JVI4,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+3e82279bcab2,A0A7D5JVI4,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+fb001b7a3b7d,A0A7D5JVI4,L006,CEL8,af3,native,,pending,
+8a01522fb173,A0A7D5JVI4,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+78113b884b5f,A0A7D5JVI4,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+7ba4a429c636,A0A7D5JVI4,L007,NAG4,af3,native,,pending,
+355278c6a785,A0A7D5JVI4,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+d519603e6a2e,A0A7D5JVI4,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+900831ac8a81,A0A7D5JVI4,L008,NAG6,af3,native,,pending,
+bf4b7fca30d1,A0A7D5JVI4,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+23d36c37bbeb,A0A7D5JVI4,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+9fe7e5eafe6a,A0A7D5JVI4,L009,NAG8,af3,native,,pending,
+06e4dbd8730e,A0A7D5JVI4,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+08ed0bd03556,A0A7D5JVI4,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+ce763e31031d,C7R4I0,L001,STA4,af3,native,,pending,
+434f80da34eb,C7R4I0,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+40d26e4bb010,C7R4I0,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+41580b3a0956,C7R4I0,L002,STA6,af3,native,,pending,
+34b2653176ab,C7R4I0,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+521e546078a1,C7R4I0,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+5e91a500217c,C7R4I0,L003,STA8,af3,native,,pending,
+195228422157,C7R4I0,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+dd205446a9aa,C7R4I0,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+8936dcb51b86,C7R4I0,L004,CEL4,af3,native,,pending,
+7d8c74acd1c7,C7R4I0,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+563efe93ef1f,C7R4I0,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+bafa1568cd3d,C7R4I0,L005,CEL6,af3,native,,pending,
+b8461823aab1,C7R4I0,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+ad3fed44b982,C7R4I0,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+49351b73745e,C7R4I0,L006,CEL8,af3,native,,pending,
+2227fa676450,C7R4I0,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+79ed818c8a8d,C7R4I0,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+c928f7ecaf9f,C7R4I0,L007,NAG4,af3,native,,pending,
+44b9af6c14de,C7R4I0,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+ecb09f17c95f,C7R4I0,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+faa7f02c529c,C7R4I0,L008,NAG6,af3,native,,pending,
+3a70c1290416,C7R4I0,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+f48fbfaf13cd,C7R4I0,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+ae582f9e29c9,C7R4I0,L009,NAG8,af3,native,,pending,
+a0709f2310a6,C7R4I0,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+c843724f8df1,C7R4I0,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+1b1318aa7a27,Q9RFX5,L001,STA4,af3,native,,pending,
+37f4f913ec1d,Q9RFX5,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+e6f454e3ed17,Q9RFX5,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+defc8ffab298,Q9RFX5,L002,STA6,af3,native,,pending,
+4b83237cf4ec,Q9RFX5,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+d60dc0d72fcb,Q9RFX5,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+6a7bc0aaa127,Q9RFX5,L003,STA8,af3,native,,pending,
+06e6315e6ae7,Q9RFX5,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+491ddce60cfd,Q9RFX5,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+8b8e88f0365d,Q9RFX5,L004,CEL4,af3,native,,pending,
+b3b5a4edf294,Q9RFX5,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+46ad8340f586,Q9RFX5,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+41c54d295167,Q9RFX5,L005,CEL6,af3,native,,pending,
+8b78d3ac2f2f,Q9RFX5,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+c9e1c75ba1e6,Q9RFX5,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+ea9512a14ef8,Q9RFX5,L006,CEL8,af3,native,,pending,
+fbbd7c49ff43,Q9RFX5,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+4dd0a6620078,Q9RFX5,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+c153ba5e1641,Q9RFX5,L007,NAG4,af3,native,,pending,
+2322b0e09178,Q9RFX5,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+a5261d456a31,Q9RFX5,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+7850d07a3923,Q9RFX5,L008,NAG6,af3,native,,pending,
+4e90e64620b0,Q9RFX5,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+c51e72c239d8,Q9RFX5,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+fb264b35b2db,Q9RFX5,L009,NAG8,af3,native,,pending,
+c24e0a2bd865,Q9RFX5,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+de725d38db1c,Q9RFX5,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+0a1a40070887,B3PDT6,L001,STA4,af3,native,,pending,
+8fb57a63feb3,B3PDT6,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+1ce4aff42423,B3PDT6,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+b36a97ba6912,B3PDT6,L002,STA6,af3,native,,pending,
+e8181a8dd939,B3PDT6,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+9b40305379fd,B3PDT6,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+e59fc4619282,B3PDT6,L003,STA8,af3,native,,pending,
+f26e6f936e73,B3PDT6,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+4eaa3f7c5289,B3PDT6,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+4bd281c70177,B3PDT6,L004,CEL4,af3,native,,pending,
+068b2a7e5292,B3PDT6,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+631fbbefe32c,B3PDT6,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+2299cb72b07f,B3PDT6,L005,CEL6,af3,native,,pending,
+9918155fa159,B3PDT6,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+afd341b41bdf,B3PDT6,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+1e1ca633468f,B3PDT6,L006,CEL8,af3,native,,pending,
+2681e3f9339c,B3PDT6,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+4b5a991df709,B3PDT6,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+0cf7acaa69a1,B3PDT6,L007,NAG4,af3,native,,pending,
+5e9fe247ad62,B3PDT6,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+1acb39820360,B3PDT6,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+5698e4b68188,B3PDT6,L008,NAG6,af3,native,,pending,
+84b44219e343,B3PDT6,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+b29428ed95c9,B3PDT6,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+c7444b0cf80f,B3PDT6,L009,NAG8,af3,native,,pending,
+cbe71831a611,B3PDT6,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+7bc0e5cc1e07,B3PDT6,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+3b48fad3438d,A0A0A1ED04,L001,STA4,af3,native,,pending,
+e6d4e7e57969,A0A0A1ED04,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+3ff81a04fe47,A0A0A1ED04,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+954b0838002e,A0A0A1ED04,L002,STA6,af3,native,,pending,
+06e34477eefd,A0A0A1ED04,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+a37c3951f174,A0A0A1ED04,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+a98887383355,A0A0A1ED04,L003,STA8,af3,native,,pending,
+b1d2d6ccf6b1,A0A0A1ED04,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+d02d539691a4,A0A0A1ED04,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+446408127522,A0A0A1ED04,L004,CEL4,af3,native,,pending,
+cdcb14df18ab,A0A0A1ED04,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+a5e67e321d4e,A0A0A1ED04,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+404bb14d13a4,A0A0A1ED04,L005,CEL6,af3,native,,pending,
+39f27d9c6d46,A0A0A1ED04,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+0578d7e38c2f,A0A0A1ED04,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+7beef0c669a4,A0A0A1ED04,L006,CEL8,af3,native,,pending,
+cb84223059b6,A0A0A1ED04,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+c70c3ca5a5df,A0A0A1ED04,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+e0e790c29d58,A0A0A1ED04,L007,NAG4,af3,native,,pending,
+667a7bc35a21,A0A0A1ED04,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+5ada09af0449,A0A0A1ED04,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+d528938827bc,A0A0A1ED04,L008,NAG6,af3,native,,pending,
+67d930da0d14,A0A0A1ED04,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+1a0922827e25,A0A0A1ED04,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+467f16ead297,A0A0A1ED04,L009,NAG8,af3,native,,pending,
+9f3ded285882,A0A0A1ED04,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+f4b72470fc9c,A0A0A1ED04,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+0a8fce3c293b,A0A9P1NI18,L001,STA4,af3,native,,pending,
+e1ce312bb819,A0A9P1NI18,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+7b80353b9065,A0A9P1NI18,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+936a432d0d38,A0A9P1NI18,L002,STA6,af3,native,,pending,
+ff24afeb8ce3,A0A9P1NI18,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+167f97a70f68,A0A9P1NI18,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+0ed48d2350c9,A0A9P1NI18,L003,STA8,af3,native,,pending,
+d5c0130fdfd0,A0A9P1NI18,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+6131ce99a459,A0A9P1NI18,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+796fb8390cba,A0A9P1NI18,L004,CEL4,af3,native,,pending,
+4c5be9687894,A0A9P1NI18,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+8176090aab78,A0A9P1NI18,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+92f93b163fd5,A0A9P1NI18,L005,CEL6,af3,native,,pending,
+3780454fbbe2,A0A9P1NI18,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+0a5a1d02c869,A0A9P1NI18,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+8606ef31da74,A0A9P1NI18,L006,CEL8,af3,native,,pending,
+a7e14760fdf6,A0A9P1NI18,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+0e65af7f774d,A0A9P1NI18,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+863ab7b711b2,A0A9P1NI18,L007,NAG4,af3,native,,pending,
+ccb3fd884eb2,A0A9P1NI18,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+7faf21099bed,A0A9P1NI18,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+06f8566da96c,A0A9P1NI18,L008,NAG6,af3,native,,pending,
+ee7b7ba1c072,A0A9P1NI18,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+7dde80f5abee,A0A9P1NI18,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+8d945de71f92,A0A9P1NI18,L009,NAG8,af3,native,,pending,
+af9ea1eb27ba,A0A9P1NI18,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+579a24545160,A0A9P1NI18,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+57c1728397d7,B1VN59,L001,STA4,af3,native,,pending,
+07035eeb67f4,B1VN59,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+13cce0fc5b93,B1VN59,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+843dedb1691e,B1VN59,L002,STA6,af3,native,,pending,
+bede99edf670,B1VN59,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+197aec27d7c2,B1VN59,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+4fd010f71605,B1VN59,L003,STA8,af3,native,,pending,
+fdbd12cc094b,B1VN59,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+6dc98853a8ef,B1VN59,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+4ddc3e3cee7e,B1VN59,L004,CEL4,af3,native,,pending,
+253b07d5cc31,B1VN59,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+0b1354670195,B1VN59,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+94f817245ba8,B1VN59,L005,CEL6,af3,native,,pending,
+e471a6ba61d6,B1VN59,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+f5f8f95916db,B1VN59,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+9abdba2603c6,B1VN59,L006,CEL8,af3,native,,pending,
+f7936b9e6535,B1VN59,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+4a8fb01ec09d,B1VN59,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+8a53cd3d489d,B1VN59,L007,NAG4,af3,native,,pending,
+b4d333606bed,B1VN59,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+bf8d2b03e297,B1VN59,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+ceacdbb2982d,B1VN59,L008,NAG6,af3,native,,pending,
+acb2a77f83d7,B1VN59,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+fec5bf45e340,B1VN59,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+784151c3bb68,B1VN59,L009,NAG8,af3,native,,pending,
+203081887894,B1VN59,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+c551c660436b,B1VN59,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+aa0b18d90fe6,B6EQJ6,L001,STA4,af3,native,,pending,
+d38cb04b7265,B6EQJ6,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+dd88126fe61d,B6EQJ6,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+338be468920a,B6EQJ6,L002,STA6,af3,native,,pending,
+2ffa1df2326d,B6EQJ6,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+b70032bab710,B6EQJ6,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+8874c2ab39b9,B6EQJ6,L003,STA8,af3,native,,pending,
+3b52e781fbbb,B6EQJ6,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+8e72f296343c,B6EQJ6,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+5a1f78b349fd,B6EQJ6,L004,CEL4,af3,native,,pending,
+1ef04a733f1f,B6EQJ6,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+b59445a61b27,B6EQJ6,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+c2eed9e5cea9,B6EQJ6,L005,CEL6,af3,native,,pending,
+b88babdc5304,B6EQJ6,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+3d5efd011903,B6EQJ6,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+60835d95a9d7,B6EQJ6,L006,CEL8,af3,native,,pending,
+6f19df86aec0,B6EQJ6,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+416c6ea5304e,B6EQJ6,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+b18ee8c959e6,B6EQJ6,L007,NAG4,af3,native,,pending,
+e469651a3123,B6EQJ6,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+7caa14c909ed,B6EQJ6,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+e9f877200be2,B6EQJ6,L008,NAG6,af3,native,,pending,
+4dcfaa081838,B6EQJ6,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+952adba13a5a,B6EQJ6,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+d3d5bad2046b,B6EQJ6,L009,NAG8,af3,native,,pending,
+a3533b30d66d,B6EQJ6,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+905a4d1b92e2,B6EQJ6,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+a087392e71ab,C5BKQ9,L001,STA4,af3,native,,pending,
+998c16451920,C5BKQ9,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+247d5c84b5d4,C5BKQ9,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+b1669eed549c,C5BKQ9,L002,STA6,af3,native,,pending,
+19eaaf053a4b,C5BKQ9,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+fe785b2d0b08,C5BKQ9,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+3e60b459daff,C5BKQ9,L003,STA8,af3,native,,pending,
+b76efbc6c325,C5BKQ9,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+16d69b537e0a,C5BKQ9,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+9ea0648eb735,C5BKQ9,L004,CEL4,af3,native,,pending,
+fbe9fc39abae,C5BKQ9,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+e1ef6e5502ba,C5BKQ9,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+a4e31dd3acfb,C5BKQ9,L005,CEL6,af3,native,,pending,
+38002da76182,C5BKQ9,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+53c6a2e183c0,C5BKQ9,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+253c0a6624a9,C5BKQ9,L006,CEL8,af3,native,,pending,
+8da45125fedc,C5BKQ9,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+8f7a3d5a03f1,C5BKQ9,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+c684e75f3617,C5BKQ9,L007,NAG4,af3,native,,pending,
+e32688be2419,C5BKQ9,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+3cfe0da76639,C5BKQ9,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+d24d601fcc83,C5BKQ9,L008,NAG6,af3,native,,pending,
+426266f3c275,C5BKQ9,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+ecfbe4f8ed59,C5BKQ9,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+6f00efda1ae3,C5BKQ9,L009,NAG8,af3,native,,pending,
+46981e58506e,C5BKQ9,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+dc22f98f4618,C5BKQ9,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+fd175481fc9b,Q2SNS3,L001,STA4,af3,native,,pending,
+3f397d6025c5,Q2SNS3,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+fc70eac77416,Q2SNS3,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+b213be4c0716,Q2SNS3,L002,STA6,af3,native,,pending,
+e0f2c6a6d088,Q2SNS3,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+0ba1a639da1e,Q2SNS3,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+bbd1e4550c3c,Q2SNS3,L003,STA8,af3,native,,pending,
+60e7f2a9ba86,Q2SNS3,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+6218487bf808,Q2SNS3,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+c4bf0b65531c,Q2SNS3,L004,CEL4,af3,native,,pending,
+f78a31e11ae9,Q2SNS3,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+55ceac10eb62,Q2SNS3,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+d9d2fa181dd6,Q2SNS3,L005,CEL6,af3,native,,pending,
+f2480617365d,Q2SNS3,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+bec03e4c2113,Q2SNS3,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+a3c7c176bf9c,Q2SNS3,L006,CEL8,af3,native,,pending,
+0e2d3018044e,Q2SNS3,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+bd4a344445db,Q2SNS3,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+21a65547fb84,Q2SNS3,L007,NAG4,af3,native,,pending,
+b1facbbca102,Q2SNS3,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+a8427db15683,Q2SNS3,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+f0f9467191c0,Q2SNS3,L008,NAG6,af3,native,,pending,
+481bd70cba1f,Q2SNS3,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+c11282c62fd8,Q2SNS3,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+3f3a8679673c,Q2SNS3,L009,NAG8,af3,native,,pending,
+e9c87707682c,Q2SNS3,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+80f205afbad9,Q2SNS3,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+3458d8b44688,Q47QG3,L001,STA4,af3,native,,pending,
+28004ea7d260,Q47QG3,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+52b45a17d063,Q47QG3,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+3690e9e02436,Q47QG3,L002,STA6,af3,native,,pending,
+217bb4787fef,Q47QG3,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+87bd7a129c55,Q47QG3,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+6d379645325b,Q47QG3,L003,STA8,af3,native,,pending,
+bda1d9efa56f,Q47QG3,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+7ac41c2e056e,Q47QG3,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+fe7d7564d362,Q47QG3,L004,CEL4,af3,native,,pending,
+a9a45c4f56ab,Q47QG3,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+03ca55ccf849,Q47QG3,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+5f707601c5b9,Q47QG3,L005,CEL6,af3,native,,pending,
+468df0c45427,Q47QG3,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+c51e6001ff02,Q47QG3,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+5bc0a8c84a6c,Q47QG3,L006,CEL8,af3,native,,pending,
+6143005b9894,Q47QG3,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+6250d40fc97a,Q47QG3,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+11d4c6c62d34,Q47QG3,L007,NAG4,af3,native,,pending,
+16161e62d73c,Q47QG3,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+3e5cac1d4d3e,Q47QG3,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+6a086e0d8406,Q47QG3,L008,NAG6,af3,native,,pending,
+0db612d3a6f7,Q47QG3,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+bbd48d0a744d,Q47QG3,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+9c9470fe10e4,Q47QG3,L009,NAG8,af3,native,,pending,
+a6c429aa39f5,Q47QG3,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+364068af2ecc,Q47QG3,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+9fda74410927,D0EW65,L001,STA4,af3,native,,pending,
+1b741680c56f,D0EW65,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+3e003082687e,D0EW65,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+bb3b2540a2f2,D0EW65,L002,STA6,af3,native,,pending,
+0f0c51f570d6,D0EW65,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+633c087cc7d6,D0EW65,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+5a24e7ad3928,D0EW65,L003,STA8,af3,native,,pending,
+4cd1eef0df4e,D0EW65,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+34facc999019,D0EW65,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+3b4fb6fb16db,D0EW65,L004,CEL4,af3,native,,pending,
+0c9b728b3d23,D0EW65,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+90904b2fabee,D0EW65,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+e3da34e06528,D0EW65,L005,CEL6,af3,native,,pending,
+0dceae1cae35,D0EW65,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+5272a1c4c582,D0EW65,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+8a5b381454da,D0EW65,L006,CEL8,af3,native,,pending,
+169a37744b64,D0EW65,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+94b23d4111a3,D0EW65,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+aee0090a0560,D0EW65,L007,NAG4,af3,native,,pending,
+62e040d96651,D0EW65,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+25b64c0ba93d,D0EW65,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+7c7ae48212b4,D0EW65,L008,NAG6,af3,native,,pending,
+daee0609e9c8,D0EW65,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+2ffd7d0b8897,D0EW65,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+466db1f25b79,D0EW65,L009,NAG8,af3,native,,pending,
+e0b2d96d6a39,D0EW65,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+8c6d5ca7b686,D0EW65,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+fc48a8bf02af,D5UGA8,L001,STA4,af3,native,,pending,
+da482e4f63bd,D5UGA8,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+e955bc28c88a,D5UGA8,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+e46401265869,D5UGA8,L002,STA6,af3,native,,pending,
+38864a3d6619,D5UGA8,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+5f37eb1270ff,D5UGA8,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+3d3663a9ab4f,D5UGA8,L003,STA8,af3,native,,pending,
+4e46b311cdbe,D5UGA8,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+09eae9dfd346,D5UGA8,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+4c7b791d060f,D5UGA8,L004,CEL4,af3,native,,pending,
+0b624c3d1a2f,D5UGA8,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+918105ffca1c,D5UGA8,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+84ec075ca8b7,D5UGA8,L005,CEL6,af3,native,,pending,
+1fad71b87707,D5UGA8,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+131cf9c21fcb,D5UGA8,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+a2bb16388381,D5UGA8,L006,CEL8,af3,native,,pending,
+c8c1acf711a9,D5UGA8,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+637295e97851,D5UGA8,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+c2d45b90dbf1,D5UGA8,L007,NAG4,af3,native,,pending,
+3376945e911c,D5UGA8,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+d47dbdf8de45,D5UGA8,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+576279c9efb7,D5UGA8,L008,NAG6,af3,native,,pending,
+f8694609dcfe,D5UGA8,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+402c8f061229,D5UGA8,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+f4ebdde73836,D5UGA8,L009,NAG8,af3,native,,pending,
+f36b026bff3f,D5UGA8,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+3998c3c55dd1,D5UGA8,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+bc14938328f0,Q62YN7,L001,STA4,af3,native,,pending,
+05307a321014,Q62YN7,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+c69ea75ddee8,Q62YN7,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+8ef9173f4c20,Q62YN7,L002,STA6,af3,native,,pending,
+f7147419394b,Q62YN7,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+3710cf014c69,Q62YN7,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+c5568acec400,Q62YN7,L003,STA8,af3,native,,pending,
+bb47d22dcd0b,Q62YN7,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+dca821f74dd4,Q62YN7,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+8fb0222d400f,Q62YN7,L004,CEL4,af3,native,,pending,
+25cd27a32f9c,Q62YN7,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+35b096e9e99e,Q62YN7,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+3012ee03925e,Q62YN7,L005,CEL6,af3,native,,pending,
+096e0d74f3df,Q62YN7,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+8590121debe5,Q62YN7,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+c018cbddee75,Q62YN7,L006,CEL8,af3,native,,pending,
+5eddced8f3a5,Q62YN7,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+0901cd5209b9,Q62YN7,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+edbdfada5dce,Q62YN7,L007,NAG4,af3,native,,pending,
+33380068f497,Q62YN7,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+90b4b39c11cf,Q62YN7,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+efb974bc9883,Q62YN7,L008,NAG6,af3,native,,pending,
+b1aaa7141d65,Q62YN7,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+acf504fff524,Q62YN7,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+823e15023c42,Q62YN7,L009,NAG8,af3,native,,pending,
+815fceea528c,Q62YN7,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+e257ef86a976,Q62YN7,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+b387b0a75d33,Q9RJC1,L001,STA4,af3,native,,pending,
+3f20a38a8299,Q9RJC1,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+7bb2a1148aeb,Q9RJC1,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+3d5f73ba11c5,Q9RJC1,L002,STA6,af3,native,,pending,
+799ba033b408,Q9RJC1,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+1094a1eb145b,Q9RJC1,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+e09fb637f7ea,Q9RJC1,L003,STA8,af3,native,,pending,
+8b6d64818959,Q9RJC1,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+563be8794892,Q9RJC1,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+861fb98fd60c,Q9RJC1,L004,CEL4,af3,native,,pending,
+da524f5ccbb4,Q9RJC1,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+39b0cad3cb74,Q9RJC1,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+908fc74c70c2,Q9RJC1,L005,CEL6,af3,native,,pending,
+244af4ee85b1,Q9RJC1,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+c644fdda8bb0,Q9RJC1,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+84e5fa0e48fa,Q9RJC1,L006,CEL8,af3,native,,pending,
+1dd465127b92,Q9RJC1,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+33eece3befa4,Q9RJC1,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+fe25d57fcb25,Q9RJC1,L007,NAG4,af3,native,,pending,
+a135d3dc8049,Q9RJC1,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+67ee529225ec,Q9RJC1,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+39ad85fcb1c2,Q9RJC1,L008,NAG6,af3,native,,pending,
+20e975218635,Q9RJC1,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+02f3b14560ae,Q9RJC1,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+1509cf54a668,Q9RJC1,L009,NAG8,af3,native,,pending,
+419f3c9000ad,Q9RJC1,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+8fe43aa39c86,Q9RJC1,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+3dff7893349b,D5UGB1,L001,STA4,af3,native,,pending,
+90b9595e840f,D5UGB1,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+f7762747688d,D5UGB1,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+675d8e0d69dd,D5UGB1,L002,STA6,af3,native,,pending,
+1ed912a9116d,D5UGB1,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+4e0903034fe8,D5UGB1,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+262fd2c3d635,D5UGB1,L003,STA8,af3,native,,pending,
+ed2f1d881d11,D5UGB1,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+847d77c6514b,D5UGB1,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+b4b145143545,D5UGB1,L004,CEL4,af3,native,,pending,
+32dc55f42608,D5UGB1,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+b1a3a88666e1,D5UGB1,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+2350bb77a930,D5UGB1,L005,CEL6,af3,native,,pending,
+0c524273f2ae,D5UGB1,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+a4517db55df5,D5UGB1,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+36b283ccfa2f,D5UGB1,L006,CEL8,af3,native,,pending,
+2c2a09d878e9,D5UGB1,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+05bc0050484b,D5UGB1,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+16f9cca3a5a3,D5UGB1,L007,NAG4,af3,native,,pending,
+a711ae9cd466,D5UGB1,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+8cd2a553450d,D5UGB1,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+287fbe5d95d1,D5UGB1,L008,NAG6,af3,native,,pending,
+2f7f19cf46ff,D5UGB1,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+b5b564804073,D5UGB1,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+5927c0d9776a,D5UGB1,L009,NAG8,af3,native,,pending,
+0aa3a4663966,D5UGB1,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+0770d892c182,D5UGB1,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+43be01aace2d,D5UHY1,L001,STA4,af3,native,,pending,
+09697bb883aa,D5UHY1,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+58b2c33888f2,D5UHY1,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+ddeec8aa29e8,D5UHY1,L002,STA6,af3,native,,pending,
+c0ad7e4747de,D5UHY1,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+5a247a5f562b,D5UHY1,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+8499a58b2abf,D5UHY1,L003,STA8,af3,native,,pending,
+8775f97318ff,D5UHY1,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+f9455510baab,D5UHY1,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+2d5b91dc1d13,D5UHY1,L004,CEL4,af3,native,,pending,
+9f44b0959225,D5UHY1,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+b23b9f6b58e3,D5UHY1,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+c07cd3b9fccd,D5UHY1,L005,CEL6,af3,native,,pending,
+c2c23c9f51e9,D5UHY1,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+a22a359823c2,D5UHY1,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+9310427775d4,D5UHY1,L006,CEL8,af3,native,,pending,
+bbc12dac17ad,D5UHY1,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+a3dc32cdf5af,D5UHY1,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+530268b06543,D5UHY1,L007,NAG4,af3,native,,pending,
+40113c681e4a,D5UHY1,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+b2ee31980d6b,D5UHY1,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+ef31e9989a99,D5UHY1,L008,NAG6,af3,native,,pending,
+f2aca3b6b550,D5UHY1,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+08d27b612f8f,D5UHY1,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+c2fef3ab9476,D5UHY1,L009,NAG8,af3,native,,pending,
+19a11592f9b9,D5UHY1,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+8bc588c890bc,D5UHY1,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+fb07376cd35d,F4H6A3,L001,STA4,af3,native,,pending,
+ecb18ea7c03d,F4H6A3,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+165188108584,F4H6A3,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+017908603dbb,F4H6A3,L002,STA6,af3,native,,pending,
+6ea41a39b541,F4H6A3,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+a1fcf539f1cc,F4H6A3,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+515e122f8f6c,F4H6A3,L003,STA8,af3,native,,pending,
+44646e31fc05,F4H6A3,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+8c5799efb9d2,F4H6A3,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+c8767ebfee3d,F4H6A3,L004,CEL4,af3,native,,pending,
+50dd9f809ff4,F4H6A3,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+b0b4c64d529c,F4H6A3,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+a046fa91418e,F4H6A3,L005,CEL6,af3,native,,pending,
+b072cadef0e6,F4H6A3,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+ec1430e87432,F4H6A3,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+d46162f91a5e,F4H6A3,L006,CEL8,af3,native,,pending,
+1f1452e6b5c1,F4H6A3,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+6ed6f67c4515,F4H6A3,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+67b50281f893,F4H6A3,L007,NAG4,af3,native,,pending,
+997206db8062,F4H6A3,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+daafd38f1551,F4H6A3,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+812aaf3afbe7,F4H6A3,L008,NAG6,af3,native,,pending,
+d258a47f1217,F4H6A3,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+0b348d90b420,F4H6A3,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+e4f06d34aadd,F4H6A3,L009,NAG8,af3,native,,pending,
+764ea0aa00b3,F4H6A3,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+d9685b05bb82,F4H6A3,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+54f214e995da,Q7N4I5,L001,STA4,af3,native,,pending,
+448ea056c96a,Q7N4I5,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+d5bdf08ae128,Q7N4I5,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+f033b5857546,Q7N4I5,L002,STA6,af3,native,,pending,
+ecba60d4256e,Q7N4I5,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+fe17b6384113,Q7N4I5,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+c0d2730be708,Q7N4I5,L003,STA8,af3,native,,pending,
+e27d557fd132,Q7N4I5,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+aa0f0da6acf7,Q7N4I5,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+f3b4852f68a4,Q7N4I5,L004,CEL4,af3,native,,pending,
+ec6000b7a3dd,Q7N4I5,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+8933f73cf135,Q7N4I5,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+921f639f93bb,Q7N4I5,L005,CEL6,af3,native,,pending,
+b1b008abc239,Q7N4I5,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+fbc41fd07fd1,Q7N4I5,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+7ea3a7786427,Q7N4I5,L006,CEL8,af3,native,,pending,
+bbf22c691452,Q7N4I5,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+79b877f7566f,Q7N4I5,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+fd2207219994,Q7N4I5,L007,NAG4,af3,native,,pending,
+c24eb4199032,Q7N4I5,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+4372faa3662c,Q7N4I5,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+6e61fc53fff1,Q7N4I5,L008,NAG6,af3,native,,pending,
+f5faec3fb0cc,Q7N4I5,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+8f3b61d148aa,Q7N4I5,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+866d7ee4b6ae,Q7N4I5,L009,NAG8,af3,native,,pending,
+308eaad33e28,Q7N4I5,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+fbbbd746e882,Q7N4I5,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+acf90e57eb6d,Q8Y4H4,L001,STA4,af3,native,,pending,
+3440af6e35f0,Q8Y4H4,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+35c3690f9f84,Q8Y4H4,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+8367ce914006,Q8Y4H4,L002,STA6,af3,native,,pending,
+c2ccb30bd9d0,Q8Y4H4,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+d78668782722,Q8Y4H4,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+72557e9fc88c,Q8Y4H4,L003,STA8,af3,native,,pending,
+82a35bf10951,Q8Y4H4,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+6fa6a2e0b5b1,Q8Y4H4,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+3e0fd23c77b6,Q8Y4H4,L004,CEL4,af3,native,,pending,
+4fe9a4920750,Q8Y4H4,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+e5b7a90a9c10,Q8Y4H4,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+18817fdf1b9e,Q8Y4H4,L005,CEL6,af3,native,,pending,
+57c11275db93,Q8Y4H4,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+aa7da477e12e,Q8Y4H4,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+4b35fcde6de7,Q8Y4H4,L006,CEL8,af3,native,,pending,
+606ff43d8d2c,Q8Y4H4,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+36cd5e32f648,Q8Y4H4,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+caaac72f1dd7,Q8Y4H4,L007,NAG4,af3,native,,pending,
+83fb5030d238,Q8Y4H4,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+5e287a57af7b,Q8Y4H4,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+620b3ef597fc,Q8Y4H4,L008,NAG6,af3,native,,pending,
+bc23090b1c84,Q8Y4H4,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+222b8cebb631,Q8Y4H4,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+22ef2b973a6a,Q8Y4H4,L009,NAG8,af3,native,,pending,
+cda004f20e12,Q8Y4H4,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+cde0ae39e0fa,Q8Y4H4,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+7d409c4f8940,Q9RJY2,L001,STA4,af3,native,,pending,
+a3127d943c22,Q9RJY2,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+0a366e520c1e,Q9RJY2,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+69df73c161a2,Q9RJY2,L002,STA6,af3,native,,pending,
+755bda9e0d17,Q9RJY2,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+08f450ba90aa,Q9RJY2,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+f088a331cbe0,Q9RJY2,L003,STA8,af3,native,,pending,
+5e4fc920f218,Q9RJY2,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+5eac4f26648d,Q9RJY2,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+9f86a8292aa7,Q9RJY2,L004,CEL4,af3,native,,pending,
+f7779e2a2959,Q9RJY2,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+65ef1626548d,Q9RJY2,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+c8cd6ca85d94,Q9RJY2,L005,CEL6,af3,native,,pending,
+80d0320d6d94,Q9RJY2,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+b4b9574f8405,Q9RJY2,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+24b6f5a74b68,Q9RJY2,L006,CEL8,af3,native,,pending,
+4fc622ebbd26,Q9RJY2,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+d2bb04a468d7,Q9RJY2,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+d4c3671c6576,Q9RJY2,L007,NAG4,af3,native,,pending,
+2d5e3669905e,Q9RJY2,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+42b407da88dc,Q9RJY2,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+ff2b915f6f64,Q9RJY2,L008,NAG6,af3,native,,pending,
+57b89bf67034,Q9RJY2,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+a2b9f50a4c35,Q9RJY2,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+78b092ae8dc2,Q9RJY2,L009,NAG8,af3,native,,pending,
+9068a931f53c,Q9RJY2,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+db5c165a55f1,Q9RJY2,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+b611be3c4aae,Q9S296,L001,STA4,af3,native,,pending,
+f58f425f0e81,Q9S296,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+608db018f71a,Q9S296,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+33f95274485a,Q9S296,L002,STA6,af3,native,,pending,
+5d7e9efdec93,Q9S296,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+5fcd238f0b17,Q9S296,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+c31743c2e177,Q9S296,L003,STA8,af3,native,,pending,
+6f582e9b7104,Q9S296,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+4dfbcf40c53c,Q9S296,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+738ecc48b98d,Q9S296,L004,CEL4,af3,native,,pending,
+aacfd47493d9,Q9S296,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+1839428eaad4,Q9S296,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+3b1ed7b2c730,Q9S296,L005,CEL6,af3,native,,pending,
+8c95944dec7a,Q9S296,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+2ceef225fd9c,Q9S296,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+51de71dceb90,Q9S296,L006,CEL8,af3,native,,pending,
+4f8172e03d11,Q9S296,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+d8a7a8fc11c9,Q9S296,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+8eb28cd8c449,Q9S296,L007,NAG4,af3,native,,pending,
+e4c746380359,Q9S296,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+b086dd3e9fbb,Q9S296,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+817fb7faf2ae,Q9S296,L008,NAG6,af3,native,,pending,
+7fdcc431a89c,Q9S296,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+7591076fa705,Q9S296,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+894156ef03d4,Q9S296,L009,NAG8,af3,native,,pending,
+2dbb4da0131a,Q9S296,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+51b74fbf0717,Q9S296,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+99ea8569e22b,A0A0C5K362,L001,STA4,af3,native,,pending,
+f4f94aee147f,A0A0C5K362,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+88a2f01df4ac,A0A0C5K362,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+bd05e0db3730,A0A0C5K362,L002,STA6,af3,native,,pending,
+791f4d38644d,A0A0C5K362,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+34e032557af4,A0A0C5K362,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+dcea6f563647,A0A0C5K362,L003,STA8,af3,native,,pending,
+a834ce5efda4,A0A0C5K362,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+42089169331d,A0A0C5K362,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+2e7ea001f8a4,A0A0C5K362,L004,CEL4,af3,native,,pending,
+579169891e62,A0A0C5K362,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+589e8c45cfd2,A0A0C5K362,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+9ba665b20a7b,A0A0C5K362,L005,CEL6,af3,native,,pending,
+9f822757bf02,A0A0C5K362,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+b6dda9701874,A0A0C5K362,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+a486dfb9a6f8,A0A0C5K362,L006,CEL8,af3,native,,pending,
+0b4e3804eb97,A0A0C5K362,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+018d0ce8418c,A0A0C5K362,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+20b8915cbf1d,A0A0C5K362,L007,NAG4,af3,native,,pending,
+85094e7b4d00,A0A0C5K362,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+9cf6dc33b0b7,A0A0C5K362,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+e371d1512e39,A0A0C5K362,L008,NAG6,af3,native,,pending,
+e68b0912b0f8,A0A0C5K362,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+491097ad7107,A0A0C5K362,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+b31d222a4b45,A0A0C5K362,L009,NAG8,af3,native,,pending,
+2977144f2fc9,A0A0C5K362,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+c9075ed6e822,A0A0C5K362,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+5dbb07510b68,A0A7U9DRA2,L001,STA4,af3,native,,pending,
+107e1a8930fa,A0A7U9DRA2,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+ea4f2e6099fe,A0A7U9DRA2,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+472e5a42124b,A0A7U9DRA2,L002,STA6,af3,native,,pending,
+352e628f1a10,A0A7U9DRA2,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+85a106feb916,A0A7U9DRA2,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+d2a60be1008f,A0A7U9DRA2,L003,STA8,af3,native,,pending,
+d2eeab665235,A0A7U9DRA2,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+d6adc3562e06,A0A7U9DRA2,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+f5cad0b9462a,A0A7U9DRA2,L004,CEL4,af3,native,,pending,
+81745238e30c,A0A7U9DRA2,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+675f7a1c3aeb,A0A7U9DRA2,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+dcf3a4f7dbdb,A0A7U9DRA2,L005,CEL6,af3,native,,pending,
+9bd176d25ca6,A0A7U9DRA2,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+ccb5cb61066f,A0A7U9DRA2,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+2274c0786e01,A0A7U9DRA2,L006,CEL8,af3,native,,pending,
+576e854f756e,A0A7U9DRA2,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+1cb290251d1e,A0A7U9DRA2,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+6f181c753c2d,A0A7U9DRA2,L007,NAG4,af3,native,,pending,
+085cda7fbd35,A0A7U9DRA2,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+c503b7d3fa63,A0A7U9DRA2,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+0abce24af2be,A0A7U9DRA2,L008,NAG6,af3,native,,pending,
+c206e6c47a8f,A0A7U9DRA2,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+67fe740b03f3,A0A7U9DRA2,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+5efd4cbc1ae8,A0A7U9DRA2,L009,NAG8,af3,native,,pending,
+919fa1222a63,A0A7U9DRA2,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+0a97ccc7cd4a,A0A7U9DRA2,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+067703a517ea,A0A8D3WFW9,L001,STA4,af3,native,,pending,
+05fe2ae4c781,A0A8D3WFW9,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+652fedca9867,A0A8D3WFW9,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+7033c963750f,A0A8D3WFW9,L002,STA6,af3,native,,pending,
+bf97e7740a7d,A0A8D3WFW9,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+58195ee9f0fb,A0A8D3WFW9,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+4c9f50fc4245,A0A8D3WFW9,L003,STA8,af3,native,,pending,
+c54d01b7e196,A0A8D3WFW9,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+710d34920064,A0A8D3WFW9,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+969b7adff7dc,A0A8D3WFW9,L004,CEL4,af3,native,,pending,
+4dd8f56078c7,A0A8D3WFW9,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+c608ca94f3af,A0A8D3WFW9,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+bf859b708409,A0A8D3WFW9,L005,CEL6,af3,native,,pending,
+9a1458b59490,A0A8D3WFW9,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+c602f256ad77,A0A8D3WFW9,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+b28b14ac20a3,A0A8D3WFW9,L006,CEL8,af3,native,,pending,
+e2f21e626954,A0A8D3WFW9,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+f4a984bc2ad1,A0A8D3WFW9,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+ce79ebc2f782,A0A8D3WFW9,L007,NAG4,af3,native,,pending,
+f8e056fe1746,A0A8D3WFW9,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+efe8a188961c,A0A8D3WFW9,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+9235153dbda4,A0A8D3WFW9,L008,NAG6,af3,native,,pending,
+5cac16163525,A0A8D3WFW9,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+c91e627cded5,A0A8D3WFW9,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+3bbc1bd5c79e,A0A8D3WFW9,L009,NAG8,af3,native,,pending,
+15b694c089b4,A0A8D3WFW9,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+a2e923fbcbbd,A0A8D3WFW9,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+4ca21d8e2932,B1VNK5,L001,STA4,af3,native,,pending,
+84e7ee290752,B1VNK5,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+d68bdfbea655,B1VNK5,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+9b450923539c,B1VNK5,L002,STA6,af3,native,,pending,
+3bb30022df5e,B1VNK5,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+923ff0de9c7d,B1VNK5,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+752dc8dd8e25,B1VNK5,L003,STA8,af3,native,,pending,
+7a2cb5839efa,B1VNK5,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+5a95fb9b09b3,B1VNK5,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+5652c504e931,B1VNK5,L004,CEL4,af3,native,,pending,
+a1738f479a4e,B1VNK5,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+e344aa6c794e,B1VNK5,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+302cf8cfe95d,B1VNK5,L005,CEL6,af3,native,,pending,
+b1941b208a09,B1VNK5,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+a93afcdb1b01,B1VNK5,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+d744a271e17c,B1VNK5,L006,CEL8,af3,native,,pending,
+15e24692f4a7,B1VNK5,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+aac8368a4f41,B1VNK5,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+f5264d95d7c0,B1VNK5,L007,NAG4,af3,native,,pending,
+d640a4c35116,B1VNK5,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+348198837766,B1VNK5,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+0bbc3aa52f27,B1VNK5,L008,NAG6,af3,native,,pending,
+aa79d306e24a,B1VNK5,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+b1e4d250fa96,B1VNK5,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+a1f8a9fada79,B1VNK5,L009,NAG8,af3,native,,pending,
+35b95cd74ca7,B1VNK5,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+59756b1be0d4,B1VNK5,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+90bd5544926e,D5UH31,L001,STA4,af3,native,,pending,
+c1b0250c2205,D5UH31,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+58c049c21a12,D5UH31,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+c6d5c998ef2c,D5UH31,L002,STA6,af3,native,,pending,
+fea70706678e,D5UH31,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+67f04198283f,D5UH31,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+1d163de7ef4d,D5UH31,L003,STA8,af3,native,,pending,
+79a145323bf6,D5UH31,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+de4b138a52d1,D5UH31,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+486b0abc6fe2,D5UH31,L004,CEL4,af3,native,,pending,
+6d075c458801,D5UH31,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+03b6a490a8ef,D5UH31,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+93c85c13cd92,D5UH31,L005,CEL6,af3,native,,pending,
+468ce83883e2,D5UH31,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+de17b2c05f30,D5UH31,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+1520f9d1b0c1,D5UH31,L006,CEL8,af3,native,,pending,
+badd852dfb59,D5UH31,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+e1224043aa6b,D5UH31,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+a1348d152c83,D5UH31,L007,NAG4,af3,native,,pending,
+b715e09d143b,D5UH31,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+68487c023480,D5UH31,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+0527f16537fc,D5UH31,L008,NAG6,af3,native,,pending,
+3097acf3a49d,D5UH31,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+a4293e296fae,D5UH31,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+b2d4c7b526bf,D5UH31,L009,NAG8,af3,native,,pending,
+37d312ad8c11,D5UH31,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+db30bd96816f,D5UH31,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+18e3b8addf0b,Q47PB9,L001,STA4,af3,native,,pending,
+e892547da1a2,Q47PB9,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+0fa5f369569a,Q47PB9,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+48b467d5154e,Q47PB9,L002,STA6,af3,native,,pending,
+325bef66f24e,Q47PB9,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+8c98c5d01920,Q47PB9,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+5830020aad0d,Q47PB9,L003,STA8,af3,native,,pending,
+f831591172be,Q47PB9,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+4ba80895d4c4,Q47PB9,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+22c3ff601af0,Q47PB9,L004,CEL4,af3,native,,pending,
+fb8fe598993f,Q47PB9,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+e5fec016ae21,Q47PB9,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+9555af918c59,Q47PB9,L005,CEL6,af3,native,,pending,
+95f7c140630a,Q47PB9,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+bfe6879d1b21,Q47PB9,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+808f3438a8da,Q47PB9,L006,CEL8,af3,native,,pending,
+62e952f84036,Q47PB9,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+880d66cfdb15,Q47PB9,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+cb862c663b07,Q47PB9,L007,NAG4,af3,native,,pending,
+7e91ecf6b69d,Q47PB9,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+e7268226c249,Q47PB9,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+f29c0597dd94,Q47PB9,L008,NAG6,af3,native,,pending,
+c455b807f8a3,Q47PB9,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+8f51b44c7f70,Q47PB9,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+911eb5387e25,Q47PB9,L009,NAG8,af3,native,,pending,
+821f4b6042ea,Q47PB9,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+bfbf485a3dfb,Q47PB9,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+0d012e2d7d35,Q59930,L001,STA4,af3,native,,pending,
+489783581156,Q59930,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+5803747a5d37,Q59930,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+be3989794707,Q59930,L002,STA6,af3,native,,pending,
+ad103f4fe12e,Q59930,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+df73621ffe31,Q59930,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+b8fef3de80a7,Q59930,L003,STA8,af3,native,,pending,
+ea4bb75b978a,Q59930,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+ddae9d9140b8,Q59930,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+8b3495e1a1cf,Q59930,L004,CEL4,af3,native,,pending,
+5d959fa57776,Q59930,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+73d249d01a57,Q59930,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+21b5bd6c31b1,Q59930,L005,CEL6,af3,native,,pending,
+53732a5913ae,Q59930,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+3cf9500c9b2b,Q59930,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+7679f98fbf97,Q59930,L006,CEL8,af3,native,,pending,
+ce5fa3800627,Q59930,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+6c0fd8682ab0,Q59930,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+5606aa8138cc,Q59930,L007,NAG4,af3,native,,pending,
+a52f30f43d25,Q59930,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+280254f40d23,Q59930,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+0e3e8b916c7a,Q59930,L008,NAG6,af3,native,,pending,
+8d42f29c0342,Q59930,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+68b1c0ad1d4e,Q59930,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+5510009a3508,Q59930,L009,NAG8,af3,native,,pending,
+30560c2a5897,Q59930,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+5fc4c73271b1,Q59930,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+8fa5f8414211,B1J2U9,L001,STA4,af3,native,,pending,
+7dd8d518eafc,B1J2U9,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+03f080030246,B1J2U9,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+af8123233029,B1J2U9,L002,STA6,af3,native,,pending,
+2d23f0f08497,B1J2U9,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+862a823aa93e,B1J2U9,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+7a450a859695,B1J2U9,L003,STA8,af3,native,,pending,
+388921e94d56,B1J2U9,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+46a9ef655fdf,B1J2U9,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+93dfc0529cc1,B1J2U9,L004,CEL4,af3,native,,pending,
+014f672066c4,B1J2U9,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+df67b0607f2d,B1J2U9,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+3a083dda185f,B1J2U9,L005,CEL6,af3,native,,pending,
+456b026e7f16,B1J2U9,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+37d973f92736,B1J2U9,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+bc507eeed1b6,B1J2U9,L006,CEL8,af3,native,,pending,
+34dc844938da,B1J2U9,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+03a35c9ace62,B1J2U9,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+712ba6189c05,B1J2U9,L007,NAG4,af3,native,,pending,
+fa6c8a4ea5bc,B1J2U9,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+a35e3fcb35d4,B1J2U9,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+e523504d5099,B1J2U9,L008,NAG6,af3,native,,pending,
+f8419678101c,B1J2U9,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+41bb64a9d46e,B1J2U9,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+f14d4c10781f,B1J2U9,L009,NAG8,af3,native,,pending,
+90e147955383,B1J2U9,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+5f38aca46d42,B1J2U9,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+f87cdc5e400e,B3PJ79,L001,STA4,af3,native,,pending,
+e90b954b092c,B3PJ79,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+5119440a9c2d,B3PJ79,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+fd7145a27f03,B3PJ79,L002,STA6,af3,native,,pending,
+6b4c3d64c8b7,B3PJ79,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+d4eacfe7a973,B3PJ79,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+c0d97e5d7058,B3PJ79,L003,STA8,af3,native,,pending,
+d9ee70b0bb55,B3PJ79,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+9b69f32bd2ed,B3PJ79,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+c8084e285bda,B3PJ79,L004,CEL4,af3,native,,pending,
+78e9b2625726,B3PJ79,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+b4d4da4546fc,B3PJ79,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+8ec6e1f0fc77,B3PJ79,L005,CEL6,af3,native,,pending,
+6936cee082a5,B3PJ79,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+1db5af789a13,B3PJ79,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+0dac80db110d,B3PJ79,L006,CEL8,af3,native,,pending,
+847de669af1d,B3PJ79,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+23a6548f9bfb,B3PJ79,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+e21a2b0efc47,B3PJ79,L007,NAG4,af3,native,,pending,
+5a392ea0b34a,B3PJ79,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+46b41219eaf5,B3PJ79,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+ee35935d8bc2,B3PJ79,L008,NAG6,af3,native,,pending,
+ffd19a821c13,B3PJ79,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+8a56164851b0,B3PJ79,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+333d8731dd9b,B3PJ79,L009,NAG8,af3,native,,pending,
+cbdacee0503f,B3PJ79,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+7139a27c1566,B3PJ79,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+51a63573d989,D6Y7U3,L001,STA4,af3,native,,pending,
+3013cdd3779e,D6Y7U3,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+d28e38acc2f5,D6Y7U3,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+41877fe36ef8,D6Y7U3,L002,STA6,af3,native,,pending,
+3706b9a249c8,D6Y7U3,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+2f6e4e5c49cf,D6Y7U3,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+8a47df110a76,D6Y7U3,L003,STA8,af3,native,,pending,
+7e91354cc8e8,D6Y7U3,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+d5196b6668d3,D6Y7U3,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+32ae3ac2ea0c,D6Y7U3,L004,CEL4,af3,native,,pending,
+49cc85f819b2,D6Y7U3,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+1ddf6dce02a4,D6Y7U3,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+ee1ff30bd6dd,D6Y7U3,L005,CEL6,af3,native,,pending,
+44ab6b1cbcd7,D6Y7U3,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+0eee60cbfbc4,D6Y7U3,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+ab9df68bdcf5,D6Y7U3,L006,CEL8,af3,native,,pending,
+b653b167ad63,D6Y7U3,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+1514211f4004,D6Y7U3,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+3d6dbed8b959,D6Y7U3,L007,NAG4,af3,native,,pending,
+c4a773798c96,D6Y7U3,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+f51e4f3c345c,D6Y7U3,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+5dbfe073bbd7,D6Y7U3,L008,NAG6,af3,native,,pending,
+ea5b8e13a964,D6Y7U3,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+a528f6bd0419,D6Y7U3,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+ddfbc99be908,D6Y7U3,L009,NAG8,af3,native,,pending,
+050cec03190c,D6Y7U3,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+1be69cbd99a5,D6Y7U3,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+f2fe3098a9de,A0A0D1CHL0,L001,STA4,af3,native,,pending,
+106ac3ec349c,A0A0D1CHL0,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+2febb1132c42,A0A0D1CHL0,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+f36b80778354,A0A0D1CHL0,L002,STA6,af3,native,,pending,
+f741a03ae91e,A0A0D1CHL0,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+0a73621077dd,A0A0D1CHL0,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+8d1f5abe40be,A0A0D1CHL0,L003,STA8,af3,native,,pending,
+c05848b95935,A0A0D1CHL0,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+cef284906c44,A0A0D1CHL0,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+e8c688052bdd,A0A0D1CHL0,L004,CEL4,af3,native,,pending,
+43689bbd061b,A0A0D1CHL0,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+a2b032eed53c,A0A0D1CHL0,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+913b6d3c1dfd,A0A0D1CHL0,L005,CEL6,af3,native,,pending,
+c3745c1253b6,A0A0D1CHL0,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+3ab8136dd2a4,A0A0D1CHL0,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+c28c2dda4972,A0A0D1CHL0,L006,CEL8,af3,native,,pending,
+b39eddd657d5,A0A0D1CHL0,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+8a4eab630c88,A0A0D1CHL0,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+7ec3f87dbdaa,A0A0D1CHL0,L007,NAG4,af3,native,,pending,
+447be00915a9,A0A0D1CHL0,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+5ed3b710e4d0,A0A0D1CHL0,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+23d0f0624ddf,A0A0D1CHL0,L008,NAG6,af3,native,,pending,
+e7bb033ee9f9,A0A0D1CHL0,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+0a3d5a9b1d92,A0A0D1CHL0,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+16cead870d2c,A0A0D1CHL0,L009,NAG8,af3,native,,pending,
+1f672086cb39,A0A0D1CHL0,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+e595cfa26cdb,A0A0D1CHL0,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+a1d5b74be765,Q9KLD5,L001,STA4,af3,native,,pending,
+a89aacd2f6c4,Q9KLD5,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+4ccd9653b5f8,Q9KLD5,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+4b25b56a7bc5,Q9KLD5,L002,STA6,af3,native,,pending,
+1e964dd01237,Q9KLD5,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+8958857af8f2,Q9KLD5,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+743c54abe1ef,Q9KLD5,L003,STA8,af3,native,,pending,
+f392f776861c,Q9KLD5,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+ff0acae8931a,Q9KLD5,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+d4dd4cab9061,Q9KLD5,L004,CEL4,af3,native,,pending,
+4cda6f4abee2,Q9KLD5,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+26ed1b4d7390,Q9KLD5,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+e4dc4602aecd,Q9KLD5,L005,CEL6,af3,native,,pending,
+a35bf909e3d7,Q9KLD5,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+c66aef485384,Q9KLD5,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+bc9439f8d7b9,Q9KLD5,L006,CEL8,af3,native,,pending,
+9747243e6d9e,Q9KLD5,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+b2362e57c292,Q9KLD5,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+10203d1b4222,Q9KLD5,L007,NAG4,af3,native,,pending,
+d75e23c007cd,Q9KLD5,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+2530ba5441e4,Q9KLD5,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+c4fac49f9855,Q9KLD5,L008,NAG6,af3,native,,pending,
+1a093f5be1b2,Q9KLD5,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+771b1af5dcc7,Q9KLD5,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+63dc0bffc8e7,Q9KLD5,L009,NAG8,af3,native,,pending,
+7e33daad1c76,Q9KLD5,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+fa22ca59c638,Q9KLD5,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+25ea82b46f5a,O70709,L001,STA4,af3,native,,pending,
+6f9299b97ec3,O70709,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+19570534fe96,O70709,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+fdcf1d27102a,O70709,L002,STA6,af3,native,,pending,
+5d2a52449af7,O70709,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+a526921a34fb,O70709,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+1793c868f4c9,O70709,L003,STA8,af3,native,,pending,
+58fc56eecd8a,O70709,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+2b7781f0ebbc,O70709,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+10f2cb061735,O70709,L004,CEL4,af3,native,,pending,
+99fa7d1e861c,O70709,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+521f65e50986,O70709,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+88e7cc0346fa,O70709,L005,CEL6,af3,native,,pending,
+b7593ce809b9,O70709,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+1b379de58628,O70709,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+12a812967d73,O70709,L006,CEL8,af3,native,,pending,
+a1de3d5365db,O70709,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+a9ea43974a37,O70709,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+4ceee3d45c1b,O70709,L007,NAG4,af3,native,,pending,
+cd8c8a070865,O70709,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+e70952e850c6,O70709,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+dd85fe6e6d38,O70709,L008,NAG6,af3,native,,pending,
+bd45a3d333ff,O70709,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+de0320b9307f,O70709,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+b5d1e8a815b5,O70709,L009,NAG8,af3,native,,pending,
+77a36364512b,O70709,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+9e11a5d84894,O70709,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+132d64f90509,A0A8K1XN59,L001,STA4,af3,native,,pending,
+18702a8ae332,A0A8K1XN59,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+79631e316316,A0A8K1XN59,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+76e6f68daeca,A0A8K1XN59,L002,STA6,af3,native,,pending,
+debf34f5029f,A0A8K1XN59,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+dfc7b333ea94,A0A8K1XN59,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+b3bd88928dd5,A0A8K1XN59,L003,STA8,af3,native,,pending,
+00c2586b07b5,A0A8K1XN59,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+e72780c1fcb1,A0A8K1XN59,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+7ed488d033ee,A0A8K1XN59,L004,CEL4,af3,native,,pending,
+62c8a2dd442b,A0A8K1XN59,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+9fcc6b2924fe,A0A8K1XN59,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+b4423fedaeed,A0A8K1XN59,L005,CEL6,af3,native,,pending,
+7b8dc2c0b213,A0A8K1XN59,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+94f32fa744c8,A0A8K1XN59,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+94ccc3332859,A0A8K1XN59,L006,CEL8,af3,native,,pending,
+7862c17b416f,A0A8K1XN59,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+32a7b4c344fd,A0A8K1XN59,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+edcb65e33d58,A0A8K1XN59,L007,NAG4,af3,native,,pending,
+164c83a60826,A0A8K1XN59,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+58c2b56da263,A0A8K1XN59,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+1ba73df2f29f,A0A8K1XN59,L008,NAG6,af3,native,,pending,
+6ec1b7926620,A0A8K1XN59,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+828ced3a4520,A0A8K1XN59,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+9f9b6e12c7ed,A0A8K1XN59,L009,NAG8,af3,native,,pending,
+9c2810ccd391,A0A8K1XN59,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+296fb278d897,A0A8K1XN59,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+599d745ef4c5,W5QLL4,L001,STA4,af3,native,,pending,
+b61519a4e4ec,W5QLL4,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+25f55b83aed8,W5QLL4,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+a6b3cfaf36f8,W5QLL4,L002,STA6,af3,native,,pending,
+8d1171a0479c,W5QLL4,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+ffa44ae1a67b,W5QLL4,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+d625916fc229,W5QLL4,L003,STA8,af3,native,,pending,
+935231da6d64,W5QLL4,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+f3259c5205ce,W5QLL4,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+a3d254cd3bc4,W5QLL4,L004,CEL4,af3,native,,pending,
+3300edbec4d7,W5QLL4,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+7f8603c9c328,W5QLL4,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+3e20e3de6a33,W5QLL4,L005,CEL6,af3,native,,pending,
+ad399acbaea2,W5QLL4,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+b5bb8c8d59f4,W5QLL4,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+345c8e814ee0,W5QLL4,L006,CEL8,af3,native,,pending,
+acf0cf4b0cdf,W5QLL4,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+5680cff6393f,W5QLL4,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+2a82e2cf27e3,W5QLL4,L007,NAG4,af3,native,,pending,
+3ef130829dc8,W5QLL4,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+7df62f02eb81,W5QLL4,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+60738c7fcc71,W5QLL4,L008,NAG6,af3,native,,pending,
+339202816e56,W5QLL4,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+26b96d630697,W5QLL4,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+6453059e3efe,W5QLL4,L009,NAG8,af3,native,,pending,
+192181399a63,W5QLL4,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+71288865a2d8,W5QLL4,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+eed91a4d7b50,Q2UA85,L001,STA4,af3,native,,pending,
+82fc072bf7f2,Q2UA85,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+9b6a106f6dbd,Q2UA85,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+31d50c0dbad5,Q2UA85,L002,STA6,af3,native,,pending,
+aeed54fdab92,Q2UA85,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+cb5accd0fb80,Q2UA85,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+cac72d11e958,Q2UA85,L003,STA8,af3,native,,pending,
+8746f1c10690,Q2UA85,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+1df448232758,Q2UA85,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+9c01b7588388,Q2UA85,L004,CEL4,af3,native,,pending,
+0186f774940a,Q2UA85,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+727673802bfc,Q2UA85,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+8b4eb7fd6836,Q2UA85,L005,CEL6,af3,native,,pending,
+b58d9d2aa741,Q2UA85,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+4b2999a1f362,Q2UA85,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+cdd04078c4e7,Q2UA85,L006,CEL8,af3,native,,pending,
+43739e4b3701,Q2UA85,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+d523ab1f9bbb,Q2UA85,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+030fa3970132,Q2UA85,L007,NAG4,af3,native,,pending,
+714c786fadcb,Q2UA85,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+0d413584fc07,Q2UA85,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+b49af1660ce1,Q2UA85,L008,NAG6,af3,native,,pending,
+a2499baac89f,Q2UA85,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+a52cb80c31c4,Q2UA85,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+b1fd23d3c07e,Q2UA85,L009,NAG8,af3,native,,pending,
+bd7b7876a131,Q2UA85,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+61fdb7f6face,Q2UA85,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+bc0d2a93ffc6,B0XZD3,L001,STA4,af3,native,,pending,
+3056ea5c42b2,B0XZD3,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+3f9c0591d1d3,B0XZD3,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+3b9d42321746,B0XZD3,L002,STA6,af3,native,,pending,
+289a7a48ee83,B0XZD3,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+36f21d78b930,B0XZD3,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+99670a22ea73,B0XZD3,L003,STA8,af3,native,,pending,
+115948bebef7,B0XZD3,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+155f001a750e,B0XZD3,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+40f826c424fd,B0XZD3,L004,CEL4,af3,native,,pending,
+5fa8046b2fa8,B0XZD3,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+60eec6fc8500,B0XZD3,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+a3f5cd39909a,B0XZD3,L005,CEL6,af3,native,,pending,
+463cc9163b23,B0XZD3,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+eeb152ae5601,B0XZD3,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+c2d5d194bbec,B0XZD3,L006,CEL8,af3,native,,pending,
+22cd9c896b1e,B0XZD3,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+c5b9570dc87b,B0XZD3,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+cd7ba7b49691,B0XZD3,L007,NAG4,af3,native,,pending,
+48bd432bbe66,B0XZD3,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+28145fcc38b0,B0XZD3,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+9bc3c19ca83c,B0XZD3,L008,NAG6,af3,native,,pending,
+33e40d05f6ab,B0XZD3,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+3c5ca2cbacfe,B0XZD3,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+5202dc28a316,B0XZD3,L009,NAG8,af3,native,,pending,
+e70771df42fa,B0XZD3,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+1801287a7b27,B0XZD3,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+1bad31e001b5,Q0CGA6,L001,STA4,af3,native,,pending,
+78ea8913d734,Q0CGA6,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+42acd6df56b8,Q0CGA6,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+c75f57b04d17,Q0CGA6,L002,STA6,af3,native,,pending,
+97e6029b120c,Q0CGA6,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+ccc920fe23e6,Q0CGA6,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+f9cc691448b0,Q0CGA6,L003,STA8,af3,native,,pending,
+454334c7b446,Q0CGA6,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+e1ae0f2369a3,Q0CGA6,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+2695a89cf732,Q0CGA6,L004,CEL4,af3,native,,pending,
+3bd409c7269a,Q0CGA6,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+ce1a416f7151,Q0CGA6,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+e8ffe3192c9c,Q0CGA6,L005,CEL6,af3,native,,pending,
+2522cebade72,Q0CGA6,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+341a47734830,Q0CGA6,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+8a1a39c13b9d,Q0CGA6,L006,CEL8,af3,native,,pending,
+61789a0b2a8d,Q0CGA6,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+5f0298e4ad8f,Q0CGA6,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+85ba27a0b861,Q0CGA6,L007,NAG4,af3,native,,pending,
+646c6869e916,Q0CGA6,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+abd8aa2f451f,Q0CGA6,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+19db92a5b1d8,Q0CGA6,L008,NAG6,af3,native,,pending,
+ff9dd8750442,Q0CGA6,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+eafc2c71bc0a,Q0CGA6,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+447a8f931325,Q0CGA6,L009,NAG8,af3,native,,pending,
+b7a2033c9d86,Q0CGA6,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+47c5de603201,Q0CGA6,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+73ba8122eeb7,Q5B1W7,L001,STA4,af3,native,,pending,
+96f245568b08,Q5B1W7,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+588905b430fa,Q5B1W7,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+36395b43900a,Q5B1W7,L002,STA6,af3,native,,pending,
+858eabf08f31,Q5B1W7,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+f8c63734d40e,Q5B1W7,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+2454e84d24b2,Q5B1W7,L003,STA8,af3,native,,pending,
+4c39332a8726,Q5B1W7,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+8b5ae77ee813,Q5B1W7,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+eaadca3aade6,Q5B1W7,L004,CEL4,af3,native,,pending,
+a52a6bdf5081,Q5B1W7,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+e435d3a08f70,Q5B1W7,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+506159cc11c8,Q5B1W7,L005,CEL6,af3,native,,pending,
+aca74b1a8996,Q5B1W7,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+d9c67cc9b3ec,Q5B1W7,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+7ea29e031686,Q5B1W7,L006,CEL8,af3,native,,pending,
+fad31d82b02e,Q5B1W7,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+64877d7671b5,Q5B1W7,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+c4f51e01a4c9,Q5B1W7,L007,NAG4,af3,native,,pending,
+788a680690e8,Q5B1W7,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+1c4ee8308ba7,Q5B1W7,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+40f9a6a6f1e5,Q5B1W7,L008,NAG6,af3,native,,pending,
+a3471ba7660a,Q5B1W7,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+1ea83c920f0b,Q5B1W7,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+48b49075f4bb,Q5B1W7,L009,NAG8,af3,native,,pending,
+f479bbf04774,Q5B1W7,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+8122019bd788,Q5B1W7,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+718d3a052dec,Q2U8Y3,L001,STA4,af3,native,,pending,
+460463daee18,Q2U8Y3,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+0f14f613e702,Q2U8Y3,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+d816e0368deb,Q2U8Y3,L002,STA6,af3,native,,pending,
+4b9e1bcc8e48,Q2U8Y3,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+bea41263b7cc,Q2U8Y3,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+aca2cdff4ce8,Q2U8Y3,L003,STA8,af3,native,,pending,
+15f8dc9b8581,Q2U8Y3,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+0dc3b44ca330,Q2U8Y3,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+4a3390d03afa,Q2U8Y3,L004,CEL4,af3,native,,pending,
+5510b5b010f6,Q2U8Y3,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+8f853e7e887b,Q2U8Y3,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+647f0a983a27,Q2U8Y3,L005,CEL6,af3,native,,pending,
+a5ee2fb1ef28,Q2U8Y3,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+78151e836283,Q2U8Y3,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+3b52e749a5c2,Q2U8Y3,L006,CEL8,af3,native,,pending,
+44c6e8169db9,Q2U8Y3,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+d0369cba0316,Q2U8Y3,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+45e8974c97b6,Q2U8Y3,L007,NAG4,af3,native,,pending,
+e0005f04a98e,Q2U8Y3,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+8b9b2e4e020e,Q2U8Y3,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+f22935151ca1,Q2U8Y3,L008,NAG6,af3,native,,pending,
+c59756a7d891,Q2U8Y3,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+cc05addd31c2,Q2U8Y3,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+eee34c55db19,Q2U8Y3,L009,NAG8,af3,native,,pending,
+3e3c0503635e,Q2U8Y3,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+95981f2a0e99,Q2U8Y3,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+4de2b6d2b7be,Q7SCE9,L001,STA4,af3,native,,pending,
+9a7f0db198aa,Q7SCE9,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+e086d4c11dfb,Q7SCE9,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+ba20308a54ac,Q7SCE9,L002,STA6,af3,native,,pending,
+d3904cecc758,Q7SCE9,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+5ecfe736ad1d,Q7SCE9,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+42dcf2d3b2e9,Q7SCE9,L003,STA8,af3,native,,pending,
+1ca3441520ec,Q7SCE9,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+d4912c5be683,Q7SCE9,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+e37740e3a544,Q7SCE9,L004,CEL4,af3,native,,pending,
+ce000e7f70a3,Q7SCE9,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+1e7926faf084,Q7SCE9,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+0035218534c7,Q7SCE9,L005,CEL6,af3,native,,pending,
+95211718190c,Q7SCE9,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+bd6280b0d960,Q7SCE9,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+9885fb72d449,Q7SCE9,L006,CEL8,af3,native,,pending,
+cf0846b659e3,Q7SCE9,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+f971ebb94e10,Q7SCE9,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+be830db30ad2,Q7SCE9,L007,NAG4,af3,native,,pending,
+07c9595be47e,Q7SCE9,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+11faca1de9f4,Q7SCE9,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+9e7bf0860773,Q7SCE9,L008,NAG6,af3,native,,pending,
+55b26ed59c9b,Q7SCE9,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+e03ecbdd79bd,Q7SCE9,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+ae91ee3d24aa,Q7SCE9,L009,NAG8,af3,native,,pending,
+3c22181cd559,Q7SCE9,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+128c78f9ad3e,Q7SCE9,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+13ab63ba0bdd,A0A4Z1IKG2,L001,STA4,af3,native,,pending,
+92be666539ad,A0A4Z1IKG2,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+bf76c4484f63,A0A4Z1IKG2,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+7f40fdd48794,A0A4Z1IKG2,L002,STA6,af3,native,,pending,
+f3b4295421f6,A0A4Z1IKG2,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+5f3d742c67b9,A0A4Z1IKG2,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+8d6d07ae5daa,A0A4Z1IKG2,L003,STA8,af3,native,,pending,
+88ec12bd2c1d,A0A4Z1IKG2,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+fac78ad84032,A0A4Z1IKG2,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+050a9f63b928,A0A4Z1IKG2,L004,CEL4,af3,native,,pending,
+cfed8f288431,A0A4Z1IKG2,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+d127923c0884,A0A4Z1IKG2,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+09263cd41d98,A0A4Z1IKG2,L005,CEL6,af3,native,,pending,
+fc8fc3d9db30,A0A4Z1IKG2,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+c04eb8f2951b,A0A4Z1IKG2,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+d103b8916b9c,A0A4Z1IKG2,L006,CEL8,af3,native,,pending,
+426167ebb282,A0A4Z1IKG2,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+e0e9eeef4f84,A0A4Z1IKG2,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+7b09e31d7cbd,A0A4Z1IKG2,L007,NAG4,af3,native,,pending,
+53d4be65578e,A0A4Z1IKG2,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+e44febc4fc77,A0A4Z1IKG2,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+9df456b661b6,A0A4Z1IKG2,L008,NAG6,af3,native,,pending,
+e4f689d3d28b,A0A4Z1IKG2,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+7f7d6c45a8b2,A0A4Z1IKG2,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+20af3cb3d2d4,A0A4Z1IKG2,L009,NAG8,af3,native,,pending,
+6df00ef91360,A0A4Z1IKG2,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+20649808b72d,A0A4Z1IKG2,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+f89d3bd3464c,A0A1G4BH63,L001,STA4,af3,native,,pending,
+1a6f7af45fc0,A0A1G4BH63,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+40f47c96c001,A0A1G4BH63,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+bc254b8eef98,A0A1G4BH63,L002,STA6,af3,native,,pending,
+7dce52e37ff9,A0A1G4BH63,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+51bc4f08fd50,A0A1G4BH63,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+c099c0ae2ef4,A0A1G4BH63,L003,STA8,af3,native,,pending,
+421e8f0a4fae,A0A1G4BH63,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+cc6e0fe749ba,A0A1G4BH63,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+2ddc961c035f,A0A1G4BH63,L004,CEL4,af3,native,,pending,
+e2f24eb5ebf8,A0A1G4BH63,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+edc2e82c16f1,A0A1G4BH63,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+38fe4d3b7e56,A0A1G4BH63,L005,CEL6,af3,native,,pending,
+adcbfae4637e,A0A1G4BH63,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+e522d0bf3ea5,A0A1G4BH63,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+be646836575a,A0A1G4BH63,L006,CEL8,af3,native,,pending,
+10e6c03a9c8f,A0A1G4BH63,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+f564b6e62071,A0A1G4BH63,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+5c992af30ea6,A0A1G4BH63,L007,NAG4,af3,native,,pending,
+a20a41aabb39,A0A1G4BH63,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+d89e38f13d8f,A0A1G4BH63,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+3339f0673b5a,A0A1G4BH63,L008,NAG6,af3,native,,pending,
+2db65ec69d3d,A0A1G4BH63,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+d95def22c854,A0A1G4BH63,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+5cff7d23490e,A0A1G4BH63,L009,NAG8,af3,native,,pending,
+af81da7b28ed,A0A1G4BH63,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+999effb8f03e,A0A1G4BH63,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+84441d4af87a,A0AAN4PGW3,L001,STA4,af3,native,,pending,
+ef8d956d3f01,A0AAN4PGW3,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+3f50e79a3924,A0AAN4PGW3,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+4d8c58f80a55,A0AAN4PGW3,L002,STA6,af3,native,,pending,
+b97ddd710efb,A0AAN4PGW3,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+878c2c67b61d,A0AAN4PGW3,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+002a6684b450,A0AAN4PGW3,L003,STA8,af3,native,,pending,
+ab7f42f48b75,A0AAN4PGW3,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+78a98e7ebd40,A0AAN4PGW3,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+f60f874f3265,A0AAN4PGW3,L004,CEL4,af3,native,,pending,
+9718a2623f4f,A0AAN4PGW3,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+df4e53a49cd9,A0AAN4PGW3,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+ec0daa456a6b,A0AAN4PGW3,L005,CEL6,af3,native,,pending,
+a2d8f80c14ab,A0AAN4PGW3,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+c9f583cd2e51,A0AAN4PGW3,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+d71af781eaaa,A0AAN4PGW3,L006,CEL8,af3,native,,pending,
+ab844feabfee,A0AAN4PGW3,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+05642286cedf,A0AAN4PGW3,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+b5cd239f655c,A0AAN4PGW3,L007,NAG4,af3,native,,pending,
+32a7b0dd199f,A0AAN4PGW3,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+cacc9d23f542,A0AAN4PGW3,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+4ab9cc8fec52,A0AAN4PGW3,L008,NAG6,af3,native,,pending,
+0716f556d3e7,A0AAN4PGW3,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+6c11986b7f65,A0AAN4PGW3,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+d78ba19fe83a,A0AAN4PGW3,L009,NAG8,af3,native,,pending,
+48d29fc5d56c,A0AAN4PGW3,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+b72b96f641b8,A0AAN4PGW3,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+1fbe5b8d253d,C7Z3N0,L001,STA4,af3,native,,pending,
+f7e82dd012fc,C7Z3N0,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+6918c620924b,C7Z3N0,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+5807855f6355,C7Z3N0,L002,STA6,af3,native,,pending,
+0ed019a29ae5,C7Z3N0,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+524f8e0655e0,C7Z3N0,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+a49e76e33f30,C7Z3N0,L003,STA8,af3,native,,pending,
+188a5bc1c6cb,C7Z3N0,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+5627cbc3b2ca,C7Z3N0,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+77d4e56cfc97,C7Z3N0,L004,CEL4,af3,native,,pending,
+62cf69fba3e6,C7Z3N0,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+7f65614701cd,C7Z3N0,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+5ba936535850,C7Z3N0,L005,CEL6,af3,native,,pending,
+b4e420ffc719,C7Z3N0,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+677df1661b99,C7Z3N0,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+dceded7407a1,C7Z3N0,L006,CEL8,af3,native,,pending,
+3f30b6c40b91,C7Z3N0,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+e4789bcad424,C7Z3N0,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+b7a1eadcaa8d,C7Z3N0,L007,NAG4,af3,native,,pending,
+076f9ec57b65,C7Z3N0,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+e99021d57b22,C7Z3N0,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+d0b4cae28db3,C7Z3N0,L008,NAG6,af3,native,,pending,
+dc7b047e2fb5,C7Z3N0,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+1792e062ab1c,C7Z3N0,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+1a0c630b51a0,C7Z3N0,L009,NAG8,af3,native,,pending,
+9669fc9b5dd5,C7Z3N0,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+4fb3b0bce1a6,C7Z3N0,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+57647f87c1e6,G2QP40,L001,STA4,af3,native,,pending,
+db367b6669be,G2QP40,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+a59750e64d27,G2QP40,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+9cb66920fe46,G2QP40,L002,STA6,af3,native,,pending,
+d6c5f70e543d,G2QP40,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+8c4927c78973,G2QP40,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+88dc2cd8b418,G2QP40,L003,STA8,af3,native,,pending,
+98567c56854b,G2QP40,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+255704d7d6d7,G2QP40,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+f98f3f505a8b,G2QP40,L004,CEL4,af3,native,,pending,
+fef86362f7f1,G2QP40,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+45fd13da1315,G2QP40,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+8f4d85835b97,G2QP40,L005,CEL6,af3,native,,pending,
+83e1e3dd7939,G2QP40,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+eca162e5b966,G2QP40,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+64669c50d53b,G2QP40,L006,CEL8,af3,native,,pending,
+53b6cc2406f2,G2QP40,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+b54fddad935e,G2QP40,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+8db9d0f74b77,G2QP40,L007,NAG4,af3,native,,pending,
+492d89e92a31,G2QP40,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+75bf101e9cda,G2QP40,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+2e8fe224b983,G2QP40,L008,NAG6,af3,native,,pending,
+e5efad810f48,G2QP40,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+2c1e7905b2fd,G2QP40,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+7c4fee119b7c,G2QP40,L009,NAG8,af3,native,,pending,
+6635e554145b,G2QP40,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+5c3b50a4f3e2,G2QP40,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+9b1e05012536,Q6MWQ3,L001,STA4,af3,native,,pending,
+ced45917af5b,Q6MWQ3,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+8a97eaff10b3,Q6MWQ3,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+e03581689527,Q6MWQ3,L002,STA6,af3,native,,pending,
+18c04402d166,Q6MWQ3,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+ffb02b3e609d,Q6MWQ3,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+c1b8538b042d,Q6MWQ3,L003,STA8,af3,native,,pending,
+a022e76c73d8,Q6MWQ3,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+aa9a4cee6d38,Q6MWQ3,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+237414357083,Q6MWQ3,L004,CEL4,af3,native,,pending,
+293329f58652,Q6MWQ3,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+1bbe2b783912,Q6MWQ3,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+0181ec4bdb6b,Q6MWQ3,L005,CEL6,af3,native,,pending,
+c978425aeadd,Q6MWQ3,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+94872c84924a,Q6MWQ3,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+73ac96e0bca9,Q6MWQ3,L006,CEL8,af3,native,,pending,
+fd4d5cc2d283,Q6MWQ3,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+78acdda08c74,Q6MWQ3,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+eda42081b234,Q6MWQ3,L007,NAG4,af3,native,,pending,
+b6ae32c5cc59,Q6MWQ3,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+f1b752908c28,Q6MWQ3,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+b5a94ef810ec,Q6MWQ3,L008,NAG6,af3,native,,pending,
+3d7d99b06743,Q6MWQ3,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+5b504600051a,Q6MWQ3,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+ca1fb9bf6e65,Q6MWQ3,L009,NAG8,af3,native,,pending,
+929ec06ae0b6,Q6MWQ3,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+68ad8936e26d,Q6MWQ3,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+9faf5dc1a4f1,A0A2I6QB00,L001,STA4,af3,native,,pending,
+d25546f7c499,A0A2I6QB00,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+d0516674f144,A0A2I6QB00,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+308095e92d89,A0A2I6QB00,L002,STA6,af3,native,,pending,
+8dd6f6f1c96d,A0A2I6QB00,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+8d915ff6b9a4,A0A2I6QB00,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+4e2f6612f2bb,A0A2I6QB00,L003,STA8,af3,native,,pending,
+ac24c9ad0216,A0A2I6QB00,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+81305ff98947,A0A2I6QB00,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+433afa053469,A0A2I6QB00,L004,CEL4,af3,native,,pending,
+f6ba8b9ca011,A0A2I6QB00,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+0ad45e8baf76,A0A2I6QB00,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+c04ea93f2991,A0A2I6QB00,L005,CEL6,af3,native,,pending,
+c33424eea4a9,A0A2I6QB00,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+05f9d4c96e50,A0A2I6QB00,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+c6d076849064,A0A2I6QB00,L006,CEL8,af3,native,,pending,
+5b6de6b0c67b,A0A2I6QB00,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+d22476632ff4,A0A2I6QB00,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+88504b224b82,A0A2I6QB00,L007,NAG4,af3,native,,pending,
+f7115e68832d,A0A2I6QB00,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+b7f3cb77baec,A0A2I6QB00,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+408ccee099fe,A0A2I6QB00,L008,NAG6,af3,native,,pending,
+b9f7b6489101,A0A2I6QB00,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+58e6c75bc451,A0A2I6QB00,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+66a8df06c864,A0A2I6QB00,L009,NAG8,af3,native,,pending,
+7493dc94a5ec,A0A2I6QB00,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+cf7866d5babf,A0A2I6QB00,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+2e3aa3e644e4,A0A2I6QAZ5,L001,STA4,af3,native,,pending,
+c5cb267b793f,A0A2I6QAZ5,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+1b22e828fa82,A0A2I6QAZ5,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+31a30bf4a7e1,A0A2I6QAZ5,L002,STA6,af3,native,,pending,
+2f6cacf5ab0e,A0A2I6QAZ5,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+8ffab21ee6ee,A0A2I6QAZ5,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+d9484dd0c7c6,A0A2I6QAZ5,L003,STA8,af3,native,,pending,
+565aab338aa9,A0A2I6QAZ5,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+65eae75390bd,A0A2I6QAZ5,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+5429e1da5f30,A0A2I6QAZ5,L004,CEL4,af3,native,,pending,
+b16b26d71040,A0A2I6QAZ5,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+8e05baf6e60f,A0A2I6QAZ5,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+09ecd7751280,A0A2I6QAZ5,L005,CEL6,af3,native,,pending,
+57dd16f99c58,A0A2I6QAZ5,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+4ea427373e13,A0A2I6QAZ5,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+95e8ef5c0395,A0A2I6QAZ5,L006,CEL8,af3,native,,pending,
+8b266097b72b,A0A2I6QAZ5,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+66288ca9b0ba,A0A2I6QAZ5,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+e1b90bfbfe23,A0A2I6QAZ5,L007,NAG4,af3,native,,pending,
+024394b5ee1c,A0A2I6QAZ5,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+7872801f673e,A0A2I6QAZ5,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+0501e408739d,A0A2I6QAZ5,L008,NAG6,af3,native,,pending,
+177f68b24244,A0A2I6QAZ5,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+36147dbfa429,A0A2I6QAZ5,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+786bef9520dd,A0A2I6QAZ5,L009,NAG8,af3,native,,pending,
+a78bb9509af6,A0A2I6QAZ5,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+759223b8ffb0,A0A2I6QAZ5,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+69df25465a8d,A0A7H8R162,L001,STA4,af3,native,,pending,
+365e53058547,A0A7H8R162,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+75d6c545e425,A0A7H8R162,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+70bca0268cd1,A0A7H8R162,L002,STA6,af3,native,,pending,
+32394880950d,A0A7H8R162,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+d51e9fae3221,A0A7H8R162,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+c302d5d25fed,A0A7H8R162,L003,STA8,af3,native,,pending,
+64afc96871da,A0A7H8R162,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+546c6d548c2b,A0A7H8R162,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+2d0b7ee9d838,A0A7H8R162,L004,CEL4,af3,native,,pending,
+764487aa5805,A0A7H8R162,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+7783c9889a7c,A0A7H8R162,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+6e296f5dd197,A0A7H8R162,L005,CEL6,af3,native,,pending,
+239f1fc73c0d,A0A7H8R162,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+0822f41b0fa3,A0A7H8R162,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+de8bc32c87b0,A0A7H8R162,L006,CEL8,af3,native,,pending,
+e1df90457f40,A0A7H8R162,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+8bce25063945,A0A7H8R162,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+6b139c943059,A0A7H8R162,L007,NAG4,af3,native,,pending,
+0bdc5a07febd,A0A7H8R162,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+284d81ef054a,A0A7H8R162,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+0c8a3a86ed68,A0A7H8R162,L008,NAG6,af3,native,,pending,
+3c69b34a3196,A0A7H8R162,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+1506ad574c45,A0A7H8R162,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+eb15795be43f,A0A7H8R162,L009,NAG8,af3,native,,pending,
+d9ce69fce77b,A0A7H8R162,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+b1d476ffc832,A0A7H8R162,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+6899b8c08603,A0A2N8U5K6,L001,STA4,af3,native,,pending,
+3601c0e26461,A0A2N8U5K6,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+44e25eb066f3,A0A2N8U5K6,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+08ffdf134164,A0A2N8U5K6,L002,STA6,af3,native,,pending,
+65fc25aa4de6,A0A2N8U5K6,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+5c141773adc5,A0A2N8U5K6,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+58c32c69e18f,A0A2N8U5K6,L003,STA8,af3,native,,pending,
+783d4149bb2c,A0A2N8U5K6,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+77c4636ba3c7,A0A2N8U5K6,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+4a2bc4860390,A0A2N8U5K6,L004,CEL4,af3,native,,pending,
+ca353cdbd50e,A0A2N8U5K6,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+afdff8d5fb59,A0A2N8U5K6,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+6d97e5806d29,A0A2N8U5K6,L005,CEL6,af3,native,,pending,
+e07e9cfbe004,A0A2N8U5K6,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+e6ae3f5d757c,A0A2N8U5K6,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+16de1bdc857a,A0A2N8U5K6,L006,CEL8,af3,native,,pending,
+f24fedb55a65,A0A2N8U5K6,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+f4c184517f7e,A0A2N8U5K6,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+a8f947194335,A0A2N8U5K6,L007,NAG4,af3,native,,pending,
+737617c4cb5e,A0A2N8U5K6,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+5defd652393c,A0A2N8U5K6,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+2611d7067516,A0A2N8U5K6,L008,NAG6,af3,native,,pending,
+b9e80c38ddc5,A0A2N8U5K6,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+797c744ad062,A0A2N8U5K6,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+5c576da76edc,A0A2N8U5K6,L009,NAG8,af3,native,,pending,
+2aa273397b85,A0A2N8U5K6,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+8957ef1425b4,A0A2N8U5K6,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+bb25c3958a9b,A0A2N8U5I8,L001,STA4,af3,native,,pending,
+3357d5f2136c,A0A2N8U5I8,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+1066fba9eaf3,A0A2N8U5I8,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+be4292473ae0,A0A2N8U5I8,L002,STA6,af3,native,,pending,
+312c2ea63ed2,A0A2N8U5I8,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+14b6fa549852,A0A2N8U5I8,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+038eae95f726,A0A2N8U5I8,L003,STA8,af3,native,,pending,
+68029dbaafc0,A0A2N8U5I8,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+e19ce9f3b86f,A0A2N8U5I8,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+10c027272a05,A0A2N8U5I8,L004,CEL4,af3,native,,pending,
+900f034545bf,A0A2N8U5I8,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+58c39b91e3df,A0A2N8U5I8,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+a5abe2ad88ff,A0A2N8U5I8,L005,CEL6,af3,native,,pending,
+3d05d6c3a7bf,A0A2N8U5I8,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+2efbda3def0b,A0A2N8U5I8,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+64c529e2256c,A0A2N8U5I8,L006,CEL8,af3,native,,pending,
+2d0365e35991,A0A2N8U5I8,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+6b44cc4e50c0,A0A2N8U5I8,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+813b6900be87,A0A2N8U5I8,L007,NAG4,af3,native,,pending,
+79a93a66a49a,A0A2N8U5I8,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+4031bdc65af6,A0A2N8U5I8,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+28549d4e961c,A0A2N8U5I8,L008,NAG6,af3,native,,pending,
+59118b2d2dce,A0A2N8U5I8,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+1b66c526f235,A0A2N8U5I8,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+65bb7a31565e,A0A2N8U5I8,L009,NAG8,af3,native,,pending,
+47569622dd8c,A0A2N8U5I8,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+d420bffa96ab,A0A2N8U5I8,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+8f39478f9ee2,W4GRV7,L001,STA4,af3,native,,pending,
+ad1be9aaa739,W4GRV7,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+55a6b997269e,W4GRV7,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+e9ceac5517f4,W4GRV7,L002,STA6,af3,native,,pending,
+9b069c29ed3a,W4GRV7,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+b66cae6473c4,W4GRV7,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+45c4a4f23bd2,W4GRV7,L003,STA8,af3,native,,pending,
+b27544233631,W4GRV7,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+9eac534b36e4,W4GRV7,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+d028ac500cc3,W4GRV7,L004,CEL4,af3,native,,pending,
+b3c53a65de52,W4GRV7,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+9eb8c67f72d8,W4GRV7,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+945c8c64d9c5,W4GRV7,L005,CEL6,af3,native,,pending,
+5a5f12ad9924,W4GRV7,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+3a864f71e262,W4GRV7,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+f28213a9b059,W4GRV7,L006,CEL8,af3,native,,pending,
+2f2c8cd7b063,W4GRV7,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+a42dbd53eadf,W4GRV7,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+546279cd40ee,W4GRV7,L007,NAG4,af3,native,,pending,
+a3f54b910c3e,W4GRV7,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+875919c4560b,W4GRV7,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+72b8b38c8653,W4GRV7,L008,NAG6,af3,native,,pending,
+0b5d46ed477c,W4GRV7,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+464e8460f121,W4GRV7,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+c6a7fddd6485,W4GRV7,L009,NAG8,af3,native,,pending,
+1b98c9d96e25,W4GRV7,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+84c65c467a58,W4GRV7,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+cb750cfc4701,A0A1L9X7U6,L001,STA4,af3,native,,pending,
+13ac9ad7561e,A0A1L9X7U6,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+beb8435236d8,A0A1L9X7U6,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+dfa89a7da866,A0A1L9X7U6,L002,STA6,af3,native,,pending,
+25dec699e61c,A0A1L9X7U6,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+9fd5766b7f71,A0A1L9X7U6,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+0dd80842544a,A0A1L9X7U6,L003,STA8,af3,native,,pending,
+a61290720be6,A0A1L9X7U6,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+14a30eaff44a,A0A1L9X7U6,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+a0cd9f497c48,A0A1L9X7U6,L004,CEL4,af3,native,,pending,
+c2036e018eb6,A0A1L9X7U6,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+edc157faa5c7,A0A1L9X7U6,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+d735f8439080,A0A1L9X7U6,L005,CEL6,af3,native,,pending,
+d53740267a34,A0A1L9X7U6,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+19686b8e82f4,A0A1L9X7U6,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+01ae8107df5b,A0A1L9X7U6,L006,CEL8,af3,native,,pending,
+286a7dc7b1bf,A0A1L9X7U6,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+dd92aeaf1db0,A0A1L9X7U6,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+90fb306c3fd8,A0A1L9X7U6,L007,NAG4,af3,native,,pending,
+e744259a3b62,A0A1L9X7U6,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+6d9210ef1c01,A0A1L9X7U6,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+57dc3db49e8e,A0A1L9X7U6,L008,NAG6,af3,native,,pending,
+d651fec745b6,A0A1L9X7U6,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+283b74065c3c,A0A1L9X7U6,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+25b4182b3622,A0A1L9X7U6,L009,NAG8,af3,native,,pending,
+70738de997fe,A0A1L9X7U6,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+bd5e3d90bfef,A0A1L9X7U6,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+2116020bf665,A0A833WPX8,L001,STA4,af3,native,,pending,
+037112662340,A0A833WPX8,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+9ec0f8314dd2,A0A833WPX8,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+ceb61eac25ad,A0A833WPX8,L002,STA6,af3,native,,pending,
+0e4007115453,A0A833WPX8,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+8809b283eed9,A0A833WPX8,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+3fdab4925ed4,A0A833WPX8,L003,STA8,af3,native,,pending,
+e858be1a5350,A0A833WPX8,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+e12fcd7b9281,A0A833WPX8,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+5c41e994d2b3,A0A833WPX8,L004,CEL4,af3,native,,pending,
+6e2a9692fde3,A0A833WPX8,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+de73238514fa,A0A833WPX8,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+fdb75b7d0739,A0A833WPX8,L005,CEL6,af3,native,,pending,
+90a694519fb2,A0A833WPX8,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+0702f501a5d5,A0A833WPX8,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+fc76113e0cf0,A0A833WPX8,L006,CEL8,af3,native,,pending,
+486405221a9d,A0A833WPX8,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+0b27a02cf1e3,A0A833WPX8,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+89b9df8e41b5,A0A833WPX8,L007,NAG4,af3,native,,pending,
+08ac62fac02e,A0A833WPX8,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+ff7ebe9bf4ee,A0A833WPX8,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+ec3bd052368f,A0A833WPX8,L008,NAG6,af3,native,,pending,
+90e3aa21c21b,A0A833WPX8,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+b89492fc00ac,A0A833WPX8,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+96aa4add62a2,A0A833WPX8,L009,NAG8,af3,native,,pending,
+70796845784c,A0A833WPX8,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+24c068eb150f,A0A833WPX8,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+2a0c392c6fa1,G4YSM3,L001,STA4,af3,native,,pending,
+d4f7be4a6b79,G4YSM3,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+fd3c29d23722,G4YSM3,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+f69b4c6d867d,G4YSM3,L002,STA6,af3,native,,pending,
+c2b91aa07ed8,G4YSM3,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+11b5405f3cf7,G4YSM3,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+162873f378ad,G4YSM3,L003,STA8,af3,native,,pending,
+72f60794ee02,G4YSM3,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+4569d7d33560,G4YSM3,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+613cd096d84c,G4YSM3,L004,CEL4,af3,native,,pending,
+26849c08ee1a,G4YSM3,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+b651a1c4d3ec,G4YSM3,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+579ce200a24c,G4YSM3,L005,CEL6,af3,native,,pending,
+fe158d126120,G4YSM3,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+35285b8d9a73,G4YSM3,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+40a5e476f01e,G4YSM3,L006,CEL8,af3,native,,pending,
+eb5dd0763624,G4YSM3,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+ed64bc414973,G4YSM3,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+64b6674d49a9,G4YSM3,L007,NAG4,af3,native,,pending,
+188311f2def1,G4YSM3,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+4df5a15e7c48,G4YSM3,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+8cf86d3c23e0,G4YSM3,L008,NAG6,af3,native,,pending,
+cdbcc9f516ea,G4YSM3,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+929092542ab4,G4YSM3,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+3f8467bce24a,G4YSM3,L009,NAG8,af3,native,,pending,
+e9c549155a7c,G4YSM3,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+2d7ecb7700bf,G4YSM3,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+0e79381bb79b,D0N2F7,L001,STA4,af3,native,,pending,
+c269363894ec,D0N2F7,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+105286a4fcad,D0N2F7,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+fb61e0970da5,D0N2F7,L002,STA6,af3,native,,pending,
+54c224a138a3,D0N2F7,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+188d890db63f,D0N2F7,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+80b1ce35b072,D0N2F7,L003,STA8,af3,native,,pending,
+1f91229b5689,D0N2F7,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+3e76ee6593ac,D0N2F7,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+5825909050fa,D0N2F7,L004,CEL4,af3,native,,pending,
+b684b0748a8d,D0N2F7,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+9a57626fb850,D0N2F7,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+6e9e92583319,D0N2F7,L005,CEL6,af3,native,,pending,
+cf3913461831,D0N2F7,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+c68a1a2449e5,D0N2F7,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+d5136a4d96b5,D0N2F7,L006,CEL8,af3,native,,pending,
+73dc994e9f58,D0N2F7,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+c40c4b9887ed,D0N2F7,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+aabe5b623fda,D0N2F7,L007,NAG4,af3,native,,pending,
+5fda9db2dd50,D0N2F7,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+2ada48e3949c,D0N2F7,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+32555ce82fae,D0N2F7,L008,NAG6,af3,native,,pending,
+437bcd78e17b,D0N2F7,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+03a5fe305cda,D0N2F7,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+b9b1fa351009,D0N2F7,L009,NAG8,af3,native,,pending,
+a3c000931cf5,D0N2F7,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+8266785e1719,D0N2F7,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+2e4cea66a19f,D0N2F6,L001,STA4,af3,native,,pending,
+b4a785c76f98,D0N2F6,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+52f8d6817560,D0N2F6,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+363a22a3415f,D0N2F6,L002,STA6,af3,native,,pending,
+65a241bbd66b,D0N2F6,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+b6788a005aa6,D0N2F6,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+d6659f4c8156,D0N2F6,L003,STA8,af3,native,,pending,
+2a7b587a6a40,D0N2F6,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+d5a5de70d353,D0N2F6,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+29c4f82eb2b7,D0N2F6,L004,CEL4,af3,native,,pending,
+5a68364b2304,D0N2F6,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+a9baa33a353b,D0N2F6,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+55014209ce91,D0N2F6,L005,CEL6,af3,native,,pending,
+03af516bb048,D0N2F6,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+4f5045b045d3,D0N2F6,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+bac0edf8b85f,D0N2F6,L006,CEL8,af3,native,,pending,
+7c83eed3fc21,D0N2F6,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+67538b71171b,D0N2F6,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+c40ebc627608,D0N2F6,L007,NAG4,af3,native,,pending,
+d8035b16ef5b,D0N2F6,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+d5f92571724e,D0N2F6,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+5b13484c62f5,D0N2F6,L008,NAG6,af3,native,,pending,
+80ff19f9dca4,D0N2F6,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+36c1d731c10f,D0N2F6,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+0a60773e0356,D0N2F6,L009,NAG8,af3,native,,pending,
+e596ef4d7233,D0N2F6,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+d69087f60cb7,D0N2F6,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+9e182d397ccc,G4YSM7,L001,STA4,af3,native,,pending,
+c4e8cfb2ac96,G4YSM7,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+c9f928ab1bb5,G4YSM7,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+642e377e5e5f,G4YSM7,L002,STA6,af3,native,,pending,
+3e22320933d2,G4YSM7,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+4e44df2b696e,G4YSM7,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+f9c328b60ba3,G4YSM7,L003,STA8,af3,native,,pending,
+7673779185ce,G4YSM7,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+57b4bc70b4ea,G4YSM7,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+67653a20bc7c,G4YSM7,L004,CEL4,af3,native,,pending,
+2271fabff6cd,G4YSM7,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+d8e4cd72fa4b,G4YSM7,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+1e3cdaa38bd8,G4YSM7,L005,CEL6,af3,native,,pending,
+ea6e389ca66d,G4YSM7,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+b85ba520ad61,G4YSM7,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+7ce8b8285a1b,G4YSM7,L006,CEL8,af3,native,,pending,
+6475593913e8,G4YSM7,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+cafc180be080,G4YSM7,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+7ec3902267be,G4YSM7,L007,NAG4,af3,native,,pending,
+bff7eacaf83a,G4YSM7,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+894eeea8de65,G4YSM7,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+04b7645cfe19,G4YSM7,L008,NAG6,af3,native,,pending,
+b278897617e9,G4YSM7,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+5142d6b76c99,G4YSM7,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+d7eabd535998,G4YSM7,L009,NAG8,af3,native,,pending,
+2fbefb13a3f6,G4YSM7,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+d71c0a5afdb2,G4YSM7,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+bf4dd4ef523a,G3XAP7,L001,STA4,af3,native,,pending,
+2b92795fb2f6,G3XAP7,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+cee3e1a43c4e,G3XAP7,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+6ce0805478b3,G3XAP7,L002,STA6,af3,native,,pending,
+b5aa097de444,G3XAP7,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+097346995958,G3XAP7,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+fff15fff8573,G3XAP7,L003,STA8,af3,native,,pending,
+acc62f8822f2,G3XAP7,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+afe1520d0774,G3XAP7,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+0d920bac5049,G3XAP7,L004,CEL4,af3,native,,pending,
+d15478ce717c,G3XAP7,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+84cd6fb35540,G3XAP7,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+0c5372b0a03f,G3XAP7,L005,CEL6,af3,native,,pending,
+63537c4f3b28,G3XAP7,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+0fb37fa36759,G3XAP7,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+2b734f9e02ad,G3XAP7,L006,CEL8,af3,native,,pending,
+eb418782bd4d,G3XAP7,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+4bf9a527d184,G3XAP7,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+1d633e10d556,G3XAP7,L007,NAG4,af3,native,,pending,
+9d52d1b5cf43,G3XAP7,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+2819f74167cc,G3XAP7,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+6ce6c0c51d43,G3XAP7,L008,NAG6,af3,native,,pending,
+1648a9295e10,G3XAP7,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+7d9ff08e5f60,G3XAP7,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+1de543168c39,G3XAP7,L009,NAG8,af3,native,,pending,
+5505249c290f,G3XAP7,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+5cefd7bc6a35,G3XAP7,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+5a8a53f0db91,Q4WP32,L001,STA4,af3,native,,pending,
+aa575a631c88,Q4WP32,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+ea14b6af1381,Q4WP32,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+ec716c9a76d5,Q4WP32,L002,STA6,af3,native,,pending,
+be371a3e16ab,Q4WP32,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+5a16bf11302e,Q4WP32,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+284b86562235,Q4WP32,L003,STA8,af3,native,,pending,
+cfd678dbc621,Q4WP32,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+9debf6c72a00,Q4WP32,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+c75fec072d0a,Q4WP32,L004,CEL4,af3,native,,pending,
+df6d1affc4b5,Q4WP32,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+2a186ed55297,Q4WP32,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+58271cba0c69,Q4WP32,L005,CEL6,af3,native,,pending,
+81d5e595daaa,Q4WP32,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+929eeb42eba2,Q4WP32,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+e3e8de3dfbe4,Q4WP32,L006,CEL8,af3,native,,pending,
+257d066655aa,Q4WP32,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+6696760dfced,Q4WP32,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+e219f778bfa5,Q4WP32,L007,NAG4,af3,native,,pending,
+19da803a2192,Q4WP32,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+e1479842689f,Q4WP32,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+4b173f2a49d1,Q4WP32,L008,NAG6,af3,native,,pending,
+03271b5b7c15,Q4WP32,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+70713b7c2b7a,Q4WP32,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+9f7d36a9eb02,Q4WP32,L009,NAG8,af3,native,,pending,
+0d29832b500b,Q4WP32,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+bf5f43ad4b03,Q4WP32,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+c6b8dbfedf35,Q5BCX8,L001,STA4,af3,native,,pending,
+fdefbc5b8814,Q5BCX8,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+e9c5a1ac7133,Q5BCX8,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+ee2c0ab3ea26,Q5BCX8,L002,STA6,af3,native,,pending,
+f58e5e03a71a,Q5BCX8,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+e3ba9bcb8156,Q5BCX8,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+0f051b9c1de4,Q5BCX8,L003,STA8,af3,native,,pending,
+74c3eef9f74e,Q5BCX8,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+56f9244b7679,Q5BCX8,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+721e9e8b02f0,Q5BCX8,L004,CEL4,af3,native,,pending,
+be08c7349529,Q5BCX8,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+72eb59542624,Q5BCX8,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+76637010ef3b,Q5BCX8,L005,CEL6,af3,native,,pending,
+d9d2596c7cad,Q5BCX8,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+00677eff7119,Q5BCX8,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+03631a8004f1,Q5BCX8,L006,CEL8,af3,native,,pending,
+3b490edeaaf6,Q5BCX8,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+2c24f65cdb79,Q5BCX8,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+d23cfe15558c,Q5BCX8,L007,NAG4,af3,native,,pending,
+6e622e546df2,Q5BCX8,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+e10ceb8eb38d,Q5BCX8,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+2c6213f035be,Q5BCX8,L008,NAG6,af3,native,,pending,
+9d1a8e230473,Q5BCX8,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+035507bee791,Q5BCX8,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+33cdb68e8ef4,Q5BCX8,L009,NAG8,af3,native,,pending,
+297bb4ac8594,Q5BCX8,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+1dc79e7aeafe,Q5BCX8,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+a3cdef328797,A0A0S2GKZ1,L001,STA4,af3,native,,pending,
+bc1f1bb73541,A0A0S2GKZ1,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+4277c3d0549a,A0A0S2GKZ1,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+560a180004bf,A0A0S2GKZ1,L002,STA6,af3,native,,pending,
+e80645ef74ee,A0A0S2GKZ1,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+97eedb96600b,A0A0S2GKZ1,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+f371bdc89b98,A0A0S2GKZ1,L003,STA8,af3,native,,pending,
+5e312e5086e0,A0A0S2GKZ1,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+0ef01aaa7b64,A0A0S2GKZ1,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+b3c5214afdea,A0A0S2GKZ1,L004,CEL4,af3,native,,pending,
+1dae0793f215,A0A0S2GKZ1,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+ee9e148eb64d,A0A0S2GKZ1,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+e9b11b5b9595,A0A0S2GKZ1,L005,CEL6,af3,native,,pending,
+1ae4eec767e7,A0A0S2GKZ1,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+3445b71fdb66,A0A0S2GKZ1,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+929f2cec6b2e,A0A0S2GKZ1,L006,CEL8,af3,native,,pending,
+6360d622a14a,A0A0S2GKZ1,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+0c17c934d3a9,A0A0S2GKZ1,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+38391acafa6a,A0A0S2GKZ1,L007,NAG4,af3,native,,pending,
+4632162aa746,A0A0S2GKZ1,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+ca8759b34e42,A0A0S2GKZ1,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+debc881fb615,A0A0S2GKZ1,L008,NAG6,af3,native,,pending,
+7efab5700a68,A0A0S2GKZ1,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+7fa5d8011a43,A0A0S2GKZ1,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+2261159fb60f,A0A0S2GKZ1,L009,NAG8,af3,native,,pending,
+da0afc8e09bb,A0A0S2GKZ1,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+91cea5475b7e,A0A0S2GKZ1,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+ee28f54a8d0c,Q7S439,L001,STA4,af3,native,,pending,
+42270283d6eb,Q7S439,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+77d9c80e0f2c,Q7S439,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+b24c43fe9e6d,Q7S439,L002,STA6,af3,native,,pending,
+69882cd8f1dc,Q7S439,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+f832dd7586b6,Q7S439,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+7783c25503c7,Q7S439,L003,STA8,af3,native,,pending,
+b298f2a530f9,Q7S439,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+cb0ced42ab16,Q7S439,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+cdbf8aacede6,Q7S439,L004,CEL4,af3,native,,pending,
+ba93fc40bd0a,Q7S439,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+82518d68f6b1,Q7S439,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+2bcab94fb413,Q7S439,L005,CEL6,af3,native,,pending,
+3c7500009e85,Q7S439,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+70909db2de37,Q7S439,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+ea3c921a3612,Q7S439,L006,CEL8,af3,native,,pending,
+ccc496407e3a,Q7S439,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+c7c3295dfdea,Q7S439,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+d405cfa12509,Q7S439,L007,NAG4,af3,native,,pending,
+64b104839d1c,Q7S439,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+438448c5c338,Q7S439,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+4f523058df96,Q7S439,L008,NAG6,af3,native,,pending,
+53fcf1e2c1f4,Q7S439,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+024bb49aa18b,Q7S439,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+3d324d9b80ea,Q7S439,L009,NAG8,af3,native,,pending,
+017da5e913f1,Q7S439,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+274e6076f68d,Q7S439,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+ed4a9dfb0526,G2Q9T3,L001,STA4,af3,native,,pending,
+caa3043b281e,G2Q9T3,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+790cecdef22d,G2Q9T3,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+d7009b8aaf7e,G2Q9T3,L002,STA6,af3,native,,pending,
+ea0be5bceb5a,G2Q9T3,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+0b8543ed1740,G2Q9T3,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+c2c997bc2c12,G2Q9T3,L003,STA8,af3,native,,pending,
+485797d06c5f,G2Q9T3,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+b3976d0de7bf,G2Q9T3,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+093c48d8257a,G2Q9T3,L004,CEL4,af3,native,,pending,
+468cf348dc5d,G2Q9T3,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+d772011e8202,G2Q9T3,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+b8b6a081ae2c,G2Q9T3,L005,CEL6,af3,native,,pending,
+5a5fbdfe4fc2,G2Q9T3,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+5e8cf45c1c8e,G2Q9T3,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+40091350d08d,G2Q9T3,L006,CEL8,af3,native,,pending,
+97b72481d376,G2Q9T3,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+984aa7ed880a,G2Q9T3,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+b6b40ef29a2b,G2Q9T3,L007,NAG4,af3,native,,pending,
+2c158b4aec35,G2Q9T3,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+2dcd8eb1f90a,G2Q9T3,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+8a8f702e6a50,G2Q9T3,L008,NAG6,af3,native,,pending,
+67b99b1cbfd5,G2Q9T3,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+5dd1aa81fbf8,G2Q9T3,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+7d478ac940c3,G2Q9T3,L009,NAG8,af3,native,,pending,
+322ce4b39bb0,G2Q9T3,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+75090c8d6a49,G2Q9T3,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+e1a1e255b205,G2QAB5,L001,STA4,af3,native,,pending,
+6855c10ef156,G2QAB5,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+52530a33a32a,G2QAB5,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+aa9d12cdfd3c,G2QAB5,L002,STA6,af3,native,,pending,
+54e9d17276c9,G2QAB5,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+d103c1da490c,G2QAB5,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+08ae281aa351,G2QAB5,L003,STA8,af3,native,,pending,
+07b19b6a25a0,G2QAB5,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+6246a82c57c5,G2QAB5,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+5b8aa960f45b,G2QAB5,L004,CEL4,af3,native,,pending,
+10d30d4695fd,G2QAB5,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+d38becb5622f,G2QAB5,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+5c6bcab67458,G2QAB5,L005,CEL6,af3,native,,pending,
+2582518417cf,G2QAB5,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+fa6925c92068,G2QAB5,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+e303a13270a9,G2QAB5,L006,CEL8,af3,native,,pending,
+3e2670ba517c,G2QAB5,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+e8270f72f0a6,G2QAB5,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+ca3d6bd90176,G2QAB5,L007,NAG4,af3,native,,pending,
+ef9afd4ddf09,G2QAB5,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+bf7241e1e161,G2QAB5,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+81e7d82d17c0,G2QAB5,L008,NAG6,af3,native,,pending,
+8b7c7186c5ce,G2QAB5,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+40e7d41e85c7,G2QAB5,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+4540b4e31c97,G2QAB5,L009,NAG8,af3,native,,pending,
+80ad66b8058f,G2QAB5,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+93f854191890,G2QAB5,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+b97c9ddf89e6,Q7SHI8,L001,STA4,af3,native,,pending,
+12565be74249,Q7SHI8,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+be6142c2a0c9,Q7SHI8,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+da82da221104,Q7SHI8,L002,STA6,af3,native,,pending,
+944ebadc9d6c,Q7SHI8,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+8a4ba117069a,Q7SHI8,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+b2f3eaeb1620,Q7SHI8,L003,STA8,af3,native,,pending,
+2dfcfc85bc1d,Q7SHI8,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+d793db00f53c,Q7SHI8,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+6de85df0e699,Q7SHI8,L004,CEL4,af3,native,,pending,
+539fa1594379,Q7SHI8,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+466ed52a89e1,Q7SHI8,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+76fa58096110,Q7SHI8,L005,CEL6,af3,native,,pending,
+23bcdeb9c643,Q7SHI8,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+4a73df07b014,Q7SHI8,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+a79ff3860eb8,Q7SHI8,L006,CEL8,af3,native,,pending,
+1d227df09e55,Q7SHI8,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+14a977bbeb63,Q7SHI8,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+cd1f8bb9cf94,Q7SHI8,L007,NAG4,af3,native,,pending,
+666c3a940c07,Q7SHI8,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+6c9389d2a5da,Q7SHI8,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+f91c5cecb91b,Q7SHI8,L008,NAG6,af3,native,,pending,
+31f9c751819c,Q7SHI8,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+08f68e91f50d,Q7SHI8,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+18200c432e3d,Q7SHI8,L009,NAG8,af3,native,,pending,
+1f3623a82bdc,Q7SHI8,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+990e36cb665a,Q7SHI8,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+fb7219873d90,H1AE14,L001,STA4,af3,native,,pending,
+75f56a8b6b88,H1AE14,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+095147d2b34e,H1AE14,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+7128ee785f7f,H1AE14,L002,STA6,af3,native,,pending,
+760429780b65,H1AE14,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+a4d1de0d75c2,H1AE14,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+182ea0a6e5cb,H1AE14,L003,STA8,af3,native,,pending,
+2948de2ab0ae,H1AE14,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+b3ecacd9d4d5,H1AE14,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+d3516137bc7f,H1AE14,L004,CEL4,af3,native,,pending,
+5c76c330781c,H1AE14,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+f56f6b0506ca,H1AE14,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+b2b1d538e6c6,H1AE14,L005,CEL6,af3,native,,pending,
+1b22b70a2965,H1AE14,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+d4f6caeae17c,H1AE14,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+97b88556614f,H1AE14,L006,CEL8,af3,native,,pending,
+048343056a60,H1AE14,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+073befbe50da,H1AE14,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+a1c8669ab936,H1AE14,L007,NAG4,af3,native,,pending,
+9b0b9ffde5b4,H1AE14,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+94c61312c8df,H1AE14,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+3c795a285fa7,H1AE14,L008,NAG6,af3,native,,pending,
+62ede1fbe424,H1AE14,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+a5ee35be24f4,H1AE14,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+965460b259e5,H1AE14,L009,NAG8,af3,native,,pending,
+51887bc44859,H1AE14,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+cd2af1e9a3f9,H1AE14,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+c0c026baccfd,Q1K8B6,L001,STA4,af3,native,,pending,
+6996e31388e6,Q1K8B6,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+1c372f7efd6f,Q1K8B6,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+628eaba706a7,Q1K8B6,L002,STA6,af3,native,,pending,
+1e82c7bdbbc7,Q1K8B6,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+9dbae50e21d1,Q1K8B6,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+8b3498007560,Q1K8B6,L003,STA8,af3,native,,pending,
+1c47c1b05786,Q1K8B6,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+3effc7da5acb,Q1K8B6,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+5189eac18958,Q1K8B6,L004,CEL4,af3,native,,pending,
+756707a293dd,Q1K8B6,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+cb4cd05940da,Q1K8B6,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+23d4f9f8dac2,Q1K8B6,L005,CEL6,af3,native,,pending,
+ae375f189ac8,Q1K8B6,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+302d1a6de945,Q1K8B6,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+b1e1d79d3069,Q1K8B6,L006,CEL8,af3,native,,pending,
+6f99139c5f11,Q1K8B6,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+6cf11506093d,Q1K8B6,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+068ac8f66bad,Q1K8B6,L007,NAG4,af3,native,,pending,
+330ce61f8ef9,Q1K8B6,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+bdc7a1675c4b,Q1K8B6,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+b820f8f77c70,Q1K8B6,L008,NAG6,af3,native,,pending,
+e558c62973f1,Q1K8B6,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+9de9a88d4716,Q1K8B6,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+d93d19473dec,Q1K8B6,L009,NAG8,af3,native,,pending,
+3934c5e80187,Q1K8B6,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+9b31a32527ba,Q1K8B6,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+4be4e7a6f622,A0A223GEC9,L001,STA4,af3,native,,pending,
+812130354438,A0A223GEC9,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+545a08a855c5,A0A223GEC9,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+0cd086d4fc28,A0A223GEC9,L002,STA6,af3,native,,pending,
+0a6c1315d444,A0A223GEC9,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+d4681b9cb9a6,A0A223GEC9,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+f9c07dfb0d29,A0A223GEC9,L003,STA8,af3,native,,pending,
+acaf685085dc,A0A223GEC9,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+18f9c5f88e01,A0A223GEC9,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+8601ae615ac6,A0A223GEC9,L004,CEL4,af3,native,,pending,
+598e12e5560d,A0A223GEC9,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+4a1d91267f5c,A0A223GEC9,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+f0fb99cb9f10,A0A223GEC9,L005,CEL6,af3,native,,pending,
+f24205434be0,A0A223GEC9,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+87849837d7ca,A0A223GEC9,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+9f790762ff3f,A0A223GEC9,L006,CEL8,af3,native,,pending,
+d281b4e75286,A0A223GEC9,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+cbf62402c5a6,A0A223GEC9,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+316e7c2711dc,A0A223GEC9,L007,NAG4,af3,native,,pending,
+31b1312bc5dd,A0A223GEC9,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+2f5f8d016fc0,A0A223GEC9,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+2cf4af90302c,A0A223GEC9,L008,NAG6,af3,native,,pending,
+7775844dd828,A0A223GEC9,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+f716b625c588,A0A223GEC9,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+1f74ac81f496,A0A223GEC9,L009,NAG8,af3,native,,pending,
+284eccdb1924,A0A223GEC9,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+5ac2f73f6b8a,A0A223GEC9,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+b7c458cd078a,B2ARG6,L001,STA4,af3,native,,pending,
+7d9d48a19835,B2ARG6,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+c02dbc742a47,B2ARG6,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+53fae8d04a88,B2ARG6,L002,STA6,af3,native,,pending,
+5c2a96c412d7,B2ARG6,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+6d2acafcc706,B2ARG6,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+f48d215407e4,B2ARG6,L003,STA8,af3,native,,pending,
+64598e7e36d3,B2ARG6,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+ec234a39bc20,B2ARG6,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+f8386ae06ad9,B2ARG6,L004,CEL4,af3,native,,pending,
+f1461ea3501d,B2ARG6,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+80b9874ea291,B2ARG6,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+22863acf4872,B2ARG6,L005,CEL6,af3,native,,pending,
+2816442a4396,B2ARG6,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+5209e918f95c,B2ARG6,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+0ae54631bac3,B2ARG6,L006,CEL8,af3,native,,pending,
+5dc3f5b50ffd,B2ARG6,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+2f224678f662,B2ARG6,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+a5cff51c68fe,B2ARG6,L007,NAG4,af3,native,,pending,
+5ece635d037e,B2ARG6,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+abeaf8acf8e6,B2ARG6,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+719883a135d1,B2ARG6,L008,NAG6,af3,native,,pending,
+ef80cf15be32,B2ARG6,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+618a7fafd9c9,B2ARG6,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+3ae49f3f038c,B2ARG6,L009,NAG8,af3,native,,pending,
+8725c3601c6e,B2ARG6,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+deac143b6554,B2ARG6,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+a7f0fb3a8f0a,Q7SHD9,L001,STA4,af3,native,,pending,
+e501f19c2eca,Q7SHD9,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+4090bcbd6d1d,Q7SHD9,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+e3664ffa049e,Q7SHD9,L002,STA6,af3,native,,pending,
+c7bfaf9e082d,Q7SHD9,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+ce84d7c580cd,Q7SHD9,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+61f4a6a651f7,Q7SHD9,L003,STA8,af3,native,,pending,
+8afdbc936ef5,Q7SHD9,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+3f1004c35948,Q7SHD9,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+d58e95d2ed37,Q7SHD9,L004,CEL4,af3,native,,pending,
+05efae4dee48,Q7SHD9,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+44a3b57090d4,Q7SHD9,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+1b8a01853187,Q7SHD9,L005,CEL6,af3,native,,pending,
+48d74b6a633b,Q7SHD9,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+cad0e14aa277,Q7SHD9,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+e5563e8f9856,Q7SHD9,L006,CEL8,af3,native,,pending,
+d602bae77767,Q7SHD9,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+f2710006e367,Q7SHD9,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+74111095eff8,Q7SHD9,L007,NAG4,af3,native,,pending,
+eec9ecc3fd13,Q7SHD9,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+3bfe2a51ef8f,Q7SHD9,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+63680557b6f9,Q7SHD9,L008,NAG6,af3,native,,pending,
+d0a5b3271b6d,Q7SHD9,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+f716569a350f,Q7SHD9,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+32bb42a3484d,Q7SHD9,L009,NAG8,af3,native,,pending,
+8ee55b9848b3,Q7SHD9,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+ae375ccc478a,Q7SHD9,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+1c69364f5c58,B2B629,L001,STA4,af3,native,,pending,
+3f8fbf60e4ad,B2B629,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+bf646c3ded3f,B2B629,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+7e90e7a3610f,B2B629,L002,STA6,af3,native,,pending,
+a1844423148a,B2B629,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+2e04e5a8eada,B2B629,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+65f818615d69,B2B629,L003,STA8,af3,native,,pending,
+7b8c557a1f24,B2B629,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+ac98839a36fa,B2B629,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+4a4c6cfa21c1,B2B629,L004,CEL4,af3,native,,pending,
+5aea4f3680c1,B2B629,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+cc26daf71eae,B2B629,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+4311197308b7,B2B629,L005,CEL6,af3,native,,pending,
+63cfeb727d5b,B2B629,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+f8ff4a195e12,B2B629,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+30e11acc2e68,B2B629,L006,CEL8,af3,native,,pending,
+51b6ecafd86b,B2B629,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+7a6506c0e921,B2B629,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+61fd78f2d269,B2B629,L007,NAG4,af3,native,,pending,
+74f36c139147,B2B629,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+f240c30cfe2c,B2B629,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+2158ea692ab9,B2B629,L008,NAG6,af3,native,,pending,
+2f0bef35ee24,B2B629,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+ec790e724213,B2B629,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+88ee0f5d3090,B2B629,L009,NAG8,af3,native,,pending,
+c5594d0263d2,B2B629,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+caa37b5567de,B2B629,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+20064081c55e,Q1K4Q1,L001,STA4,af3,native,,pending,
+4fc25f0e2c0b,Q1K4Q1,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+833a4c4b83a3,Q1K4Q1,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+d147d9c3fba8,Q1K4Q1,L002,STA6,af3,native,,pending,
+1177c558ac9e,Q1K4Q1,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+c1d019ad8c9e,Q1K4Q1,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+bb2a2c3d831d,Q1K4Q1,L003,STA8,af3,native,,pending,
+1f40fbec188a,Q1K4Q1,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+bb372c719e63,Q1K4Q1,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+5c8c9d90d54b,Q1K4Q1,L004,CEL4,af3,native,,pending,
+ba80a0dfbbd0,Q1K4Q1,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+14fd93f7932c,Q1K4Q1,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+9c8731ee1900,Q1K4Q1,L005,CEL6,af3,native,,pending,
+11b56e4943de,Q1K4Q1,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+d4912027dcb1,Q1K4Q1,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+06b87c4c8f8b,Q1K4Q1,L006,CEL8,af3,native,,pending,
+28902fc275d8,Q1K4Q1,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+fec37df9af4b,Q1K4Q1,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+5adf4ce93d2c,Q1K4Q1,L007,NAG4,af3,native,,pending,
+dc25c39c14aa,Q1K4Q1,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+287d7cfa7993,Q1K4Q1,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+9da6c2ae6381,Q1K4Q1,L008,NAG6,af3,native,,pending,
+e68a226a6842,Q1K4Q1,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+5f7420b52feb,Q1K4Q1,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+ee3b3d98740c,Q1K4Q1,L009,NAG8,af3,native,,pending,
+6eb19e298e97,Q1K4Q1,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+4c68bb0ee17f,Q1K4Q1,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+00ad28a3a444,Q7RWN7,L001,STA4,af3,native,,pending,
+ecc6c287a525,Q7RWN7,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+6be6cc6b9485,Q7RWN7,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+c35940a97bd8,Q7RWN7,L002,STA6,af3,native,,pending,
+31a2b85b53e0,Q7RWN7,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+6104280e555a,Q7RWN7,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+dad532f1f801,Q7RWN7,L003,STA8,af3,native,,pending,
+96bd358a0578,Q7RWN7,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+e679813832e0,Q7RWN7,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+8b278833c7c9,Q7RWN7,L004,CEL4,af3,native,,pending,
+be22c32b3713,Q7RWN7,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+8ee0c0a5b0ba,Q7RWN7,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+047d996b1557,Q7RWN7,L005,CEL6,af3,native,,pending,
+71d664bb7c4f,Q7RWN7,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+c7abf38ffccc,Q7RWN7,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+7774acbd9c56,Q7RWN7,L006,CEL8,af3,native,,pending,
+3d2ef4982e78,Q7RWN7,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+1505d4ecd969,Q7RWN7,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+8542d98d373e,Q7RWN7,L007,NAG4,af3,native,,pending,
+a1ddf2023dc8,Q7RWN7,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+dddf5a9ee3b1,Q7RWN7,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+927452be119f,Q7RWN7,L008,NAG6,af3,native,,pending,
+5207cf3ee4ea,Q7RWN7,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+61c8e9365ecf,Q7RWN7,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+a763591bcde2,Q7RWN7,L009,NAG8,af3,native,,pending,
+fcbdfc8d8a24,Q7RWN7,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+2fecb9cb0090,Q7RWN7,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+de6839ced4ef,S7RK00,L001,STA4,af3,native,,pending,
+1a1cb1645f5a,S7RK00,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+f333adf4393f,S7RK00,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+134e028fde9a,S7RK00,L002,STA6,af3,native,,pending,
+471629a0b4fd,S7RK00,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+a3c27fb6e780,S7RK00,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+7bc5638cbfdf,S7RK00,L003,STA8,af3,native,,pending,
+b1436e9a30fc,S7RK00,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+9130c52f1d20,S7RK00,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+ae377512f81a,S7RK00,L004,CEL4,af3,native,,pending,
+0c2da0282277,S7RK00,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+25c6dc96acd6,S7RK00,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+318f09e4a614,S7RK00,L005,CEL6,af3,native,,pending,
+4c4a032af67d,S7RK00,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+6d96cd1c626b,S7RK00,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+135ff0e09a56,S7RK00,L006,CEL8,af3,native,,pending,
+0eff4987954c,S7RK00,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+102983983aaa,S7RK00,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+889d12beffb1,S7RK00,L007,NAG4,af3,native,,pending,
+bdca6fcd1272,S7RK00,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+fbb76c640568,S7RK00,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+866e2510475c,S7RK00,L008,NAG6,af3,native,,pending,
+cec1f66c96a1,S7RK00,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+382a86ec9ead,S7RK00,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+8f969ddd26c3,S7RK00,L009,NAG8,af3,native,,pending,
+e30cac070386,S7RK00,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+355b535b9354,S7RK00,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+23d964bc95cd,A0A6C0M6J9,L001,STA4,af3,native,,pending,
+bb26765c2c7b,A0A6C0M6J9,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+ff0ef505a8d4,A0A6C0M6J9,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+1954ea794d2c,A0A6C0M6J9,L002,STA6,af3,native,,pending,
+15e9e1f6fe09,A0A6C0M6J9,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+be3c1226bc56,A0A6C0M6J9,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+b8731573815d,A0A6C0M6J9,L003,STA8,af3,native,,pending,
+8bbd960ab9b9,A0A6C0M6J9,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+7538daa22191,A0A6C0M6J9,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+c60b21ee9d56,A0A6C0M6J9,L004,CEL4,af3,native,,pending,
+96024fd0f611,A0A6C0M6J9,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+2edfd1db6aba,A0A6C0M6J9,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+5bd0220d50c7,A0A6C0M6J9,L005,CEL6,af3,native,,pending,
+03cdb42f0dac,A0A6C0M6J9,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+5527efe45ccc,A0A6C0M6J9,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+dd01848cdd36,A0A6C0M6J9,L006,CEL8,af3,native,,pending,
+09b96e7f1a3f,A0A6C0M6J9,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+069d8379552d,A0A6C0M6J9,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+33d2e8c92009,A0A6C0M6J9,L007,NAG4,af3,native,,pending,
+d908e1ecf99a,A0A6C0M6J9,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+2a491913c5e6,A0A6C0M6J9,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+1004359200e8,A0A6C0M6J9,L008,NAG6,af3,native,,pending,
+570447e5a6dc,A0A6C0M6J9,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+5bd41516f4d4,A0A6C0M6J9,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+d8d878cfa136,A0A6C0M6J9,L009,NAG8,af3,native,,pending,
+1206b05d174e,A0A6C0M6J9,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+898579fd29d4,A0A6C0M6J9,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+1fbc60bbc339,B2ADG1,L001,STA4,af3,native,,pending,
+4395869a99fe,B2ADG1,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+23ebbc02647c,B2ADG1,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+cd248b76373e,B2ADG1,L002,STA6,af3,native,,pending,
+b16377c38a1b,B2ADG1,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+5b97ec69cc14,B2ADG1,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+869822c4cbd6,B2ADG1,L003,STA8,af3,native,,pending,
+70d59b7e98a3,B2ADG1,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+a1afba8a65f9,B2ADG1,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+04b533cf88df,B2ADG1,L004,CEL4,af3,native,,pending,
+662dacb2ec7c,B2ADG1,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+340fe5f52205,B2ADG1,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+3aeaf5662324,B2ADG1,L005,CEL6,af3,native,,pending,
+c8437c566aa9,B2ADG1,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+efbca9bca933,B2ADG1,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+bbcc06797091,B2ADG1,L006,CEL8,af3,native,,pending,
+a00268362e53,B2ADG1,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+758ab8da757b,B2ADG1,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+7f402e851362,B2ADG1,L007,NAG4,af3,native,,pending,
+b4e86680375d,B2ADG1,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+6b87607501a1,B2ADG1,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+1360d9b65874,B2ADG1,L008,NAG6,af3,native,,pending,
+65b6c1cafb59,B2ADG1,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+3ee0a622fa34,B2ADG1,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+ade7aa8239ab,B2ADG1,L009,NAG8,af3,native,,pending,
+0db26b0118ca,B2ADG1,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+fc23421c189a,B2ADG1,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+b4e37194475d,B2ATL7,L001,STA4,af3,native,,pending,
+86fe55a9b786,B2ATL7,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+6b0b0954a1da,B2ATL7,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+91d0bbdf2e5a,B2ATL7,L002,STA6,af3,native,,pending,
+1d97c59cc107,B2ATL7,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+9c482d9b437e,B2ATL7,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+470aade1e09e,B2ATL7,L003,STA8,af3,native,,pending,
+427937829b8c,B2ATL7,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+16e78c3b0277,B2ATL7,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+bb463f7ebe0d,B2ATL7,L004,CEL4,af3,native,,pending,
+bfbbf9eae074,B2ATL7,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+708f17385247,B2ATL7,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+4328c4487bd2,B2ATL7,L005,CEL6,af3,native,,pending,
+70a25a089964,B2ATL7,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+11427b64176e,B2ATL7,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+cca72c877511,B2ATL7,L006,CEL8,af3,native,,pending,
+00ef50dea65d,B2ATL7,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+edf1b96677fe,B2ATL7,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+28624925cd61,B2ATL7,L007,NAG4,af3,native,,pending,
+287ad9d4b63f,B2ATL7,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+17a3bd5a8430,B2ATL7,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+4d17ee796fe3,B2ATL7,L008,NAG6,af3,native,,pending,
+8acffc24012e,B2ATL7,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+09e455b4053a,B2ATL7,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+eeab4a60851c,B2ATL7,L009,NAG8,af3,native,,pending,
+a236cf5a79a0,B2ATL7,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+6dccfa76fb5e,B2ATL7,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+49bb9057d5a8,B2AVF1,L001,STA4,af3,native,,pending,
+1d7ea55bf982,B2AVF1,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+295d2c9fecd3,B2AVF1,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+03e3e7382281,B2AVF1,L002,STA6,af3,native,,pending,
+a8c340df50ac,B2AVF1,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+84d9fb379139,B2AVF1,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+e4adfbb2a0b2,B2AVF1,L003,STA8,af3,native,,pending,
+56509396df4b,B2AVF1,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+fd2faa28a61c,B2AVF1,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+69f54440a65f,B2AVF1,L004,CEL4,af3,native,,pending,
+d42b3883aebe,B2AVF1,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+e1c5cb026d0d,B2AVF1,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+4065066f1c6b,B2AVF1,L005,CEL6,af3,native,,pending,
+3cce5f6a3383,B2AVF1,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+6525db62547e,B2AVF1,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+96e0e1ff93d4,B2AVF1,L006,CEL8,af3,native,,pending,
+8f06095732c9,B2AVF1,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+893647b2a0fe,B2AVF1,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+5cfb31987c74,B2AVF1,L007,NAG4,af3,native,,pending,
+d2df7257f9e3,B2AVF1,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+f90b5adb83a3,B2AVF1,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+2aae4f4d38d4,B2AVF1,L008,NAG6,af3,native,,pending,
+95cfd1929a0a,B2AVF1,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+60650c5a5b2d,B2AVF1,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+1f8bfd3d2525,B2AVF1,L009,NAG8,af3,native,,pending,
+6ede1c04eea8,B2AVF1,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+fcd4e5289cc2,B2AVF1,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+3ac791229288,W4KMP1,L001,STA4,af3,native,,pending,
+af67221510d9,W4KMP1,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+aa0f85f163be,W4KMP1,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+3ea636b05830,W4KMP1,L002,STA6,af3,native,,pending,
+44325f567462,W4KMP1,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+39e7c67a0072,W4KMP1,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+94e4870bc167,W4KMP1,L003,STA8,af3,native,,pending,
+926e745825e1,W4KMP1,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+83f21fa4885a,W4KMP1,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+5529bdde96ad,W4KMP1,L004,CEL4,af3,native,,pending,
+2f439531aa9c,W4KMP1,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+68fde9abe76a,W4KMP1,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+ba308d2ed830,W4KMP1,L005,CEL6,af3,native,,pending,
+7bdccf49c722,W4KMP1,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+66097d642f37,W4KMP1,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+d445728a5209,W4KMP1,L006,CEL8,af3,native,,pending,
+7af9c0b4a595,W4KMP1,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+1fb81436322b,W4KMP1,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+ffe9f826ffd5,W4KMP1,L007,NAG4,af3,native,,pending,
+72a293ad4626,W4KMP1,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+3f19f94746ba,W4KMP1,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+66869af08e51,W4KMP1,L008,NAG6,af3,native,,pending,
+803f191492c9,W4KMP1,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+5306513be4fb,W4KMP1,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+a5f1feaea835,W4KMP1,L009,NAG8,af3,native,,pending,
+d9a409d0fb82,W4KMP1,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+214acb0c05d5,W4KMP1,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+dcb758622b71,A0A0H4K9X4,L001,STA4,af3,native,,pending,
+467963e730f3,A0A0H4K9X4,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+23ddc18ea732,A0A0H4K9X4,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+27fdba8efb20,A0A0H4K9X4,L002,STA6,af3,native,,pending,
+b845be2474ce,A0A0H4K9X4,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+464f862fa7f1,A0A0H4K9X4,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+ac8f9cd019c8,A0A0H4K9X4,L003,STA8,af3,native,,pending,
+576d56e2184c,A0A0H4K9X4,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+93e2e76e4623,A0A0H4K9X4,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+6c6ea1e0a997,A0A0H4K9X4,L004,CEL4,af3,native,,pending,
+4a0c501ba79e,A0A0H4K9X4,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+d9e81003ab3d,A0A0H4K9X4,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+0a2924dec5a3,A0A0H4K9X4,L005,CEL6,af3,native,,pending,
+d2a26b699fd7,A0A0H4K9X4,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+0b6db0cd4b0c,A0A0H4K9X4,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+11a380769883,A0A0H4K9X4,L006,CEL8,af3,native,,pending,
+9b031a30a5b3,A0A0H4K9X4,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+a4edcbfa2050,A0A0H4K9X4,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+b4bda7f75706,A0A0H4K9X4,L007,NAG4,af3,native,,pending,
+1039e9fa5155,A0A0H4K9X4,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+304606c4bb2c,A0A0H4K9X4,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+4620c4b83f28,A0A0H4K9X4,L008,NAG6,af3,native,,pending,
+bf1f79cfd725,A0A0H4K9X4,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+4378d27ac4e1,A0A0H4K9X4,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+fcd49c9cc4e9,A0A0H4K9X4,L009,NAG8,af3,native,,pending,
+776fd189a879,A0A0H4K9X4,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+bba44855c291,A0A0H4K9X4,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+247829c42b2d,A0A1C9ZP88,L001,STA4,af3,native,,pending,
+8df31c0c0789,A0A1C9ZP88,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+8897c8d18f17,A0A1C9ZP88,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+b2744312d74c,A0A1C9ZP88,L002,STA6,af3,native,,pending,
+a10411fae156,A0A1C9ZP88,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+2ee6899e071c,A0A1C9ZP88,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+8d648bd192a1,A0A1C9ZP88,L003,STA8,af3,native,,pending,
+6f97e8f8a54c,A0A1C9ZP88,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+a4538d8de8e4,A0A1C9ZP88,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+2d1df31b0a27,A0A1C9ZP88,L004,CEL4,af3,native,,pending,
+388345a79301,A0A1C9ZP88,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+52a1c373e0da,A0A1C9ZP88,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+66224e3f346b,A0A1C9ZP88,L005,CEL6,af3,native,,pending,
+897ff27a7927,A0A1C9ZP88,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+a2d5bab956a4,A0A1C9ZP88,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+456125416940,A0A1C9ZP88,L006,CEL8,af3,native,,pending,
+330a01817a92,A0A1C9ZP88,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+993c56e1aedc,A0A1C9ZP88,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+36ab8987b421,A0A1C9ZP88,L007,NAG4,af3,native,,pending,
+a0d7b5c8db7e,A0A1C9ZP88,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+7abc262e2f1d,A0A1C9ZP88,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+9b21f36e2374,A0A1C9ZP88,L008,NAG6,af3,native,,pending,
+f3bc5d477286,A0A1C9ZP88,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+cbba7b328cbb,A0A1C9ZP88,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+e3bc08d31e38,A0A1C9ZP88,L009,NAG8,af3,native,,pending,
+1d94b4786ab3,A0A1C9ZP88,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+1a0188add4bb,A0A1C9ZP88,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+ea76ed0d1b13,B2B403,L001,STA4,af3,native,,pending,
+cc3d603973d1,B2B403,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+a22590717780,B2B403,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+81a1c1f5c2ba,B2B403,L002,STA6,af3,native,,pending,
+be791a8ddd63,B2B403,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+642ce36d67ef,B2B403,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+3d35da51080f,B2B403,L003,STA8,af3,native,,pending,
+d908a1a8090e,B2B403,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+91b5bcdb27f9,B2B403,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+7e4a72ab0fa9,B2B403,L004,CEL4,af3,native,,pending,
+9a3837600dde,B2B403,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+3efe89fd7b17,B2B403,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+390577e78fd6,B2B403,L005,CEL6,af3,native,,pending,
+476f8513e7e1,B2B403,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+ba828c964959,B2B403,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+d3c286b08b29,B2B403,L006,CEL8,af3,native,,pending,
+82894090e63e,B2B403,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+c4d752e0e343,B2B403,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+e3c2836fecaf,B2B403,L007,NAG4,af3,native,,pending,
+175e117e4960,B2B403,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+ca2d7ae45d8d,B2B403,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+8aa3e09aed88,B2B403,L008,NAG6,af3,native,,pending,
+8543c5d4b23a,B2B403,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+292bff12bb93,B2B403,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+01b6edd38567,B2B403,L009,NAG8,af3,native,,pending,
+6232395b65d2,B2B403,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+0142d10ee319,B2B403,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+67c94ea1e3d8,A0A6C0PI79,L001,STA4,af3,native,,pending,
+f69c3bd2cf2f,A0A6C0PI79,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+f9f1ef6b4dc6,A0A6C0PI79,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+f11efca5454a,A0A6C0PI79,L002,STA6,af3,native,,pending,
+059aad4c8519,A0A6C0PI79,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+1f60f13cbdfd,A0A6C0PI79,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+b0b216378a14,A0A6C0PI79,L003,STA8,af3,native,,pending,
+822ec2f7cca5,A0A6C0PI79,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+0a580abe4d6c,A0A6C0PI79,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+cd5acb4dbb8a,A0A6C0PI79,L004,CEL4,af3,native,,pending,
+3d258f68919b,A0A6C0PI79,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+5917273873fb,A0A6C0PI79,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+a0921130de38,A0A6C0PI79,L005,CEL6,af3,native,,pending,
+d6d0aad98c58,A0A6C0PI79,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+441561e64b9c,A0A6C0PI79,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+99934c27df23,A0A6C0PI79,L006,CEL8,af3,native,,pending,
+e23e05593324,A0A6C0PI79,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+8c3c8ed3d2d2,A0A6C0PI79,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+63b541410c0d,A0A6C0PI79,L007,NAG4,af3,native,,pending,
+6e9baa41427f,A0A6C0PI79,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+d3c0e7dfea42,A0A6C0PI79,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+548e7f01d398,A0A6C0PI79,L008,NAG6,af3,native,,pending,
+7021efe9899f,A0A6C0PI79,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+a325a515c012,A0A6C0PI79,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+f8162d63d484,A0A6C0PI79,L009,NAG8,af3,native,,pending,
+5b29e105dd78,A0A6C0PI79,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+21add13ccde6,A0A6C0PI79,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+3dcc91917333,M2QEW2,L001,STA4,af3,native,,pending,
+630e2b43b89b,M2QEW2,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+e2f7602df8b5,M2QEW2,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+bc2752f6cd6a,M2QEW2,L002,STA6,af3,native,,pending,
+3c3e766bdba6,M2QEW2,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+93fa755f5e7b,M2QEW2,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+725b663933b9,M2QEW2,L003,STA8,af3,native,,pending,
+550f3a268e50,M2QEW2,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+1559820d882c,M2QEW2,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+c30b7ca87333,M2QEW2,L004,CEL4,af3,native,,pending,
+1c5198607f24,M2QEW2,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+737b76d78002,M2QEW2,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+0e0019c19672,M2QEW2,L005,CEL6,af3,native,,pending,
+9246c38f2a2c,M2QEW2,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+5ddcabf6383a,M2QEW2,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+9d709caeab35,M2QEW2,L006,CEL8,af3,native,,pending,
+f24b6c3b0298,M2QEW2,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+fab36142a362,M2QEW2,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+5d9be86d5ed6,M2QEW2,L007,NAG4,af3,native,,pending,
+4bab93d16fe4,M2QEW2,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+0f4758d3488a,M2QEW2,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+9d3815ad0504,M2QEW2,L008,NAG6,af3,native,,pending,
+347c265e0f4d,M2QEW2,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+02805c5a4628,M2QEW2,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+100de1bd56a2,M2QEW2,L009,NAG8,af3,native,,pending,
+2b3908755d07,M2QEW2,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+29bd536b1d44,M2QEW2,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+f7d1c7a97e0c,A0A167KNY8,L001,STA4,af3,native,,pending,
+8d3ffb524150,A0A167KNY8,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+3275ecda7f16,A0A167KNY8,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+c3268032bc1a,A0A167KNY8,L002,STA6,af3,native,,pending,
+9443f47f9c81,A0A167KNY8,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+39466307a024,A0A167KNY8,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+a246f99315b8,A0A167KNY8,L003,STA8,af3,native,,pending,
+6f2c2cf162cf,A0A167KNY8,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+514be29d567d,A0A167KNY8,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+0704a8c75177,A0A167KNY8,L004,CEL4,af3,native,,pending,
+5aa7f1a2828a,A0A167KNY8,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+38f2486992ba,A0A167KNY8,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+5761f7cb3f46,A0A167KNY8,L005,CEL6,af3,native,,pending,
+fee7409c8c21,A0A167KNY8,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+cf1efaab776c,A0A167KNY8,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+622de6e77c63,A0A167KNY8,L006,CEL8,af3,native,,pending,
+ef3f7c05ffcf,A0A167KNY8,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+16e339af9add,A0A167KNY8,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+bf3735b6b2c7,A0A167KNY8,L007,NAG4,af3,native,,pending,
+28fe0caa7d12,A0A167KNY8,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+868ec497cea9,A0A167KNY8,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+74383c9989a1,A0A167KNY8,L008,NAG6,af3,native,,pending,
+e66e1c17f797,A0A167KNY8,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+bc8ed7752e6c,A0A167KNY8,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+648dcb78e8e2,A0A167KNY8,L009,NAG8,af3,native,,pending,
+1e5e0b457d86,A0A167KNY8,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+7bdf066c2f4f,A0A167KNY8,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+61855846a41e,A0A3S4B613,L001,STA4,af3,native,,pending,
+d86bb112daaf,A0A3S4B613,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+b3e20ac28012,A0A3S4B613,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+48c94120476e,A0A3S4B613,L002,STA6,af3,native,,pending,
+716a13fa6aed,A0A3S4B613,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+4a13fb591612,A0A3S4B613,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+dd062c697453,A0A3S4B613,L003,STA8,af3,native,,pending,
+2df59d545618,A0A3S4B613,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+7339ed815859,A0A3S4B613,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+faba3b829f80,A0A3S4B613,L004,CEL4,af3,native,,pending,
+ccf92f4c805c,A0A3S4B613,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+ca9a6e71f044,A0A3S4B613,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+d23077e0b089,A0A3S4B613,L005,CEL6,af3,native,,pending,
+443fea8bb666,A0A3S4B613,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+3491bee3292d,A0A3S4B613,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+cd78dff86c6c,A0A3S4B613,L006,CEL8,af3,native,,pending,
+4fddb29dcc05,A0A3S4B613,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+0c63a57edadd,A0A3S4B613,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+16774ee30f9b,A0A3S4B613,L007,NAG4,af3,native,,pending,
+2c849527d3df,A0A3S4B613,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+a12d6026e5a9,A0A3S4B613,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+225223f76f99,A0A3S4B613,L008,NAG6,af3,native,,pending,
+df23dd0b3526,A0A3S4B613,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+c9ed246f9d96,A0A3S4B613,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+21d803fe1b18,A0A3S4B613,L009,NAG8,af3,native,,pending,
+1c084df42d72,A0A3S4B613,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+a394f382713d,A0A3S4B613,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+c3d79306dbef,A0A8F2JFW3,L001,STA4,af3,native,,pending,
+4581f627f8c9,A0A8F2JFW3,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+2707a0d932bd,A0A8F2JFW3,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+22d7f75066e1,A0A8F2JFW3,L002,STA6,af3,native,,pending,
+275b6cf367b5,A0A8F2JFW3,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+dd7039dbdfac,A0A8F2JFW3,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+5a394bfa6e5b,A0A8F2JFW3,L003,STA8,af3,native,,pending,
+2146d9582265,A0A8F2JFW3,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+2627b40294f9,A0A8F2JFW3,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+10bed2a874f2,A0A8F2JFW3,L004,CEL4,af3,native,,pending,
+dc5bda115b73,A0A8F2JFW3,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+835b14d6fb44,A0A8F2JFW3,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+393804fd1bff,A0A8F2JFW3,L005,CEL6,af3,native,,pending,
+1ce4b3fcc5bd,A0A8F2JFW3,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+2607dfdc77ca,A0A8F2JFW3,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+8c686e8ae6f9,A0A8F2JFW3,L006,CEL8,af3,native,,pending,
+b29cbc29e5fd,A0A8F2JFW3,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+45f72c56b460,A0A8F2JFW3,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+c9316d16ca23,A0A8F2JFW3,L007,NAG4,af3,native,,pending,
+42d4a5c2fda2,A0A8F2JFW3,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+49e5dfebdbc8,A0A8F2JFW3,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+cfebfa672fd4,A0A8F2JFW3,L008,NAG6,af3,native,,pending,
+517729c06097,A0A8F2JFW3,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+1727b4e24139,A0A8F2JFW3,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+f35863fe928e,A0A8F2JFW3,L009,NAG8,af3,native,,pending,
+ed17510c06a9,A0A8F2JFW3,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+e19ebbb98664,A0A8F2JFW3,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+f4686cdf6a4e,G2QI82,L001,STA4,af3,native,,pending,
+792752c324a5,G2QI82,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+6b60d4be6a6a,G2QI82,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+fb91fa3cb643,G2QI82,L002,STA6,af3,native,,pending,
+07e7a57c3fa5,G2QI82,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+6c5f67e77df6,G2QI82,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+aa868b35167f,G2QI82,L003,STA8,af3,native,,pending,
+43d4711d0e03,G2QI82,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+f9eb3bb52309,G2QI82,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+e585ecd606d6,G2QI82,L004,CEL4,af3,native,,pending,
+64b952be5c02,G2QI82,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+bec5e743a05c,G2QI82,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+154b8a8c7ddf,G2QI82,L005,CEL6,af3,native,,pending,
+48846fcfd333,G2QI82,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+801711cf0f33,G2QI82,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+6e389f4a8586,G2QI82,L006,CEL8,af3,native,,pending,
+8e57c51eabdb,G2QI82,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+c1776ca05586,G2QI82,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+3545d720c0bf,G2QI82,L007,NAG4,af3,native,,pending,
+040b651690d6,G2QI82,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+8f22d986b564,G2QI82,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+d86192b9e7ed,G2QI82,L008,NAG6,af3,native,,pending,
+9ae2fcc09fc7,G2QI82,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+1dd4cedf8d86,G2QI82,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+ec9eeb8f0977,G2QI82,L009,NAG8,af3,native,,pending,
+b8d5ce3646bb,G2QI82,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+4b22a1c16099,G2QI82,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+ca8e971c4880,M2RAI8,L001,STA4,af3,native,,pending,
+750a477a13f9,M2RAI8,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+9f4d9e3cc89c,M2RAI8,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+4e5c5f7045ab,M2RAI8,L002,STA6,af3,native,,pending,
+f9dc08bb65bf,M2RAI8,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+b790b7e3034a,M2RAI8,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+dfd44fefe3de,M2RAI8,L003,STA8,af3,native,,pending,
+b89ed632bf5f,M2RAI8,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+239f38942afe,M2RAI8,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+8c048da559bc,M2RAI8,L004,CEL4,af3,native,,pending,
+25f42d72492f,M2RAI8,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+02570fca95f3,M2RAI8,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+821eb54dabb0,M2RAI8,L005,CEL6,af3,native,,pending,
+3654d932f7ed,M2RAI8,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+7fcc9904f528,M2RAI8,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+722f25d5c57c,M2RAI8,L006,CEL8,af3,native,,pending,
+9ba0f5d74851,M2RAI8,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+1e51ae3a7d54,M2RAI8,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+05aa3206e782,M2RAI8,L007,NAG4,af3,native,,pending,
+51e533e34386,M2RAI8,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+ca6c42a5fabe,M2RAI8,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+e41c28abe1ad,M2RAI8,L008,NAG6,af3,native,,pending,
+409d6258df8d,M2RAI8,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+93852465a388,M2RAI8,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+2e022b7999b9,M2RAI8,L009,NAG8,af3,native,,pending,
+225c15ac7f20,M2RAI8,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+dd34563d1ebb,M2RAI8,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+bac07b9248f4,A0A446BDM8,L001,STA4,af3,native,,pending,
+97a88d78f594,A0A446BDM8,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+8d7bbcb9b2d4,A0A446BDM8,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+4251306aa284,A0A446BDM8,L002,STA6,af3,native,,pending,
+317f416c3433,A0A446BDM8,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+1db2bdcb6429,A0A446BDM8,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+2ed18a99b650,A0A446BDM8,L003,STA8,af3,native,,pending,
+df00dfcac6c2,A0A446BDM8,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+704f8beda828,A0A446BDM8,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+b6b47ef2c0cc,A0A446BDM8,L004,CEL4,af3,native,,pending,
+12974e812726,A0A446BDM8,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+5763ef2ac1c2,A0A446BDM8,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+351f8ffc2776,A0A446BDM8,L005,CEL6,af3,native,,pending,
+e96234981adb,A0A446BDM8,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+606edcf33a88,A0A446BDM8,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+24257756344c,A0A446BDM8,L006,CEL8,af3,native,,pending,
+54b7039c21d7,A0A446BDM8,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+7586ec72801f,A0A446BDM8,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+89e42fc0530f,A0A446BDM8,L007,NAG4,af3,native,,pending,
+e7046283682f,A0A446BDM8,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+9ee714af5cd3,A0A446BDM8,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+1081e7ccef33,A0A446BDM8,L008,NAG6,af3,native,,pending,
+b19eb47cc944,A0A446BDM8,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+d7cabc21a481,A0A446BDM8,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+577daea6abeb,A0A446BDM8,L009,NAG8,af3,native,,pending,
+c47bd86381b7,A0A446BDM8,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+b2ee8ddf3c4b,A0A446BDM8,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+8a636c0e7b73,Q7S111,L001,STA4,af3,native,,pending,
+c2f083724587,Q7S111,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+1cf468626fbd,Q7S111,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+49a0a0b8f86a,Q7S111,L002,STA6,af3,native,,pending,
+b7c70040d31e,Q7S111,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+6e771bd025b1,Q7S111,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+dd147456c4d0,Q7S111,L003,STA8,af3,native,,pending,
+00793c3da9fb,Q7S111,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+92bd3d62e012,Q7S111,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+057106bddef3,Q7S111,L004,CEL4,af3,native,,pending,
+47ed0f905eba,Q7S111,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+f5d45d7790ad,Q7S111,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+f19a270a2487,Q7S111,L005,CEL6,af3,native,,pending,
+f75a655f1c21,Q7S111,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+9483afd1186c,Q7S111,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+8a76a86def34,Q7S111,L006,CEL8,af3,native,,pending,
+6e809e57a97e,Q7S111,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+0301a4258beb,Q7S111,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+2049166ee2a6,Q7S111,L007,NAG4,af3,native,,pending,
+0b6e20375411,Q7S111,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+e7fb19590497,Q7S111,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+f5549a907978,Q7S111,L008,NAG6,af3,native,,pending,
+082626e47db2,Q7S111,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+b5369cd12901,Q7S111,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+25493b045848,Q7S111,L009,NAG8,af3,native,,pending,
+9873ff20221d,Q7S111,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+d77a240b7301,Q7S111,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+112cccb3262c,Q7SA19,L001,STA4,af3,native,,pending,
+2aa0ae6308e8,Q7SA19,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+6238aeb18f71,Q7SA19,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+3e50d6e2ddf3,Q7SA19,L002,STA6,af3,native,,pending,
+561abbcef9b2,Q7SA19,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+6b472f9cda2c,Q7SA19,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+6553ea945c87,Q7SA19,L003,STA8,af3,native,,pending,
+a31f9c03f21c,Q7SA19,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+d7cec50f6033,Q7SA19,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+ec6da4cfbcfc,Q7SA19,L004,CEL4,af3,native,,pending,
+dacd0b2bb70b,Q7SA19,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+dc3beb3d5be9,Q7SA19,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+660cdc92f235,Q7SA19,L005,CEL6,af3,native,,pending,
+32221c8c5969,Q7SA19,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+e45bff651aa7,Q7SA19,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+cb6bc717377f,Q7SA19,L006,CEL8,af3,native,,pending,
+1f45ce69ca7e,Q7SA19,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+64a6ece08773,Q7SA19,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+67daf7a2459a,Q7SA19,L007,NAG4,af3,native,,pending,
+8b3b495c6de9,Q7SA19,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+3e186a01d36f,Q7SA19,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+c3c499c5d5c0,Q7SA19,L008,NAG6,af3,native,,pending,
+32d7f786cd1f,Q7SA19,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+9c55d6a03df9,Q7SA19,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+e727f04e4611,Q7SA19,L009,NAG8,af3,native,,pending,
+5b4a6a8b6cb8,Q7SA19,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+e7252c102081,Q7SA19,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+6b92776c5146,G2Q7A5,L001,STA4,af3,native,,pending,
+0e6b193ed3fa,G2Q7A5,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+0b03a9db580f,G2Q7A5,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+2c93e1e95758,G2Q7A5,L002,STA6,af3,native,,pending,
+cb73aa7fa7d1,G2Q7A5,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+0f48c3956c00,G2Q7A5,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+33bcc5ab7393,G2Q7A5,L003,STA8,af3,native,,pending,
+c601be33f799,G2Q7A5,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+18783ec2144f,G2Q7A5,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+4d9525bf2eca,G2Q7A5,L004,CEL4,af3,native,,pending,
+17713a040727,G2Q7A5,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+aba468c6817b,G2Q7A5,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+eb8d97b2a8aa,G2Q7A5,L005,CEL6,af3,native,,pending,
+1279a28dad0c,G2Q7A5,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+bfc49705de18,G2Q7A5,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+b94ea08fd979,G2Q7A5,L006,CEL8,af3,native,,pending,
+eff383597685,G2Q7A5,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+e956789f1f59,G2Q7A5,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+ba6eaa2b17af,G2Q7A5,L007,NAG4,af3,native,,pending,
+d55b1432b578,G2Q7A5,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+b023e2027f8e,G2Q7A5,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+b088713736ff,G2Q7A5,L008,NAG6,af3,native,,pending,
+5f3f4fc06de4,G2Q7A5,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+45f22eb23244,G2Q7A5,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+25fc355a8523,G2Q7A5,L009,NAG8,af3,native,,pending,
+18cc08946a03,G2Q7A5,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+05e7037c8f39,G2Q7A5,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+019a13b99be8,Q7SCJ5,L001,STA4,af3,native,,pending,
+aeddecf98ed6,Q7SCJ5,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+f2d6e8c29e3f,Q7SCJ5,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+3a0dc590d78d,Q7SCJ5,L002,STA6,af3,native,,pending,
+92f219259a96,Q7SCJ5,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+732abdad7e93,Q7SCJ5,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+34283ffb00bd,Q7SCJ5,L003,STA8,af3,native,,pending,
+a2e73f2888dc,Q7SCJ5,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+e4a98b4b1289,Q7SCJ5,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+2ebebf9d661d,Q7SCJ5,L004,CEL4,af3,native,,pending,
+0f855a139b88,Q7SCJ5,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+5004589c4bd4,Q7SCJ5,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+60e393f1b88b,Q7SCJ5,L005,CEL6,af3,native,,pending,
+1c5db04a46e2,Q7SCJ5,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+667c23492ec4,Q7SCJ5,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+3c2fdb59cf29,Q7SCJ5,L006,CEL8,af3,native,,pending,
+2ef7cfcc1baa,Q7SCJ5,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+a054ec1ac1c5,Q7SCJ5,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+03c5e652028b,Q7SCJ5,L007,NAG4,af3,native,,pending,
+174df1d1714f,Q7SCJ5,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+2ff3a1ef5af2,Q7SCJ5,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+84c10009fcc6,Q7SCJ5,L008,NAG6,af3,native,,pending,
+1f5b9e4c17a2,Q7SCJ5,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+d6e64325c4cd,Q7SCJ5,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+7e1f050cd3aa,Q7SCJ5,L009,NAG8,af3,native,,pending,
+88ba35fbcf34,Q7SCJ5,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+525cb1325939,Q7SCJ5,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+b64534cffb2c,A0A167KNZ4,L001,STA4,af3,native,,pending,
+a3539e6b7fb4,A0A167KNZ4,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+c83e48d3c429,A0A167KNZ4,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+028ef36d4122,A0A167KNZ4,L002,STA6,af3,native,,pending,
+f224d1e3a427,A0A167KNZ4,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+b27aada8528f,A0A167KNZ4,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+772246d5dec5,A0A167KNZ4,L003,STA8,af3,native,,pending,
+ec35f7592a97,A0A167KNZ4,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+626679eb854e,A0A167KNZ4,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+708b2743effc,A0A167KNZ4,L004,CEL4,af3,native,,pending,
+84b70c050398,A0A167KNZ4,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+8b0febe711e2,A0A167KNZ4,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+85b341b771bc,A0A167KNZ4,L005,CEL6,af3,native,,pending,
+35eee256aa32,A0A167KNZ4,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+9c959904e377,A0A167KNZ4,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+fdbe49201e9d,A0A167KNZ4,L006,CEL8,af3,native,,pending,
+32e02981d308,A0A167KNZ4,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+21aa06c01f92,A0A167KNZ4,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+9c890077b714,A0A167KNZ4,L007,NAG4,af3,native,,pending,
+44980b365dd9,A0A167KNZ4,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+538df971cc45,A0A167KNZ4,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+3ce74d3dc164,A0A167KNZ4,L008,NAG6,af3,native,,pending,
+307ee8260c51,A0A167KNZ4,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+dbaa6b3fc3bb,A0A167KNZ4,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+0c35462dce17,A0A167KNZ4,L009,NAG8,af3,native,,pending,
+9a663cd86d5b,A0A167KNZ4,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+5d5217cc9dbf,A0A167KNZ4,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+6b9f1dda9fac,A0A3S4ATQ2,L001,STA4,af3,native,,pending,
+7aefedd6bc7f,A0A3S4ATQ2,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+4085039b7d78,A0A3S4ATQ2,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+ef8c7ef430d4,A0A3S4ATQ2,L002,STA6,af3,native,,pending,
+a21e3f290316,A0A3S4ATQ2,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+e342dbf4cffa,A0A3S4ATQ2,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+3e05826347d4,A0A3S4ATQ2,L003,STA8,af3,native,,pending,
+42fe4e1c7ea5,A0A3S4ATQ2,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+6338cd91946e,A0A3S4ATQ2,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+e72577f1ecca,A0A3S4ATQ2,L004,CEL4,af3,native,,pending,
+9a8655475c0e,A0A3S4ATQ2,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+81bf8413c434,A0A3S4ATQ2,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+7dbeab2f408a,A0A3S4ATQ2,L005,CEL6,af3,native,,pending,
+d4c71fa6bf3e,A0A3S4ATQ2,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+cabcb1ecff5a,A0A3S4ATQ2,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+c4c56e3aa95f,A0A3S4ATQ2,L006,CEL8,af3,native,,pending,
+f7c4e0e91306,A0A3S4ATQ2,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+fe421ebe5cba,A0A3S4ATQ2,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+4e89126146ec,A0A3S4ATQ2,L007,NAG4,af3,native,,pending,
+d378d60f517d,A0A3S4ATQ2,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+9a21411426ad,A0A3S4ATQ2,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+a6aff2bb29d4,A0A3S4ATQ2,L008,NAG6,af3,native,,pending,
+bc1f1393dca5,A0A3S4ATQ2,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+ccd57de76a9c,A0A3S4ATQ2,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+27240490c074,A0A3S4ATQ2,L009,NAG8,af3,native,,pending,
+59ed6389a5de,A0A3S4ATQ2,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+17aa2aa6f85c,A0A3S4ATQ2,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+1764abe74a6b,A0A446B9M7,L001,STA4,af3,native,,pending,
+595c47ff16d4,A0A446B9M7,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+970b36b4f0cf,A0A446B9M7,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+cfe2b2313f7e,A0A446B9M7,L002,STA6,af3,native,,pending,
+e2e4d66a5de2,A0A446B9M7,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+75f7e01b151a,A0A446B9M7,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+ca569a5a511b,A0A446B9M7,L003,STA8,af3,native,,pending,
+37d2ce1eccf4,A0A446B9M7,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+293ed089389f,A0A446B9M7,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+18f24741a5b6,A0A446B9M7,L004,CEL4,af3,native,,pending,
+c538bbba8117,A0A446B9M7,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+fc369c93e516,A0A446B9M7,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+faab80808d7a,A0A446B9M7,L005,CEL6,af3,native,,pending,
+87daa6bc297b,A0A446B9M7,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+2d5347d46874,A0A446B9M7,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+db9d160c87aa,A0A446B9M7,L006,CEL8,af3,native,,pending,
+f4135286c620,A0A446B9M7,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+63b8ba443820,A0A446B9M7,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+4bae2e2c315a,A0A446B9M7,L007,NAG4,af3,native,,pending,
+1dd350ccc111,A0A446B9M7,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+71c5f9acc7ba,A0A446B9M7,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+a06d2e1e2a89,A0A446B9M7,L008,NAG6,af3,native,,pending,
+3fa105b9af63,A0A446B9M7,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+9172293862c9,A0A446B9M7,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+4b9db911f5d5,A0A446B9M7,L009,NAG8,af3,native,,pending,
+d416a163a0f1,A0A446B9M7,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+9d3c78038690,A0A446B9M7,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+8357504a11b2,A0A446BDM9,L001,STA4,af3,native,,pending,
+c11b54ae1c26,A0A446BDM9,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+6d0788f09449,A0A446BDM9,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+ed6cf0555267,A0A446BDM9,L002,STA6,af3,native,,pending,
+2b57feb123d8,A0A446BDM9,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+da38dd9e984a,A0A446BDM9,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+bb7f520c57fe,A0A446BDM9,L003,STA8,af3,native,,pending,
+a246e747ee2f,A0A446BDM9,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+b215f7271330,A0A446BDM9,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+c17134e1ee81,A0A446BDM9,L004,CEL4,af3,native,,pending,
+b7ca90a6869e,A0A446BDM9,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+28e0a77e047e,A0A446BDM9,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+59fb3d638c14,A0A446BDM9,L005,CEL6,af3,native,,pending,
+b05b569bb948,A0A446BDM9,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+1266a1f3c9a5,A0A446BDM9,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+902401ecceed,A0A446BDM9,L006,CEL8,af3,native,,pending,
+80735e38d8c4,A0A446BDM9,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+0963c0cf5501,A0A446BDM9,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+d4f47382cf62,A0A446BDM9,L007,NAG4,af3,native,,pending,
+ab8dc8403322,A0A446BDM9,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+cc1e959b357e,A0A446BDM9,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+eae863b527c0,A0A446BDM9,L008,NAG6,af3,native,,pending,
+cf033c85953f,A0A446BDM9,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+318336fb0e6d,A0A446BDM9,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+bd44e962d90a,A0A446BDM9,L009,NAG8,af3,native,,pending,
+06a361b5b994,A0A446BDM9,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+9df390eb97a5,A0A446BDM9,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+640f5fba61af,A0A8F2FAB6,L001,STA4,af3,native,,pending,
+aad6beac0503,A0A8F2FAB6,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+6829ab112853,A0A8F2FAB6,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+cda5840da26d,A0A8F2FAB6,L002,STA6,af3,native,,pending,
+6f461d8abc59,A0A8F2FAB6,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+0f459a8b0361,A0A8F2FAB6,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+1909b5325e12,A0A8F2FAB6,L003,STA8,af3,native,,pending,
+7de8a8c6d5d1,A0A8F2FAB6,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+c54c0105238d,A0A8F2FAB6,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+3f40dfc7c702,A0A8F2FAB6,L004,CEL4,af3,native,,pending,
+e64c82dd90a4,A0A8F2FAB6,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+edf12d001bea,A0A8F2FAB6,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+d84c6e99ba94,A0A8F2FAB6,L005,CEL6,af3,native,,pending,
+7ff1799da365,A0A8F2FAB6,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+c19d84716a34,A0A8F2FAB6,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+cccfc02f075a,A0A8F2FAB6,L006,CEL8,af3,native,,pending,
+49b47bdfcf54,A0A8F2FAB6,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+3d3f9ebfad2e,A0A8F2FAB6,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+76505957f5e6,A0A8F2FAB6,L007,NAG4,af3,native,,pending,
+05c6751baf33,A0A8F2FAB6,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+074b1b2c973d,A0A8F2FAB6,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+a2e23c14388b,A0A8F2FAB6,L008,NAG6,af3,native,,pending,
+7c2780a56502,A0A8F2FAB6,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+f277ecfd90f1,A0A8F2FAB6,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+d8e390b9ffb7,A0A8F2FAB6,L009,NAG8,af3,native,,pending,
+7c996e7dfd2d,A0A8F2FAB6,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+1f9ebb65ae10,A0A8F2FAB6,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+1e8561243132,G2Q9F7,L001,STA4,af3,native,,pending,
+fed14c05b844,G2Q9F7,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+3f08bc4cfcdd,G2Q9F7,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+e47d00754a36,G2Q9F7,L002,STA6,af3,native,,pending,
+1ea186157484,G2Q9F7,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+ad4c954cafde,G2Q9F7,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+13235122bedd,G2Q9F7,L003,STA8,af3,native,,pending,
+f5a5a4c3fe7f,G2Q9F7,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+da6a822910d7,G2Q9F7,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+ccf262568d86,G2Q9F7,L004,CEL4,af3,native,,pending,
+db46ea4c6d64,G2Q9F7,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+5fe5a502b3c1,G2Q9F7,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+5cfa2a5c3724,G2Q9F7,L005,CEL6,af3,native,,pending,
+28d3971d00f7,G2Q9F7,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+2d454e200c1d,G2Q9F7,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+cfa986307f78,G2Q9F7,L006,CEL8,af3,native,,pending,
+3bb817e42b26,G2Q9F7,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+358ccf3098b5,G2Q9F7,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+3c1a8ec7f853,G2Q9F7,L007,NAG4,af3,native,,pending,
+4faadd887816,G2Q9F7,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+851cba29d638,G2Q9F7,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+bc17a31e6497,G2Q9F7,L008,NAG6,af3,native,,pending,
+b62de2b28a64,G2Q9F7,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+51ae82532d29,G2Q9F7,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+918dfc9b21e5,G2Q9F7,L009,NAG8,af3,native,,pending,
+7e17faed5614,G2Q9F7,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+d24e3260dc9c,G2Q9F7,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+7d0c9fa74fed,G0R6T8,L001,STA4,af3,native,,pending,
+d499b466a210,G0R6T8,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+b88401500dda,G0R6T8,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+78e748ed6465,G0R6T8,L002,STA6,af3,native,,pending,
+f430b09364d8,G0R6T8,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+0230e270489b,G0R6T8,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+73d8406640b0,G0R6T8,L003,STA8,af3,native,,pending,
+99a5e6114795,G0R6T8,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+25829fb52dbf,G0R6T8,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+6ac702d834bd,G0R6T8,L004,CEL4,af3,native,,pending,
+7136f66d1f0e,G0R6T8,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+39a16bdb26e9,G0R6T8,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+3fa6824143c4,G0R6T8,L005,CEL6,af3,native,,pending,
+a66a2a2eaf9a,G0R6T8,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+958011448866,G0R6T8,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+c75f996161c3,G0R6T8,L006,CEL8,af3,native,,pending,
+06f03cb025ea,G0R6T8,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+7f01ef93782e,G0R6T8,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+54ef5c46be93,G0R6T8,L007,NAG4,af3,native,,pending,
+75d3bf1be3a0,G0R6T8,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+a6c00c919c8b,G0R6T8,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+8c555b6ee16a,G0R6T8,L008,NAG6,af3,native,,pending,
+00731758f769,G0R6T8,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+7e8527eb509a,G0R6T8,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+b7fd80fd7970,G0R6T8,L009,NAG8,af3,native,,pending,
+f641762c5125,G0R6T8,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+9ac783e51b51,G0R6T8,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+8a00fcf81318,A0A6I7U4Z8,L001,STA4,af3,native,,pending,
+7127d9fc7351,A0A6I7U4Z8,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+97d912ee49a8,A0A6I7U4Z8,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+ba18a72cdd55,A0A6I7U4Z8,L002,STA6,af3,native,,pending,
+7ef5453b4551,A0A6I7U4Z8,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+c9aeecf1c391,A0A6I7U4Z8,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+0e48455de199,A0A6I7U4Z8,L003,STA8,af3,native,,pending,
+d3aafbbc00e7,A0A6I7U4Z8,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+39472d931a95,A0A6I7U4Z8,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+0eb44cda97b8,A0A6I7U4Z8,L004,CEL4,af3,native,,pending,
+8b774431ae18,A0A6I7U4Z8,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+fe20f7efaa3e,A0A6I7U4Z8,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+51751abc21b7,A0A6I7U4Z8,L005,CEL6,af3,native,,pending,
+df1a5f38b82a,A0A6I7U4Z8,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+7f1f6e93422a,A0A6I7U4Z8,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+36718ecadd80,A0A6I7U4Z8,L006,CEL8,af3,native,,pending,
+23ec322ae4e4,A0A6I7U4Z8,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+837498c94b3b,A0A6I7U4Z8,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+0ca34b0c3bb4,A0A6I7U4Z8,L007,NAG4,af3,native,,pending,
+9877bdf6ccdf,A0A6I7U4Z8,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+5ad5e86910fc,A0A6I7U4Z8,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+046a643c0f44,A0A6I7U4Z8,L008,NAG6,af3,native,,pending,
+52cccfd8e357,A0A6I7U4Z8,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+0dcaecd72832,A0A6I7U4Z8,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+cb0ff8e4522b,A0A6I7U4Z8,L009,NAG8,af3,native,,pending,
+a9a603b37772,A0A6I7U4Z8,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+a5255efc15da,A0A6I7U4Z8,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+90b1c8cf8d11,A0A1C6SBM0,L001,STA4,af3,native,,pending,
+fe2343b8f889,A0A1C6SBM0,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+ff4e3b2f357f,A0A1C6SBM0,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+dee338575a9e,A0A1C6SBM0,L002,STA6,af3,native,,pending,
+10f6bc3e971b,A0A1C6SBM0,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+25cd33cb8901,A0A1C6SBM0,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+7591c17dc379,A0A1C6SBM0,L003,STA8,af3,native,,pending,
+37e1d64ea5f1,A0A1C6SBM0,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+ca91c9f24c6c,A0A1C6SBM0,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+882ede5a88cb,A0A1C6SBM0,L004,CEL4,af3,native,,pending,
+6a33b4397df9,A0A1C6SBM0,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+5ed3c8d76a1d,A0A1C6SBM0,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+65dfe3121a06,A0A1C6SBM0,L005,CEL6,af3,native,,pending,
+181697fee8ea,A0A1C6SBM0,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+37288437805f,A0A1C6SBM0,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+907e9caae862,A0A1C6SBM0,L006,CEL8,af3,native,,pending,
+9cfae381970e,A0A1C6SBM0,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+316e4c243429,A0A1C6SBM0,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+40af481b0387,A0A1C6SBM0,L007,NAG4,af3,native,,pending,
+397db1317515,A0A1C6SBM0,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+a1e9817d7fca,A0A1C6SBM0,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+0690d9d7f1d1,A0A1C6SBM0,L008,NAG6,af3,native,,pending,
+42b5c7425895,A0A1C6SBM0,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+0c6e1b15fddd,A0A1C6SBM0,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+68c0978c76cf,A0A1C6SBM0,L009,NAG8,af3,native,,pending,
+ab4a64e3e389,A0A1C6SBM0,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+bf636fcbb2ad,A0A1C6SBM0,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA
+9a2c6452f60f,Q4WEH3,L001,STA4,af3,native,,pending,
+3b54044c998b,Q4WEH3,L001,STA4,boltz,mmseqs,,skipped,Missing MSA
+fd0d069c78c2,Q4WEH3,L001,STA4,rf3,mmseqs,,skipped,Missing MSA
+6842bee31c4e,Q4WEH3,L002,STA6,af3,native,,pending,
+71f6ec52048d,Q4WEH3,L002,STA6,boltz,mmseqs,,skipped,Missing MSA
+dacaba8cffa4,Q4WEH3,L002,STA6,rf3,mmseqs,,skipped,Missing MSA
+f6d76f6ba1bc,Q4WEH3,L003,STA8,af3,native,,pending,
+4c418d9665c1,Q4WEH3,L003,STA8,boltz,mmseqs,,skipped,Missing MSA
+58307b61e20b,Q4WEH3,L003,STA8,rf3,mmseqs,,skipped,Missing MSA
+0d4770603a3d,Q4WEH3,L004,CEL4,af3,native,,pending,
+8fcec4ff4ca6,Q4WEH3,L004,CEL4,boltz,mmseqs,,skipped,Missing MSA
+8e0dc14c9e72,Q4WEH3,L004,CEL4,rf3,mmseqs,,skipped,Missing MSA
+7eb0fe013b88,Q4WEH3,L005,CEL6,af3,native,,pending,
+3e108236b3c6,Q4WEH3,L005,CEL6,boltz,mmseqs,,skipped,Missing MSA
+d32bfbe8c301,Q4WEH3,L005,CEL6,rf3,mmseqs,,skipped,Missing MSA
+816b4db7c2c9,Q4WEH3,L006,CEL8,af3,native,,pending,
+1576b2e094ca,Q4WEH3,L006,CEL8,boltz,mmseqs,,skipped,Missing MSA
+be22f87c440a,Q4WEH3,L006,CEL8,rf3,mmseqs,,skipped,Missing MSA
+579781b6259b,Q4WEH3,L007,NAG4,af3,native,,pending,
+33c2e0c44cca,Q4WEH3,L007,NAG4,boltz,mmseqs,,skipped,Missing MSA
+0c8f1565b0b9,Q4WEH3,L007,NAG4,rf3,mmseqs,,skipped,Missing MSA
+bbd4c9a260f9,Q4WEH3,L008,NAG6,af3,native,,pending,
+4f550576fd93,Q4WEH3,L008,NAG6,boltz,mmseqs,,skipped,Missing MSA
+2604923bbb1f,Q4WEH3,L008,NAG6,rf3,mmseqs,,skipped,Missing MSA
+37e0d5626c4a,Q4WEH3,L009,NAG8,af3,native,,pending,
+5f51588b28c2,Q4WEH3,L009,NAG8,boltz,mmseqs,,skipped,Missing MSA
+e78f8d177546,Q4WEH3,L009,NAG8,rf3,mmseqs,,skipped,Missing MSA

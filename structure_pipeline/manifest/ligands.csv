@@ -1,4 +1,10 @@
 ligand_id,category,ccd_code,filename,cif_path,cif_sha256
-L001,amylose,STA6,STA6.cif,/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/input/ligand/amylose/STA6.cif,13d9306e8905bc5bdddf747ebf6654fb7929ea19fde869987883b85964c68bde
-L002,cellulose,CEL6,CEL6.cif,/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/input/ligand/cellulose/CEL6.cif,797f03222195f2c16ae0df703b414879e425c8459d9ac6f27b71f1827695ef33
-L003,chitin,NAG6,NAG6.cif,/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/input/ligand/chitin/NAG6.cif,2b257493ab567a4993330a4b5162dd260819e7ad9e1886198d307cd2ff93a16f
+L001,amylose,STA4,STA4.cif,/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/input/ligand/amylose/STA4.cif,05aae347735d749ecd78dada5c86ac4218b25caf11368e6e65c80bc55dae1b46
+L002,amylose,STA6,STA6.cif,/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/input/ligand/amylose/STA6.cif,e2f5532b19f63b7dc70a820f2ac837f439877cdf92485192fdbae118544716f8
+L003,amylose,STA8,STA8.cif,/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/input/ligand/amylose/STA8.cif,f381f66b6a430775d8f5526bb0267bf227751978e1dd06ef9daf1d3b66817468
+L004,cellulose,CEL4,CEL4.cif,/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/input/ligand/cellulose/CEL4.cif,e9b193b287d2c09af838f083adc69643e457f64fa8930f431b925437c99a2015
+L005,cellulose,CEL6,CEL6.cif,/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/input/ligand/cellulose/CEL6.cif,ae3a088152c6da0d8209227263037dc9f9606f001fefec6ac529790e2aac89d3
+L006,cellulose,CEL8,CEL8.cif,/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/input/ligand/cellulose/CEL8.cif,61b0076853db80d4534877e0ff49e4db4ff8bf5a11898d3047b3650850f6a7b1
+L007,chitin,NAG4,NAG4.cif,/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/input/ligand/chitin/NAG4.cif,08d63ef5f57219bf0d803036b994a935f627b3531eca7ffb80088db7cfec2ec6
+L008,chitin,NAG6,NAG6.cif,/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/input/ligand/chitin/NAG6.cif,efdd8d16a5639fd0051d7052f809ac34d26ec1f5082adea0f6d7153bf9d593a5
+L009,chitin,NAG8,NAG8.cif,/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/input/ligand/chitin/NAG8.cif,fa6865106aed3e5293b0d07fa698a2f0a972f0f825b197bb090165f8b9b7d68b
