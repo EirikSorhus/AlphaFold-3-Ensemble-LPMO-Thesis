@@ -1,8 +1,15 @@
 Research questions (ikke helt oppdatert)
+Avklaringer (18.03.2026):
+* Geometri-planaritetskrav er forelopig ikke spesifisert i detalj. Dette mangler og ma defineres for endelig analyse/rapportering.
+* Operativ DP-scope i denne planen er DP2-DP8.
+* Rekkefolge for parameter-tuning: AF3 -> RF3 -> Boltz-2 (lav prioritet, men dette er standardrekkefolge).
+* Tuning fullfores innen hovedanalysen starter.
+* Strukturprediksjon og analyse er separerte kjorelop. Strukturprediksjon kjores kun en gang per valgt parameteroppsett og output gjenbrukes i analyse.
+Prosjektet behandler familie, ligandspesifisitet og regioselektivitet som hierarkisk koblede egenskaper, ikke som uavhengige labels. Familie behandles primært som evolusjonær/strukturell kontekst og mulig konfunder, mens ligandspesifisitet og regioselektivitet analyseres som funksjonelle utfall som kan være delvis, men ikke fullstendig, forklart av familie.
 RQ1 (Regioselectivity as a geometry problem):
-Do predicted complex geometries place C1- versus C4-hydrogen-bearing carbons into distinct, reproducible spatial relationships with the copper active site (proxy metrics such as Cu–substrate distances and orientations), and are these patterns altered when ligands are modeled as “solution-like” oligosaccharides versus surface-constrained presentations? (Vil kun teste surface-like sheet som et proof-of-concept og ikke analyseres annet enn at oligo-sheet ser ca riktig ut)
+Do predicted complex geometries place C1- versus C4-hydrogen-bearing carbons into distinct, reproducible spatial relationships with the copper active site, measured by Cu–substrate distances, orientations, and planarity?
 RQ2 (Oligosaccharide binding and substrate specificity):
-Which quantifiable features of the substrate-binding surface (loop-derived topography, aromatic/polar residue distribution, and contact patterns) correlate with stable binding modes for chitin (NAG oligomers), cellulose oligomers, and amylose-like oligomers across DP2–DP81, and do these features match known trends in characterized AA enzymes?
+Which quantifiable features of the substrate-binding surface (loop-derived topography, aromatic/polar residue distribution, and contact patterns) correlate with stable binding modes for chitin (NAG oligomers), cellulose oligomers, and amylose-like oligomers across DP2–DP8, and do these features match known trends in characterized AA enzymes?
 RQ3 (CBM contribution and possible “recruitment”):
 For CBM-containing LPMOs, does modeling the full-length protein (vs catalytic domain alone) shift predicted ligand poses toward configurations consistent with CBM-assisted positioning (e.g., increased ligand contacts with CBM and/or altered placement on the catalytic surface), and are such effects substrate-class- or size-dependent?
 RQ4 (Model credibility via crystallographic comparison):
@@ -50,6 +57,8 @@ AA17
 (Det er kun AA9 og AA13 som har struktur med oligosacharider som ligand)
 C1 og C4 2og begge, med og uten ligand, Finne minst én vanskelig case. 
 Hovedobjektiv med tuning er ensamble stabilitet, sekundært krav er enighet med eksperimentelt bestemte strukturer. 
+Parametertesting for modellene
+Alle modellene bruker samme oppskrift som AF3. 
 Test av AF3
 Num_diffusion_samples holdes til default (5) grunnet liten rapportert effekt av flere diffusion samples.
 To deler:
@@ -79,7 +88,7 @@ Hvordan velge best num_recycles:
 Diversity-test (AF3)
 Varier: num_seeds ? {20, 50, 100}
 Hold fast: num_recycles = valgt fra refinement-test, num_diffusion_samples = 5 (default).
-Samme oppskrift og verktøy som over, men nå ser du etter:
+Samme oppskrift og verktøy som over, men nå:
 * stabilisering av cluster-landskap (samme clustere igjen når seeds øker?)
 * diminishing returns: seeds? men nye clustere/outliers dominerer ? for mye støy
 Test av RF3
@@ -89,18 +98,9 @@ A) Refinement-test (RF3)
 Innstilling: “Ingen early stop”
 Varier: n_recycles ? {10, 20, 30}
 Hold fast: seed= 42 (default), diffusion_batch_size = 5 (default), num_steps = 200 (default). “; we see no deterioration in performance with 50 steps, but significant (>2x) speed improvements” (READ_ME_RF3)
-Oppskrift per (protein, ligand): samme QC/IFP/cluster/3D som AF3:
-1. RF3 run
-2. PoseBuster
-3. Privateer (ved glykan)
-4. MDAnalysis (Cu–C1/C4 + lokal pocket RMSD) (Lett analyse)
-5. ProLIF ? IFP
-6. HDBSCAN ? outlier-rate + antall clustere
-7. Krystallkompleks: IFP-likhet + pocket RMSD sanity
 Diversity:
 Varierer: Seed ? {42, 80, 120}
 Holdes fast: n_recycles (fra refinement) og diffusion_batch_size=5 (default) og num_steps = 200 (default). 
-Samme oppskrift som over.
 Test av Boltz 2
 use_potentials = False (alltid)
 step_scale = 1.638
@@ -109,25 +109,15 @@ Tre deler:
 Refinement 1:
 Varier: recycling_steps ? {3, 6, 10}
 Hold fast: diffusion_samples = 5, sampling_steps = 200 (default)
-Oppskrift (samme testpakke):
-1. Kjør Boltz2
-2. PoseBuster
-3. Privateer (glykan)
-4. MDAnalysis (Cu–C1/C4 + pocket RMSD) (Lett analyse)
-5. ProLIF ? IFP
-6. HDBSCAN ? outlier-rate + antall clustere
-7. Krystall: IFP-likhet sanity
 Refinement 2
  Varier: sampling_steps ? {200, 400, 600}
 Hold fast: recycling_steps valgt fra Refinement 1, diffusion_samples = 5
-Samme oppskrift
 Diversity:
 Varier: diffusion_samples ? {3, 10, 15}
 Hold fast: recycling_steps + sampling_steps fra refinement ½.
-Samme oppskrift
 Analyse av test
 For hver sjekk som gjøres testes lavest først og deretter verdien som er høyere. Dersom verdien høyere gir «samme» resultater som laveste testes lavere enn den første verdien. 
-PTM test for å fjerne de under en viss verdi, kanskje 70. 
+PTM test for å fjerne de under en viss verdi – 70. 
 Testfase: hva som faktisk rapporteres og hvordan bestemmes “best”
 For hver modell/parameter-setting i tuning-subsett:
 2.1 QC-rapport (PoseBuster + Privateer)
@@ -135,7 +125,7 @@ For hver modell/parameter-setting i tuning-subsett:
 * Privateer: andel glykaner som er “akseptable” vs feiltyper (ring/anomer/stereo)
 Program: PoseBuster, Privateer
 2.2 Struktur-/mekanisme-mål (MDAnalysis)
-* Cu–C1 og Cu–C4 (flag innen 7 Å)
+* Cu–C1 og Cu–C4 Må være innen 7 Å for mulig reaksjon – flagges
 * vinkel/tilt-mål relatert til His-brace
 * pocket RMSD mot krystall (når krystall finnes), beregnet på pocket-residuer (robust mot loop-mobilitet)
 Program: MDAnalysis
@@ -147,16 +137,11 @@ o antall clustere
 o cluster-størrelser (occupancy)
 Program: ProLIF, HDBSCAN (R eller Python)
 2.4 Krystall-anchoring (når tilgjengelig)
-* IFP-likhet: ProLIF fingerprint for krystallkompleks vs prediksjoner (moderat terskel, lager empirisk distrubisjon og setter terskel etterpå, kanskje rundt 0.5-0.7)
+* IFP-likhet: ProLIF fingerprint for krystallkompleks vs prediksjoner (moderat terskel, lager empirisk distrubisjon med terskel på 0.5
 * pocket RMSD: MDAnalysis lokalt
 Program: ProLIF, MDAnalysis
 2.5 Beslutningsregel
-Velger parameter-setting som gir:
-1. best QC-pass (PoseBuster/Privateer)
-2. lav outlier-rate
-3. stabile clustere (få, tydelige; occupancy stabil når sampling øker)
-4. krystall-sanity: ikke systematisk dårligere IFP-likhet/pocket RMSD
-
+Beste parameter-setting velges ut fra best samlet QC, lav outlier-rate, stabile clusters og fravær av systematisk dårligere samsvar med krystallstrukturer.
 
 
 Plan for analyse
@@ -166,25 +151,19 @@ Plan for analyse
 * ProLIF (IFP)
 * HDBSCAN (clustering) 
 * For hver cluster identifisere dominerende interaksjoner og måle 3D geometri med MDAnalysis.
-* Sammenlikne mot eksperimentell aktivitet: C1/C4, substratspesifisitet og LPMO familie. 
-* Koble cluster til 3D struktur:
-Avstand Cu–C1 karbon
-Avstand Cu–C4 karbon
-Vinkel mellom substrat og His-brace
-Planaritet av sukker-ring mot kobbersenter
-Hvilke sidekjeder stabiliserer hvilken ringorientering
-* Features som forklarer cluster strategier:
-Frekvensanalyse for hver interaksjon beregne forekomst i cluster A vs. B, logs odds ratio, chi test.
-Supervised model med å bruke cluster-label som target og kjøre Random forest, lasso, gradiant boosting for å finne hvilke features som driver clusteringen. 
-SHARP-verdier for å finne per-structure forklaringer på hvilke interaksjoner som avgjør en cluster. [ES1]
-###
-Clustring er basert på IFP så kan ikke bruke dette som target for å finne features som driver clustring. Må bruke geometri, aktivitet og C1/C4.
-###
+* Koble binding-mode clusters og geometrifeatures til eksperimentell aktivitet i en hierarkisk analyse: først beskrive assosiasjoner til ligandspesifisitet og C1/C4, deretter teste om disse assosiasjonene består etter kontroll for LPMO-familie. 
+Karakterisering av binding-mode clusters
+Hvert cluster beskrives ved:
+* dominerende interaksjoner (frekvens, odds ratio, Fisher/chi-kvadrat)
+* geometrifeatures (Cu–C1, Cu–C4, vinkel/tilt, planaritet)
+* ligandtype og DP
+* familie- og enzymfordeling
+Program: ProLIF, MDAnalysis, Python (scipy, statsmodels)
 
- Bruke normalisering/standardisering og forhold for å håndtere skjevheter i data mellom modeller og pga. feilede ligander osv. 
-Huske å låse HDBSCAN hyperparametere fra tuning for å unngå overfitting og p-hacking via clusterparameter. Min clustersize skal bestemmes fra tuningset og ikke endres i hovedanalyse. 
+Metodiske valg:
+Geometrifeatures standardiseres før prediktive modeller. HDBSCAN-hyperparametere låses etter tuning-settet og endres ikke i hovedanalysen for å redusere risiko for overfitting og p-hacking.
 For prediksjonsmodellene må jeg huske å bruke grouped cross-validation. Må huske at det er hierarki og ikke ca 150x21x3 uavhengige datapunkter. 
-Bruke stratified cross-validation for å sørge for at i treningssettet er det samme andel av C1/C4, cellulose/amylose/chitin som i hele datasettet. Bruke Class weights og Balanced accuracy, ikke accuracy. 
+Bruke grouped cross-validation på enzymnivå som hovedregel. Stratifiering brukes der det er praktisk mulig, primært for hovedutfallet i den aktuelle modellen (for eksempel C1/C4 eller substratklasse), men ikke nødvendigvis samtidig for familie. Familiefordeling, label-fordeling og antall enzymer rapporteres eksplisitt per fold. Bruke Class weights og Balanced accuracy, ikke accuracy. 
 
 DEL A: LPMO-domene (alle proteiner)
 Alle proteiner x 21 ligander x 3 modeller
@@ -246,22 +225,78 @@ o pocket RMSD (lokal) + nøkkelresiduer nær Cu
 Dette brukes som “sanity + kvalitetssjekk”, ikke som eneste sannhet.
 Program: ProLIF, MDAnalysis
 
-Steg A8 — Koble til aktivitet (C1/C4, substratspesifisitet, familie)
-På enzymnivå:
-* aggreger cluster-occupancy til features:
-o “C1-like occupancy” vs “C4-like occupancy” (basert på Cu–C1/C4-geometri)
-o interaksjonsfrekvenser (signaturinteraksjoner)
-o ligandtype/dp-respons
-Program: MDAnalysis + ProLIF + (R/Python for statistikk)
+Steg A8 — Hierarkisk kobling til aktivitet og familie
+På enzymnivå aggregeres cluster-occupancy, geometrifeatures og interaksjonssignaturer.
+Analysen kjøres i tre trinn:
+o beskrive hvordan binding-mode og geometri varierer med ligandtype og DP
+o teste assosiasjon mellom disse feature-ne og kjent C1/C4-regioselektivitet
+o reanalysere samme assosiasjoner med LPMO-familie inkludert som strata eller kovariat for å vurdere om signalet er familie-drevet eller familie-uavhengig
+Familie brukes derfor primært som kontrollvariabel og sekundært som deskriptiv gruppering, ikke som eneste target.
+Trinn 1: Beskriv binding mode vs ligandtype/DP
+Analyse:
+* Krysstabeller og proporsjoner for cluster-occupancy per ligandtype og DP
+* Visualisering med heatmaps og stacked bars
+* Test av om clusterfordeling varierer med ligandtype/DP:
+o chi-kvadrat eller Fisher dersom du bruker diskrete cluster-labels
+o multinomial logistisk regresjon dersom du vil modellere cluster som utfall
+Trinn 2: Test geometri/features mot C1/C4
+Analyse:
+På enzymnivå lager du features som:
+* andel poser i C1-lignende cluster
+* andel poser i C4-lignende cluster
+* median Cu–C1
+* median Cu–C4
+* differanse Cu–C1 minus Cu–C4
+* median vinkel/tilt
+* frekvens av utvalgte interaksjoner
+Så tester du disse mot labelen C1/C4/mixed.
+Konkrete metoder:
+* først univariat screening:
+o Wilcoxon / Kruskal-Wallis for kontinuerlige features
+o chi-kvadrat/Fisher for binære interaksjoner
+* deretter en enkel prediktiv modell:
+o penalized multinomial logistic regression hvis du har tre klasser
+o binær logistisk regresjon hvis du starter med C1 vs C4 og lar mixed stå utenfor
+o eventuelt Random Forest som sekundær modell, ikke primær
+Programmer:
+* Python: scikit-learn, statsmodels, scipy
+* R: glmnet, nnet, MASS, caret/tidymodels
+Trinn 3: Reanalysér med familie som kontroll
+Analyse:
+Dette er nøkkelen.
+Du kan gjøre dette på tre nivåer:
+1. Stratifisert analyse innen familie
+o Kjør samme assosiasjonstest innen AA9, AA10 osv. der du har nok data
+o Bra for å se om signalet finnes innen familie
+2. Regresjon med familie som kovariat
+o f.eks. C1/C4 ~ geometri + interaksjoner + familie
+o Familie legges inn som kategorisk variabel
+3. Mixed model hvis du har mange observasjoner per enzym
+o f.eks. binding mode ~ ligandtype + DP + familie + (1|enzym)
+o eller C1/C4 ~ geometri + familie + (1|enzym) hvis du modellerer på pose-/cluster-nivå
+Programmer:
+* R: lme4, glmmTMB, ordinal, nnet
+* Python: statsmodels, pymer4 (mindre standard), scikit-learn for enklere faste-effekt-modeller
+Trinn 2: Assosiasjon mellom geometri/signaturfeatures og C1/C4-regioselektivitet.
+Enzymnivå-features brukes i penalized logistisk regresjon som hovedmodell. Random Forest eller gradient boosting brukes kun som sekundær sensitivitetssjekk.
+Program: Python (scikit-learn) eller R (glmnet, randomForest, xgboost).
+Trinn 3: Kontroll for familie.
+Samme analyser gjentas med familie inkludert som kovariat eller strata. Der observasjonene er hierarkiske brukes mixed models med enzym som random effect.
+Program: R (lme4, glmmTMB) eller Python (statsmodels for enklere modeller).
+Validering.
+Grouped cross-validation på enzymnivå brukes som hovedregel. StratifiedGroupKFold brukes der det er praktisk mulig for hovedutfallet i modellen. Familiefordeling rapporteres eksplisitt per fold.
+Program: Python (scikit-learn) eller R (rsample/tidymodels).
+Forklaring av clusters.
+Clusters beskrives primært deskriptivt med interaksjonsfrekvenser, odds ratio, Fisher/chi-kvadrat og geometrifeatures. SHAP brukes bare i eventuelle sekundære modeller der cluster-label predikeres fra geometri og metadata, ikke fra den samme IFP-representasjonen som definerte clustrene.
+Program: Python (scipy, statsmodels, xgboost, shap) eller R (stats, xgboost, fastshap/iml).»
 
 DEL B: Full-lengde (proteiner med CBM)
 Kjør Steg B1–B8 som en “parallell” pipeline til Del A, men med nesten eksakt samme CBM-analyse.
 
 Dette er paired data og må sammenliknes med paired tester, Mixed models og ikke uavhengige tester.
 Steg B1–B5
-Steg B2.5: MDAnalysis for å måle avstand mellom ligand-aktivt sete, ligand-CBM og kanskje CBM-aktivt sete, per pose. Dette er for å sortere på proksimitet til CBM og om ligand er plassert med CBM, aktivt sete eller begge likt. Muliggjør inndeling av clustring. 
-Steg 4: Vurderer å lage to IFP-er, der en er ligand-CBM og den andre er ligand-aktivt sete. Lettere å styre grupperingen bort fra «kontakt med CBM eller ikke» og får fortsatt samme ligand-aktivt sete IFP som over og kan svare på om binding/aktivitet er annerledes med CBM til stede. 
-Steg 5: Ved clustering så kjøres det hvertfall for ligand-aktivt sete IFP, og kanskje for CBM også. Etter clustring for aktivt sete vil det bli annotert med CBM-distance distribution. Paralellt kan det også bli gjort clustring eller annen annalyse på CBM IFP. 
+Steg B4–B5 — IFP og clustering i full-lengde-proteiner
+For full-lengde-proteiner beregnes ligand–LPMO-IFP og ligand–CBM-IFP separat. Clustering baseres primært på ligand–LPMO-IFP for å bevare sammenlignbarhet med Del A, mens CBM-kontakter brukes som annotering og sekundær analyse av om CBM påvirker binding mode.
 Samme som A1–A5, men input er full-lengde-sekvens (LPMO+CBM).
 Program: AF3/RF3/Boltz2, PoseBuster, Privateer, PLACER, ProLIF, HDBSCAN
 
@@ -293,32 +328,15 @@ o full-lengde
 Dette avslører om CBM tilstedeværelse “låser” bestemte binding modes.
 Program: ProLIF, HDBSCAN, MDAnalysis
 
-4) Prediktive modeller
-Modell 1: Enzym ? aktivitet (C1/C4/mixed)
-Input-features (enzymnivå):
-* occupancy av geometrisk C1-like/C4-like clusters
-* signaturinteraksjoner (ProLIF frekvenser)
-* (for CBM-enzymer) CBM–ligand occupancy + CBM–Cu proksimitet
-Modeller:
-* multinomial logistisk regresjon (tolkbar baseline)[ES2]
-###
-Risikerer veldig mange features, kan bruke regularisering (L1/L2) og redusere features, vurdere PCA og sparce modellen først. Stor fare for Perfect separation og overfitting
-###
-* XGBoost / Random Forest (sterk prediksjon)
-Modell 2: (enzym, ligand) ? sannsynlig binding mode / orientering
-Input-features:
-* Dp (lengde på polymer), polymer-type (cellulose/chitin/amylose)
-* IFP + geometri
-* cluster membership probabilities
-Modeller:
-* gradient boosting eller regularisert logistisk regresjon
+Viktig analytisk begrensning:
+C1/C4-regioselektivitet, substratspesifisitet og LPMO-familie behandles ikke som uavhengige labels. Resultater skal derfor tolkes som assosiasjoner i et korrelert biologisk system. Særlig skal god prediksjon av aktivitet ikke tolkes som familie-uavhengig mekanistisk signal uten tilleggstester der familie er kontrollert for.
 
-
+4) Prediktiv modell for regioselektivitet
+Hovedmodellen er en regularisert logistisk regresjon som predikerer C1/C4-regioselektivitet fra enzymnivå-features. Input-features inkluderer cluster-occupancy, sentrale geometrimål og et lite sett interaksjonssignaturer. For CBM-holdige proteiner kan CBM–ligand-proksimitet inkluderes som tilleggssignal i en separat sensitivitetssjekk.
+Modellen valideres med grouped cross-validation på enzymnivå. Balanced accuracy og confusion matrix rapporteres som hovedmål.
 1 Degree of polymerization (DP) viser lengden av oligosacharid/polysacharid.
 2 C1 og C4 refererer til hvilket karbon i sukker monomer hvor kutting skjer.
 3 Interaction Finger Print (IFP) er vektor med informasjon om bindinger og interaksjoner mellom to objekter, i dette tilfelle mellom ligand og protein. 
-[ES1]Clustring er basert på IFP så kan ikke bruke dette som target for å finne features som driver clustring. Må bruke geometri, aktivitet og C1/C4.
-[ES2]Risikerer veldig mange features, kan bruke regularisering (L1/L2) og redusere features, vurdere PCA og sparce modellen først. Stor fare for Perfect separation og overfitting
 ---------------
 
 ------------------------------------------------------------

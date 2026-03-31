@@ -12,6 +12,7 @@ Key entities:
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 from enum import Enum
+from pathlib import Path
 import json
 
 
@@ -265,3 +266,185 @@ CCD_MONOSACCHARIDES = {
     "SIA",  # neuraminic acid
     # Add more as needed
 }
+
+
+# --------------------------------------------------------------------------- #
+# Discovery data models  (work-root → prediction artifacts)
+# --------------------------------------------------------------------------- #
+ALLOWED_MODELS = frozenset({"af3", "rf3"})
+
+
+class SampleStatus(Enum):
+    """Completeness status for a single seed/sample slot."""
+    COMPLETE = "complete"
+    MISSING_CIF = "missing_cif"
+    MISSING_CONFIDENCE_JSON = "missing_confidence_json"
+    MISSING_ALL = "missing_all"
+    EMPTY_DIRECTORY = "empty_directory"
+
+
+@dataclass
+class SampleEntry:
+    """One seed/sample directory inside a uniprot-target folder."""
+    seed: int
+    sample: int
+    directory: Path
+    cif_paths: List[Path] = field(default_factory=list)
+    confidence_json_paths: List[Path] = field(default_factory=list)
+    status: SampleStatus = SampleStatus.MISSING_ALL
+
+    def to_dict(self) -> Dict:
+        return {
+            "seed": self.seed,
+            "sample": self.sample,
+            "directory": str(self.directory),
+            "cif_paths": [str(p) for p in self.cif_paths],
+            "confidence_json_paths": [str(p) for p in self.confidence_json_paths],
+            "status": self.status.value,
+        }
+
+
+@dataclass
+class UniprotTargetEntry:
+    """One uniprot-target directory (e.g. B6EQJ6_CEL6) under a run."""
+    uniprot_id: str
+    target: str
+    directory: Path
+    # Top-level CIF in the uniprot-target dir (e.g. B6EQJ6_CEL6_model.cif)
+    model_cif_path: Optional[Path] = None
+    # Top-level confidence JSONs
+    confidence_json_paths: List[Path] = field(default_factory=list)
+    # Per seed/sample entries
+    samples: List[SampleEntry] = field(default_factory=list)
+
+    @property
+    def has_model_cif(self) -> bool:
+        return self.model_cif_path is not None
+
+    @property
+    def total_samples(self) -> int:
+        return len(self.samples)
+
+    @property
+    def seeds(self) -> List[int]:
+        return sorted({s.seed for s in self.samples})
+
+    @property
+    def sample_indices(self) -> List[int]:
+        return sorted({s.sample for s in self.samples})
+
+    def to_dict(self) -> Dict:
+        return {
+            "uniprot_id": self.uniprot_id,
+            "target": self.target,
+            "directory": str(self.directory),
+            "model_cif_path": str(self.model_cif_path) if self.model_cif_path else None,
+            "confidence_json_paths": [str(p) for p in self.confidence_json_paths],
+            "seeds": self.seeds,
+            "sample_indices": self.sample_indices,
+            "total_samples": self.total_samples,
+            "has_model_cif": self.has_model_cif,
+            "samples": [s.to_dict() for s in self.samples],
+        }
+
+
+@dataclass
+class RunEntry:
+    """One SLURM run directory (numeric job ID)."""
+    run_id: str
+    directory: Path
+    uniprot_targets: List[UniprotTargetEntry] = field(default_factory=list)
+
+    def to_dict(self) -> Dict:
+        return {
+            "run_id": self.run_id,
+            "directory": str(self.directory),
+            "uniprot_targets": [ut.to_dict() for ut in self.uniprot_targets],
+        }
+
+
+@dataclass
+class ModelEntry:
+    """One prediction model (af3 or rf3) under a target."""
+    model: str  # "af3" or "rf3"
+    directory: Path
+    runs: List[RunEntry] = field(default_factory=list)
+
+    def to_dict(self) -> Dict:
+        return {
+            "model": self.model,
+            "directory": str(self.directory),
+            "runs": [r.to_dict() for r in self.runs],
+        }
+
+
+@dataclass
+class TargetEntry:
+    """One substrate-target directory (e.g. CEL6, STA6, NAG4)."""
+    target: str
+    directory: Path
+    models: List[ModelEntry] = field(default_factory=list)
+
+    def to_dict(self) -> Dict:
+        return {
+            "target": self.target,
+            "directory": str(self.directory),
+            "models": [m.to_dict() for m in self.models],
+        }
+
+
+@dataclass
+class WorkRootManifest:
+    """Top-level discovery manifest for a work root directory."""
+    work_root: Path
+    targets: List[TargetEntry] = field(default_factory=list)
+    errors: List[str] = field(default_factory=list)
+
+    # --- Flat iteration helpers ---
+    def iter_all_uniprot_targets(self):
+        """Yield (target, model, run_id, UniprotTargetEntry) for every entry."""
+        for tgt in self.targets:
+            for mdl in tgt.models:
+                for run in mdl.runs:
+                    for ut in run.uniprot_targets:
+                        yield tgt.target, mdl.model, run.run_id, ut
+
+    def iter_all_model_cifs(self):
+        """Yield (target, model, run_id, uniprot_id, Path) for every CIF found."""
+        for target, model, run_id, ut in self.iter_all_uniprot_targets():
+            if ut.model_cif_path:
+                yield target, model, run_id, ut.uniprot_id, ut.model_cif_path
+            for s in ut.samples:
+                for cif in s.cif_paths:
+                    yield target, model, run_id, ut.uniprot_id, cif
+
+    @property
+    def summary(self) -> Dict:
+        n_targets = len(self.targets)
+        n_models = sum(len(t.models) for t in self.targets)
+        n_runs = sum(len(m.runs) for t in self.targets for m in t.models)
+        n_ut = sum(
+            len(r.uniprot_targets)
+            for t in self.targets for m in t.models for r in m.runs
+        )
+        n_cifs = sum(1 for _ in self.iter_all_model_cifs())
+        return {
+            "work_root": str(self.work_root),
+            "targets": n_targets,
+            "model_dirs": n_models,
+            "runs": n_runs,
+            "uniprot_target_dirs": n_ut,
+            "total_cif_files": n_cifs,
+            "errors": len(self.errors),
+        }
+
+    def to_dict(self) -> Dict:
+        return {
+            "work_root": str(self.work_root),
+            "summary": self.summary,
+            "errors": self.errors,
+            "targets": [t.to_dict() for t in self.targets],
+        }
+
+    def to_json(self, indent: int = 2) -> str:
+        return json.dumps(self.to_dict(), indent=indent, default=str)

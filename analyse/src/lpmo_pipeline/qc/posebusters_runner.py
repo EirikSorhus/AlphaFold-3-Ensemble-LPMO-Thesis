@@ -9,8 +9,11 @@ SOFT: minor warnings → keep pose, mark flag
 """
 from __future__ import annotations
 
+import csv
+import io
 import json
 import logging
+import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -48,18 +51,32 @@ class PoseBustersBatchResult:
 # Critical vs soft error classification
 # ---------------------------------------------------------------------------
 CRITICAL_ERROR_TYPES: set[str] = {
-    "steric_clash",
-    "chem_valence_violation",
-    "bond_length_outlier",
-    "ring_not_planar",
-    "chirality_error",
+    "sanitization",
+    "all_atoms_connected",
+    "no_radicals",
+    "internal_steric_clash",
+    "bond_lengths",
+    "bond_angles",
+    "tetrahedral_chirality",
+    "volume_overlap_with_protein",
 }
 
 SOFT_WARNING_TYPES: set[str] = {
-    "minor_angle_deviation",
-    "unusual_torsion",
-    "slight_bump",
+    "aromatic_ring_flatness",
+    "double_bond_flatness",
+    "double_bond_stereochemistry",
+    "non-aromatic_ring_non-flatness",
+    "internal_energy",
+    "inchi_convertible",
 }
+
+# Columns from PoseBusters that track file loading, not test results
+_LOADING_COLUMNS: set[str] = {"mol_pred_loaded", "mol_true_loaded", "mol_cond_loaded"}
+
+# SIF container path for fallback execution
+POSEBUSTERS_SIF: Path = Path(
+    "/cluster/projects/nn1003k/prog/posebusters/build/posebusters.sif"
+)
 
 
 # ---------------------------------------------------------------------------
@@ -68,64 +85,173 @@ SOFT_WARNING_TYPES: set[str] = {
 def run_posebusters_single(
     pdb_path: Path,
     pose_id: str,
+    protein_path: Path | None = None,
+    reference_path: Path | None = None,
 ) -> PoseBustersSingleResult:
     """Run PoseBusters on a single PDB pose file.
 
-    PSEUDOCODE — wraps the posebusters Python API.
+    Uses the PoseBusters Python API as primary backend.  Falls back to the
+    SIF container at ``POSEBUSTERS_SIF`` if the library is not importable.
 
     Args:
         pdb_path: Path to PDB file with CONECT records.
         pose_id: Identifier for this pose.
+        protein_path: Optional protein PDB for dock/redock mode.
+        reference_path: Optional true ligand for redock RMSD.
 
     Returns:
         PoseBustersSingleResult.
     """
     logger.info("Running PoseBusters on pose %s: %s", pose_id, pdb_path)
 
-    # --- Step 1: Import and run PoseBusters ---
-    # from posebusters import PoseBusters
-    # pb = PoseBusters(config="redock")   # or "mol" depending on mode
-    # results_df = pb.bust(pdb_path, ...)
-    # PSEUDOCODE: parse results_df into structured output
+    try:
+        all_tests = _run_pb_python_api(pdb_path, protein_path, reference_path)
+    except _PBImportError:
+        logger.info("PoseBusters Python API unavailable, trying SIF fallback")
+        all_tests = _run_pb_sif(pdb_path, protein_path, reference_path)
 
-    # --- Step 2: Classify errors ---
-    all_tests: dict[str, Any] = {}  # {test_name: {passed: bool, value: float}}
-    # PSEUDOCODE: iterate over results_df columns
-    # for col in results_df.columns:
-    #     all_tests[col] = {"passed": bool(results_df[col].iloc[0]), ...}
+    return _classify_results(pose_id, all_tests)
+
+
+# ---------------------------------------------------------------------------
+# PoseBusters backends
+# ---------------------------------------------------------------------------
+class _PBImportError(Exception):
+    """PoseBusters Python package not importable."""
+
+
+def _run_pb_python_api(
+    pdb_path: Path,
+    protein_path: Path | None,
+    reference_path: Path | None,
+) -> dict[str, bool]:
+    """Run PoseBusters via Python API.  Returns ``{test_name: passed}``."""
+    try:
+        from posebusters import PoseBusters  # type: ignore[import-untyped]
+    except ImportError as exc:
+        raise _PBImportError("posebusters not installed") from exc
+
+    if protein_path and reference_path:
+        config = "redock"
+    elif protein_path:
+        config = "dock"
+    else:
+        config = "mol"
+
+    pb = PoseBusters(config=config, max_workers=0)
+
+    try:
+        results_df = pb.bust(
+            mol_pred=pdb_path,
+            mol_cond=protein_path,
+            mol_true=reference_path,
+        )
+    except Exception:
+        logger.exception("PoseBusters bust() raised for %s", pdb_path)
+        return {}
+
+    if results_df.empty:
+        logger.warning("PoseBusters returned empty DataFrame for %s", pdb_path)
+        return {}
+
+    row = results_df.iloc[0]
+    return {
+        col: bool(row[col])
+        for col in results_df.columns
+        if col not in _LOADING_COLUMNS
+    }
+
+
+def _run_pb_sif(
+    pdb_path: Path,
+    protein_path: Path | None,
+    reference_path: Path | None,
+) -> dict[str, bool]:
+    """Run PoseBusters via SIF container.  Returns ``{test_name: passed}``."""
+    if not POSEBUSTERS_SIF.exists():
+        logger.error("PoseBusters SIF not found: %s", POSEBUSTERS_SIF)
+        return {}
+
+    cmd: list[str] = [
+        "apptainer", "exec", str(POSEBUSTERS_SIF),
+        "bust", str(pdb_path),
+    ]
+    if protein_path:
+        cmd.extend(["-p", str(protein_path)])
+    if reference_path:
+        cmd.extend(["-l", str(reference_path)])
+    cmd.extend(["--outfmt", "csv"])
+
+    try:
+        proc = subprocess.run(
+            cmd, capture_output=True, text=True, check=True, timeout=300,
+        )
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired,
+            FileNotFoundError) as exc:
+        logger.error("PoseBusters SIF execution failed: %s", exc)
+        return {}
+
+    return _parse_csv_output(proc.stdout)
+
+
+def _parse_csv_output(csv_text: str) -> dict[str, bool]:
+    """Parse PoseBusters CSV stdout into ``{test_name: passed}`` dict."""
+    skip = {"file", "molecule", "position"}
+    reader = csv.DictReader(io.StringIO(csv_text))
+    for row in reader:
+        return {
+            k: v.strip().lower() == "true"
+            for k, v in row.items()
+            if k not in skip and k not in _LOADING_COLUMNS and v is not None
+        }
+    return {}
+
+
+def _classify_results(
+    pose_id: str,
+    all_tests: dict[str, bool],
+) -> PoseBustersSingleResult:
+    """Classify PoseBusters test results into critical errors / soft warnings."""
+    if not all_tests:
+        return PoseBustersSingleResult(
+            pose_id=pose_id,
+            passed=False,
+            critical_errors=["posebusters_no_results"],
+        )
 
     critical: list[str] = []
     warnings: list[str] = []
-    for test_name, test_result in all_tests.items():
-        if not test_result.get("passed", True):
-            if test_name in CRITICAL_ERROR_TYPES:
-                critical.append(test_name)
-            elif test_name in SOFT_WARNING_TYPES:
-                warnings.append(test_name)
-            else:
-                # Unknown test failure → treat as critical (conservative)
-                critical.append(test_name)
-
-    passed = len(critical) == 0
+    for test_name, passed in all_tests.items():
+        if passed:
+            continue
+        if test_name in CRITICAL_ERROR_TYPES:
+            critical.append(test_name)
+        elif test_name in SOFT_WARNING_TYPES:
+            warnings.append(test_name)
+        else:
+            # Unknown failure → conservative: treat as critical
+            critical.append(test_name)
 
     return PoseBustersSingleResult(
         pose_id=pose_id,
-        passed=passed,
+        passed=len(critical) == 0,
         critical_errors=critical,
         warnings=warnings,
-        details=all_tests,
+        details={k: {"passed": v} for k, v in all_tests.items()},
     )
 
 
 def run_posebusters_batch(
     pdb_dir: Path,
     pose_ids: list[str],
+    protein_path: Path | None = None,
 ) -> PoseBustersBatchResult:
     """Run PoseBusters on all poses in a directory.
 
     Args:
         pdb_dir: Directory containing per-pose PDB files.
         pose_ids: List of pose IDs (filenames without extension).
+        protein_path: Optional protein PDB for dock/redock checks.
 
     Returns:
         PoseBustersBatchResult with per-pose results and aggregates.
@@ -141,7 +267,7 @@ def run_posebusters_batch(
                 critical_errors=["file_not_found"],
             ))
             continue
-        result = run_posebusters_single(pdb_path, pid)
+        result = run_posebusters_single(pdb_path, pid, protein_path=protein_path)
         results.append(result)
 
     # Aggregate

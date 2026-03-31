@@ -14,30 +14,51 @@ foreslått default-valg slik at arbeidet kan fortsette uten blokkering.
 3. **Reduce-versjon** — MolProbity Reduce vs AmberTools reduce?
    *Default: AmberTools `reduce` (mest tilgjengelig via conda).*
 
-4. **Kristallstrukturer for anchoring** — Hvilke PDB-koder skal brukes
+4. **Pre-QC aktiv-sete terskel** — Hvilken hard cutoff for
+   `min_cu_ligand_distance` for gate foran PoseBusters/Privateer?
+   *Default: <= 10.0 A (hard gate), med Cu-C1/C4 fortsatt logget som metrikker.*
+
+5. **Kristallstrukturer for anchoring** — Hvilke PDB-koder skal brukes
    som referanse? Trenger vi ligand-bundet + apo for alle LPMO-familier?
    *Default: bruk AA9-referanser fra litteraturen (4EIS, 5ACF, etc.).*
 
-5. **CBM-varianter (DEL A / DEL B)** — Skal begge CBM-deletions kjøres
+6. **CBM-varianter (DEL A / DEL B)** — Skal begge CBM-deletions kjøres
    for alle systemer, eller bare for CBM-bærende LPMOer?
    *Default: kun for systemer der full-length har annotert CBM.*
 
-6. **DP-range for glykaner** — Plan sier DP2–DP8. Skal alle DP-lengder
-   kjøres for hvert system, eller bare de biologisk relevante?
-   *Default: DP4 + DP6 som primære, DP2/DP3/DP5/DP7/DP8 som utvidelse.*
+7. **DP-scope for aktiv implementasjon** — Skal andre DP enn 4/6/8 inn i
+   samme hovedpipeline, eller beholdes de som egne sideanalyser?
+   *Default: hovedpipeline = DP4/DP6/DP8 (9 uavhengige delanalyser).* 
 
-7. **Tanimoto-terskel for crystal anchoring** — Hvilken cutoff for
-   "biologically plausible"? *Default: Tanimoto ≥ 0.3 (IFP) og
-   pocket-RMSD ≤ 3.0 Å som soft flags, ikke harde gates.*
+8. **Tanimoto-terskel for crystal anchoring** — Hvilken cutoff for
+   "biologically plausible"? *Default: Tanimoto >= 0.3 (IFP) og
+   pocket-RMSD <= 3.0 A som soft flags, ikke harde gates.*
 
-8. **Antall PLACER-modes** — 50 vs 100 vs 200?
-   *Default: 100 for tuning, 200 for produksjon (jf. defaults.yaml).*
+9. **R-modellvalg for cluster-rader** — Hvilken primarmodell skal brukes
+   i R for regioselektivitet (glmnet vs glmer)?
+   *Default: penalized logistisk regresjon (glmnet), mixed model som sensitivitet.*
 
-9. **Predictive model — feature selection** — Skal vi bruke alle
-   IFP-bits + geometri, eller bare cluster-signaturer?
-   *Default: cluster-signaturer + topp-20 IFP-bits (etter variansfilter).*
+10. **EC 1.14.99.- ikke-AA17 mapping** — Hvilken endelig tekstetikett og
+    hvilket standardsubstrat for "xylan ol"-tilfeller?
+    *Default: substrate_class=`xylan_or_other`, regio_class=`unknown`, aktivitet=`xylan_like_oxidative`.*
 
-10. **Reproduserbarhet — random seeds** — Skal HDBSCAN bruke fast seed?
-    (HDBSCAN er deterministisk for gitt input, men ProLIF/MDAnalysis
-    kan ha floating-point-variasjon.)
-    *Default: sett `numpy.random.seed(42)` kun for predictive_models.*
+11. **Geometri-planaritet** — Operasjonelle planaritetskrav mangler forelopig.
+    Dette ma spesifiseres (metode + terskler) for endelig analyse og rapportering.
+    *Status: avventer definisjon fra prosjektleder.*
+
+12. **Statusoppsummering av avklarte punkter**
+    - AVKLART: hovedanalyse aggregerer ikke cluster -> enzym.
+    - AVKLART: tuning skjer etter hovedanalyse (valgfritt, hvis tid).
+    - AVKLART: pre-QC gate foran PoseBusters/Privateer er obligatorisk.
+    - AVKLART: beregnede numeriske metrikker beholdes i output.
+    - AVKLART: PoseBusters kjøres via SIF-container (`/cluster/projects/nn1003k/prog/posebusters/`).
+    - AVKLART: CIF→PDB konvertering bruker PDBFixer (ikke Biopython), adaptert fra PoseBench.
+    - AVKLART: Crystal anchoring bruker PyMOL `pair_fit` for optimal lokal superposisjon.
+    - AVKLART: Pipeline har gått fra pseudokode til steg-for-steg implementasjon (2026-03-26).
+
+13. **Substrat-recognition residues for alignment** — Hvordan identifisere
+    surface residues involvert i substratgjenkjenning for PyMOL `pair_fit`?
+    Foretrukket: litteratursøk for kjente LPMO-substrat-bindende residuer.
+    Fallback: alle protein-residuer innen en cutoff (f.eks. 5 Å) fra ligand i predikert struktur.
+    Merk: proximity-basert utvalg kan gi ulike residuer mellom prediksjonsmodeller.
+    *Status: må avklares per LPMO-familie. Litteraturbasert er best men krever manuelt arbeid.*

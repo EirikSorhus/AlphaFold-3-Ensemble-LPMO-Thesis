@@ -5,6 +5,7 @@
 # ── Hard gates (failure → drop / skip) ──
 hard_gates:
   atom_mapping_coverage_min: 1.0        # 100 % — no exceptions
+  active_site_proximity_max_a: 10.0     # pre-QC gate before PoseBusters/Privateer
   privateer_recognized_sugars_min: 1.0  # 100 %
   no_critical_posebusters_errors: true
   cu_his_distance_min_a: 1.9
@@ -12,18 +13,26 @@ hard_gates:
 
 # PoseBusters error types classified as critical
 posebusters_critical_errors:
-  - steric_clash
-  - chem_valence_error
-  - sanitization_fail
+  - sanitization
+  - all_atoms_connected
+  - no_radicals
+  - internal_steric_clash
+  - bond_lengths
+  - bond_angles
+  - tetrahedral_chirality
+  - volume_overlap_with_protein
 
 # ── Soft thresholds (flag, don't drop) ──
 soft_thresholds:
   crystal_ifp_similarity_min: 0.3   # below → flag as possible alternative mode
   cu_c_proximity_max_a: 7.0         # Cu–C1/C4 > 7 Å → flag, not drop
   posebusters_soft_warnings:        # keep pose, add metadata
-    - minor_clash
-    - ring_pucker_deviation
-    - bond_length_outlier
+    - aromatic_ring_flatness
+    - double_bond_flatness
+    - double_bond_stereochemistry
+    - non-aromatic_ring_non-flatness
+    - internal_energy
+    - inchi_convertible
 
 # ── HDBSCAN (LOCKED after tuning — never edited in production) ──
 hdbscan:

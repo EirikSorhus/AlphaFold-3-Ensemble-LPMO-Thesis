@@ -1,8 +1,8 @@
 # src/lpmo_pipeline/qc/qc_report.py
 """
-Responsibility: Aggregate QC results (PoseBusters + Privateer + geometry)
+Responsibility: Aggregate QC results (pre-QC proximity + PoseBusters + Privateer + geometry)
                 into a unified per-pose QC report.
-Input:  PoseBustersBatchResult, PrivateerResult, GeometryResult (per pose)
+Input:  ActiveSiteProximityResult, PoseBustersBatchResult, PrivateerResult, GeometryResult (per pose)
 Output: qc_report.json conforming to schemas/qc_report_schema.json
 
 Implements failure policy:
@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from lpmo_pipeline.qc.active_site_proximity import ActiveSiteProximityResult
 from lpmo_pipeline.qc.posebusters_runner import PoseBustersSingleResult
 from lpmo_pipeline.qc.privateer_runner import PrivateerResult
 from lpmo_pipeline.qc.custom_geometry_checks import GeometryResult
@@ -34,6 +35,7 @@ class PoseQCVerdict:
 
     pose_id: str
     status: str  # "passed" | "flagged" | "dropped"
+    proximity_passed: bool = True
     posebusters_passed: bool = True
     privateer_passed: bool = True
     geometry_passed: bool = True
@@ -47,17 +49,36 @@ def compute_verdict(
     pb_result: PoseBustersSingleResult | None,
     priv_result: PrivateerResult | None,
     geom_result: GeometryResult | None,
+    proximity_result: ActiveSiteProximityResult | None = None,
 ) -> PoseQCVerdict:
     """Compute unified QC verdict for a single pose.
 
     Failure policy:
+            - Pre-QC active-site proximity fail -> drop
       - Any critical PoseBusters error → drop
       - Privateer recognition < 100% or anomer fail → drop
       - Cu–His outside 1.9–2.6 Å → drop
       - Soft PoseBusters warnings → flag (keep)
       - Crystal similarity low → flag (keep)
     """
-    verdict = PoseQCVerdict(pose_id=pose_id)
+    verdict = PoseQCVerdict(pose_id=pose_id, status="passed")
+
+    # --- Pre-QC active-site proximity ---
+    if proximity_result is not None:
+        verdict.proximity_passed = proximity_result.passed
+        verdict.metrics["min_cu_ligand_distance"] = proximity_result.min_cu_ligand_distance
+        verdict.metrics["min_cu_c1"] = proximity_result.min_cu_c1
+        verdict.metrics["min_cu_c4"] = proximity_result.min_cu_c4
+        if proximity_result.nearest_ligand_atom:
+            verdict.metrics["nearest_ligand_atom"] = proximity_result.nearest_ligand_atom
+        if not proximity_result.passed:
+            verdict.drop_reasons.extend(
+                [f"active_site_proximity:{r}" for r in proximity_result.failure_reasons]
+            )
+        if proximity_result.warnings:
+            verdict.warnings.extend(
+                [f"active_site_proximity:{w}" for w in proximity_result.warnings]
+            )
 
     # --- PoseBusters ---
     if pb_result is not None:
@@ -157,6 +178,7 @@ def write_qc_report(report: QCReport, output_path: Path) -> None:
             {
                 "pose_id": v.pose_id,
                 "status": v.status,
+                "proximity_passed": v.proximity_passed,
                 "posebusters_passed": v.posebusters_passed,
                 "privateer_passed": v.privateer_passed,
                 "geometry_passed": v.geometry_passed,

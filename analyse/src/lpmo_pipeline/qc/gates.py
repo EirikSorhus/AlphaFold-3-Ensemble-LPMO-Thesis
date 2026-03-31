@@ -4,9 +4,10 @@ Responsibility: Centralized pass/fail decision logic for all gates
 
 Hard gates (must pass for pose to continue):
   1. atom_mapping_coverage = 100%
-  2. privateer_recognized_sugars = 100%
-  3. no_critical_posebusters_errors = true
-  4. cu_his_distance ∈ [1.9, 2.6] Å
+    2. active_site_proximity <= threshold
+    3. privateer_recognized_sugars = 100%
+    4. no_critical_posebusters_errors = true
+    5. cu_his_distance ∈ [1.9, 2.6] Å
   
 Soft flags (kept but marked):
   - PoseBusters minor warnings
@@ -16,7 +17,6 @@ Soft flags (kept but marked):
 
 from dataclasses import dataclass
 from typing import Dict, Optional, List
-import json
 from pathlib import Path
 
 
@@ -25,6 +25,9 @@ class GateConfig:
     """Configuration for all QC gates."""
     # Atom mapping
     atom_mapping_coverage_min: float = 1.0  # 100%
+
+    # Pre-QC active-site proximity
+    active_site_proximity_max_a: float = 10.0
     
     # Privateer
     privateer_recognized_min: float = 1.0  # 100%
@@ -47,9 +50,14 @@ class GateConfig:
     def __post_init__(self):
         if self.posebusters_critical_errors is None:
             self.posebusters_critical_errors = [
-                "steric_clash",
-                "chem_valence_error",
-                "sanitization_fail"
+                "sanitization",
+                "all_atoms_connected",
+                "no_radicals",
+                "internal_steric_clash",
+                "bond_lengths",
+                "bond_angles",
+                "tetrahedral_chirality",
+                "volume_overlap_with_protein",
             ]
 
 
@@ -80,6 +88,22 @@ class QCGateChecker:
             message=f"Coverage: {coverage:.1%}",
             threshold=self.config.atom_mapping_coverage_min,
             measured_value=coverage,
+        )
+        self.results.append(result)
+        return result
+
+    def check_active_site_proximity(self, min_distance_a: float) -> GateResult:
+        """Gate 2: active-site proximity before PoseBusters/Privateer."""
+        passed = min_distance_a <= self.config.active_site_proximity_max_a
+        result = GateResult(
+            gate_name="active_site_proximity_range",
+            passed=passed,
+            message=(
+                f"Min Cu-ligand distance: {min_distance_a:.2f} Å "
+                f"(max: {self.config.active_site_proximity_max_a:.2f} Å)"
+            ),
+            threshold=self.config.active_site_proximity_max_a,
+            measured_value=min_distance_a,
         )
         self.results.append(result)
         return result
@@ -162,6 +186,7 @@ class QCGateChecker:
         """Check if all hard gates passed."""
         hard_gate_names = [
             "atom_mapping_coverage",
+            "active_site_proximity_range",
             "privateer_recognized_sugars",
             "no_critical_posebusters_errors",
             "cu_his_distance_range",
@@ -174,6 +199,7 @@ class QCGateChecker:
         """Generate summary of all gate checks."""
         hard_gates = [
             "atom_mapping_coverage",
+            "active_site_proximity_range",
             "privateer_recognized_sugars",
             "no_critical_posebusters_errors",
             "cu_his_distance_range",
@@ -205,15 +231,26 @@ def load_gate_config_from_yaml(config_path: Path) -> GateConfig:
     try:
         with open(config_path) as f:
             data = yaml.safe_load(f)
-        
-        # Map YAML keys to GateConfig fields
+
+        hard = data.get("gates") or data.get("hard_gates") or {}
+        soft = data.get("soft_thresholds") or data.get("soft") or {}
+        clustering = data.get("clustering") or data.get("hdbscan") or {}
+
+        # Map YAML keys to GateConfig fields (supports legacy and current schema)
         return GateConfig(
-            atom_mapping_coverage_min=data.get("gates", {}).get("atom_mapping_coverage_min", 1.0),
-            privateer_recognized_min=data.get("gates", {}).get("privateer_recognized_min", 1.0),
-            cu_his_dist_min=data.get("gates", {}).get("cu_his_dist_min", 1.9),
-            cu_his_dist_max=data.get("gates", {}).get("cu_his_dist_max", 2.6),
-            crystal_ifp_similarity_soft_threshold=data.get("gates", {}).get("crystal_ifp_similarity_soft_threshold", 0.3),
-            hdbscan_min_cluster_size=data.get("clustering", {}).get("min_cluster_size", 10),
+            atom_mapping_coverage_min=hard.get("atom_mapping_coverage_min", 1.0),
+            active_site_proximity_max_a=hard.get("active_site_proximity_max_a", 10.0),
+            privateer_recognized_min=hard.get(
+                "privateer_recognized_min",
+                hard.get("privateer_recognized_sugars_min", 1.0),
+            ),
+            cu_his_dist_min=hard.get("cu_his_dist_min", hard.get("cu_his_distance_min_a", 1.9)),
+            cu_his_dist_max=hard.get("cu_his_dist_max", hard.get("cu_his_distance_max_a", 2.6)),
+            crystal_ifp_similarity_soft_threshold=soft.get(
+                "crystal_ifp_similarity_soft_threshold",
+                soft.get("crystal_ifp_similarity_min", 0.3),
+            ),
+            hdbscan_min_cluster_size=clustering.get("min_cluster_size", 10),
         )
     except FileNotFoundError:
         return GateConfig()

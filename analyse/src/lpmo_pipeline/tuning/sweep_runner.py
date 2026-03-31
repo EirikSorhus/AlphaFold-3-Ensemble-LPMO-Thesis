@@ -1,11 +1,15 @@
 # src/lpmo_pipeline/tuning/sweep_runner.py
 """
 Responsibility: Execute a single parameter sweep point through the pipeline.
-Input:  ParamPoint + tuning dataset (protein×ligand list)
+Input:  ParamPoint + tuning dataset (protein×ligand list) + precomputed prediction artifacts
 Output: Per-point metrics: {qc_pass_rate, outlier_rate, n_clusters, crystal_sim, ...}
 
 This module runs STEPS 1–10 for a single parameter configuration and aggregates
 the tuning metrics needed for the decision rule.
+
+Important separation rule:
+    - AF3/RF3/Boltz2 prediction runs are external to this module.
+    - This module only consumes already generated structures and performs analysis/QC.
 """
 from __future__ import annotations
 
@@ -67,13 +71,13 @@ def run_sweep_point(
     """Run the full pipeline for one parameter configuration.
 
     For each (protein, ligand) in test_cases:
-      1. Generate predictions (with point.params)
-      2. Ingest → Normalize → Privateer prep → Protonate → PLACER
-      3. QC (PoseBusters + Privateer + Cu-geom)
-      4. Analysis (ProLIF IFP + MDAnalysis metrics)
-      5. Clustering (HDBSCAN)
-      6. Crystal anchoring (if crystal available)
-      7. Aggregate metrics for this test case
+        1. Resolve precomputed predictions for this model/parameter point
+                2. Ingest → Normalize → Privateer prep → Protonate → PLACER
+                3. QC (PoseBusters + Privateer + Cu-geom)
+                4. Analysis (ProLIF IFP + MDAnalysis metrics)
+                5. Clustering (HDBSCAN)
+                6. Crystal anchoring (if crystal available)
+                7. Aggregate metrics for this test case
 
     Args:
         point: Parameter configuration to evaluate.
@@ -105,26 +109,31 @@ def run_sweep_point(
         # --- PSEUDOCODE: Run pipeline steps 1–10 ---
         # merged_params = {**point.held_fixed, **point.params}
         #
-        # # Step 1: Ingest
+        # # Step 1: Locate prediction artifact (generated in separate prediction stage)
+        # raw_cif_path = resolve_prediction_artifact(point.model, merged_params, tc)
+        # if not raw_cif_path.exists():
+        #     raise FileNotFoundError("Missing precomputed prediction artifact")
+        #
+        # # Step 2: Ingest
         # from lpmo_pipeline.io.mmcif_ingest import ingest_mmcif
         # ingest_result = ingest_mmcif(raw_cif_path, case_dir)
         #
-        # # Step 2: Normalize
+        # # Step 3: Normalize
         # from lpmo_pipeline.io.normalize_mmcif import normalize
         # norm_result = normalize(ingest_result.structure, case_dir)
         #
-        # # Step 3: Glycan expansion
+        # # Step 4: Glycan expansion
         # (validate CCD monosaccharides)
         #
-        # # Step 4: Protonation
+        # # Step 5: Protonation
         # from lpmo_pipeline.io.protonate_export import protonate_and_export
         # prot_result = protonate_and_export(norm_result.output_cif, case_dir)
         #
-        # # Step 5: PLACER
+        # # Step 6: PLACER
         # from lpmo_pipeline.placer.run_placer import run_placer
         # placer_result = run_placer(norm_result.output_cif, case_dir / "placer_ensemble")
         #
-        # # Step 6: QC
+        # # Step 7: QC
         # from lpmo_pipeline.qc.posebusters_runner import run_posebusters_batch
         # from lpmo_pipeline.qc.privateer_runner import run_privateer
         # from lpmo_pipeline.qc.custom_geometry_checks import check_geometry
@@ -132,13 +141,13 @@ def run_sweep_point(
         # priv_result = run_privateer(...)
         # geom_results = [check_geometry(...) for pose in placer_result.poses]
         #
-        # # Step 7: Analysis
+        # # Step 8: Analysis
         # from lpmo_pipeline.analysis.prolif_ifp import compute_ifp_batch
         # from lpmo_pipeline.analysis.mdanalysis_metrics import compute_pose_metrics
         # ifp_batch = compute_ifp_batch(...)
         # geo_metrics = [compute_pose_metrics(...) for pose in passed_poses]
         #
-        # # Step 8: Clustering
+        # # Step 9: Clustering
         # from lpmo_pipeline.analysis.clustering_hdbscan import run_hdbscan_clustering
         # cluster_result = run_hdbscan_clustering(ifp_batch.matrix, ...)
         #

@@ -5,6 +5,9 @@ Verifies the failure policy from MASTERPLAN §7.
 """
 from __future__ import annotations
 
+from pathlib import Path
+
+import numpy as np
 import pytest
 
 
@@ -122,3 +125,195 @@ class TestAtomMappingGate:
                 run_id="test_006",
                 step="normalize",
             )
+
+
+class TestPoseBustersRunner:
+    """Tests for the PoseBusters result classification logic."""
+
+    def test_all_pass_returns_passed(self) -> None:
+        """All PB tests True -> passed=True, no errors."""
+        from lpmo_pipeline.qc.posebusters_runner import _classify_results
+
+        tests = {
+            "sanitization": True, "bond_lengths": True,
+            "internal_steric_clash": True, "bond_angles": True,
+        }
+        result = _classify_results("pose_001", tests)
+        assert result.passed is True
+        assert len(result.critical_errors) == 0
+        assert len(result.warnings) == 0
+
+    def test_critical_failure_returns_failed(self) -> None:
+        """A critical PB test False -> passed=False with that test in critical_errors."""
+        from lpmo_pipeline.qc.posebusters_runner import _classify_results
+
+        tests = {"sanitization": False, "bond_lengths": True, "bond_angles": True}
+        result = _classify_results("pose_002", tests)
+        assert result.passed is False
+        assert "sanitization" in result.critical_errors
+
+    def test_soft_warning_keeps_passed(self) -> None:
+        """A soft-only failure keeps passed=True and records warning."""
+        from lpmo_pipeline.qc.posebusters_runner import _classify_results
+
+        tests = {"sanitization": True, "aromatic_ring_flatness": False}
+        result = _classify_results("pose_003", tests)
+        assert result.passed is True
+        assert "aromatic_ring_flatness" in result.warnings
+
+    def test_unknown_failure_treated_as_critical(self) -> None:
+        """Unknown test names failing -> treated as critical (conservative)."""
+        from lpmo_pipeline.qc.posebusters_runner import _classify_results
+
+        tests = {"sanitization": True, "unknown_test_xyz": False}
+        result = _classify_results("pose_004", tests)
+        assert result.passed is False
+        assert "unknown_test_xyz" in result.critical_errors
+
+    def test_empty_results_treated_as_failure(self) -> None:
+        """Empty dict (PB produced no results) -> passed=False."""
+        from lpmo_pipeline.qc.posebusters_runner import _classify_results
+
+        result = _classify_results("pose_005", {})
+        assert result.passed is False
+        assert "posebusters_no_results" in result.critical_errors
+
+    def test_multiple_critical_errors(self) -> None:
+        """Multiple critical failures all recorded."""
+        from lpmo_pipeline.qc.posebusters_runner import _classify_results
+
+        tests = {
+            "sanitization": False,
+            "internal_steric_clash": False,
+            "bond_lengths": True,
+        }
+        result = _classify_results("pose_006", tests)
+        assert result.passed is False
+        assert "sanitization" in result.critical_errors
+        assert "internal_steric_clash" in result.critical_errors
+
+    def test_file_not_found_in_batch(self) -> None:
+        """Batch runner handles missing files gracefully."""
+        from lpmo_pipeline.qc.posebusters_runner import run_posebusters_batch
+
+        result = run_posebusters_batch(Path("/nonexistent"), ["fake_pose"])
+        assert result.total == 1
+        assert result.failed == 1
+
+    def test_csv_parsing(self) -> None:
+        """_parse_csv_output correctly parses PB CSV output."""
+        from lpmo_pipeline.qc.posebusters_runner import _parse_csv_output
+
+        csv_text = (
+            "file,molecule,position,mol_pred_loaded,sanitization,bond_lengths,"
+            "internal_steric_clash\n"
+            "test.pdb,lig,0,True,True,False,True\n"
+        )
+        result = _parse_csv_output(csv_text)
+        assert result["sanitization"] is True
+        assert result["bond_lengths"] is False
+        assert result["internal_steric_clash"] is True
+        # Loading columns should be excluded
+        assert "mol_pred_loaded" not in result
+
+
+class TestCuHisAngle:
+    """Tests for _compute_his_brace_angle() calculation."""
+
+    def test_orthogonal_vectors_give_90_degrees(self) -> None:
+        """Two His-N atoms at orthogonal positions around Cu -> ~90 deg."""
+        from lpmo_pipeline.qc.custom_geometry_checks import (
+            CuHisMeasurement,
+            _compute_his_brace_angle,
+        )
+
+        cu_pos = np.array([0.0, 0.0, 0.0])
+        measurements = [
+            CuHisMeasurement(
+                his_chain="A", his_resnum=1, his_atom="NE2",
+                cu_chain="E", cu_resnum=1, distance_angstrom=2.0,
+                in_range=True, his_atom_position=(2.0, 0.0, 0.0),
+            ),
+            CuHisMeasurement(
+                his_chain="A", his_resnum=78, his_atom="ND1",
+                cu_chain="E", cu_resnum=1, distance_angstrom=2.0,
+                in_range=True, his_atom_position=(0.0, 2.0, 0.0),
+            ),
+        ]
+        angle = _compute_his_brace_angle(measurements, cu_pos)
+        assert angle is not None
+        assert abs(angle - 90.0) < 0.1
+
+    def test_linear_arrangement_gives_180_degrees(self) -> None:
+        """Two His-N atoms on opposite sides of Cu -> ~180 deg."""
+        from lpmo_pipeline.qc.custom_geometry_checks import (
+            CuHisMeasurement,
+            _compute_his_brace_angle,
+        )
+
+        cu_pos = np.array([0.0, 0.0, 0.0])
+        measurements = [
+            CuHisMeasurement(
+                his_chain="A", his_resnum=1, his_atom="NE2",
+                cu_chain="E", cu_resnum=1, distance_angstrom=2.0,
+                in_range=True, his_atom_position=(2.0, 0.0, 0.0),
+            ),
+            CuHisMeasurement(
+                his_chain="A", his_resnum=78, his_atom="ND1",
+                cu_chain="E", cu_resnum=1, distance_angstrom=2.0,
+                in_range=True, his_atom_position=(-2.0, 0.0, 0.0),
+            ),
+        ]
+        angle = _compute_his_brace_angle(measurements, cu_pos)
+        assert angle is not None
+        assert abs(angle - 180.0) < 0.1
+
+    def test_single_his_returns_none(self) -> None:
+        """Only one His residue -> cannot compute brace angle."""
+        from lpmo_pipeline.qc.custom_geometry_checks import (
+            CuHisMeasurement,
+            _compute_his_brace_angle,
+        )
+
+        cu_pos = np.array([0.0, 0.0, 0.0])
+        measurements = [
+            CuHisMeasurement(
+                his_chain="A", his_resnum=1, his_atom="NE2",
+                cu_chain="E", cu_resnum=1, distance_angstrom=2.0,
+                in_range=True, his_atom_position=(2.0, 0.0, 0.0),
+            ),
+        ]
+        angle = _compute_his_brace_angle(measurements, cu_pos)
+        assert angle is None
+
+    def test_picks_closest_n_per_his(self) -> None:
+        """When a His has both NE2 and ND1, the closest one is used."""
+        from lpmo_pipeline.qc.custom_geometry_checks import (
+            CuHisMeasurement,
+            _compute_his_brace_angle,
+        )
+
+        cu_pos = np.array([0.0, 0.0, 0.0])
+        measurements = [
+            # His1: NE2 at 2.0 A, ND1 at 3.5 A — NE2 should be picked
+            CuHisMeasurement(
+                his_chain="A", his_resnum=1, his_atom="NE2",
+                cu_chain="E", cu_resnum=1, distance_angstrom=2.0,
+                in_range=True, his_atom_position=(2.0, 0.0, 0.0),
+            ),
+            CuHisMeasurement(
+                his_chain="A", his_resnum=1, his_atom="ND1",
+                cu_chain="E", cu_resnum=1, distance_angstrom=3.5,
+                in_range=False, his_atom_position=(3.5, 0.0, 0.0),
+            ),
+            # His78: ND1 at 2.1 A
+            CuHisMeasurement(
+                his_chain="A", his_resnum=78, his_atom="ND1",
+                cu_chain="E", cu_resnum=1, distance_angstrom=2.1,
+                in_range=True, his_atom_position=(0.0, 2.1, 0.0),
+            ),
+        ]
+        angle = _compute_his_brace_angle(measurements, cu_pos)
+        assert angle is not None
+        # NE2(His1) at (2,0,0) and ND1(His78) at (0,2.1,0) -> ~90 deg
+        assert abs(angle - 90.0) < 1.0

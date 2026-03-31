@@ -57,6 +57,7 @@ ccd_monosaccharides:
 
 # ── Analysis defaults ──
 analysis:
+  pre_qc_active_site_max_a: 10.0
   cu_c_proximity_flag_a: 7.0     # flag Cu-C > 7 Å
   crystal_ifp_similarity_soft: 0.3
   c1_vs_c4_offset_a: 0.5        # C1-like if Cu-C1 < Cu-C4 + offset

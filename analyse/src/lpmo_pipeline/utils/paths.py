@@ -154,3 +154,16 @@ def best_params_path(base: Path, model: str) -> Path:
 # --------------------------------------------------------------------------- #
 def manifest_path(base: Path) -> Path:
     return results_root(base) / "reproducibility" / "run_manifest.json"
+
+
+# --------------------------------------------------------------------------- #
+# Work-root (structure_pipeline prediction artifacts)
+# --------------------------------------------------------------------------- #
+def work_root(structure_pipeline_base: Path) -> Path:
+    """Path to the ``work/`` directory inside a structure_pipeline checkout."""
+    return structure_pipeline_base / "work"
+
+
+def discovery_manifest_path(base: Path) -> Path:
+    """Where to write the JSON discovery manifest."""
+    return results_root(base) / "discovery_manifest.json"

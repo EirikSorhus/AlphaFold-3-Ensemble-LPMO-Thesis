@@ -15,8 +15,8 @@ This folder contains a structure-prediction → normalization → refinement →
   - `structure_pipeline/`
     - **Source-of-truth for å sende inn/kjøre prediksjonsmodellene**:
       - AF3
-      - RF3
-      - Boltz-2
+      - ~~RF3~~ (ekskludert fra analyse)
+      - ~~Boltz-2~~ (ekskludert fra analyse)
     - Denne mappen inneholder modell-“runners”/adapters og skal være stedet som faktisk kaller eksterne verktøy.
   - `analysis/`
     - Analyse-/orkestreringskode og dokumentasjon. **Denne `copilot.md` ligger her.**
@@ -27,12 +27,12 @@ This folder contains a structure-prediction → normalization → refinement →
   - Conda environments (kjøremiljø), men ikke pipeline-logikk.
 
 ### Hard rule: where prediction code lives
-All code that runs AF3 / RF3 / Boltz-2 must be invoked via:
+All code that runs AF3 must be invoked via:
 - `eirik/Masteroppgave/structure_pipeline/`
 
 **Policy**
 - `analysis/` may generate inputs/configs and schedule jobs, but must call the prediction runners/adapters from `structure_pipeline/`.
-- Do not duplicate AF3/RF3/Boltz-2 invocation logic inside `analysis/`.
+- Do not duplicate AF3 invocation logic inside `analysis/`.
 - If `analysis/` needs a new capability (new flags, new output parsing), implement it in `structure_pipeline/` adapters and call it from `analysis/`.
 
 ---
@@ -44,9 +44,10 @@ When generating code, prefer **Claude Opus 4.6** if available in the Copilot mod
 
 ## Source-of-truth priority (conflict policy)
 
-1) **Analysis plan (attached in prompt / doc)** is the **highest priority** and must be followed if anything conflicts. :contentReference[oaicite:1]{index=1}  
-2) The **program + IO contract** below (the spec `LPMO_structure_pipeline_v2_1`).  
-3) Reasonable engineering defaults.
+1) **Latest user comments in active thread** are highest priority.  
+2) `plan_implementation_spec.txt`.  
+3) `plan_analyse.txt` as legacy context only.  
+4) Reasonable engineering defaults.
 
 If you (Copilot) see ambiguous/contradicting instructions, **follow (1)** and document the decision in code comments or `docs/decisions.md`.
 
@@ -55,7 +56,8 @@ If you (Copilot) see ambiguous/contradicting instructions, **follow (1)** and do
 ## High-level goals (from analysis plan)
 
 We need a reproducible pipeline that:
-- Generates complex structures with **AF3 / RF3 / Boltz2**
+- Generates complex structures with **AF3 only** (RF3 og Boltz-2 er ekskludert)
+- Runs **active-site proximity pre-QC** before chemistry validators
 - Performs **hard QC** with **PoseBusters + Privateer**
 - Runs **PLACER refinement** (mandatory, GPU multi-mode)
 - Creates **ProLIF interaction fingerprints (IFP)**
@@ -64,7 +66,8 @@ We need a reproducible pipeline that:
 - Produces combined reporting artifacts:
   - `summary.json`, `metrics.csv`, `report.html`
 
-The analysis plan includes tuning workflows (parameter sweeps) and a main analysis (Del A: all proteins; Del B: full-length + CBM subset). :contentReference[oaicite:2]{index=2}
+Main analysis is cluster-primary (Del A: all proteins; Del B: full-length + CBM subset).
+Optional tuning workflows are run as post-analysis sensitivity/comparison.
 
 ---
 
@@ -113,9 +116,9 @@ The analysis plan includes tuning workflows (parameter sweeps) and a main analys
 ### step_1_prediction
 Input: target definitions  
 Programs:
-- AlphaFold3.predict
-- RoseTTAFold3.predict
-- Boltz2.predict  
+- AlphaFold3.predict  (`num_recycles=10`, `num_seeds=15`, `num_diffusion_samples=5`)
+- ~~Boltz2~~ (ekskludert fra analyse)
+- ~~RoseTTAFold3~~ (ekskludert fra analyse)  
 Output:
 - `raw_models/*.cif`
 - `raw_confidence/*`
@@ -187,28 +190,24 @@ Output:
 
 ## Analysis-plan specifics Copilot must implement (key points)
 
-### Separation of concerns: tuning vs main analysis (mandatory design rule)
+### Separation of concerns: main analysis vs optional tuning (mandatory design rule)
 
 Implement **two distinct orchestration paths**:
 
-1) **Tuning phase (parameter sweeps)**
-- `analysis/` must generate *batches* for parameter sweeps (grid/random as specified).
-- A tuning run produces:
-  - a machine-readable job list (e.g. JSON/YAML) describing each sweep point
-  - per-job outputs in a dedicated tuning output tree
-  - a summarizer that aggregates QC + analysis metrics and selects best parameters
-- The sweep runner must call **prediction runners** from `structure_pipeline/` (AF3/RF3/Boltz-2),
-  then run normalization → PLACER → QC → light analysis as required by tuning.
+1) **Main analysis pipeline (first priority)**
+- Consumes precomputed prediction artifacts from `structure_pipeline/`.
+- Runs DEL A / DEL B with cluster as primary analysis unit.
+- Must not collapse cluster rows to enzyme rows for primary descriptive/predictive analyses.
+- Must not search/retune parameters during the same analysis run.
 
-2) **Main analysis pipeline**
-- Uses the chosen tuned parameters (locked) and runs DEL A / DEL B.
-- Must not search/retune parameters during main analysis (“anti p-hacking” rule already below).
-- Organize outputs separately from tuning runs.
+2) **Optional post-analysis tuning (if time/resources)**
+- Generates parameter sweep batches and summaries in a dedicated output tree.
+- Used for comparison/sensitivity and later reruns, not as a blocker for first analysis delivery.
 
 **Do not mix tuning logic and main-analysis logic in the same script without a clear subcommand boundary.**
 Preferred approach: separate CLI subcommands and separate config namespaces.
 
-### Tuning phase (parameter sweeps)
+### Optional tuning phase (parameter sweeps)
 Implement scripts to run tuning on a defined tuning subset and compare settings using:
 - PoseBusters: pass-rate + error types
 - Privateer: ring/anomer/stereo validity
@@ -217,18 +216,19 @@ Implement scripts to run tuning on a defined tuning subset and compare settings 
 - Optional: compare IFP similarity vs crystal (moderate threshold to be decided empirically)
 
 AF3 tuning:
-- Refinement: `num_recycles ∈ {10,15,20}`, keep `num_diffusion_samples=5`, `num_seeds=10`
-- Diversity: `num_seeds ∈ {20,50,100}` with chosen `num_recycles`
+- **Valgte (faste) parametre for hovedanalyse: `num_recycles=10`, `num_seeds=15`, `num_diffusion_samples=5`**
+- Tuning grid (utforsket, ikke aktiv): `num_recycles ∈ {10,15,20}`, keep `num_diffusion_samples=5`, `num_seeds=10`
+- Diversity sweep (utforsket, ikke aktiv): `num_seeds ∈ {20,50,100}` with chosen `num_recycles`
 
-RF3 tuning:
-- Refinement: `n_recycles ∈ {10,20,30}`, no early stop; keep defaults for diffusion batch size & steps; `one_model_per_file=TRUE`
-- Diversity: `seed ∈ {42,80,120}`
+~~RF3 tuning~~ (RF3 er ekskludert — ikke relevant):
+- ~~Refinement: `n_recycles ∈ {10,20,30}`, no early stop; keep defaults for diffusion batch size & steps; `one_model_per_file=TRUE`~~
+- ~~Diversity: `seed ∈ {42,80,120}`~~
 
-Boltz2 tuning:
-- Always: `use_potentials=False`, `step_scale=1.638`, do not tune affinity
-- Refinement 1: `recycling_steps ∈ {3,6,10}` (hold `diffusion_samples=5`, `sampling_steps=200`)
-- Refinement 2: `sampling_steps ∈ {200,400,600}` (hold chosen recycling, diffusion=5)
-- Diversity: `diffusion_samples ∈ {3,10,15}` (hold chosen recycling + sampling)
+~~Boltz2 tuning~~ (Boltz-2 er ekskludert — ikke relevant):
+- ~~Always: `use_potentials=False`, `step_scale=1.638`, do not tune affinity~~
+- ~~Refinement 1: `recycling_steps ∈ {3,6,10}` (hold `diffusion_samples=5`, `sampling_steps=200`)~~
+- ~~Refinement 2: `sampling_steps ∈ {200,400,600}` (hold chosen recycling, diffusion=5)~~
+- ~~Diversity: `diffusion_samples ∈ {3,10,15}` (hold chosen recycling + sampling)~~
 
 Decision rule for picking best parameters:
 - prioritize: higher QC pass (PoseBusters/Privateer) + lower outlier-rate + stable clusters
@@ -237,8 +237,8 @@ Decision rule for picking best parameters:
 (See analysis plan for full details.) :contentReference[oaicite:3]{index=3}
 
 ### Main analysis: DEL A (all proteins)
-All proteins × 21 ligands × 3 models, using tuned parameters.
-A2: hard QC; drop hard-fails, keep soft flags as metadata (do not mix as “pass”).
+All proteins × 21 ligands × AF3 only, using fixed parameters (`num_recycles=10`, `num_seeds=15`, `num_diffusion_samples=5`).
+A2: active-site proximity pre-QC followed by hard QC; drop hard-fails, keep soft flags as metadata.
 A3: run PLACER and re-run PoseBusters post-PLACER.
 A4: ProLIF IFP per pose (residue-level + interaction type).
 A5: Cluster within run to compress sampling noise; then cross-run clustering per (protein, ligand) using cluster representatives (medoid) or aggregate IFP.
@@ -250,6 +250,8 @@ A7: Crystal anchoring where available:
 - if ligand-bound crystal: IFP similarity
 - if apo: pocket RMSD + key residues near Cu
 A8: Connect to activity (C1/C4, substrate specificity, family) with aggregated cluster occupancies and signatures.
+
+Primary modeling/data table remains cluster-level; enzyme-level aggregation is secondary only.
 
 ### DEL B (full-length proteins with CBM)
 Run parallel to DEL A but with CBM-specific analysis:
@@ -263,7 +265,7 @@ Two modeling targets:
    - occupancy of geometric C1-like/C4-like clusters
    - signature interaction frequencies
    - CBM proximity metrics for CBM enzymes
-   Use grouped + stratified CV, class weights, balanced accuracy.
+  Use grouped + stratified CV, class weights, balanced accuracy.
 2) (enzyme, ligand) → binding mode/orientation using DP, polymer type, IFP+geometry.
 
 ---
@@ -271,7 +273,8 @@ Two modeling targets:
 ## Implementation expectations
 
 ### Language & structure
-Prefer **Python** for pipeline orchestration and analysis, plus small **bash** entrypoints.
+Prefer **Python** for pipeline orchestration and tool adapters, plus small **bash** entrypoints.
+Prefer **R** for descriptive/predictive statistical analysis where practical.
 Organize into:
 - `src/` Python package
 - `scripts/` CLI entrypoints
@@ -286,6 +289,7 @@ Provide a top-level CLI (e.g. `python -m lpmo_pipeline ...`) with subcommands:
 - `normalize`
 - `privateer-prep`
 - `placer`
+- `pre-qc-proximity`
 - `validate`
 - `prep-analysis`
 - `analyze`
@@ -300,7 +304,7 @@ Provide a top-level CLI (e.g. `python -m lpmo_pipeline ...`) with subcommands:
 
 ### Tool adapters
 Abstract external tools behind adapters:
-- `tools/af3.py`, `tools/rf3.py`, `tools/boltz2.py`
+- `tools/af3.py` (ikke `tools/rf3.py` eller `tools/boltz2.py` — RF3 og Boltz-2 er ekskludert)
 - `tools/gemmi.py`, `tools/privateer.py`, `tools/placer.py`, `tools/posebusters.py`
 - `tools/reduce.py`, `tools/openbabel.py`
 Adapters should:
@@ -314,7 +318,7 @@ Adapters should:
 - mmCIF master: derivations must cite source file + transformation in metadata.
 
 ### Cluster policy (anti p-hacking)
-- Lock HDBSCAN hyperparameters from tuning before main analysis.
+- Lock HDBSCAN hyperparameters for each analysis run (and document origin if imported from optional tuning).
 - Do not “search” cluster params during main runs.
 
 ---
@@ -336,9 +340,50 @@ Adapters should:
 
 ---
 
+## AI Tool Use Preferences
+
+**Preferanse: bruk innebygde lese-/søkefunksjoner fremfor shell-kommandoer for enkle operasjoner.**
+
+Når AI trenger å sjekke enkle ting, foretrekk AIs innebygde verktøy (f.eks. `read_file`, `file_search`, `list_dir`, `grep_search`) fremfor å kjøre `ls`, `cat`, `head`, `grep` o.l. i terminalen.
+
+Eksempler der innebygde verktøy er å foretrekke:
+- Sjekke om en fil eksisterer → bruk `file_search` / `list_dir`
+- Lese innholdet i en fil → bruk `read_file`
+- Søke etter tekst i filer → bruk `grep_search`
+
+Dette er en preferanse, ikke et absolutt krav. Bruk terminal når transformasjon, kjøring eller operasjoner utenfor workspace kreves.
+
+---
+
+## AI Decision Boundaries — Decisions Requiring User Approval
+
+**The following changes must NOT be made by AI without explicit user approval:**
+
+1. **Changes to pipeline order** — sequence of analysis steps (step_1 → step_8)
+2. **Changes to which analyses are run** — enabling/disabling entire sub-analyses (DEL A, DEL B, tuning phases)
+3. **Changes to primary analysis unit** — current primary unit is **cluster** (not enzyme)
+4. **Changes to output artifacts** — schema or structure of required output tables
+5. **Changes to core validation gates** — PoseBusters, Privateer, PLACER mandatory status
+6. **Changes to HARD RULES** — including chain schema, atom mapping strategy, confidence field handling
+
+**Before proposing any of the above**, AI must:
+- Ask for explicit confirmation via code comment with reasoning
+- Wait for user response in the active thread
+- Document the decision in `docs/decisions.md` with user approval reference
+
+**ai may autonomously make:**
+- Bug fixes to existing code
+- Implementation of approved logic in new modules
+- Parameter tuning within pre-approved ranges
+- Performance optimizations that preserve correctness
+- Test additions and documentation improvements
+
+---
+
 ## When unsure
 
 Default behavior:
 1) Follow analysis plan. :contentReference[oaicite:4]{index=4}  
 2) Keep mmCIF canonical and preserve raw confidence values.
 3) Make decisions explicit in code comments and in `docs/decisions.md`.
+4) If a decision falls on the boundary between "autonomous" and "requires approval", ask the user.

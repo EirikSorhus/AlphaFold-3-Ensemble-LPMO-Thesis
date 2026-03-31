@@ -4,12 +4,25 @@ Responsibility: Compare predicted clusters against crystal structures (if availa
 Input:  Predicted cluster IFPs + geometry, crystal complex PDB
 Output: crystal_metrics.json with per-cluster similarity scores
 
-STEP 10 in masterplan.
+STEP 12 in masterplan.
 RQ4: Model credibility via crystallographic comparison.
+
+Alignment method: PyMOL `pair_fit` for optimal local superposition.
+  - Align on: histidine-brace (Cα/Nε2), Cu-coordinating residues,
+    and substrate-recognition surface residues.
+  - Substrate-recognition residues: literature-based (preferred) or
+    proximity-based fallback (all protein residues within cutoff of ligand).
+  - Always document that RMSD is measured after optimized local alignment.
 
 Metrics:
   - Tanimoto(cluster_medoid_IFP, crystal_IFP) — interaction fingerprint similarity
-  - Pocket RMSD (local, pocket residues only) vs crystal
+  - Pocket RMSD after optimal local alignment via PyMOL pair_fit
+  - Per-residue deviations for alignment atoms
+
+Adapted patterns from:
+  - PoseBench (MIT): general structure comparison workflow
+  - benchmarking-af3 (MIT): pocket residue identification via proximity cutoff
+  See ATTRIBUTION.md for full credits.
 """
 from __future__ import annotations
 
@@ -172,29 +185,35 @@ def _compute_pocket_rmsd(
 ) -> float | None:
     """Compute pocket RMSD between predicted and crystal structures.
 
-    PSEUDOCODE — uses MDAnalysis align.
+    Uses PyMOL pair_fit for optimal local superposition on:
+      1. Histidine-brace atoms (Cα, Nε2)
+      2. Cu-coordinating residues
+      3. Substrate-recognition surface residues (from pocket_residues)
+
+    The RMSD is measured AFTER optimized local alignment (not global).
+    This gives better results for local pocket comparison but must be
+    clearly documented as an optimized alignment metric.
+
+    Inspired by benchmarking-af3 pocket residue approach (MIT license),
+    but uses PyMOL pair_fit instead of APoc/Biopython NeighborSearch.
     """
-    # import MDAnalysis as mda
-    # from MDAnalysis.analysis.rms import rmsd as compute_rmsd
+    # TODO: implement with PyMOL pair_fit
+    # from pymol import cmd
     #
-    # u_pred = mda.Universe(str(pred_pdb))
-    # u_xtal = mda.Universe(str(crystal_pdb))
+    # cmd.load(str(crystal_pdb), "crystal")
+    # cmd.load(str(pred_pdb), "predicted")
     #
-    # pocket_sel = "resid " + " ".join(str(r) for r in pocket_residues)
-    # sel = f"segid {protein_chain} and ({pocket_sel}) and name CA"
+    # # Build selection string for pair_fit atoms (CA of pocket residues)
+    # pocket_sel = " or ".join(f"resi {r}" for r in pocket_residues)
+    # crystal_sel = f"crystal and chain {protein_chain} and ({pocket_sel}) and name CA"
+    # pred_sel = f"predicted and chain {protein_chain} and ({pocket_sel}) and name CA"
     #
-    # pred_atoms = u_pred.select_atoms(sel)
-    # xtal_atoms = u_xtal.select_atoms(sel)
+    # # pair_fit returns RMSD after optimal superposition
+    # rmsd = cmd.pair_fit(pred_sel, crystal_sel)
     #
-    # if len(pred_atoms) == 0 or len(xtal_atoms) == 0:
-    #     return None
-    # if len(pred_atoms) != len(xtal_atoms):
-    #     logger.warning("Pocket atom count mismatch: pred=%d, xtal=%d",
-    #                    len(pred_atoms), len(xtal_atoms))
-    #     return None
-    #
-    # return float(compute_rmsd(pred_atoms.positions, xtal_atoms.positions))
-    return None  # PSEUDOCODE placeholder
+    # cmd.delete("all")
+    # return float(rmsd) if rmsd is not None else None
+    return None  # placeholder — implementation pending
 
 
 def write_crystal_anchoring_report(
@@ -225,3 +244,59 @@ def write_crystal_anchoring_report(
     with open(output_path, "w") as f:
         json.dump(data, f, indent=2)
     logger.info("Wrote crystal anchoring report to %s", output_path)
+
+
+def identify_pocket_residues_by_proximity(
+    complex_pdb: Path,
+    ligand_chain: str = "B",
+    protein_chain: str = "A",
+    cutoff_a: float = 5.0,
+) -> list[int]:
+    """Identify protein residues near a ligand using spatial proximity.
+
+    Fallback method when literature-based substrate-recognition residues
+    are not available. Finds all protein residues with any heavy atom
+    within `cutoff_a` Angstrom of any ligand heavy atom.
+
+    Inspired by benchmarking-af3 `3_find_pocket_residues.py` pocket
+    identification via NeighborSearch (MIT license). Our implementation
+    uses gemmi instead of Biopython.
+
+    Note: proximity-based selection may give different residue sets for
+    different prediction models (AF3/RF3/Boltz-2) depending on how each
+    model places the ligand. This must be documented in results.
+
+    Args:
+        complex_pdb: Path to PDB file with protein + ligand.
+        ligand_chain: Chain ID for ligand.
+        protein_chain: Chain ID for protein.
+        cutoff_a: Distance cutoff in Angstrom.
+
+    Returns:
+        Sorted list of residue sequence numbers within cutoff.
+    """
+    # TODO: implement with gemmi
+    # import gemmi
+    #
+    # st = gemmi.read_structure(str(complex_pdb))
+    # model = st[0]
+    # ns = gemmi.NeighborSearch(model, st.cell, cutoff_a).populate()
+    #
+    # ligand_atoms = []
+    # protein_residues = set()
+    #
+    # for chain in model:
+    #     if chain.name == ligand_chain:
+    #         for res in chain:
+    #             for atom in res:
+    #                 ligand_atoms.append(atom)
+    #
+    # for latom in ligand_atoms:
+    #     marks = ns.find_atoms(latom.pos, '\0', cutoff_a)
+    #     for mark in marks:
+    #         cra = mark.to_cra(model)
+    #         if cra.chain.name == protein_chain:
+    #             protein_residues.add(cra.residue.seqid.num)
+    #
+    # return sorted(protein_residues)
+    return []  # placeholder — implementation pending

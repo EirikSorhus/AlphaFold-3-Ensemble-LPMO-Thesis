@@ -1,0 +1,883 @@
+
+IMPLEMENTATION_SPEC_LPMO_PIPELINE_V1
+===================================
+
+PURPOSE
+-------
+This document is an AI-friendly implementation specification for a structure-based LPMO analysis pipeline.
+The pipeline analyzes predicted enzyme–oligosaccharide complexes and links binding-mode structure to:
+1) C1/C4 regioselectivity
+2) ligand specificity
+3) presence/absence of CBM
+
+The specification is written for direct implementation by a coding agent.
+The main design principle is that CLUSTER is the primary analysis unit after pose generation.
+
+----------------------------------------------------------------------
+SECTION 1. CORE DESIGN PRINCIPLES
+----------------------------------------------------------------------
+
+1.1 PRIMARY ANALYSIS UNIT
+- Pose-level is used for:
+  - structure generation
+  - QC
+  - ProLIF IFP calculation
+  - geometry calculation
+- Cluster-level is used for:
+  - descriptive analysis
+  - primary predictive analysis
+- Enzyme-level is used for:
+  - grouped cross-validation
+  - hierarchical grouping
+  - optional random effects / mixed models
+
+1.2 WHY CLUSTER IS PRIMARY
+- Each cluster represents a stable and reproducible binding mode for one enzyme–ligand system.
+- Multiple stable poses may exist for the same enzyme–ligand system.
+- Do NOT collapse early to:
+  - one best pose
+  - one medoid only
+  - one mean geometry per enzyme–ligand
+- Those can be used only in sensitivity analyses.
+
+1.3 SEPARATE SUB-ANALYSES
+Run 9 separate analyses:
+- chitin_DP4
+- chitin_DP6
+- chitin_DP8
+- cellulose_DP4
+- cellulose_DP6
+- cellulose_DP8
+- starch_DP4
+- starch_DP6
+- starch_DP8
+
+Important:
+- Do NOT mix substrate classes in the same IFP space.
+- Do NOT mix DP values in the same IFP space.
+- Each of the 9 analyses is independent.
+
+----------------------------------------------------------------------
+SECTION 2. INPUTS AND ENTITY DEFINITIONS
+----------------------------------------------------------------------
+
+2.1 ENTITY HIERARCHY
+Operational unit:
+(enzyme_id, substrate_class, DP, model_platform, seed_or_sample, pose_id)
+
+Statistical hierarchy:
+pose -> cluster -> enzyme
+
+2.2 INPUTS
+Required inputs:
+- enzyme sequences and/or structures
+- ligand definitions for DP4, DP6, DP8
+- substrate class labels: chitin / cellulose / starch
+- experimental function labels per enzyme:
+  - regioselectivity: C1 / C4 / mixed / unknown
+  - ligand specificity labels if available
+  - CBM presence/absence
+  - family label
+
+2.3 MODEL PLATFORMS
+Use:
+- AF3 only (num_recycles=10, num_seeds=15, num_diffusion_samples=5)
+- RF3 og Boltz2 er ekskludert fra analyse
+
+2.4 OUTPUT TABLES TO BUILD
+Minimum output tables:
+1) pose_table
+2) cluster_table
+3) enzyme_summary_table
+4) crystal_anchor_table
+5) predictive_cluster_table
+6) cbm_comparison_table
+
+----------------------------------------------------------------------
+SECTION 3. PIPELINE OVERVIEW
+----------------------------------------------------------------------
+
+For each of the 9 sub-analyses:
+
+STEP 1: generate poses
+STEP 2: hard QC
+STEP 3: PLACER refinement
+STEP 4: re-QC
+STEP 5: split into two branches:
+        A) IFP branch
+        B) geometry branch
+STEP 6: cluster within enzyme–ligand system using IFP only
+STEP 7: annotate clusters with geometry + QC + support
+STEP 8: optional crystal anchoring sanity check
+STEP 9: descriptive analysis at cluster level
+STEP 10: predictive analysis using clusters as rows
+STEP 11: optional enzyme-level summaries and sensitivity analyses
+STEP 12: CBM paired analysis where relevant
+
+----------------------------------------------------------------------
+SECTION 4. STEP-BY-STEP SPECIFICATION
+----------------------------------------------------------------------
+
+STEP 1. GENERATE POSES
+----------------------
+
+Goal:
+- Generate an ensemble of protein–ligand complex poses for each enzyme–ligand combination.
+
+For each sub-analysis:
+- substrate_class fixed
+- DP fixed
+
+For each enzyme:
+- run AF3
+- (RF3 og Boltz2 er ekskludert fra analyse)
+- generate multiple seeds/samples per platform
+
+Store per pose:
+- analysis_id
+- enzyme_id
+- substrate_class
+- DP
+- model_platform
+- seed_or_sample
+- pose_id
+- raw_structure_path
+
+Recommended pose_table columns after step 1:
+- analysis_id
+- enzyme_id
+- substrate_class
+- DP
+- model_platform
+- seed_or_sample
+- pose_id
+- raw_structure_path
+
+STEP 2. HARD QC
+---------------
+
+Tools:
+- PoseBusters
+- Privateer
+
+Goal:
+- Remove chemically and stereochemically unacceptable poses.
+
+Rules:
+- hard fail -> exclude from downstream main analysis
+- soft flag -> keep as metadata
+
+Add to pose_table:
+- posebusters_status: pass / soft_flag / fail
+- privateer_status: pass / soft_flag / fail
+- qc_fail_reason
+- qc_soft_flags
+
+Main rule:
+- if PoseBusters hard fail OR severe Privateer fail -> pose excluded
+
+STEP 3. PLACER REFINEMENT
+-------------------------
+
+Input:
+- only poses with pass or soft_flag
+
+Tool:
+- PLACER
+
+Goal:
+- local improvement of geometry / reduction of clashes
+
+Output:
+- placer_refined_structure_path
+
+STEP 4. RE-QC AFTER PLACER
+--------------------------
+
+Tool:
+- PoseBusters again
+- optionally Privateer again if needed
+
+Add to pose_table:
+- post_placer_posebusters_status
+- post_placer_qc_fail_reason
+- passed_post_placer_qc: True/False
+
+Main rule:
+- post-PLACER hard fail -> exclude
+
+----------------------------------------------------------------------
+SECTION 5. BRANCH A: IFP ANALYSIS
+----------------------------------------------------------------------
+
+STEP 5A. IFP PREPARATION
+------------------------
+
+Important rules:
+- use original post-PLACER structures
+- DO NOT reposition Cu
+- DO NOT add virtual oxyl
+- DO NOT add virtual H on C1/C4
+- ProLIF can handle hydrogens needed for interaction detection
+
+Goal:
+- capture interaction patterns around the binding surface and active-site region
+- NOT to encode the engineered catalytic geometry
+
+STEP 5B. PROLIF IFP GENERATION
+------------------------------
+
+Tool:
+- ProLIF
+
+Generate binary IFP per pose.
+
+Include consistent interaction types, for example:
+- Hbond donor
+- Hbond acceptor
+- hydrophobic
+- aromatic / stacking if robustly supported
+- any other standard ProLIF type used consistently
+
+Important rule:
+- do NOT use a separate polar-contact-count feature in the main pipeline
+- polarity is already represented by Hbond donor / acceptor in IFP
+
+Add to pose_table:
+- ifp_vector
+- ifp_feature_names
+- ifp_generation_status
+
+----------------------------------------------------------------------
+SECTION 6. BRANCH B: GEOMETRY ANALYSIS
+----------------------------------------------------------------------
+
+STEP 6A. IDENTIFY HIS-BRACE
+---------------------------
+
+For each pose:
+- identify the three Cu-coordinating N atoms of the histidine brace
+
+Add to pose_table:
+- brace_atom_ids
+- brace_identification_status
+
+STEP 6B. CONSTRUCT HIS-BRACE PLANE
+----------------------------------
+
+Using the three coordinating N atoms:
+- define a local brace plane
+- compute brace normal vector
+
+Add to pose_table:
+- brace_plane_status
+- brace_plane_parameters
+- brace_normal_vector
+
+STEP 6C. REPOSITION Cu
+----------------------
+
+Important:
+- this is only for geometry calculations
+- this repositioned Cu must NOT be fed back into IFP generation
+
+Goal:
+- standardize local active-site geometry for comparable measurements
+
+Add to pose_table:
+- repositioned_cu_coordinates
+- cu_reposition_status
+
+STEP 6D. PLACE VIRTUAL OXYL
+---------------------------
+
+Using repositioned Cu and brace geometry:
+- place a virtual oxyl according to predefined geometric rules
+
+Add to pose_table:
+- virtual_oxyl_coordinates
+- oxyl_placement_status
+
+STEP 6E. PLACE VIRTUAL H ON C1 AND C4
+-------------------------------------
+
+For the proximal sugar unit:
+- identify C1
+- identify C4
+- determine local heavy-atom neighborhood
+- compute virtual H direction
+- place virtual H at fixed C-H distance (e.g. 1.1 Å)
+
+Add to pose_table:
+- virtual_H_C1_coordinates
+- virtual_H_C4_coordinates
+- c1_identification_status
+- c4_identification_status
+
+STEP 6F. COMPUTE GEOMETRY FEATURES
+----------------------------------
+
+Required per pose:
+- oxyl_H_C1_distance
+- oxyl_H_C4_distance
+- Cu_C1_distance
+- Cu_C4_distance
+- attack_angle_C1 (if defined)
+- attack_angle_C4 (if defined)
+- sugar_face_orientation
+- optional ring_normal_vs_brace_normal
+
+Do NOT include separate polar-contact-count here.
+
+STEP 6G. ASSIGN GEOMETRY STATUS
+-------------------------------
+
+Assign one of:
+- invalid_geometry
+- plausible_geometry
+- scorable_geometry
+
+Suggested rules:
+- invalid_geometry:
+  - his-brace cannot be identified robustly
+  - Cu cannot be standardized
+  - C1/C4 cannot be identified robustly
+  - virtual oxyl/H cannot be constructed
+- plausible_geometry:
+  - geometry can be computed
+  - at least one reactive center has physically reasonable geometry
+- scorable_geometry:
+  - all required geometry terms exist
+  - all key terms usable for downstream scoring
+
+Suggested oxyl-H plausibility window:
+- broad plausible window: 1.5 Å to 4.0 Å
+- theoretical optimum reference: around 2.1 Å
+
+Important:
+- treat these as working definitions, not mechanistic truth
+
+STEP 6H. CONVERGENCE FRACTION
+-----------------------------
+
+Goal:
+- quantify reproducibility across model samples
+
+Per enzyme + substrate + DP + model_platform:
+- align all models on protein C-alpha atoms
+- compute ligand RMSD relative to chosen reference
+- define convergent if ligand RMSD < 2.0 Å
+- convergence_fraction = fraction convergent
+
+Add:
+- per-pose convergence membership if useful
+- per enzyme-ligand-platform convergence_fraction
+
+Important:
+- convergence is a robustness/support metric
+- not a direct mechanistic feature
+
+----------------------------------------------------------------------
+SECTION 7. CLUSTERING
+----------------------------------------------------------------------
+
+STEP 7A. WITHIN-MODEL CLUSTERING
+--------------------------------
+
+Goal:
+- reduce seed/sample noise within each model platform
+
+For each:
+(enzyme_id, substrate_class, DP, model_platform)
+
+Input:
+- IFP vectors only
+
+Clustering:
+- HDBSCAN
+- distance = Jaccard or Tanimoto on binary IFP
+
+Output:
+- within_model_cluster_id
+- within_model_outlier_flag
+- within_model_cluster_size
+- within_model_medoid
+
+STEP 7B. CROSS-MODEL CLUSTERING
+-------------------------------
+
+Goal:
+- define final binding-mode clusters for each enzyme–ligand system
+
+For each:
+(enzyme_id, substrate_class, DP)
+
+Input:
+- representatives from within-model clustering
+- still use IFP only
+
+Important:
+- geometry is NOT used as clustering input in main analysis
+
+Output per final cluster:
+- cluster_id
+- occupancy
+- outlier_rate
+- medoid_pose_id
+- cluster_size
+
+Definition of occupancy:
+- fraction of non-excluded poses in that enzyme–substrate–DP system assigned to the cluster
+
+----------------------------------------------------------------------
+SECTION 8. CLUSTER ANNOTATION
+----------------------------------------------------------------------
+
+After final IFP clustering, link pose-level geometry/QC/support information back to clusters.
+
+For each cluster compute:
+- cluster_id
+- enzyme_id
+- substrate_class
+- DP
+- occupancy
+- cluster_size
+- medoid_pose_id
+- model_platform_support_count
+- model_platform_support_list
+- cross_model_support
+- qc_pass_fraction
+- qc_soft_flag_fraction
+- invalid_geometry_fraction
+- plausible_geometry_fraction
+- scorable_geometry_fraction
+- convergence_support
+- median_oxyl_H_C1
+- IQR_oxyl_H_C1
+- median_oxyl_H_C4
+- IQR_oxyl_H_C4
+- median_Cu_C1
+- IQR_Cu_C1
+- median_Cu_C4
+- IQR_Cu_C4
+- median_attack_angle_C1
+- median_attack_angle_C4
+- median_face_orientation
+- IFP_enrichment_features
+- cluster_type_annotation if assigned
+
+Important rules:
+- use median/IQR as statistical summary
+- do not rely only on medoid values for predictive features
+- medoid is for structure representation/visualization
+
+Optional cluster-type annotations:
+- C1-compatible
+- C4-compatible
+- mixed-compatible
+- non-plausible
+- uncertain
+
+----------------------------------------------------------------------
+SECTION 9. CLUSTER TABLE FOR PREDICTIVE ANALYSIS
+----------------------------------------------------------------------
+
+This is the main predictive table.
+
+One row = one cluster
+
+Required columns:
+- analysis_id
+- enzyme_id
+- family
+- cbm_status
+- substrate_class
+- DP
+- cluster_id
+- occupancy
+- qc_factor
+- support_factor
+- cluster_weight
+- cross_model_support
+- convergence_support
+- invalid_geometry_fraction
+- plausible_geometry_fraction
+- scorable_geometry_fraction
+- median_oxyl_H_C1
+- median_oxyl_H_C4
+- median_Cu_C1
+- median_Cu_C4
+- median_attack_angle_C1
+- median_attack_angle_C4
+- face_orientation_summary
+- ifp_features_selected
+- cluster_diversity_metrics if relevant
+- experimental_regio_label
+- experimental_ligand_specificity_label if used
+
+Suggested weight:
+cluster_weight = occupancy * QC_factor * support_factor
+
+Where:
+- occupancy = cluster occupancy
+- QC_factor = lower if many QC soft flags or geometry issues
+- support_factor = based on convergence and/or multi-platform support
+
+Minimum requirement:
+- occupancy must be included either as explicit feature or as sample weight
+
+----------------------------------------------------------------------
+SECTION 10. DESCRIPTIVE ANALYSIS
+----------------------------------------------------------------------
+
+Primary unit:
+- cluster
+
+Per sub-analysis, describe:
+- number of clusters per enzyme
+- occupancy profiles
+- geometry distribution per cluster
+- IFP signatures per cluster
+- family distribution per cluster
+- CBM distribution per cluster
+
+Recommended descriptive statistics:
+- counts
+- proportions
+- median
+- IQR
+- min / max
+- odds ratios
+- Fisher exact test or chi-square
+- FDR correction (Benjamini-Hochberg)
+
+Recommended visual outputs:
+- heatmaps
+- stacked barplots
+- cluster maps
+- boxplots / violin plots
+
+----------------------------------------------------------------------
+SECTION 11. PREDICTIVE ANALYSIS
+----------------------------------------------------------------------
+
+11.1 PRIMARY TASK: REGIOSELECTIVITY
+-----------------------------------
+
+Target:
+- binary: C1 vs C4
+- optional multinomial: C1 / C4 / mixed
+
+Primary model:
+- penalized logistic regression
+
+Alternative models:
+- mixed-effects logistic regression if sample size supports it
+- multinomial logistic model if mixed class included
+- RF / boosting only as sensitivity checks
+
+Rows:
+- clusters
+
+Features:
+- occupancy
+- geometry summaries
+- IFP features
+- convergence / support
+- QC / plausibility
+- family
+- CBM status if relevant
+
+Critical validation rule:
+- grouped cross-validation at enzyme level
+- all clusters from same enzyme must stay in same fold
+
+Metrics:
+- balanced accuracy
+- macro F1
+- AUROC only when appropriate
+- class weights for imbalance
+
+11.2 WHY CLUSTER-LEVEL PREDICTION
+---------------------------------
+
+This preserves multimodal binding behavior.
+Do NOT use as primary strategy:
+- one mean geometry per enzyme-ligand
+- one best pose
+- medoid alone as the cluster feature representation
+
+----------------------------------------------------------------------
+SECTION 12. ENZYME-LEVEL SUMMARIES (SECONDARY ONLY)
+----------------------------------------------------------------------
+
+Use enzyme-level summaries only for:
+- sensitivity analyses
+- compact comparisons
+- meta-analysis across sub-analyses
+
+Possible occupancy-weighted enzyme summary features:
+- fraction occupancy in C1-compatible clusters
+- fraction occupancy in C4-compatible clusters
+- fraction occupancy in mixed-compatible clusters
+- fraction occupancy in non-plausible clusters
+- occupancy-weighted median oxyl_H_C1
+- occupancy-weighted median oxyl_H_C4
+- occupancy-weighted median Cu_C1
+- occupancy-weighted median Cu_C4
+- total outlier rate
+- total convergence
+- number of final clusters
+- Shannon entropy of occupancy
+- top-cluster occupancy fraction
+- Gini-like occupancy inequality metric
+
+Important:
+- these are secondary summaries
+- not the main predictive representation
+
+----------------------------------------------------------------------
+SECTION 13. AGGREGATION RISKS AND HOW TO HANDLE THEM
+----------------------------------------------------------------------
+
+RISK 1: OCCUPANCY MAY BE MODEL-DRIVEN
+- a cluster may get high occupancy because one model platform oversampled it
+
+Handle by reporting:
+- model_platform_support_count
+- platform balance
+- cross_model_support
+- whether cluster supported by >= 2 platforms
+
+RISK 2: SMALL BUT MECHANISTICALLY STRONG CLUSTERS MAY BE HIDDEN
+Handle by also computing per enzyme:
+- best plausible C1 score
+- best plausible C4 score
+- minimum oxyl_H_C1 among robust non-outlier clusters
+- minimum oxyl_H_C4 among robust non-outlier clusters
+- existence of at least one robust C1- or C4-compatible cluster
+
+RISK 3: MULTIMODALITY MAY BE HIDDEN IN SUMMARIES
+Handle by reporting:
+- number_of_clusters
+- occupancy entropy
+- top_cluster_fraction
+- occupancy inequality measure
+
+RISK 4: INVALID GEOMETRY CAN BIAS SUMMARIES
+Handle by always reporting:
+- invalid_geometry_fraction
+- fraction of occupancy included in geometry summaries
+
+----------------------------------------------------------------------
+SECTION 14. LIGAND SPECIFICITY ANALYSIS
+----------------------------------------------------------------------
+
+Because substrate classes are analyzed separately, ligand specificity should be analyzed as a SECONDARY comparison across the 9 sub-analyses.
+
+For each enzyme compare:
+- whether plausible clusters exist for each substrate class / DP
+- dominant cluster signatures by substrate class
+- best geometry signatures by substrate class
+
+Possible statistical approaches:
+- paired comparisons within enzyme
+- Friedman test
+- repeated-measures models
+- mixed models with:
+  - enzyme as random effect
+  - substrate_class and DP as fixed effects
+
+Do NOT force all substrate classes into one shared cluster space.
+
+----------------------------------------------------------------------
+SECTION 15. FAMILY AS CONFOUNDER
+----------------------------------------------------------------------
+
+Family must be treated as:
+- confounder
+- stratification variable
+- secondary descriptive grouping
+
+Not as sole explanation.
+
+Implementation:
+- include family as covariate in predictive models
+- run within-family sensitivity analyses if sample size allows
+- report whether signals remain after family adjustment
+
+----------------------------------------------------------------------
+SECTION 16. CBM ANALYSIS
+----------------------------------------------------------------------
+
+For enzymes with CBM:
+- run catalytic domain alone
+- run full-length protein in parallel
+
+Important rule:
+- clustering should still be based primarily on LPMO-domain IFP
+- CBM contacts should be treated as annotation / secondary analysis
+
+Per enzyme and sub-analysis compare:
+- domain-only vs full-length
+- change in occupancy of C1-compatible clusters
+- change in occupancy of C4-compatible clusters
+- change in convergence
+- change in invalid geometry fraction
+- change in selected interaction features
+- distances between CBM, ligand, and active site
+
+Suggested stats:
+- paired Wilcoxon signed-rank
+- linear mixed models / GLMM if systematic paired analysis needed
+
+----------------------------------------------------------------------
+SECTION 17. CRYSTAL ANCHORING
+----------------------------------------------------------------------
+
+Use crystal structures only as a limited sanity check.
+
+When crystal data available:
+- align local pocket region
+- compute local pocket RMSD
+- compute ligand RMSD if comparable ligand present
+- or compute RMSD for proximal sugar segment
+
+Important:
+- this is not the primary validation criterion
+- do not over-interpret crystal mismatch
+- crystal and predicted states may differ functionally
+
+Output:
+- crystal_anchor_table
+
+----------------------------------------------------------------------
+SECTION 18. HARD EXCLUSION RULES
+----------------------------------------------------------------------
+
+Exclude pose from main analysis if any of the following:
+- PoseBusters hard fail
+- severe Privateer fail
+- post-PLACER hard fail
+- histidine brace cannot be identified robustly
+- Cu / oxyl / virtual H geometry cannot be constructed
+- both oxyl_H_C1 and oxyl_H_C4 fall outside broad plausibility window
+  e.g. < 1.5 Å or > 4.0 Å
+
+Important:
+- log all excluded poses and reasons
+
+----------------------------------------------------------------------
+SECTION 19. SOFT SCORING / ANNOTATION
+----------------------------------------------------------------------
+
+Use for ranking/annotation, NOT hard filtering:
+- closeness to oxyl-H optimum (~2.1 Å)
+- convergence_fraction
+- brace validation quality
+- cross_model_support
+
+Possible use:
+- ranking cluster confidence
+- prioritizing representative clusters for visualization
+- sensitivity analyses
+
+----------------------------------------------------------------------
+SECTION 20. SENSITIVITY ANALYSES
+----------------------------------------------------------------------
+
+Run at least these secondary analyses:
+1) top-cluster-only analysis per enzyme-ligand
+2) enzyme-level occupancy-weighted summary analysis
+3) only clusters with high convergence and high plausibility
+4) optionally medoid-only representation
+5) optionally stricter geometry thresholds
+
+Interpretation rule:
+- if major conclusions persist across these, confidence increases
+
+----------------------------------------------------------------------
+SECTION 21. RECOMMENDED FILE STRUCTURE
+----------------------------------------------------------------------
+
+Recommended outputs per sub-analysis:
+
+01_raw_predictions/
+02_qc/
+03_placer/
+04_ifp/
+05_geometry/
+06_clustering/
+07_cluster_annotations/
+08_descriptive/
+09_predictive/
+10_crystal_anchor/
+11_cbm/
+
+Recommended tabular outputs:
+- pose_table.tsv
+- cluster_table.tsv
+- predictive_cluster_table.tsv
+- enzyme_summary_table.tsv
+- crystal_anchor_table.tsv
+- cbm_comparison_table.tsv
+
+Recommended metadata/config files:
+- config.yaml
+- thresholds.yaml
+- feature_definitions.yaml
+
+----------------------------------------------------------------------
+SECTION 22. RECOMMENDED CONFIGURABLE PARAMETERS
+----------------------------------------------------------------------
+
+Store in config or YAML:
+- seeds_per_model
+- HDBSCAN parameters
+- Jaccard/Tanimoto choice
+- oxyl_H_plausibility_min = 1.5
+- oxyl_H_plausibility_max = 4.0
+- oxyl_H_reference_optimum = 2.1
+- convergence_rmsd_cutoff = 2.0
+- required_platform_support_threshold
+- QC_factor rules
+- support_factor rules
+- cluster compatibility assignment rules
+- CBM pairing rules
+
+----------------------------------------------------------------------
+SECTION 23. IMPLEMENTATION PRIORITIES
+----------------------------------------------------------------------
+
+Build in this order:
+1) pose generation wrappers
+2) QC and logging
+3) PLACER integration
+4) IFP generation
+5) geometry engine
+6) clustering
+7) cluster annotation
+8) descriptive outputs
+9) predictive table builder
+10) predictive models
+11) sensitivity analyses
+12) CBM comparisons
+13) crystal anchoring
+
+----------------------------------------------------------------------
+SECTION 24. NON-NEGOTIABLE RULES
+----------------------------------------------------------------------
+
+- Cluster is the main analysis unit after pose generation.
+- IFP clustering uses IFP only in the main analysis.
+- Geometry must not be used to define clusters in the main pipeline.
+- Geometry is linked only after clustering.
+- Cu repositioning / virtual oxyl / virtual H are used only in the geometry branch.
+- ProLIF branch must use post-PLACER structures without engineered geometry objects.
+- Grouped CV must be done at enzyme level.
+- Clusters from the same enzyme must never be split across CV folds.
+- Do not interpret virtual geometry as mechanistic truth.
+- Do not use one best pose as the main representation.
+- Do not use one mean geometry per enzyme-ligand as the main representation.
+
+END OF SPEC

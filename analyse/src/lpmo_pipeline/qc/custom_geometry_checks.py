@@ -42,6 +42,7 @@ class CuHisMeasurement:
     cu_resnum: int
     distance_angstrom: float
     in_range: bool = False
+    his_atom_position: tuple[float, float, float] = (0.0, 0.0, 0.0)
 
 
 @dataclass
@@ -134,6 +135,7 @@ def check_geometry(
                 cu_resnum=cu_atom.residue_seqid if hasattr(cu_atom, 'residue_seqid') else 1,
                 distance_angstrom=dist,
                 in_range=in_range,
+                his_atom_position=tuple(his_pos.tolist()),
             ))
 
     result.cu_his_all_in_range = all(m.in_range for m in result.cu_his_measurements)
@@ -271,11 +273,34 @@ def _get_atom_by_name_or_element(
 def _compute_his_brace_angle(
     measurements: list[CuHisMeasurement],
     cu_pos: np.ndarray,
-) -> float:
+) -> float | None:
     """Compute angle between the two His-N–Cu vectors (His-brace angle).
 
-    Returns angle in degrees.
+    Groups measurements by His residue, picks the closest coordinating N
+    atom from each, and returns the N1–Cu–N2 angle in degrees.
+
+    Returns None if fewer than 2 distinct His residues are measured.
     """
-    # PSEUDOCODE: get the two His-N positions, compute CuN1-Cu-CuN2 angle
-    # For now, return placeholder
-    return 0.0
+    best_per_his: dict[int, CuHisMeasurement] = {}
+    for m in measurements:
+        prev = best_per_his.get(m.his_resnum)
+        if prev is None or m.distance_angstrom < prev.distance_angstrom:
+            best_per_his[m.his_resnum] = m
+
+    if len(best_per_his) < 2:
+        return None
+
+    ordered = sorted(best_per_his.values(), key=lambda m: m.distance_angstrom)
+    m1, m2 = ordered[0], ordered[1]
+
+    v1 = np.asarray(m1.his_atom_position) - cu_pos
+    v2 = np.asarray(m2.his_atom_position) - cu_pos
+
+    norm1 = float(np.linalg.norm(v1))
+    norm2 = float(np.linalg.norm(v2))
+    if norm1 < 1e-9 or norm2 < 1e-9:
+        return None
+
+    cos_angle = float(np.dot(v1, v2) / (norm1 * norm2))
+    cos_angle = max(-1.0, min(1.0, cos_angle))
+    return float(np.degrees(np.arccos(cos_angle)))
