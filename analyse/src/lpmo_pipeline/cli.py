@@ -53,6 +53,14 @@ def main():
         "--summary-only", action="store_true",
         help="Print only the summary, not the full manifest",
     )
+    disc_parser.add_argument(
+        "--af3-only", action="store_true",
+        help="Only discover AF3 predictions (skip RF3)",
+    )
+    disc_parser.add_argument(
+        "--latest-only", action="store_true",
+        help="Only discover the run pointed to by the 'latest' symlink",
+    )
 
     # RUN subcommand
     run_parser = subparsers.add_parser("run", help="Run production analysis")
@@ -184,7 +192,11 @@ def cmd_discover(args):
         print(f"[ERROR] Not a directory: {work_root}", file=sys.stderr)
         return 1
 
-    manifest = discover_work_root(work_root)
+    manifest = discover_work_root(
+        work_root,
+        af3_only=args.af3_only,
+        latest_only=args.latest_only,
+    )
 
     if args.summary_only:
         output_text = json.dumps(manifest.summary, indent=2)

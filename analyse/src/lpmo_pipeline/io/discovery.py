@@ -59,12 +59,21 @@ UNIPROT_TARGET_RE = re.compile(r"^([A-Za-z0-9]{6,10})_([A-Z]{2,10}\d{1,4})$")
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
-def discover_work_root(work_root: Path) -> WorkRootManifest:
+def discover_work_root(
+    work_root: Path,
+    *,
+    af3_only: bool = False,
+    latest_only: bool = False,
+) -> WorkRootManifest:
     """Scan a work/ directory and return a fully-populated manifest.
 
     Args:
         work_root: Path to the ``work/`` directory
             (e.g. ``/cluster/.../structure_pipeline/work``).
+        af3_only: If True, only discover AF3 predictions (skip RF3).
+        latest_only: If True, only discover the run pointed to by the
+            ``latest`` symlink in each model directory.  If the symlink
+            is absent, all runs are included for that model.
 
     Returns:
         WorkRootManifest with all discovered targets, models, runs,
@@ -77,14 +86,19 @@ def discover_work_root(work_root: Path) -> WorkRootManifest:
         manifest.errors.append(f"work_root is not a directory: {work_root}")
         return manifest
 
+    models_filter = frozenset({"af3"}) if af3_only else ALLOWED_MODELS
+
     for child in sorted(work_root.iterdir()):
         if not child.is_dir():
             continue
         if not TARGET_RE.match(child.name):
             logger.debug("Skipping non-target directory: %s", child.name)
             continue
-        target_entry = _discover_target(child, manifest.errors)
-        if target_entry.models:  # only include targets that have af3/rf3
+        target_entry = _discover_target(
+            child, manifest.errors,
+            models_filter=models_filter, latest_only=latest_only,
+        )
+        if target_entry.models:  # only include targets that have models
             manifest.targets.append(target_entry)
 
     return manifest
@@ -93,30 +107,67 @@ def discover_work_root(work_root: Path) -> WorkRootManifest:
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
-def _discover_target(target_dir: Path, errors: List[str]) -> TargetEntry:
-    """Discover af3/rf3 model directories under a target."""
+def _discover_target(
+    target_dir: Path,
+    errors: List[str],
+    *,
+    models_filter: frozenset = ALLOWED_MODELS,
+    latest_only: bool = False,
+) -> TargetEntry:
+    """Discover model directories under a target."""
     entry = TargetEntry(target=target_dir.name, directory=target_dir)
 
-    for model_name in sorted(ALLOWED_MODELS):
+    for model_name in sorted(models_filter):
         model_dir = target_dir / model_name
         if not model_dir.is_dir():
             continue
-        model_entry = _discover_model(model_dir, target_dir.name, errors)
+        model_entry = _discover_model(
+            model_dir, target_dir.name, errors, latest_only=latest_only,
+        )
         entry.models.append(model_entry)
 
     return entry
 
 
 def _discover_model(
-    model_dir: Path, target: str, errors: List[str]
+    model_dir: Path,
+    target: str,
+    errors: List[str],
+    *,
+    latest_only: bool = False,
 ) -> ModelEntry:
-    """Discover runs/ under a model directory."""
+    """Discover runs/ under a model directory.
+
+    When *latest_only* is True the ``latest`` symlink in *model_dir* is
+    resolved and only that single run is scanned.  If the symlink does
+    not exist, all numeric run directories are scanned as usual.
+    """
     entry = ModelEntry(model=model_dir.name, directory=model_dir)
 
     runs_dir = model_dir / "runs"
     if not runs_dir.is_dir():
         logger.debug("No runs/ directory in %s", model_dir)
         return entry
+
+    # Resolve the ``latest`` symlink if requested.
+    if latest_only:
+        latest_link = model_dir / "latest"
+        if latest_link.is_symlink() or latest_link.is_dir():
+            resolved = latest_link.resolve()
+            if resolved.is_dir() and RUN_ID_RE.match(resolved.name):
+                run_entry = _discover_run(resolved, target, errors)
+                entry.runs.append(run_entry)
+                return entry
+            else:
+                logger.warning(
+                    "latest link in %s resolves to %s which is not a "
+                    "valid run directory — falling back to full scan",
+                    model_dir, resolved,
+                )
+        else:
+            logger.debug(
+                "No 'latest' symlink in %s — scanning all runs", model_dir,
+            )
 
     for run_child in sorted(runs_dir.iterdir()):
         if not run_child.is_dir():

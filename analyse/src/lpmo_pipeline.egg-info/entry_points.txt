@@ -1,0 +1,2 @@
+[console_scripts]
+lpmo-pipeline = lpmo_pipeline.cli:main

@@ -4,6 +4,7 @@
 - Gjelder hele repoet.
 - Ikke finn pa verktoy, kommandoer, paths eller konfigurasjoner som ikke er dokumentert.
 - Hvis informasjon mangler: bruk `TODO` eller `PLACEHOLDER`.
+- Ingen endringer, slettinger eller laging av nye filer skal skje ved kommandolinje operasjoner.
 
 ## Project Context
 - Repoet utvikler en HPC-basert pipeline for strukturprediksjon og analyse av LPMO-enzymer.

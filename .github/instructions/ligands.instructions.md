@@ -4,6 +4,8 @@ applyTo: "Masteroppgave/ligands/**"
 
 # ligands – Repo-instruksjoner for Copilot og utviklere
 
+> Ingen endringer, slettinger eller laging av nye filer skal skje ved kommandolinje operasjoner.
+
 ## Formål
 
 Mappen inneholder ligand-molekyler (polysakkarider) i ulike filformater, brukt som input til strukturprediksjonspipelines (AlphaFold 3, Boltz 2, RoseTTAFold 3). I tillegg ligger det konverteringsskript og et hjelpemakrobibliotek (`boltz_ccd_lib`) for å produsere Boltz-kompatible pickle-filer fra CIF-input.

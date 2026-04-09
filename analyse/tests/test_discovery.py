@@ -424,3 +424,98 @@ class TestSerialization:
         assert "sample" in sd
         assert "status" in sd
         assert sd["status"] == "empty_directory"
+
+
+# ---------------------------------------------------------------------------
+# Filtering: af3_only and latest_only
+# ---------------------------------------------------------------------------
+
+class TestAf3OnlyFilter:
+    """Tests for the af3_only parameter."""
+
+    def test_af3_only_skips_rf3(self, full_work: Path) -> None:
+        m = discover_work_root(full_work, af3_only=True)
+        all_models = [
+            mdl.model for t in m.targets for mdl in t.models
+        ]
+        assert "rf3" not in all_models
+        assert "af3" in all_models
+
+    def test_af3_only_excludes_rf3_only_target(self, full_work: Path) -> None:
+        """NAG6 only has rf3 in full_work → should be excluded entirely."""
+        m = discover_work_root(full_work, af3_only=True)
+        target_names = [t.target for t in m.targets]
+        assert "NAG6" not in target_names
+
+    def test_af3_only_keeps_af3_targets(self, full_work: Path) -> None:
+        m = discover_work_root(full_work, af3_only=True)
+        target_names = sorted(t.target for t in m.targets)
+        assert "CEL6" in target_names
+        assert "STA6" in target_names
+
+    def test_default_includes_rf3(self, full_work: Path) -> None:
+        m = discover_work_root(full_work)
+        all_models = [mdl.model for t in m.targets for mdl in t.models]
+        assert "rf3" in all_models
+
+
+class TestLatestOnlyFilter:
+    """Tests for the latest_only parameter."""
+
+    @pytest.fixture
+    def work_with_latest(self, tmp_path: Path) -> Path:
+        """Work root with multiple runs and a 'latest' symlink."""
+        root = tmp_path / "work"
+        af3_dir = root / "CEL6" / "af3"
+        runs_dir = af3_dir / "runs"
+
+        # Two runs: old and new
+        for rid, uid in [("100", "B6EQJ6"), ("200", "B6EQJ6")]:
+            ut = runs_dir / rid / f"{uid}_CEL6"
+            _touch(ut / f"{uid}_CEL6_model.cif")
+            sd = _make_sample_dir(ut, seed=1, sample=0)
+            _touch(sd / "pose.cif")
+            _touch(sd / "confidence.json")
+
+        # latest → 200
+        latest = af3_dir / "latest"
+        latest.symlink_to(runs_dir / "200")
+
+        return root
+
+    def test_latest_only_single_run(self, work_with_latest: Path) -> None:
+        m = discover_work_root(work_with_latest, latest_only=True)
+        runs = m.targets[0].models[0].runs
+        assert len(runs) == 1
+        assert runs[0].run_id == "200"
+
+    def test_without_latest_flag_all_runs(self, work_with_latest: Path) -> None:
+        m = discover_work_root(work_with_latest, latest_only=False)
+        runs = m.targets[0].models[0].runs
+        assert len(runs) == 2
+
+    def test_latest_only_no_symlink_falls_back(self, tmp_path: Path) -> None:
+        """Without a 'latest' symlink, latest_only scans all runs."""
+        root = tmp_path / "work"
+        for rid in ["100", "200"]:
+            ut = root / "CEL6" / "af3" / "runs" / rid / "B6EQJ6_CEL6"
+            _touch(ut / "model.cif")
+        m = discover_work_root(root, latest_only=True)
+        runs = m.targets[0].models[0].runs
+        assert len(runs) == 2
+
+    def test_combined_af3_only_latest_only(self, work_with_latest: Path) -> None:
+        """Both flags together: only AF3, only latest run."""
+        # Add an rf3 model to verify it's excluded
+        rf3_ut = work_with_latest / "CEL6" / "rf3" / "runs" / "300" / "B6EQJ6_CEL6"
+        _touch(rf3_ut / "model.cif")
+
+        m = discover_work_root(
+            work_with_latest, af3_only=True, latest_only=True,
+        )
+        assert len(m.targets) == 1
+        models = [mdl.model for mdl in m.targets[0].models]
+        assert models == ["af3"]
+        runs = m.targets[0].models[0].runs
+        assert len(runs) == 1
+        assert runs[0].run_id == "200"

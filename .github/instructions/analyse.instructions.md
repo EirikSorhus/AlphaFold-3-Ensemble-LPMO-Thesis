@@ -6,6 +6,7 @@ applyTo: "Masteroppgave/analyse/**"
 
 > **Status: Tidlig implementasjonsstadium.** Mye av koden er pseudo-kode eller tomme stubs.
 > Se `IMPLEMENTATION_PLAYBOOK.md` for prioritert 20-stegs implementasjonsrekkefølge med stopp-punkter.
+> Ingen endringer, slettinger eller laging av nye filer skal skje ved kommandolinje operasjoner.
 
 ---
 

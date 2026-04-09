@@ -4,6 +4,8 @@ applyTo: "Masteroppgave/structure_pipeline/**"
 
 # structure_pipeline – Repo-instruksjoner for Copilot og utviklere
 
+> Ingen endringer, slettinger eller laging av nye filer skal skje ved kommandolinje operasjoner.
+
 ## Formål
 
 `structure_pipeline` er en produksjonsklar, manifest-drevet arbeidsflyt for storskala

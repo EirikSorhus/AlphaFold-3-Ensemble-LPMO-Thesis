@@ -6,6 +6,7 @@ applyTo: "Masteroppgave/pipe_test/scripts/module_2_new/**"
 
 > **FROSSEN MODUL** – Versjon 1.2 (2026-02-20). Kun kritiske bugfix aksepteres.
 > Ny funksjonalitet og refaktorering skal IKKE gjøres uten eksplisitt godkjenning.
+> Ingen endringer, slettinger eller laging av nye filer skal skje ved kommandolinje operasjoner.
 
 ---
 
