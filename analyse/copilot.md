@@ -44,12 +44,14 @@ When generating code, prefer **Claude Opus 4.6** if available in the Copilot mod
 
 ## Source-of-truth priority (conflict policy)
 
-1) **Latest user comments in active thread** are highest priority.  
-2) `plan_implementation_spec.txt`.  
-3) `plan_analyse.txt` as legacy context only.  
-4) Reasonable engineering defaults.
+1) **`AF3_LPMO_pipeline_detailed_plan.md`** is the **primary and governing source** (v1.0, updated 2026-04-21). Always defer to this document for pipeline design, stage order, output tables, and analysis decisions.
+2) **Latest user comments in active thread** — override all documents when present.
+3) `MASTERPLAN.md` and `IMPLEMENTATION_PLAYBOOK.md` — integrated secondary plans.
+4) `plan_implementation_spec.txt` (legacy, archived) — historical context only.
+5) `plan_analyse.txt` (legacy, archived) — historical context only.
+6) Reasonable engineering defaults.
 
-If you (Copilot) see ambiguous/contradicting instructions, **follow (1)** and document the decision in code comments or `docs/decisions.md`.
+If you (Copilot) see ambiguous/contradicting instructions, **follow (2)** for user-stated decisions and **(1)** for pipeline design, and document the decision in code comments or `docs/decisions.md`.
 
 ---
 
@@ -59,7 +61,6 @@ We need a reproducible pipeline that:
 - Generates complex structures with **AF3 only** (RF3 og Boltz-2 er ekskludert)
 - Runs **active-site proximity pre-QC** before chemistry validators
 - Performs **hard QC** with **PoseBusters + Privateer**
-- Runs **PLACER refinement** (mandatory, GPU multi-mode)
 - Creates **ProLIF interaction fingerprints (IFP)**
 - Clusters binding modes with **HDBSCAN** (Jaccard/Tanimoto on binary IFP)
 - Measures mechanistic geometry with **MDAnalysis**
@@ -74,9 +75,8 @@ Optional tuning workflows are run as post-analysis sensitivity/comparison.
 ## HARD RULES (must not be violated)
 
 1) **Privateer input requires monosaccharides as valid CCD `comp_id`** (e.g. `NAG`, `BGC`, `MAN`) — not only custom oligomer codes.
-2) **PLACER is mandatory** before final analysis. Run multi-mode ensemble on GPU; runtime is not considered limiting.
-3) **Atom names differ across models**; mapping must be **topology + geometry based**, not name-based.
-4) **mmCIF is master format**. PDB/MOL2/SDF are tool-specific derivatives.
+2) **Atom names differ across models**; mapping must be **topology + geometry based**, not name-based.
+3) **mmCIF is master format**. PDB/MOL2/SDF are tool-specific derivatives.
 
 ---
 
@@ -140,44 +140,24 @@ Programs:
 Output:
 - `privateer_input/*.cif`
 
-### step_4_refinement (MANDATORY)
-Input: `normalized/*.cif` (or protonated complex if required)  
+### step_4_ifp_and_geometry
+Input: `normalized/*.cif` (QC-passed poses, AF3 directly)
 Programs:
-- PLACER.multi_mode_ensemble  
+- ProLIF (IFP — no Cu repositioning or virtual atoms)
+- MDAnalysis (geometry metrics)
 Output:
-- `placer_models/*.pdb|*.cif`
-- `placer_scores/*.csv|*.json`
+- `analysis/ifp/*.csv`
+- `analysis/geometry/*.csv`
 
-### step_5_validation
-Input:
-- `privateer_input/*.cif`
-- `placer_models/best_model.*`  
+### step_5_clustering
+Input: IFP vectors from step_4
 Programs:
-- Privateer (structure-only or map-assisted if map exists)
-- PoseBusters (complex pose checks)  
+- HDBSCAN (Jaccard metric on binary IFP only)
 Output:
-- `reports/privateer/*`
-- `reports/posebusters/*`
+- `analysis/clusters/*.json`
+- Medoid pose references
 
-### step_6_protonation_and_conversion
-Input: selected refined model  
-Programs:
-- Reduce.add_optimize_hydrogens (protein-focused H network; verify Cu-coordinating His)
-- OpenBabel convert/protonate/charges (for ProLIF: bond orders + partial charges)  
-Output:
-- `analysis_input/complex_H.pdb`
-- `analysis_input/ligand.mol2`
-
-### step_7_analysis
-Input: `analysis_input/complex_H.pdb`, optional trajectory  
-Programs:
-- MDAnalysis (single structure or trajectory)
-- ProLIF (single pose or trajectory)  
-Output:
-- `reports/mdanalysis/*.csv|*.json`
-- `reports/prolif/*.csv|*.json|*.html`
-
-### step_8_reporting
+### step_6_reporting
 Input: all partial reports  
 Programs:
 - custom report assembler  
@@ -239,14 +219,13 @@ Decision rule for picking best parameters:
 ### Main analysis: DEL A (all proteins)
 All proteins × 21 ligands × AF3 only, using fixed parameters (`num_recycles=10`, `num_seeds=15`, `num_diffusion_samples=5`).
 A2: active-site proximity pre-QC followed by hard QC; drop hard-fails, keep soft flags as metadata.
-A3: run PLACER and re-run PoseBusters post-PLACER.
-A4: ProLIF IFP per pose (residue-level + interaction type).
-A5: Cluster within run to compress sampling noise; then cross-run clustering per (protein, ligand) using cluster representatives (medoid) or aggregate IFP.
-A6: For each cluster: pick medoid; compute geometry metrics with MDAnalysis:
+A3: ProLIF IFP per pose (residue-level + interaction type).
+A4: Cluster within run to compress sampling noise; then cross-run clustering per (protein, ligand) using cluster representatives (medoid) or aggregate IFP.
+A5: For each cluster: pick medoid; compute geometry metrics with MDAnalysis:
 - Cu–C1, Cu–C4
 - angle/tilt vs His-brace (define robust rule)
 - optional planar stacking metrics
-A7: Crystal anchoring where available:
+A6: Crystal anchoring where available:
 - if ligand-bound crystal: IFP similarity
 - if apo: pocket RMSD + key residues near Cu
 A8: Connect to activity (C1/C4, substrate specificity, family) with aggregated cluster occupancies and signatures.
@@ -288,7 +267,6 @@ Provide a top-level CLI (e.g. `python -m lpmo_pipeline ...`) with subcommands:
 - `predict`
 - `normalize`
 - `privateer-prep`
-- `placer`
 - `pre-qc-proximity`
 - `validate`
 - `prep-analysis`
@@ -305,7 +283,7 @@ Provide a top-level CLI (e.g. `python -m lpmo_pipeline ...`) with subcommands:
 ### Tool adapters
 Abstract external tools behind adapters:
 - `tools/af3.py` (ikke `tools/rf3.py` eller `tools/boltz2.py` — RF3 og Boltz-2 er ekskludert)
-- `tools/gemmi.py`, `tools/privateer.py`, `tools/placer.py`, `tools/posebusters.py`
+- `tools/gemmi.py`, `tools/privateer.py`, `tools/posebusters.py`
 - `tools/reduce.py`, `tools/openbabel.py`
 Adapters should:
 - validate inputs/outputs
@@ -363,7 +341,7 @@ Dette er en preferanse, ikke et absolutt krav. Bruk terminal når transformasjon
 2. **Changes to which analyses are run** — enabling/disabling entire sub-analyses (DEL A, DEL B, tuning phases)
 3. **Changes to primary analysis unit** — current primary unit is **cluster** (not enzyme)
 4. **Changes to output artifacts** — schema or structure of required output tables
-5. **Changes to core validation gates** — PoseBusters, Privateer, PLACER mandatory status
+5. **Changes to core validation gates** — PoseBusters, Privateer mandatory status
 6. **Changes to HARD RULES** — including chain schema, atom mapping strategy, confidence field handling
 
 **Before proposing any of the above**, AI must:

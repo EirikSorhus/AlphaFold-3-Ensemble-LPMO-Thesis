@@ -37,6 +37,7 @@ except ImportError:
 
 from lpmo_pipeline.utils.logging import StructuredLogger, FailureLog
 from lpmo_pipeline.utils.data_models import AtomMap, QCFlag, QCStatus, FailureReason
+from lpmo_pipeline.io.ccd_lookup import CCDLookupResult, validate_all_glycan_residues
 
 
 # Entity type constants from AF3 CIF
@@ -69,10 +70,21 @@ class AtomMappingResult:
 
 
 @dataclass
+class CCDValidationSummary:
+    """Outcome of CCD monosaccharide validation for glycan residues."""
+    total_glycan_residues: int
+    observed_comp_ids: List[str]
+    all_valid: bool
+    invalid_comp_ids: List[str]
+    lookup_results: List[CCDLookupResult]
+
+
+@dataclass
 class NormalizeReport:
     """Summary of normalization results."""
     chain_mappings: List[ChainMapping]
     atom_mapping: AtomMappingResult
+    ccd_validation: CCDValidationSummary
     has_struct_conn: bool
     has_chem_comp_bond: bool
     confidence_derived: bool
@@ -140,29 +152,66 @@ class NormalizeMMCIFRunner:
                 self.logger.log_step_end("normalize_mmcif", "failure", {}, elapsed)
                 return False, None
 
+            # Step 4: Validate glycan residues against CCD monosaccharide rules
+            ccd_validation = self._validate_glycan_residues(structure)
+
             # Step 2c: Verify connectivity (_struct_conn present)
             has_conn = self._check_connectivity(block)
+            has_chem_comp_bond = self._check_chem_comp_bond(block)
 
             # Step 2d: Derive residue-level confidence from B_iso
             n_conf = self._derive_residue_confidence(structure)
-
-            # Save normalized CIF
-            output_path = self.output_dir / "normalized.cif"
-            structure.make_mmcif_document().write_file(str(output_path))
-
-            # Write atom mapping log
-            self._write_atom_mapping_log(mapping_result)
 
             # Write normalize report
             report = NormalizeReport(
                 chain_mappings=chain_mappings,
                 atom_mapping=mapping_result,
+                ccd_validation=ccd_validation,
                 has_struct_conn=has_conn,
-                has_chem_comp_bond=self._check_chem_comp_bond(block),
+                has_chem_comp_bond=has_chem_comp_bond,
                 confidence_derived=n_conf > 0,
                 n_residues_with_confidence=n_conf,
             )
+
+            # Write atom mapping log before any downstream gating return.
+            self._write_atom_mapping_log(mapping_result)
             self._write_normalize_report(report)
+
+            if not ccd_validation.all_valid:
+                self.logger.log_failure(
+                    "glykan_not_ccd",
+                    {
+                        "invalid_comp_ids": ccd_validation.invalid_comp_ids,
+                        "observed_comp_ids": ccd_validation.observed_comp_ids,
+                    },
+                )
+                self.failures.record(
+                    "normalize_mmcif",
+                    None,
+                    FailureReason.GLYKAN_NOT_CCD.value,
+                    {
+                        "total_glycan_residues": ccd_validation.total_glycan_residues,
+                        "invalid_comp_ids": ccd_validation.invalid_comp_ids,
+                        "observed_comp_ids": ccd_validation.observed_comp_ids,
+                    },
+                )
+                self.failures.write()
+                elapsed = (datetime.utcnow() - start).total_seconds()
+                self.logger.log_step_end(
+                    "normalize_mmcif",
+                    "failure",
+                    {
+                        "invalid_comp_ids": ccd_validation.invalid_comp_ids,
+                        "total_glycan_residues": ccd_validation.total_glycan_residues,
+                    },
+                    elapsed,
+                )
+                self.logger.close()
+                return False, None
+
+            # Save normalized CIF
+            output_path = self.output_dir / "normalized.cif"
+            structure.make_mmcif_document().write_file(str(output_path))
 
             elapsed = (datetime.utcnow() - start).total_seconds()
             self.logger.log_step_end(
@@ -173,6 +222,7 @@ class NormalizeMMCIFRunner:
                     "mapping_coverage": mapping_result.mapping_coverage,
                     "chain_mappings": len(chain_mappings),
                     "confidence_residues": n_conf,
+                    "glycan_ccd_valid": ccd_validation.all_valid,
                 },
                 elapsed,
             )
@@ -359,6 +409,63 @@ class NormalizeMMCIFRunner:
             reason="af3_identity_mapping" if coverage == 1.0 else "missing_element_data",
         )
 
+    def _validate_glycan_residues(
+        self, structure: "gemmi.Structure"
+    ) -> CCDValidationSummary:
+        """Validate normalized glycan residues against the CCD monosaccharide rules."""
+        model = structure[0]
+        glycan_comp_ids: List[str] = []
+
+        for chain in model:
+            if chain.name in {"A", "E"}:
+                continue
+            for residue in chain:
+                glycan_comp_ids.append(residue.name.strip().upper())
+
+        if not glycan_comp_ids:
+            self.logger.log_check(
+                "glycan_ccd_validation",
+                "soft_flag",
+                "No glycan residues found in normalized chains B..D",
+            )
+            return CCDValidationSummary(
+                total_glycan_residues=0,
+                observed_comp_ids=[],
+                all_valid=True,
+                invalid_comp_ids=[],
+                lookup_results=[],
+            )
+
+        all_valid, results = validate_all_glycan_residues(glycan_comp_ids)
+        invalid_comp_ids = sorted({r.comp_id for r in results if not r.is_valid_ccd_mono})
+        observed_comp_ids = sorted({r.comp_id for r in results})
+
+        if all_valid:
+            self.logger.log_check(
+                "glycan_ccd_validation",
+                "pass",
+                f"Validated {len(glycan_comp_ids)} glycan residues against CCD monosaccharide rules",
+                {"observed_comp_ids": observed_comp_ids},
+            )
+        else:
+            self.logger.log_check(
+                "glycan_ccd_validation",
+                "hard_fail",
+                "One or more glycan residues are not valid CCD monosaccharides",
+                {
+                    "invalid_comp_ids": invalid_comp_ids,
+                    "observed_comp_ids": observed_comp_ids,
+                },
+            )
+
+        return CCDValidationSummary(
+            total_glycan_residues=len(glycan_comp_ids),
+            observed_comp_ids=observed_comp_ids,
+            all_valid=all_valid,
+            invalid_comp_ids=invalid_comp_ids,
+            lookup_results=results,
+        )
+
     # -----------------------------------------------------------------------
     # Step 2c: Connectivity checks
     # -----------------------------------------------------------------------
@@ -381,7 +488,22 @@ class NormalizeMMCIFRunner:
         return True
 
     def _check_chem_comp_bond(self, block: "gemmi.cif.Block") -> bool:
-        """Check whether _chem_comp_bond is present."""
+        """Check whether _chem_comp_bond is present.
+
+        AF3 mmCIF files usually omit this category. Missing _chem_comp_bond is
+        therefore treated as informational, not as a warning/failure in
+        normalization.
+
+        IMPORTANT:
+        If a later AF3 analysis step truly requires explicit bond-table data,
+        that step must either derive it from another reliable source or raise a
+        clear error there. Normalization should not hard-fail only because AF3
+        omits _chem_comp_bond.
+
+        TODO(legacy-cleanup): remove this presence check entirely once we have
+        confirmed no downstream AF3 path depends on _chem_comp_bond, or once a
+        dedicated fallback provider is implemented and verified.
+        """
         try:
             bonds = list(block.find_values("_chem_comp_bond.comp_id"))
             present = len(bonds) > 0
@@ -397,8 +519,8 @@ class NormalizeMMCIFRunner:
         else:
             self.logger.log_check(
                 "chem_comp_bond_present",
-                "soft_flag",
-                "_chem_comp_bond not present in CIF — AF3 output typically omits this",
+                "pass",
+                "_chem_comp_bond not present in CIF — expected for AF3; treated as informational",
             )
         return present
 
@@ -494,6 +616,21 @@ class NormalizeMMCIFRunner:
                     "total_atoms": report.atom_mapping.total_atoms,
                     "mapped_atoms": report.atom_mapping.mapped_atoms,
                     "coverage": report.atom_mapping.mapping_coverage,
+                },
+                "ccd_validation": {
+                    "total_glycan_residues": report.ccd_validation.total_glycan_residues,
+                    "observed_comp_ids": report.ccd_validation.observed_comp_ids,
+                    "all_valid": report.ccd_validation.all_valid,
+                    "invalid_comp_ids": report.ccd_validation.invalid_comp_ids,
+                    "results": [
+                        {
+                            "comp_id": result.comp_id,
+                            "is_valid_ccd_mono": result.is_valid_ccd_mono,
+                            "canonical_name": result.canonical_name,
+                            "rejection_reason": result.rejection_reason,
+                        }
+                        for result in report.ccd_validation.lookup_results
+                    ],
                 },
                 "has_struct_conn": report.has_struct_conn,
                 "has_chem_comp_bond": report.has_chem_comp_bond,

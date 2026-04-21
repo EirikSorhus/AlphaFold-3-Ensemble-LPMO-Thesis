@@ -1,18 +1,26 @@
-# LPMO Structure Prediction -> Analysis Pipeline - Integrated Master Plan (v2.2)
+# LPMO Structure Prediction -> Analysis Pipeline - Integrated Master Plan (v2.3)
 
 ## 0. Priority Order
 
 This file follows the active priority stack for implementation decisions:
-1. Latest user comments in the working thread
-2. `plan_implementation_spec.txt`
-3. `plan_analyse.txt` (legacy reference only)
+1. `AF3_LPMO_pipeline_detailed_plan.md` — **primary and governing source** (updated 2026-04-21)
+2. Latest user comments in the working thread
+3. `MASTERPLAN.md` (this file) and `IMPLEMENTATION_PLAYBOOK.md`
+4. `plan_implementation_spec.txt` — **archived legacy spec** (PLACER steps obsolete; use for historical context only)
+5. `plan_analyse.txt` — **archived legacy reference only** (research questions RQ1-RQ4 and AF3 tuning rationale as background)
 
 **⚠️ CRITICAL: Large changes to order of analyses, which analyses are run, or core pipeline structure must NOT be made by AI without explicit user approval first. Any proposed changes in these areas require user review and confirmation.**
+
+**⚠️ KNOWN RESOLVED DECISIONS (2026-04-21):**
+- **A (RESOLVED)**: AF3 runs completed with `num_diffusion_samples=5` → 75 poses per system. All documents updated (IMPLEMENTATION_PLAYBOOK.md and OPEN_QUESTIONS.md item 14 updated 2026-04-21).
+- **B (RESOLVED)**: PLACER is removed from the pipeline entirely.
+- **C (RESOLVED)**: Use `protein_id` / "protein" as canonical term.
+- **D (RESOLVED)**: Five separate pose-level tables (no merged `pose_table.tsv`).
 
 ## 1. Scope And Invariants
 
 - Models: AF3 (**RF3/RosettaFold 3 og Boltz-2 er ekskludert fra analyse**)
-- AF3 fixed parameters (main analysis): `num_recycles=10`, `num_seeds=15`, `num_diffusion_samples=5`
+- AF3 fixed parameters (main analysis): `num_recycles=10`, `num_seeds=15`, `num_diffusion_samples=5` (75 poses per protein–ligand condition; runs completed)
 - Operational analyses: 9 independent sub-analyses
   - chitin_DP4, chitin_DP6, chitin_DP8
   - cellulose_DP4, cellulose_DP6, cellulose_DP8
@@ -23,25 +31,66 @@ This file follows the active priority stack for implementation decisions:
 - Main analyses must not aggregate cluster rows to one enzyme row.
 - Enzyme-level summaries are secondary sensitivity analyses only.
 - IFP clustering uses IFP features only; geometry is linked after clustering.
-- PLACER is mandatory before main QC and analysis.
 - Atom names are not assumed consistent across models; mapping key is (element, CCD, local bond graph, 3D proximity).
 - Chain schema: protein=A, glycans=B..D, metal=E.
 - `_chem_comp_bond` must be complete for all `comp_id`, and `_struct_conn` must include glycosidic + Cu coordination links.
 - Preserve all computed numeric metrics; do not drop distance/angle/support fields from output tables.
-- Geometric planarity criteria are still not operationalized; final thresholds remain an open decision.
+- Geometry plausibility thresholds are operationalized and locked in `configs/thresholds.yaml` (`geometry_plausibility.locked = true`, 2026-04-21).
 - Statistical/descriptive analysis should prefer R where possible (Python wrappers can orchestrate).
 
 ## 2. Required Output Tables
 
+Tables are grouped by analysis level. The new detailed plan (v1.0) introduces a split structure for
+pose-level outputs. **See OPEN_QUESTIONS.md item 17 for the decision on merged vs split pose table.**
+
+### 2.1 Pose-level tables
+
 | Artifact | Format | Primary unit | Notes |
 |---|---|---|---|
-| pose_table.tsv | TSV | pose | Includes all QC, IFP, and geometry calculations |
-| cluster_table.tsv | TSV | cluster | Main descriptive unit |
+| pose_manifest.tsv | TSV | pose | Pose metadata, paths, AF3 confidence fields, parsing status |
+| pose_confidence.tsv | TSV | pose | AF3 confidence metrics only (ipTM, pTM, pLDDT, etc.) |
+| pose_ifp_table.tsv | TSV | pose | IFP vector, feature names, per-type contact counts |
+| pose_residue_contact_table.tsv | TSV | pose × residue × interaction_type | Residue-level contact table (new in v1.0) |
+| pose_geometry.tsv | TSV | pose | Geometry metrics and status labels |
+
+### 2.2 Cluster-level tables
+
+| Artifact | Format | Primary unit | Notes |
+|---|---|---|---|
+| cluster_table.tsv | TSV | cluster | Main descriptive unit; includes geometry annotation |
+| cluster_assignments.tsv | TSV | pose | Cluster membership, noise flag |
+| medoid_manifest.tsv | TSV | cluster | Medoid pose ID and structure path |
+| cluster_ifp_signature.tsv | TSV | cluster × feature | IFP feature frequency per cluster |
+| cluster_residue_signature.tsv | TSV | cluster × residue | Residue contact frequency per cluster (new in v1.0) |
 | predictive_cluster_table.tsv | TSV | cluster | Main predictive modeling table |
-| enzyme_summary_table.tsv | TSV | enzyme | Secondary sensitivity table only |
-| crystal_anchor_table.tsv | TSV | cluster/enzyme-ligand | Optional sanity check |
-| cbm_comparison_table.tsv | TSV | enzyme-subanalysis | Domain-only vs full-length paired analyses |
-| qc_report.json | JSON | pose | Includes pre-QC proximity + PB + Privateer + geometry gates |
+
+### 2.3 Condition / protein-level tables
+
+| Artifact | Format | Primary unit | Notes |
+|---|---|---|---|
+| condition_table.tsv | TSV | protein–ligand condition | Central repeated-measures table (new in v1.0) |
+| condition_cluster_summary.tsv | TSV | condition | Cluster count, entropy, noise fraction |
+| protein_summary_table.tsv | TSV | protein | Secondary sensitivity table only (was enzyme_summary_table.tsv) |
+| qc_attrition_table.tsv | TSV | condition | Attrition by reason code |
+
+### 2.4 Interpretation / side-analysis tables
+
+| Artifact | Format | Primary unit | Notes |
+|---|---|---|---|
+| protein_condition_residue_scores.tsv | TSV | protein × condition × residue | Occupancy-weighted contact scores (new in v1.0) |
+| protein_residue_regio_delta.tsv | TSV | protein × residue | C1 vs C4 delta contact scores (new in v1.0) |
+| family_aligned_residue_table.tsv | TSV | family × alignment position | Within-family alignment (optional, new in v1.0) |
+| family_residue_enrichment.tsv | TSV | family × residue | Family-level residue enrichment (optional, new in v1.0) |
+| condition_patch_summary.tsv | TSV | condition | Residue-property patch summaries (new in v1.0) |
+| protein_patch_summary.tsv | TSV | protein | Protein-level patch summaries (new in v1.0) |
+| crystal_anchor_table.tsv | TSV | cluster | Crystal sanity check |
+| cbm_comparison_table.tsv | TSV | protein–subanalysis | Domain-only vs full-length paired analyses |
+
+### 2.5 Run artifacts
+
+| Artifact | Format | Primary unit | Notes |
+|---|---|---|---|
+| qc_report.json | JSON | pose | Pre-QC proximity + PB + Privateer + geometry gates |
 | clusters.json | JSON | cluster | Occupancy, support, medoid, outlier stats |
 | cluster_signatures.json | JSON | cluster | Median/IQR geometry + IFP enrichments |
 | metrics.csv | CSV | mixed | Flat export for plotting and QA |
@@ -50,97 +99,109 @@ This file follows the active priority stack for implementation decisions:
 
 ## 3. Core Pipeline (Per Sub-Analysis)
 
-### Step 1 - Ingest And Normalize
+The pipeline follows the stage numbering in `AF3_LPMO_pipeline_detailed_plan.md` (v1.0).
+Implementation order follows `IMPLEMENTATION_PLAYBOOK.md`.
+
+### Stage 1 - AF3 Parsing and Pose Manifest
 - Input: precomputed predictions from AF3 only (RF3 and Boltz-2 excluded).
-- Validate mmCIF parse, categories, atom count.
-- Normalize chains and connectivity.
+- Parse AF3 outputs into `pose_manifest.tsv` and `pose_confidence.tsv`.
+- Store ipTM, pTM, mean_pLDDT, ligand_interface_confidence, pae_summary per pose.
+- ipTM must be retained as descriptive metric but not used as primary validity criterion.
+- Compute and store per-condition ipTM mean/SD/median/IQR (separately for all poses and geometry-computable poses only).
+- AF3 parameters (RESOLVED 2026-04-21): `num_seeds=15`, `num_diffusion_samples=5` → 75 poses per protein–ligand condition.
+
+### Stage 2 - Pre-QC / Hard QC (was Step 2–3)
+- Pre-QC active-site proximity gate: `min_cu_ligand_distance <= 10.0 Å` (hard gate before PoseBusters/Privateer; see `thresholds.yaml: hard_gates.active_site_proximity_max_a`).
+- Hard fail criteria: severe PoseBusters fail, severe Privateer fail, Cu missing, ligand missing/broken/unparsable, structure corrupt.
+- Soft flags: retained as metadata; do NOT exclude before IFP.
 - Required gate: atom mapping coverage = 100%.
+- Keep all computed distances in output tables even for dropped poses.
 
-### Step 2 - PLACER Refinement (Mandatory)
-- Input: normalized structures.
-- Output: PLACER ensemble + ranking metadata.
-- Required gate: at least one refined pose.
+### Stage 3 - IFP Generation (was Step 4 / Branch A)
+- Use AF3 structures as-is. Do NOT reposition Cu. Do NOT add virtual oxyl/H.
+- Generate binary ProLIF vectors with fixed interaction types per sub-analysis.
+- Recommended interaction types: HBond donor, HBond acceptor, hydrophobic, aromatic/stacking, cation-pi (only if not too sparse).
+- Generate `pose_ifp_table.tsv` and `pose_residue_contact_table.tsv` in parallel.
 
-### Step 3 - Pre-QC Active-Site Proximity (Before PoseBusters/Privateer)
-- Goal: ensure ligand is close enough to active site before expensive chemistry checks.
-- Compute and store at pose level:
-  - nearest ligand atom to Cu
-  - minimum Cu-ligand distance
-  - minimum Cu-C1 and Cu-C4 where identifiable
-- Hard pre-gate: `min_cu_ligand_distance <= 10.0 A`.
-- Keep all computed distances in `pose_table.tsv` even for dropped poses (with status metadata).
+### Stage 4 - Geometry Branch (was Step 5 / Branch B)
+- Identify histidine-brace atoms, build brace plane.
+- Reposition Cu for geometry branch only (not fed back to IFP or main analysis).
+- Place virtual oxyl. Place virtual H for C1 and C4.
+- Compute: `oxyl_H_C1_distance`, `oxyl_H_C4_distance`, `Cu_C1_distance`, `Cu_C4_distance`, `attack_angle_C1`, `attack_angle_C4`, `sugar_face_orientation`, `ring_normal_vs_brace_normal`.
+- Geometry status: `geometry_not_computable` / `geometry_computable_implausible` / `geometry_plausible` / `geometry_highly_plausible`.
+- Plausibility thresholds (operational, specified and locked in `thresholds.yaml: geometry_plausibility`): oxyl-H window 1.5–4.0 Å, reference optimum ~2.1 Å, tighter window 1.8–2.5 Å.
+- Output: `pose_geometry.tsv`.
 
-### Step 4 - Hard QC
-- Tools: PoseBusters, Privateer, Cu-His geometry gate.
-- Hard fail examples:
-  - critical PoseBusters error
-  - severe Privateer fail (recognition/anomer)
-  - Cu-His outside 1.9-2.6 A
-- Soft flags are retained as metadata.
+### Stage 5 - Convergence Metrics (new in v1.0)
+- Per protein–ligand condition: compute ligand RMSD to a fixed reference pose.
+- During pre-clustering: use best QC-passing seed-1 pose as reference; after clustering: use top-occupancy cluster medoid.
+- Per pose: `ligand_rmsd_to_reference`, `convergent_flag` (RMSD < `convergent_rmsd_max_a`; see `thresholds.yaml: convergence.convergent_rmsd_max_a`).
+- Per condition: `convergence_fraction`, `median_ligand_rmsd`, `iqr_ligand_rmsd`.
 
-### Step 5 - Branch A: IFP
-- Use post-PLACER structures.
-- Do not reposition Cu and do not add virtual oxyl/H in IFP branch.
-- Generate binary ProLIF vectors with consistent feature set.
+### Stage 6 - Clustering (was Step 6)
+- Input: QC-passing poses with successful IFP generation only.
+- One clustering per protein–ligand condition (AF3-only simplification).
+- HDBSCAN with Jaccard distance on binary IFP vectors.
+- Parameters stored in `configs/thresholds.yaml`; locked after tuning.
+- Noise cluster reported separately; not excluded from raw output.
+- Minimum cluster occupancy for main summaries: `>= 0.05` (confirmed; see `thresholds.yaml: cluster_inclusion.min_occupancy`).
+- Output: `cluster_assignments.tsv`, `medoid_manifest.tsv`, `condition_cluster_summary.tsv`.
 
-### Step 6 - Branch B: Geometry
-- Identify histidine-brace atoms.
-- Build brace plane.
-- Reposition Cu (geometry branch only).
-- Place virtual oxyl.
-- Place virtual H for C1 and C4.
-- Compute pose-level geometry metrics:
-  - oxyl_H_C1_distance
-  - oxyl_H_C4_distance
-  - Cu_C1_distance
-  - Cu_C4_distance
-  - attack_angle_C1
-  - attack_angle_C4
-  - sugar_face_orientation
-  - optional ring_normal_vs_brace_normal
-- Suggested plausibility window for oxyl-H: 1.5-4.0 A, reference optimum around 2.1 A.
+### Stage 7 - Cluster Annotation (was Step 7–8)
+- Attach geometry/QC/support features to each cluster (median/IQR summaries).
+- Assign cluster type: `C1_compatible`, `C4_compatible`, `mixed_compatible`, `non_plausible`, `uncertain`.
+- Thresholds for cluster type stored in `configs/thresholds.yaml`.
+- Build `cluster_ifp_signature.tsv` and `cluster_residue_signature.tsv`.
 
-### Step 7 - Clustering (IFP Only)
-- 7A within-model clustering by (enzyme, substrate_class, DP, model_platform).
-- 7B cross-model clustering by (enzyme, substrate_class, DP).
-- Input for clustering: IFP only.
-- Output: occupancy, outlier_rate, cluster_size, medoid pose, support across model platforms.
+### Stage 8 - Residue Importance Analysis (new in v1.0)
+- **Within-protein**: occupancy-weighted residue contact scores per protein–condition.
+  - `residue_contact_score = sum(cluster_occupancy × residue_contact_frequency_in_cluster)`
+  - Output: `protein_condition_residue_scores.tsv`
+- **C1 vs C4 delta**: compare residues enriched in C1-compatible vs C4-compatible clusters within each protein.
+  - Output: `protein_residue_regio_delta.tsv`
+- **Within-family** (optional): align proteins within family, map residues to alignment columns.
+  - Output: `family_aligned_residue_table.tsv`, `family_residue_enrichment.tsv`
+- **Cross-dataset patch-level**: aromatic/polar/charged contact density, loop contact fraction, distance shells from Cu.
+  - Output: `condition_patch_summary.tsv`, `protein_patch_summary.tsv`
+- **Important**: raw residue numbers are NOT directly comparable across unrelated proteins. Split into within-protein, within-family, and property-level analyses.
 
-### Step 8 - Cluster Annotation
-- Attach geometry/QC/support features to each final cluster.
-- Use median/IQR summaries for geometry.
-- Do not rely only on medoid geometry for predictive features.
+### Stage 9 - Protein–Ligand-Condition Summaries (new in v1.0)
+- One row per protein–ligand condition in `condition_table.tsv`.
+- This is the central table for repeated-measures comparisons across ligand conditions.
+- Repeated measures: ligand type and DP as repeated conditions within protein.
 
-### Step 9 - Descriptive Analysis (Cluster-Level)
+### Stage 10 - Protein-Level Summaries (secondary)
+- Build `protein_summary_table.tsv` (was `enzyme_summary_table.tsv`).
+- Canonical term: **protein** / `protein_id` (RESOLVED 2026-04-21, OPEN_QUESTIONS.md item 16). Existing code using `enzyme_id` is updated at next refactor; not a blocker.
+- Secondary sensitivity table only; do NOT use as main analysis table.
+
+### Stage 11 - Crystal Sanity-Check (was Step 12)
+- Input: cluster medoids only (not all poses).
+- Alignment: PyMOL `pair_fit` on histidine-brace, Cu-coordinating residues, substrate-recognition residues.
+- Output: `crystal_anchor_table.tsv`.
+- Crystal mismatch does NOT invalidate a cluster; context and plausibility only.
+
+### Stage 12 - Removed
+
+~~Optional PLACER Sensitivity Branch~~ — **PLACER removed entirely (decision 2026-04-21).**
+
+### Stage 13 - Descriptive Analysis (was Step 9)
 - Primary descriptive unit: cluster.
-- Recommended outputs: occupancy profiles, cluster counts, geometry distributions, IFP enrichments, family and CBM stratification.
-- Recommended methods: proportions, medians/IQR, odds ratios, Fisher/chi-square, FDR correction.
+- Required outputs: QC attrition plot, cluster count distribution, top-cluster occupancy distribution, cluster entropy, geometry plausibility fractions, ipTM vs QC/geometry/occupancy, residue contact heatmaps, medoid structural figures.
+- Cross-condition comparisons: chitin vs cellulose vs starch; DP4 vs DP6 vs DP8; domain-only vs full-length.
 
-### Step 10 - Predictive Analysis (Cluster Rows)
-- Primary table: `predictive_cluster_table.tsv`.
-- Each row is one cluster with occupancy/support/QC/geometry/IFP features.
-- Main target: regioselectivity (C1 vs C4, optional mixed-class extension).
-- Grouped CV at enzyme level; all clusters from same enzyme stay in one fold.
-- Do not collapse to one mean geometry per enzyme as the primary model input.
+### Stage 14 - Exploratory Predictive Analysis (was Step 10)
+- Keep simple: at most 1–2 tasks (e.g., C1 vs C4, chitin vs cellulose preference).
+- Primary rows: cluster.
+- Grouped CV at protein level (all clusters from same protein in one fold).
+- Report: balanced accuracy, macro F1, AUROC where applicable.
+- Results are exploratory; do NOT overinterpret as causal biology.
 
-### Step 11 - Optional Enzyme-Level Summaries (Secondary)
-- Build occupancy-weighted enzyme summaries only for sensitivity analyses.
-- Keep this explicitly separate from primary predictive modeling.
-
-### Step 12 - Optional Crystal Anchoring
-- Use only as sanity check (not primary validation criterion).
-- **Alignment method**: PyMOL `pair_fit` for optimal local superposition.
-  - Align on: (1) histidine-brace residues near Cu, (2) residues near Cu-site, (3) surface residues involved in substrate recognition.
-  - Finding substrate-recognition residues: prefer literature-based selection (best); fallback is proximity-based (all residues within a cutoff of ligand in predicted structure). Note: proximity-based selection can give different residues per prediction depending on ligand placement.
-  - Be explicit that RMSD is measured after optimized local alignment (not global).
-- Metrics: local pocket RMSD (post pair_fit), ligand RMSD or proximal sugar RMSD, IFP similarity where comparable.
-
-### Step 13 - CBM Paired Analysis
-- Compare catalytic-domain-only vs full-length for CBM enzymes.
-- Keep clustering domain-focused; treat CBM contacts as annotation/secondary features.
-
-### Step 14 - Reporting
-- Produce `summary.json`, `metrics.csv`, `report.html`.
+### Stage 15 - CBM Paired Analysis (was Step 13)
+- Only proteins with both domain-only and full-length constructs.
+- Paired comparisons within each protein–ligand condition.
+- Output: `cbm_comparison_table.tsv`.
+- Statistics: paired Wilcoxon signed-rank; report effect sizes and direction.
 
 ## 4. Activity Label Mapping From EC
 
@@ -154,12 +215,22 @@ Maintain explicit EC-to-activity mapping from metadata (implemented in `scripts/
   - AA17 family: homogalacturonan, C4 oxidation
   - otherwise: xylan/other oxidative activity (provisional label)
 
-## 5. Predictive Cluster Table Requirements
+## 5. Entity Identifiers
+
+Canonical term: **protein** / `protein_id` (resolved 2026-04-21; see OPEN_QUESTIONS.md item 16). Use `protein_id` in all new code and table schemas. Existing code using `enzyme_id` will be updated at next refactor.
+
+Stable ID formats (from `AF3_LPMO_pipeline_detailed_plan.md`):
+
+- **Pose ID**: `{protein_id}__{construct_type}__{substrate_class}_DP{dp}__seed{seed}__sample{sample}`
+- **Condition ID**: `{protein_id}__{construct_type}__{substrate_class}_DP{dp}`
+- **Cluster ID**: `{condition_id}__cluster{n}`
+
+## 6. Predictive Cluster Table Requirements
 
 Minimum required columns:
 
 - analysis_id
-- enzyme_id
+- protein_id (⚠️ was enzyme_id — see OPEN_QUESTIONS.md item 16)
 - family
 - cbm_status
 - substrate_class
@@ -169,8 +240,7 @@ Minimum required columns:
 - qc_factor
 - support_factor
 - cluster_weight
-- cross_model_support
-- convergence_support
+- convergence_support (note: cross_model_support is not applicable for AF3-only pipeline)
 - invalid_geometry_fraction
 - plausible_geometry_fraction
 - scorable_geometry_fraction
@@ -183,13 +253,13 @@ Minimum required columns:
 - face_orientation_summary
 - ifp_features_selected
 - experimental_regio_label
-- experimental_ligand_specificity_label
+- experimental_substrate_label (was experimental_ligand_specificity_label)
 
 Suggested weight definition:
 
 - cluster_weight = occupancy * qc_factor * support_factor
 
-## 6. Optional Post-Analysis Tuning
+## 7. Optional Post-Analysis Tuning
 
 Tuning is optional and runs after baseline analysis as a comparative/sensitivity workflow.
 
@@ -197,14 +267,13 @@ Tuning is optional and runs after baseline analysis as a comparative/sensitivity
 - Only AF3 is used; no cross-model comparison in tuning.
 - If tuning is executed later, tuned settings are applied in follow-up reruns and documented in the manifest.
 
-## 7. Failure Policy
+## 8. Failure Policy
 
 | Event | Hard? | Action | Keep numeric metrics? |
 |---|---|---|---|
 | atom_mapping < 100% | YES | skip | yes, store coverage + reason |
 | pre-QC ligand too far from active site | YES | drop before PB/Privateer | yes, store distances |
 | glycan not CCD-valid for Privateer prep | YES | skip/drop | yes |
-| PLACER returns 0 poses | YES | skip | yes, store run metadata |
 | critical PoseBusters error | YES | drop pose | yes |
 | severe Privateer fail | YES | drop pose | yes |
 | Cu-His outside 1.9-2.6 A | YES | drop pose | yes |
@@ -212,38 +281,38 @@ Tuning is optional and runs after baseline analysis as a comparative/sensitivity
 | HDBSCAN outlier | NO | keep with outlier label | yes |
 | low crystal similarity | NO | keep + flag | yes |
 
-## 8. Reproducibility
+## 9. Reproducibility
 
 Every run writes `run_manifest.json` including:
 
 - pipeline_version, timestamp, git_commit, config_hash
-- tool_versions (Gemmi, PLACER, PoseBusters, Privateer, MDAnalysis, ProLIF, HDBSCAN, R)
+- tool_versions (Gemmi, PoseBusters, Privateer, MDAnalysis, ProLIF, HDBSCAN, R)
 - seeds and input checksums (SHA-256)
 - gate outcomes including pre-QC active-site proximity
 - references to prediction artifacts reused by analysis
 
-## 9. RQ To Output Mapping
+## 10. RQ To Output Mapping
 
 | RQ | Primary analysis unit | Key metrics | Artifact |
 |---|---|---|---|
 | RQ1 C1/C4 regioselectivity | cluster | Cu-C1/C4, oxyl-H, attack angles, occupancy | cluster_table.tsv, predictive_cluster_table.tsv |
 | RQ2 substrate specificity | cluster | substrate/DP-specific occupancy + IFP signatures | cluster_table.tsv, predictive_cluster_table.tsv |
-| RQ3 CBM effect | paired enzyme-subanalysis | occupancy shifts, support, CBM proximity | cbm_comparison_table.tsv |
-| RQ4 crystal anchoring | cluster/enzyme-ligand | pocket RMSD (optimized local alignment via PyMOL pair_fit), ligand/proximal RMSD, IFP similarity | crystal_anchor_table.tsv |
+| RQ3 CBM effect | paired protein–subanalysis | occupancy shifts, support, CBM proximity | cbm_comparison_table.tsv |
+| RQ4 crystal anchoring | cluster/protein–ligand condition | pocket RMSD (optimized local alignment via PyMOL pair_fit), ligand/proximal RMSD, IFP similarity | crystal_anchor_table.tsv |
 
-## 10. Implementation Status
+## 11. Implementation Status
 
 Pipeline status has moved from pseudocode-only to step-by-step implementation.
 Execution follows the IMPLEMENTATION_PLAYBOOK.md priority order.
 Each step is implemented, tested, and verified before the next begins.
 
-## 11. Third-Party Code
+## 12. Third-Party Code
 
 Adapted patterns from the following MIT-licensed projects (see ATTRIBUTION.md):
 - **PoseBench** (BioinfoMachineLearning/PoseBench): CIF→PDB conversion via PDBFixer, PoseBusters Python API usage, mol_table pattern.
 - **benchmarking-af3** (lyulab/benchmarking-af3): Pocket residue identification via proximity cutoff, residue mapping between structures, metrics aggregation patterns.
 
-## 12. Alignment Strategy (Crystal Anchoring)
+## 13. Alignment Strategy (Crystal Anchoring)
 
 Alignment of predicted structures against crystal references uses PyMOL `pair_fit`:
 

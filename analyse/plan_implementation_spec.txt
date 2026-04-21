@@ -1,6 +1,12 @@
 
+ARCHIVED — LEGACY IMPLEMENTATION SPEC
+======================================
+This file is a legacy implementation specification. It predates the PLACER removal (2026-04-21). Steps 3 (PLACER refinement) and 4 (re-QC after PLACER) in sections 3–4 are now obsolete. The 2026-04-09 note about PLACER role has itself been superseded: PLACER is removed entirely. Core structural content (QC, IFP, geometry, clustering, predictive analysis) is largely superseded by AF3_LPMO_pipeline_detailed_plan.md and MASTERPLAN.md. This file is preserved as a reference for historical context. For current specification, see AF3_LPMO_pipeline_detailed_plan.md (primary).
+
 IMPLEMENTATION_SPEC_LPMO_PIPELINE_V1
-===================================
+=====================================
+
+**⚠️ NOTE (2026-04-09, NOW SUPERSEDED 2026-04-21): PLACER er fjernet fra analysen helt (beslutning 2026-04-21). Steps 3 og 4 nedenfor er foreldet.**
 
 PURPOSE
 -------

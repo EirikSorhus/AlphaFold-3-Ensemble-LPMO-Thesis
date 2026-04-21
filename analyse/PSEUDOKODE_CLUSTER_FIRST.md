@@ -1,8 +1,12 @@
+> **⚠️ ARCHIVED — LEGACY PSEUDOCODE**
+> This file is a legacy pseudocode document. It predates the PLACER removal (2026-04-21) and the AF3-only simplification. It still references cross-model clustering and a PLACER validation step (STEP G) which are now obsolete. For the current pipeline specification, see [AF3_LPMO_pipeline_detailed_plan.md](AF3_LPMO_pipeline_detailed_plan.md) (primary) and [MASTERPLAN.md](MASTERPLAN.md).
+
 # PSEUDOKODE - CLUSTER-FIRST ANALYSEPIPELINE
 
 Status:
 - Kun pseudokode. Ingen installasjon, ingen kjoreklar kode.
 - Strukturprediksjon antas ferdig kjort separat.
+- **ARKIVERT**: Refererer til PLACER og cross-model clustering som er fjernet. Se gjeldende plandokumenter.
 
 Prioritet:
 1. Siste kommentarer i chat
@@ -53,22 +57,19 @@ PROCEDURE KjorSubanalyse(config, substrate_class, DP):
                 CONTINUE
             normalized_poses <- normalized_poses + [normalized]
 
-        # STEP B: PLACER (obligatorisk)
-        refined_poses <- KjorPLACER(normalized_poses)
-
-        # STEP C: pre-QC active-site proximity (for PB/Privateer)
+        # STEP B: pre-QC active-site proximity
         preqc_pass <- []
-        FOR hver rpose i refined_poses:
-            proximity <- BeregnActiveSiteProximity(rpose)
-            LagreNumeriskeMetrikker(rpose, proximity.metrics)
+        FOR hver pose i normalized_poses:
+            proximity <- BeregnActiveSiteProximity(pose)
+            LagreNumeriskeMetrikker(pose, proximity.metrics)
 
             IF proximity.min_cu_ligand_distance > config.pre_qc_active_site_max_a:
-                LoggDropp(rpose, "ligand_too_far_from_active_site")
+                LoggDropp(pose, "ligand_too_far_from_active_site")
                 CONTINUE
 
-            preqc_pass <- preqc_pass + [rpose]
+            preqc_pass <- preqc_pass + [pose]
 
-        # STEP D: hard QC
+        # STEP C: hard QC
         qc_pass <- []
         FOR hver p in preqc_pass:
             pb <- KjorPoseBusters(p)
@@ -91,23 +92,34 @@ PROCEDURE KjorSubanalyse(config, substrate_class, DP):
 
             qc_pass <- qc_pass + [p]
 
-        # STEP E: Branch A (IFP)
+        # STEP D: Branch A (IFP)
         FOR hver p in qc_pass:
-            # Viktig: ingen Cu-reposition, ingen virtuell oxyl/H i IFP-branch
+            # Viktig: bruker AF3-poser direkte, ingen PLACER-raffinering
+            # Ingen Cu-reposition, ingen virtuell oxyl/H i IFP-branch
             ifp <- KjorProLIF(p)
             p.ifp_vector <- ifp.vector
 
-        # STEP F: Branch B (geometry)
+        # STEP E: Branch B (geometry)
         FOR hver p in qc_pass:
             g <- BeregnGeometriMedVirtuelleObjekter(p)
             # behold alle tall, ogsaa for borderline geometri
             p.geometry <- g
 
-        # STEP G: Clustering (kun IFP)
+        # STEP F: Clustering (kun IFP)
         within_model_clusters <- ClusterWithinModel(qc_pass, metric="jaccard")
         final_clusters <- ClusterCrossModel(within_model_clusters, metric="jaccard")
 
-        # STEP H: Cluster-annotering med geometri/QC/support
+        # STEP G: PLACER uavhengig validering (post-clustering)
+        # PLACER-koordinater brukes IKKE videre. Kun skårer (prmsd, rmsd, plddt).
+        FOR hver cluster i final_clusters:
+            medoid <- cluster.medoid
+            glycam_file <- HentGLYCAMLigandFil(system.substrate_type, system.DP)
+            placer_scores <- KjorPLACERValidering(medoid.pdb, glycam_file, n_samples=50)
+            cluster.placer_prmsd <- Median(placer_scores.prmsd)
+            cluster.placer_rmsd <- Median(placer_scores.rmsd)
+            cluster.placer_plddt <- Median(placer_scores.plddt)
+
+        # STEP H: Cluster-annotering med geometri/QC/support/PLACER-skårer
         annotated_clusters <- []
         FOR hver cluster i final_clusters:
             ann <- AnnoterCluster(cluster, qc_pass)
@@ -116,8 +128,8 @@ PROCEDURE KjorSubanalyse(config, substrate_class, DP):
             annotated_clusters <- annotated_clusters + [ann]
 
         # STEP I: tabeller
-        pose_table <- pose_table + ByggPoseRader(system, poses, normalized_poses, refined_poses, qc_pass)
-        cluster_table <- ByggClusterTable(system, annotated_clusters)
+        pose_table <- pose_table + ByggPoseRader(system, poses, normalized_poses, qc_pass)
+        cluster_table <- ByggClusterTable(system, annotated_clusters)  # inkluderer placer-skårer
         predictive_cluster_table <- ByggPredictiveClusterTable(system, annotated_clusters)
 
         # STEP J: valgfri crystal anchoring

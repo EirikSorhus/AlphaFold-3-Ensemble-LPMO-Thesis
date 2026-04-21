@@ -1,0 +1,185 @@
+# ──────────────────────────────────────────────────────────
+# LPMO Pipeline — Geometry rules and atom identification
+# Source: AF3_LPMO_pipeline_detailed_plan.md v1.0 section 12, 6.4
+# User decisions: 2026-04-21
+# ──────────────────────────────────────────────────────────
+
+# ── Copper identification (Stage 4, Step 4C) ──
+# AF3 places Cu in chain E after normalization.
+copper:
+  chain: "E"
+  auth_atom_id: "CU"         # AF3 CIF auth_atom_id label (user-confirmed 2026-04-21)
+  element_symbol: "Cu"       # Fallback: identify by _atom_site.type_symbol
+  # Identification priority:
+  #   1. chain E + auth_atom_id = CU
+  #   2. chain E + type_symbol = Cu  (fallback if label differs)
+  max_expected_per_pose: 1   # one Cu per LPMO active site
+
+# ── Histidine brace identification (Stage 4, Step 4A) ──
+# Source: LPMO biology + user decisions 2026-04-21
+# Rule: atom-first approach — find the 3 nitrogen atoms in chain A closest to Cu.
+# This avoids hard-coded residue-type assumptions and handles AF3 geometry variation.
+his_brace:
+  max_search_dist_a: 3.0          # Euclidean Cu-to-N search cutoff; all 3 brace N atoms
+                                  # must fall within this distance for a full identification
+  n_atoms_required: 3             # number of brace N atoms expected in a functional LPMO
+  protein_chain: "A"
+
+  # Identification procedure (see plan section 12.3 Step 4A):
+  #   1. Enumerate all N atoms in chain A
+  #   2. Sort by Euclidean distance to Cu (chain E)
+  #   3. Take the 3 closest within max_search_dist_a
+
+  # N-terminal nitrogen identification (for oxyl placement direction)
+  n_terminal_his:
+    chain_position: 1             # residue number 1 in chain A (mature protein start)
+    # The N atom from residue 1 is identified among the 3 closest N atoms.
+    # It defines the trans-oxyl direction in Step 4D.
+
+  # Soft brace integrity: not a hard gate, does not drop poses.
+  # Poses with partial brace (1-2 N atoms found) continue with reduced confidence.
+  fail_if_zero_found: true        # if NO N atoms within cutoff: geometry_not_computable
+  partial_if_fewer_than: 3        # brace_identification_status = partial if n_found < 3
+
+  # Confidence levels assigned to brace_confidence field
+  confidence_levels:
+    high:   { n_found: 3, all_within_a: 2.5 }   # all 3 N atoms in tight coordination range
+    medium: { n_found: 3, all_within_a: 3.0 }   # all 3 N atoms within search cutoff
+    low:    { n_found: 2, all_within_a: 3.0 }   # only 2 N atoms found within cutoff
+    failed: { n_found: 0 }                       # no N atoms found; geometry blocked
+
+# ── Brace plane construction (Stage 4, Step 4B) ──
+# The brace plane is defined by the 3 N atoms identified in Step 4A (not Cu + 2 N).
+brace_plane:
+  method: "three_n_atoms_normal"
+  # Compute unit normal to the plane spanned by the 3 brace N atom positions.
+  # Used for: oxyl placement direction (Step 4D) and ring-vs-brace angle (Step 4F).
+  output_field: "brace_normal_vector"
+  output_status_field: "brace_plane_status"
+
+# ── Cu repositioning (Stage 4, Step 4C) ──
+# Cu is repositioned to an idealized location for geometry computation only.
+# This corrected Cu is NEVER used for IFP, clustering, or reported structures.
+cu_repositioning:
+  enabled: true
+  method: "brace_nitrogen_centroid"
+  # Place Cu at the centroid of all coordinating His nitrogen atoms found above.
+  # Alternative: "keep_af3"  — use AF3 Cu position as-is (disable repositioning)
+  output_field: "repositioned_cu_coordinates"
+  output_status_field: "cu_reposition_status"
+
+# ── Proximal sugar identification ──
+# Source: user decision 2026-04-21 — geometrically closest sugar to Cu.
+# Applied on the original AF3 structure (before Cu repositioning).
+proximal_sugar:
+  method: "min_distance_to_cu"      # select sugar residue with minimum distance to Cu
+  sugar_chains: ["B", "C", "D"]    # candidate ligand chains
+  distance_type: "min_heavy_atom"  # measure: Cu to nearest heavy atom of each residue
+  output_field: "proximal_sugar_id"
+
+# ── C1 and C4 atom identification ──
+# Standard IUPAC atom names used for Cu–C1 / Cu–C4 distance computation.
+# Per-ligand overrides belong in ligand_metadata.tsv (c1_atom_name, c4_atom_name).
+c1_c4_atoms:
+  default_c1: "C1"
+  default_c4: "C4"
+  per_ccd:                         # CCD code → atom names (all standard IUPAC)
+    NAG: { c1: "C1", c4: "C4" }   # N-acetyl-D-glucosamine (chitin)
+    BGC: { c1: "C1", c4: "C4" }   # beta-D-glucose (cellulose)
+    GLC: { c1: "C1", c4: "C4" }   # D-glucose (starch)
+    MAN: { c1: "C1", c4: "C4" }   # D-mannose
+    GAL: { c1: "C1", c4: "C4" }   # D-galactose
+    XYS: { c1: "C1", c4: "C4" }   # D-xylose
+
+# ── Virtual oxyl placement (Stage 4, Step 4D) ──
+# The oxyl intermediate occupies the equatorial position trans to the
+# N-terminal amine across the Cu center.
+virtual_oxyl:
+  enabled: true
+  method: "trans_to_nterminal_n_in_brace_plane"
+  # Procedure:
+  #   1. Identify the N-terminal N atom from the 3 brace N atoms (residue 1, chain A).
+  #   2. Compute unit vector from N-terminal N toward repositioned Cu.
+  #   3. Project this vector onto the brace plane (defined by the 3 N atoms).
+  #   4. Place oxyl at cu_oxyl_bond_length_a from Cu, along the projected vector,
+  #      in the direction away from N-terminal N (trans across Cu).
+  cu_oxyl_bond_length_a: 1.80     # Cu–O(oxyl) bond length (Å)
+  output_field: "virtual_oxyl_coordinates"
+  output_status_field: "oxyl_placement_status"
+
+# ── Virtual H on C1 and C4 (Stage 4, Step 4E) ──
+# Abstractable H placed opposite the bonded heavy-atom centroid at each target carbon.
+virtual_h:
+  enabled: true
+  c_h_bond_length_a: 1.09          # C(sp3)–H bond length (Å)
+  method: "centroid_of_bonded_heavy_atoms"
+  # Procedure:
+  #   1. For C1 (or C4) of the proximal sugar, retrieve bonded heavy atoms
+  #      from the CCD topology for that carbon.
+  #   2. Compute the centroid of all bonded heavy atoms.
+  #   3. Place H along the vector centroid → C (pointing away from neighbors),
+  #      at c_h_bond_length_a from C.
+  # This places H at the abstractable position (opposite the sugar ring interior).
+  output_field_c1: "virtual_H_C1_coordinates"
+  output_field_c4: "virtual_H_C4_coordinates"
+  output_status_c1: "c1_identification_status"
+  output_status_c4: "c4_identification_status"
+
+# ── Geometry metrics (Stage 4, Step 4F) ──
+# All computed distances and angles stored in pose_geometry.tsv.
+# Thresholds for status assignment are in thresholds.yaml.
+geometry_metrics:
+  # Distances from virtual oxyl to C1 / C4 H atoms
+  oxyl_h_c1_distance:
+    description: "Distance from virtual oxyl O to virtual H on C1 (Å)"
+    output_field: "oxyl_H_C1_distance"
+
+  oxyl_h_c4_distance:
+    description: "Distance from virtual oxyl O to virtual H on C4 (Å)"
+    output_field: "oxyl_H_C4_distance"
+
+  # Distances from repositioned Cu to C1 / C4
+  cu_c1_distance:
+    description: "Distance from repositioned Cu to C1 of proximal sugar (Å)"
+    output_field: "Cu_C1_distance"
+
+  cu_c4_distance:
+    description: "Distance from repositioned Cu to C4 of proximal sugar (Å)"
+    output_field: "Cu_C4_distance"
+
+  # Attack angles
+  attack_angle_c1:
+    description: "Angle: oxyl–C1–H (°); reactive geometry at C1"
+    output_field: "attack_angle_C1"
+
+  attack_angle_c4:
+    description: "Angle: oxyl–C4–H (°); reactive geometry at C4"
+    output_field: "attack_angle_C4"
+
+  # Sugar orientation relative to brace plane
+  sugar_face_orientation:
+    description: "Which face of the proximal sugar points toward Cu"
+    output_field: "sugar_face_orientation"
+
+  ring_vs_brace:
+    description: "Angle between sugar ring normal and brace plane normal (°)"
+    output_field: "ring_normal_vs_brace_normal"
+
+# ── Geometry status labels ──
+# Assigned per target (C1 and C4) in pose_geometry.tsv as geometry_status_C1 / _C4.
+# Score formula and thresholds driving assignment are in thresholds.yaml.
+status_labels:
+  geometry_not_computable:          "Brace, Cu, C1, or C4 identification failed; no score"
+  geometry_computable_implausible:  "Computed but oxyl-H distance outside plausibility window; score = NaN"
+  geometry_plausible:               "Within oxyl_h plausibility window; score > 0"
+  geometry_highly_plausible:        "Within tighter window around optimum; score near 1"
+
+# ── Oxyl-H continuous score ──
+# Stored alongside status labels in pose_geometry.tsv.
+# All numeric parameters live in thresholds.yaml: geometry_plausibility.
+# Score formula (see plan section 12.4):
+#   if d < oxyl_h_min_a or d > oxyl_h_max_a: score = NaN
+#   else: score = max(1.0 - abs(d - oxyl_h_optimum_a) / oxyl_h_score_normalization, 0.0)
+oxyl_h_score:
+  output_field_c1: "oxyl_H_score_C1"    # continuous score [0, 1] or NaN per pose
+  output_field_c4: "oxyl_H_score_C4"

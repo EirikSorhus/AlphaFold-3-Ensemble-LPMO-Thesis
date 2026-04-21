@@ -1,8 +1,12 @@
+> **⚠️ ARCHIVED — LEGACY PSEUDOCODE**
+> This file is legacy statistics pseudocode. It references `pose_table.tsv` as a single merged table (now replaced by five separate pose-level tables) and `cross_model_support` (not applicable for AF3-only pipeline). Core statistical methodology is still conceptually valid. For the current specification, see [AF3_LPMO_pipeline_detailed_plan.md](AF3_LPMO_pipeline_detailed_plan.md) stages 13–14 and [MASTERPLAN.md](MASTERPLAN.md) stages 13–14.
+
 # PSEUDOKODE - STATISTIKKDEL (R-ORIENTERT)
 
 Status:
 - Kun pseudokode for statistikk.
 - Ingen kjoreklar kode.
+- **ARKIVERT**: Refererer til `pose_table.tsv` (enkeltfil) og `cross_model_support` som er foreldet. Se gjeldende plandokumenter.
 
 Hovedprinsipp:
 - Cluster-rader er primardata i hovedmodeller.

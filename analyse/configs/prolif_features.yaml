@@ -1,0 +1,94 @@
+# ──────────────────────────────────────────────────────────
+# LPMO Pipeline — ProLIF interaction fingerprint settings
+# Source: AF3_LPMO_pipeline_detailed_plan.md v1.0 section 11
+# ──────────────────────────────────────────────────────────
+
+# ── Interaction types ──
+# Plan section 11.3: use a fixed, limited set to avoid sparsity explosion.
+interaction_types:
+  primary:               # Always included in IFP
+    - HBDonor            # protein residue is H-bond donor
+    - HBAcceptor         # protein residue is H-bond acceptor
+    - Hydrophobic        # hydrophobic contact
+    - PiStacking         # aromatic / stacking
+
+  optional:              # Include only if not too sparse for the dataset
+    - PiCation           # cation-pi; enable after checking sparsity
+
+  excluded:              # Do NOT use in main analysis
+    - VdWContact         # too frequent, too noisy for IFP clustering
+    - Anionic            # charge interactions rare in this context
+    - Cationic
+    - MetalCoordination  # Cu coordination handled separately in geometry pipeline
+    - WaterBridge        # solvent not modeled consistently in AF3 poses
+
+# Default active set for all sub-analyses (overrides optional/excluded above)
+# Copy primary + any optional interactions that pass sparsity check here
+# before locking for production run.
+active_interaction_types:
+  - HBDonor
+  - HBAcceptor
+  - Hydrophobic
+  - PiStacking
+  # PiCation: add here after sparsity check
+
+# ── Cutoff distances (Å) ──
+# ProLIF defaults; override only if domain-specific tuning is needed.
+cutoffs:
+  HBDonor:    3.5    # H…acceptor distance
+  HBAcceptor: 3.5    # H…donor distance
+  Hydrophobic: 4.5   # C…C distance
+  PiStacking: 5.5    # ring centroid distance
+  PiCation:   4.5    # ring centroid to cation
+
+# ── Molecular selections ──
+# MDAnalysis / ProLIF selection syntax after chain normalization.
+selection:
+  protein_chain: "A"
+  ligand_chains: ["B", "C", "D"]
+  cu_chain: "E"
+
+  # Full MDAnalysis selection strings
+  protein_selection: "chainID A"
+  ligand_selection: "chainID B or chainID C or chainID D"
+
+  # Residues excluded from IFP (e.g. direct Cu coordination, which is handled
+  # by geometry pipeline). Leave empty unless specific residues cause problems.
+  exclude_residue_ids: []   # list of "chain:resnum" strings, e.g. ["A:1"]
+
+# ── Feature naming convention ──
+# IFP column labels; must be consistent within and across sub-analyses.
+# Format: {chain}:{resnum}{resname}_{interaction_type}
+# Example: A:1HIS_HBAcceptor
+feature_naming:
+  format: "{chain}:{resnum}{resname}_{interaction}"
+  include_chain: true
+  include_resname: true
+
+# ── IFP vectorization ──
+# How to represent the fingerprint for clustering input.
+vectorization:
+  mode: binary              # 0/1 per (residue × interaction_type) feature
+  distance_metric: jaccard  # canonical metric for binary IFP clustering
+  include_distances: false  # keep false for main analysis; true only for debugging
+
+# ── Per-batch lock rule ──
+# The feature set (active_interaction_types + cutoffs + selection) MUST be
+# identical for all poses in a sub-analysis batch.
+# Never add / remove features between poses in the same clustering run.
+lock_features_per_batch: true
+
+# ── Minimum contacts filter ──
+# Poses with zero contacts across the entire IFP are recorded in QC tables
+# but excluded from clustering input. They remain in pose_manifest.tsv
+# with ifp_generation_status = "zero_contacts".
+min_total_contacts_for_clustering: 1
+
+# ── Residue-level contact extraction ──
+# Settings for pose_residue_contact_table.tsv (plan section 11.5).
+residue_contacts:
+  # Compute in parallel with IFP — uses same cutoffs and selections.
+  include_distance: false     # store distance if true (increases table size)
+  # Region tagging (catalytic_surface_region, cbm_region, linker_region)
+  # is applied by residue_rules.yaml logic during annotation.
+  tag_regions: true

@@ -71,9 +71,9 @@ analyse/
 ## Miljø og avhengigheter
 
 **Installasjon:**
-```bash
-pip install -e ".[dev]"   # fra analyse/
-```
+- System-Python på HPC er for gammel; bruk conda-environment i eirik/conda/.
+
+- Installasjoner av pakker skjer i eirik/conda/anlyse_env ved bruk av shell script. Envirement skal være containerized
 
 **Python-avhengigheter (se `pyproject.toml`):**
 - `gemmi>=0.6.4` — CIF-innlesing og normalisering
@@ -88,7 +88,6 @@ pip install -e ".[dev]"   # fra analyse/
 **System-avhengigheter (må installeres separat, ikke pip):**
 - `privateer` — sukkervalideringsprogram; versjon autodetektes fra `privateer --version`
 - `reduce` (AmberTools) — protonering
-- `PLACER` — GPU-basert raffinering; laster via `module load PLACER` (antatt, se OPEN_QUESTIONS.md pkt. 1)
 
 ---
 

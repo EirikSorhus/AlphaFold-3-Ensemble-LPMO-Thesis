@@ -1,0 +1,129 @@
+# ──────────────────────────────────────────────────────────
+# LPMO Pipeline — Residue naming, chain, and atom normalization rules
+# Source: AF3_LPMO_pipeline_detailed_plan.md v1.0 section 6.4
+# ──────────────────────────────────────────────────────────
+
+# ── Chain schema (canonical, after normalization) ──
+# Must match defaults.yaml chain_schema.
+chain_schema:
+  protein: "A"
+  glycans: ["B", "C", "D"]
+  metal: "E"
+
+# ── Substrate CCD codes per substrate class ──
+# Used during normalization to validate that input ligand residues
+# match the declared substrate_class.
+substrate_ccd_map:
+  chitin:
+    - NAG    # N-acetyl-D-glucosamine (β-1,4 linked)
+  cellulose:
+    - BGC    # β-D-glucose (β-1,4 linked)
+    - GLC    # D-glucose (fallback if BGC not used)
+  starch:
+    - GLC    # D-glucose (α-1,4 linked)
+    - MAN    # D-mannose (for mixed glucomannan)
+
+# ── CCD monosaccharide whitelist (Privateer input requirement) ──
+# Only monosaccharide CCD codes are valid for Privateer.
+# Oligomer-only codes (e.g. custom DP4 codes) must be expanded to monomers first.
+privateer_ccd_whitelist:
+  - NAG    # N-acetyl-D-glucosamine
+  - BGC    # β-D-glucose
+  - GLC    # D-glucose
+  - MAN    # D-mannose
+  - GAL    # D-galactose
+  - XYS    # D-xylose
+  - ARA    # L-arabinose
+  - FUC    # L-fucose
+  - SIA    # neuraminic acid
+  - GLA    # D-glucuronic acid
+  - GAC    # N-acetyl-D-galactosamine
+
+# ── Residue name normalization ──
+# Maps non-standard or force-field residue names to CCD canonical names.
+# Applied before Privateer validation and IFP generation.
+residue_name_map:
+  # Histidine protonation variants → canonical HIS
+  HIE: HIS
+  HID: HIS
+  HIP: HIS
+  HSE: HIS
+  HSD: HIS
+  HSP: HIS
+  # Cysteine variants
+  CYM: CYS
+  CYX: CYS
+  # Alternative glucose / sugar codes
+  BGLC: BGC
+  AGLC: GLC
+  # Lysine / aspartate / glutamate
+  LYN: LYS
+  ASH: ASP
+  GLH: GLU
+
+# ── Atom name normalization ──
+# Normalize non-standard atom labels to CCD/IUPAC convention.
+# Applied after chain assignment during normalization step.
+# Format: old_name → new_name
+atom_name_map:
+  # Copper variants → canonical CU
+  "CU1": "CU"
+  "CU2": "CU"
+  # N-terminal hydrogen variants
+  "HN":  "H"     # N-terminal amine H (AMBER / CHARMM)
+  "HT1": "H1"
+  "HT2": "H2"
+  "HT3": "H3"
+  # Backbone oxygen (some force fields)
+  "O1":  "O"     # only for backbone carbonyl; do NOT apply to sugars
+
+# ── Residue region labels ──
+# Region tags assigned to residues in:
+#   - pose_residue_contact_table.tsv
+#   - cluster_residue_signature.tsv
+#   - protein_condition_residue_scores.tsv
+# Regions are mutually exclusive; priority: catalytic_surface > cbm > linker > other
+region_labels:
+  - catalytic_surface_region   # residues near Cu active site
+  - cbm_region                 # carbohydrate-binding module (CBM) domain residues
+  - linker_region              # linker connecting catalytic domain to CBM
+  - other                      # all remaining residues
+
+# ── Catalytic surface region definition ──
+# Default rule: any residue with at least one heavy atom within max_dist_a of Cu.
+# Per-protein overrides belong in protein_metadata.tsv.
+catalytic_surface_region:
+  method: "cu_distance"
+  max_dist_a: 8.0
+  include_his_brace_always: true    # His brace residues always tagged even if > 8 Å
+
+# ── CBM and linker region definition ──
+# Defined per-protein from protein_metadata.tsv fields:
+#   cbm_start_resnum, cbm_end_resnum, linker_start_resnum, linker_end_resnum
+# If those fields are absent, the region is not tagged (tagged as "other").
+cbm_linker_region:
+  source: "protein_metadata"        # read residue ranges from protein_metadata.tsv
+  chain: "A"                        # apply to protein chain only
+
+# ── Atom mapping keys (cross-model consistency) ──
+# Hierarchy for determining equivalent atoms across different structure sources.
+# Used in the mapping/ module.
+atom_mapping_key:
+  - element
+  - residue_ccd
+  - local_bond_graph
+  - 3D_proximity               # max 0.5 Å deviation; from defaults.yaml
+
+# ── His-brace exclusion from standard residue renaming ──
+# Do NOT normalize His brace residues away — they must remain as HIS.
+# The his_brace section in geometry_rules.yaml governs their identification.
+his_brace_preservation:
+  always_keep_as_his: true
+
+# ── Glycosidic linkage connectivity ──
+# Required _struct_conn entries in normalized mmCIF.
+# These linkage types must be present for the structure to pass normalization QC.
+required_glycosidic_linkages:
+  chitin:    "beta-1,4"
+  cellulose: "beta-1,4"
+  starch:    "alpha-1,4"

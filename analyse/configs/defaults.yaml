@@ -27,11 +27,7 @@ connectivity:
   require_chem_comp_bond: true   # complete _chem_comp_bond for all comp_id
   require_struct_conn: true      # _struct_conn for glycosidic + Cu-coord
 
-# ── PLACER ──
-placer:
-  n_modes_min: 50
-  n_modes_max: 200
-  rank_by: ["placer_score", "clash_count", "cu_geom_sanity"]
+# PLACER: removed from pipeline (2026-04-21)
 
 # ── Protonation / export ──
 protonation:

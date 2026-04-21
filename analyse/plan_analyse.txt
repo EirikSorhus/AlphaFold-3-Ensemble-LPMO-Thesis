@@ -1,3 +1,6 @@
+ARCHIVED — LEGACY PLAN DOCUMENT
+This file is a legacy analysis plan document, explicitly noted as "ikke helt oppdatert" (not fully updated). RF3 and Boltz-2 parameter tuning sections are obsolete. The research questions (RQ1-RQ4) and the AF3 parameter tuning rationale remain informative as background context. For the current governing plan, see AF3_LPMO_pipeline_detailed_plan.md (primary) and MASTERPLAN.md.
+
 Research questions (ikke helt oppdatert)
 Avklaringer (18.03.2026):
 * Geometri-planaritetskrav er forelopig ikke spesifisert i detalj. Dette mangler og ma defineres for endelig analyse/rapportering.

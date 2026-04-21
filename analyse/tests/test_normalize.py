@@ -185,6 +185,8 @@ HETATM 3  CU CU  . CU  B 2 .  ? 0.0 0.0 0.0 1.00 97.0 1 B 1
 #
 """
 
+AF3_INVALID_GLYCAN_CIF = AF3_NORMALIZE_CIF.replace("BGC", "CEL6")
+
 
 @pytest.fixture
 def af3_cif(tmp_path: Path) -> Path:
@@ -197,6 +199,13 @@ def af3_cif(tmp_path: Path) -> Path:
 def no_conn_cif(tmp_path: Path) -> Path:
     p = tmp_path / "no_conn.cif"
     p.write_text(AF3_NO_CONN_CIF)
+    return p
+
+
+@pytest.fixture
+def invalid_glycan_cif(tmp_path: Path) -> Path:
+    p = tmp_path / "invalid_glycan.cif"
+    p.write_text(AF3_INVALID_GLYCAN_CIF)
     return p
 
 
@@ -293,6 +302,38 @@ class TestConfidence:
         report = json.loads((out / "normalize_report.json").read_text())
         assert report["confidence_derived"] is True
         assert report["n_residues_with_confidence"] > 0
+
+
+# ---------------------------------------------------------------------------
+# CCD validation wiring
+# ---------------------------------------------------------------------------
+class TestCCDValidation:
+    def test_ccd_validation_report_written(self, af3_cif: Path, tmp_path: Path) -> None:
+        out = tmp_path / "out"
+        runner = NormalizeMMCIFRunner(af3_cif, out)
+        ok, _ = runner.run()
+        report = json.loads((out / "normalize_report.json").read_text())
+
+        assert ok is True
+        assert report["ccd_validation"]["all_valid"] is True
+        assert report["ccd_validation"]["observed_comp_ids"] == ["BGC"]
+        assert report["ccd_validation"]["invalid_comp_ids"] == []
+
+    def test_invalid_glycan_fails_normalization(
+        self, invalid_glycan_cif: Path, tmp_path: Path
+    ) -> None:
+        out = tmp_path / "out"
+        runner = NormalizeMMCIFRunner(invalid_glycan_cif, out)
+        ok, path = runner.run()
+        report = json.loads((out / "normalize_report.json").read_text())
+        failures = json.loads((out / "normalize_failures.json").read_text())
+
+        assert ok is False
+        assert path is None
+        assert report["ccd_validation"]["all_valid"] is False
+        assert report["ccd_validation"]["invalid_comp_ids"] == ["CEL6"]
+        assert failures[-1]["reason"] == "glykan_not_ccd"
+        assert not (out / "normalized.cif").exists()
 
 
 # ---------------------------------------------------------------------------

@@ -72,7 +72,7 @@ def run_sweep_point(
 
     For each (protein, ligand) in test_cases:
         1. Resolve precomputed predictions for this model/parameter point
-                2. Ingest → Normalize → Privateer prep → Protonate → PLACER
+                2. Ingest → Normalize → Privateer prep → Protonate → QC → IFP → Clustering → PLACER validation
                 3. QC (PoseBusters + Privateer + Cu-geom)
                 4. Analysis (ProLIF IFP + MDAnalysis metrics)
                 5. Clustering (HDBSCAN)
@@ -129,29 +129,25 @@ def run_sweep_point(
         # from lpmo_pipeline.io.protonate_export import protonate_and_export
         # prot_result = protonate_and_export(norm_result.output_cif, case_dir)
         #
-        # # Step 6: PLACER
-        # from lpmo_pipeline.placer.run_placer import run_placer
-        # placer_result = run_placer(norm_result.output_cif, case_dir / "placer_ensemble")
-        #
-        # # Step 7: QC
+        # # Step 6: QC
         # from lpmo_pipeline.qc.posebusters_runner import run_posebusters_batch
         # from lpmo_pipeline.qc.privateer_runner import run_privateer
         # from lpmo_pipeline.qc.custom_geometry_checks import check_geometry
         # pb_result = run_posebusters_batch(...)
         # priv_result = run_privateer(...)
-        # geom_results = [check_geometry(...) for pose in placer_result.poses]
+        # geom_results = [check_geometry(...) for pose in qc_pass_poses]
         #
-        # # Step 8: Analysis
+        # # Step 7: Analysis
         # from lpmo_pipeline.analysis.prolif_ifp import compute_ifp_batch
         # from lpmo_pipeline.analysis.mdanalysis_metrics import compute_pose_metrics
         # ifp_batch = compute_ifp_batch(...)
         # geo_metrics = [compute_pose_metrics(...) for pose in passed_poses]
         #
-        # # Step 9: Clustering
+        # # Step 8: Clustering
         # from lpmo_pipeline.analysis.clustering_hdbscan import run_hdbscan_clustering
         # cluster_result = run_hdbscan_clustering(ifp_batch.matrix, ...)
         #
-        # # Step 10: Crystal anchoring
+        # # Step 9: Crystal anchoring
         # if tc.crystal_pdb:
         #     from lpmo_pipeline.analysis.crystal_anchoring import run_crystal_anchoring
         #     crystal_result = run_crystal_anchoring(tc.crystal_pdb, ...)

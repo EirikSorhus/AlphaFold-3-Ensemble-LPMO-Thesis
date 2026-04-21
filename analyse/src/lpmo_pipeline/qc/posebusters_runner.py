@@ -1,6 +1,6 @@
 # src/lpmo_pipeline/qc/posebusters_runner.py
 """
-Responsibility: Run PoseBusters on PLACER-refined poses.
+Responsibility: Run PoseBusters on AF3 poses (after normalization + protonation).
 Input:  PDB file (for_posebusters.pdb) from protonation step
 Output: PoseBustersResult with per-test pass/fail + error types
 

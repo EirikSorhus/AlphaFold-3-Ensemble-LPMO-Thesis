@@ -1,0 +1,91 @@
+{
+  "chain_mappings": [
+    {
+      "original": "A",
+      "normalized": "A",
+      "entity_type": "polymer",
+      "entity_id": "1"
+    },
+    {
+      "original": "C",
+      "normalized": "B",
+      "entity_type": "branched",
+      "entity_id": "3"
+    },
+    {
+      "original": "B",
+      "normalized": "E",
+      "entity_type": "non-polymer",
+      "entity_id": "2"
+    }
+  ],
+  "atom_mapping": {
+    "total_atoms": 1393,
+    "mapped_atoms": 1393,
+    "coverage": 1.0
+  },
+  "ccd_validation": {
+    "total_glycan_residues": 8,
+    "observed_comp_ids": [
+      "CEL6"
+    ],
+    "all_valid": false,
+    "invalid_comp_ids": [
+      "CEL6"
+    ],
+    "results": [
+      {
+        "comp_id": "CEL6",
+        "is_valid_ccd_mono": false,
+        "canonical_name": "",
+        "rejection_reason": "Custom oligomer alias 'CEL6' not allowed; decompose into constituent CCD monosaccharides."
+      },
+      {
+        "comp_id": "CEL6",
+        "is_valid_ccd_mono": false,
+        "canonical_name": "",
+        "rejection_reason": "Custom oligomer alias 'CEL6' not allowed; decompose into constituent CCD monosaccharides."
+      },
+      {
+        "comp_id": "CEL6",
+        "is_valid_ccd_mono": false,
+        "canonical_name": "",
+        "rejection_reason": "Custom oligomer alias 'CEL6' not allowed; decompose into constituent CCD monosaccharides."
+      },
+      {
+        "comp_id": "CEL6",
+        "is_valid_ccd_mono": false,
+        "canonical_name": "",
+        "rejection_reason": "Custom oligomer alias 'CEL6' not allowed; decompose into constituent CCD monosaccharides."
+      },
+      {
+        "comp_id": "CEL6",
+        "is_valid_ccd_mono": false,
+        "canonical_name": "",
+        "rejection_reason": "Custom oligomer alias 'CEL6' not allowed; decompose into constituent CCD monosaccharides."
+      },
+      {
+        "comp_id": "CEL6",
+        "is_valid_ccd_mono": false,
+        "canonical_name": "",
+        "rejection_reason": "Custom oligomer alias 'CEL6' not allowed; decompose into constituent CCD monosaccharides."
+      },
+      {
+        "comp_id": "CEL6",
+        "is_valid_ccd_mono": false,
+        "canonical_name": "",
+        "rejection_reason": "Custom oligomer alias 'CEL6' not allowed; decompose into constituent CCD monosaccharides."
+      },
+      {
+        "comp_id": "CEL6",
+        "is_valid_ccd_mono": false,
+        "canonical_name": "",
+        "rejection_reason": "Custom oligomer alias 'CEL6' not allowed; decompose into constituent CCD monosaccharides."
+      }
+    ]
+  },
+  "has_struct_conn": true,
+  "has_chem_comp_bond": false,
+  "confidence_derived": true,
+  "n_residues_with_confidence": 169
+}

@@ -1,5 +1,8 @@
 # ──────────────────────────────────────────────────────────
 # LPMO Pipeline — Pass/fail gates & thresholds
+# Updated 2026-04-21: added geometry plausibility, Privateer fail codes,
+# residue importance thresholds, ipTM policy
+# Source: AF3_LPMO_pipeline_detailed_plan.md v1.0 section 28
 # ──────────────────────────────────────────────────────────
 
 # ── Hard gates (failure → drop / skip) ──
@@ -8,10 +11,10 @@ hard_gates:
   active_site_proximity_max_a: 10.0     # pre-QC gate before PoseBusters/Privateer
   privateer_recognized_sugars_min: 1.0  # 100 %
   no_critical_posebusters_errors: true
-  cu_his_distance_min_a: 1.9
-  cu_his_distance_max_a: 2.6
+  cu_his_distance_min_a: 1.5
+  cu_his_distance_max_a: 3.0
 
-# PoseBusters error types classified as critical
+# PoseBusters error types classified as critical (hard-fail)
 posebusters_critical_errors:
   - sanitization
   - all_atoms_connected
@@ -21,6 +24,15 @@ posebusters_critical_errors:
   - bond_angles
   - tetrahedral_chirality
   - volume_overlap_with_protein
+
+# Privateer validation types classified as hard-fail
+# Source: user decision 2026-04-21 — all four Privateer checks are hard-fail.
+# A pose is dropped if any sugar residue fails any of these checks.
+privateer_critical_errors:
+  - conformation     # ring conformation not recognized / invalid
+  - anomer           # anomeric configuration incorrect or unresolvable
+  - hand             # incorrect handedness (D/L assignment fails)
+  - puckering        # ring puckering outside acceptable range
 
 # ── Soft thresholds (flag, don't drop) ──
 soft_thresholds:
@@ -34,6 +46,51 @@ soft_thresholds:
     - internal_energy
     - inchi_convertible
 
+# ── Geometry plausibility (from AF3_LPMO_pipeline_detailed_plan.md v1.0) ──
+# Operational thresholds — not mechanistic truth.
+# These values are LOCKED before full analysis run (set locked: true when fixed).
+geometry_plausibility:
+  # Plausibility window (oxyl-H distance)
+  oxyl_h_min_a: 1.5             # lower bound; outside → score = NaN (implausible)
+  oxyl_h_max_a: 4.0             # upper bound; outside → score = NaN (implausible)
+
+  # Continuous score formula (plan section 12.4):
+  #   score = max(1.0 - abs(d - oxyl_h_optimum_a) / oxyl_h_score_normalization, 0.0)
+  #   applied only when d is within [oxyl_h_min_a, oxyl_h_max_a]
+  oxyl_h_optimum_a: 2.1         # reference optimum from DFT studies of Cu-oxyl HAT barriers
+  oxyl_h_score_normalization: 1.9  # denominator giving score = 0 at window boundaries.1.9 is the distance from Cu to oxyl
+
+  # Tighter window for geometry_highly_plausible label
+  oxyl_h_highly_plausible_min_a: 1.8
+  oxyl_h_highly_plausible_max_a: 2.5
+
+  # Status label logic (applied per target: C1 and C4):
+  #   geometry_not_computable:         brace/Cu/C1/C4 identification failed; no score
+  #   geometry_computable_implausible: d outside [oxyl_h_min_a, oxyl_h_max_a]; score = NaN
+  #   geometry_plausible:              d within window; score > 0
+  #   geometry_highly_plausible:       d within [oxyl_h_highly_plausible_min_a, _max_a]
+  locked: true                 # set true once values are confirmed before full run
+
+# ── Cluster inclusion (from AF3_LPMO_pipeline_detailed_plan.md v1.0) ──
+# Minimum cluster occupancy for inclusion in main summaries.
+# Small clusters retained in raw output even if excluded from summaries.
+cluster_inclusion:
+  min_occupancy: 0.05           # clusters below 5 % occupancy excluded from summaries
+
+# ── Convergence ──
+# Source: plan section 13. Descriptive only — not used to drop poses.
+convergence:
+  # Alignment: superimpose all poses by protein Cα atoms before computing ligand RMSD.
+  alignment_selection: "protein and name CA"  # MDAnalysis / equivalent selection string
+
+  # Per-pose flag
+  convergent_rmsd_max_a: 2.0    # ligand RMSD < threshold → pose flagged as convergent
+
+  # Per-condition interpretation flag
+  low_convergence_flag_threshold: 0.3   # convergence_fraction below this →
+                                        # low_convergence_flag = True on condition row;
+                                        # geometric scores from top pose unreliable
+
 # ── HDBSCAN (LOCKED after tuning — never edited in production) ──
 hdbscan:
   min_cluster_size: 10          # PLACEHOLDER — overwritten by tuning
@@ -42,3 +99,58 @@ hdbscan:
   cluster_selection_method: eom # excess-of-mass
   # After tuning, copy best value here and commit
   locked: false                 # set to true after tuning run
+
+# ── Residue importance reporting ──
+# Source: user decision 2026-04-21
+# Plan section 16; controls which residues appear in output tables and plots.
+residue_importance:
+  display_threshold: 0.10       # minimum occupancy-weighted contact score to include
+                                # in summary tables and heatmaps (10 %)
+  top_n_per_condition: 25       # maximum residues reported per protein–ligand condition
+  # Geometry-weighted score thresholds (C1 / C4 enrichment)
+  c1_c4_delta_min: 0.05         # minimum |delta| to flag a residue as C1- or C4-enriched
+
+# ── ipTM missingness handling ──
+# AF3 does not always report ipTM (depends on run configuration).
+# Rule: store NA when absent; never impute or derive a substitute.
+iptm_policy:
+  missing_value: null           # stored as NA / null in pose_confidence.tsv
+  impute: false                 # do NOT impute missing ipTM
+  report_missing_count: true    # include n_iptm_missing in descriptive tables
+  # ipTM is treated as a descriptive metric only — not a validity criterion.
+  use_as_qc_criterion: false
+
+# ── Schema harmonization aliases (for documentation parity) ──
+# These sections mirror naming used across plan/checklist documents.
+
+cluster_type:
+  # TODO: confirm before full analysis run
+  c1_compatible_min_plausible_fraction: 0.50
+  c4_compatible_min_plausible_fraction: 0.50
+  mixed_compatible_min_plausible_fraction: 0.40
+  non_plausible_max_plausible_fraction: 0.10
+  uncertain_max_occupancy_for_classification: 0.05
+
+geometry_rules:
+  his_brace:
+    # TODO: confirm before full analysis run
+    max_search_dist_a: 3.0
+  virtual_oxyl:
+    # TODO: confirm before full analysis run
+    cu_oxyl_bond_length_a: 1.8
+  virtual_h:
+    # TODO: confirm before full analysis run
+    c_h_bond_length_a: 1.1
+
+clustering:
+  # Mirrors hdbscan + cluster_inclusion in one block for checklist compatibility
+  min_cluster_size: 10
+  min_samples: null
+  distance_metric: jaccard
+  min_occupancy_for_main_summary: 0.05
+
+qc:
+  # Mirrors hard_gates names used in checklist language
+  pre_qc_active_site_max_a: 10.0
+  cu_his_min_a: 1.9
+  cu_his_max_a: 2.6

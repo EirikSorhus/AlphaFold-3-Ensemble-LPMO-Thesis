@@ -1,9 +1,13 @@
+> **⚠️ ARCHIVED — LEGACY PSEUDOCODE**
+> This file is a legacy module-level pseudocode document. It contains a PLACER package section (section 4) which is now obsolete (PLACER removed 2026-04-21), and cross-model clustering logic that is not applicable for the AF3-only pipeline. For the current specification, see [AF3_LPMO_pipeline_detailed_plan.md](AF3_LPMO_pipeline_detailed_plan.md) (primary) and [MASTERPLAN.md](MASTERPLAN.md).
+
 # PSEUDOKODE - MODUL FOR MODUL
 
 Status:
 - Kun pseudokode.
 - Ingen installasjon.
 - Ingen kjoreklar implementasjon.
+- **ARKIVERT**: Seksjon 4 (PLACER) og cross-model clustering er foreldet. Se gjeldende plandokumenter.
 
 Designregler som gjelder alle moduler:
 - Strukturprediksjon er separat steg utenfor analysemodulene.
@@ -213,34 +217,41 @@ PROCEDURE BuildQCVerdict(pose_id, pre_qc, pb, privateer, cu_his):
         metrics
     }
 
-## 4) PLACER package
+## 4) PLACER package (Independent Validation, Post-Clustering)
 
 ### MODULE: src/lpmo_pipeline/placer/run_placer.py
 
-PROCEDURE RunPLACER(normalized_poses, placer_config):
-    refined_ensemble <- ExecutePLACER(normalized_poses, placer_config)
-    IF Count(refined_ensemble) == 0:
-        RaiseHardFailure("placer_zero_poses")
-    RETURN refined_ensemble
+PROCEDURE RunPLACERValidation(cluster_medoids, placer_config, glycam_ligand_files):
+    # PLACER brukes som uavhengig validering, IKKE refinement.
+    # Koordinater fra PLACER brukes IKKE videre i analysen.
+    # Kun skårer (prmsd, rmsd, plddt) ekstraheres.
+    validation_results <- []
+    FOR medoid IN cluster_medoids:
+        ligand_file <- glycam_ligand_files[medoid.substrate_type]
+        placer_output <- ExecutePLACER(medoid.pdb, ligand_file, n_samples=50)
+        scores <- ExtractScores(placer_output)  # prmsd, rmsd, plddt
+        validation_results <- validation_results + [{medoid.cluster_id, scores}]
+    RETURN validation_results
 
 ### MODULE: src/lpmo_pipeline/placer/rank_ensemble.py
 
-PROCEDURE RankPLACEREnsemble(refined_ensemble):
-    FOR pose IN refined_ensemble:
-        score <- ComposeScore(
-            placer_score,
-            clash_count,
-            cu_geom_sanity
-        )
-        AttachScore(pose, score)
-    RETURN SortByScore(refined_ensemble)
+# NOTE: rank_ensemble er ikke lenger brukt for å rangere poser i hovedanalysen.
+# Beholdes kun for eventuell intern PLACER-analyse av validerings-ensemblet.
+
+PROCEDURE SummarizePLACERValidation(validation_results):
+    FOR result IN validation_results:
+        median_prmsd <- Median(result.scores.prmsd)
+        median_rmsd <- Median(result.scores.rmsd)
+        median_plddt <- Median(result.scores.plddt)
+    RETURN placer_summary_per_cluster
 
 ## 5) Analysis package
 
 ### MODULE: src/lpmo_pipeline/analysis/prolif_ifp.py
 
 PROCEDURE ComputeIFP(post_qc_pose):
-    # Viktig: uten engineered geometry objekter
+    # Viktig: bruker AF3-poser direkte, ikke PLACER-raffinerte
+    # Ingen engineered geometry objekter
     ifp <- RunProLIF(post_qc_pose)
     RETURN {
         ifp_vector,
