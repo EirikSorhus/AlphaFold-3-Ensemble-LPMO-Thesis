@@ -104,7 +104,7 @@ PY
       dump_trajectories=False \
       n_recycles=10 \
       diffusion_batch_size=1 \
-      num_steps=50
+      num_steps=50 
   "
 
 echo "Done. Outputs in: ${OUT}"

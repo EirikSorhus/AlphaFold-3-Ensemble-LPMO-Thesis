@@ -1,12 +1,12 @@
 #!/bin/bash
-#SBATCH --job-name=mod2_new_char_AA17
+#SBATCH --job-name=char_AA9
 #SBATCH --account=nn1003k
 #SBATCH --time=02:30:00
 #SBATCH --mem=1G
 #SBATCH --cpus-per-task=1
 #SBATCH --ntasks=1
-#SBATCH --output=logs/mod2_new_char_AA17_%j.out
-#SBATCH --error=logs/mod2_new_char_AA17_%j.err
+#SBATCH --output=logs/char_AA9_%j.out
+#SBATCH --error=logs/char_AA9_%j.err
 
 # Runner for the reimplemented Module 2 (scripts/module_2_new)
 # using the 'characterized' mode with CAZy characterized CSV format
@@ -21,7 +21,7 @@ SCRIPT_PATH="scripts/module_2_new/main_driver.py"
 
 # Input Configuration
 MODE="characterized"
-INPUT_FILE="data/test_data/characterized_AA17.csv"
+INPUT_FILE="data/test_data/AA9.csv"
 OUTPUT_DIR="data"
 
 cd "$PROJECT_DIR"
@@ -51,7 +51,7 @@ python "$SCRIPT_PATH" \
   --mode "$MODE" \
   --input "$INPUT_FILE" \
   --output_dir "$OUTPUT_DIR" \
-  --cazy-family "AA17"                # Remeber to change this!!!
+  --cazy-family "AA9"                # Remeber to change this!!!
 
 EXIT_CODE=$?
 

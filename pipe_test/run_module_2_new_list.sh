@@ -21,8 +21,9 @@ SCRIPT_PATH="scripts/module_2_new/main_driver.py"
 
 # Input Configuration
 MODE="list"
-INPUT_FILE="data/run/failed_id_fix/aa10_failed_new_code.txt"
+INPUT_FILE="data/run/failed_id_rerun/AA11_rerun_failed.txt"
 OUTPUT_DIR="data"
+CAZY_FAMILY="AA11"
 
 cd "$PROJECT_DIR"
 mkdir -p logs
@@ -50,7 +51,8 @@ fi
 python "$SCRIPT_PATH" \
   --mode "$MODE" \
   --input "$INPUT_FILE" \
-  --output_dir "$OUTPUT_DIR"
+  --output_dir "$OUTPUT_DIR" \
+  --cazy-family "$CAZY_FAMILY"
 
 EXIT_CODE=$?
 
