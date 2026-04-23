@@ -386,12 +386,13 @@ class NormalizeMMCIFRunner:
                 for atom in residue:
                     total += 1
                     if atom.element.name:
+                        # AF3 already uses canonical CCD atom names; identity mapping with full confidence
                         map_entry = AtomMap(
                             old_atom_name=atom.name,
                             new_atom_name=atom.name,
                             element=atom.element.name,
                             residue_ccd=residue.name,
-                            confidence=1.0,
+                            confidence=1.0,  # certainty of the mapping decision (not B-factor)
                             reason="af3_identity",
                         )
                         atom_maps.append(map_entry)

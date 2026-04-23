@@ -35,13 +35,19 @@ from AlphaFold 3 only (RosettaFold 3 / RF3 og Boltz-2 er ekskludert fra analyse)
 
 This pipeline takes predicted structures (mmCIF), normalizes them,
 runs quality control (PoseBusters, Privateer, custom Cu-geometry),
-refines with PLACER, clusters interaction fingerprints (HDBSCAN),
-and produces a comprehensive analysis report.
+generates interaction fingerprints (ProLIF) and residue-level contact tables,
+and clusters binding modes (HDBSCAN).
+Performs residue importance analysis and produces summary reports.
 
-See [MASTERPLAN.md](MASTERPLAN.md) for full specification.
-For pseudocode-only workflow, see [PSEUDOKODE_CLUSTER_FIRST.md](PSEUDOKODE_CLUSTER_FIRST.md).
-Module-by-module pseudocode is in [PSEUDOKODE_MODUL_FOR_MODUL.md](PSEUDOKODE_MODUL_FOR_MODUL.md).
-Statistics pseudocode is in [PSEUDOKODE_STATISTIKK.md](PSEUDOKODE_STATISTIKK.md).
+Primary governing document: [AF3_LPMO_pipeline_detailed_plan.md](AF3_LPMO_pipeline_detailed_plan.md) (v1.0, primary source from 2026-04-21).
+
+Current implementation status: step 4 is in progress. CCD monosaccharide
+validation is now wired into normalization; the remaining work for this step
+is verification on real AF3 data before moving on to atom mapping.
+
+**⚠️ Known open conflict: see [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md) item 11 (geometric planarity thresholds not yet operationalized).**
+
+See [MASTERPLAN.md](MASTERPLAN.md) for full integrated specification.
 
 ## Execution Model
 
@@ -82,7 +88,6 @@ src/lpmo_pipeline/
   mapping/     – Cross-model atom mapping and renaming
   qc/          – PoseBusters, Privateer, Cu-geometry, QC report
                 and pre-QC active-site proximity gate
-  placer/      – PLACER refinement wrapper and ensemble ranking
   analysis/    – MDAnalysis metrics, ProLIF IFP, HDBSCAN clustering,
                  cluster signatures, crystal anchoring, CBM analysis,
                  activity mapping, predictive models
@@ -97,7 +102,6 @@ scripts/       – Helper scripts (including R-based EC activity mapping)
 
 - **CCD monosaccharides only** for Privateer input
 - **Active-site proximity pre-gate** before PoseBusters/Privateer
-- **PLACER before scoring** — no scoring on raw predictions
 - **atom_mapping_coverage = 100%** — all atoms must be mapped
 - **Chain convention**: protein=A, glycans=B-D, metal=E
 - **Cu-His distance**: 1.9–2.6 Å (hard gate)
@@ -107,8 +111,36 @@ scripts/       – Helper scripts (including R-based EC activity mapping)
 ## Implementation Order
 
 See [IMPLEMENTATION_PLAYBOOK.md](IMPLEMENTATION_PLAYBOOK.md) for the
-20-step prioritized implementation plan with stop-points.
+prioritized implementation plan with stop-points.
 
 ## Open Questions
 
 See [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md) for unresolved decisions.
+
+---
+
+## Documentation Map
+
+### Active documentation (governing)
+
+| File | Role |
+|------|------|
+| [AF3_LPMO_pipeline_detailed_plan.md](AF3_LPMO_pipeline_detailed_plan.md) | **Primary governing plan** (v1.0) — pipeline stages, design decisions, output tables, geometry procedures |
+| [MASTERPLAN.md](MASTERPLAN.md) | Integrated secondary plan — stage summaries, failure policy, RQ→output mapping, EC label mapping |
+| [IMPLEMENTATION_PLAYBOOK.md](IMPLEMENTATION_PLAYBOOK.md) | Step-by-step implementation guide with status tracking and stop-points |
+| [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md) | Open decisions, resolved conflicts, and avklaringer |
+| [copilot.md](copilot.md) | AI assistant (Copilot) guide — hard rules, architectural policy, AI decision boundaries |
+| [ATTRIBUTION.md](ATTRIBUTION.md) | Third-party code attribution |
+| [DOCUMENTATION_TODO_AND_MANUAL_CHECKS.md](DOCUMENTATION_TODO_AND_MANUAL_CHECKS.md) | Prioritized open problems and manual verification steps |
+
+### Legacy / archived documentation
+
+These files are preserved as historical context. They are **not governing**. Each file has an ARCHIVED header explaining its status and what has been superseded.
+
+| File | Notes |
+|------|-------|
+| [PSEUDOKODE_CLUSTER_FIRST.md](PSEUDOKODE_CLUSTER_FIRST.md) | Legacy pseudocode — predates PLACER removal and AF3-only simplification |
+| [PSEUDOKODE_MODUL_FOR_MODUL.md](PSEUDOKODE_MODUL_FOR_MODUL.md) | Legacy module pseudocode — contains obsolete PLACER package section |
+| [PSEUDOKODE_STATISTIKK.md](PSEUDOKODE_STATISTIKK.md) | Legacy statistics pseudocode — references obsolete single `pose_table.tsv` and `cross_model_support` |
+| [plan_analyse.txt](plan_analyse.txt) | Original analysis plan (not updated) — research questions RQ1-RQ4 still informative as background |
+| [plan_implementation_spec.txt](plan_implementation_spec.txt) | Old implementation spec — PLACER steps 3-4 are obsolete |

@@ -20,6 +20,7 @@ src/lpmo_pipeline/analysis/predictive_models.py
 src/lpmo_pipeline/analysis/prolif_ifp.py
 src/lpmo_pipeline/io/__init__.py
 src/lpmo_pipeline/io/ccd_lookup.py
+src/lpmo_pipeline/io/cif_to_pdb.py
 src/lpmo_pipeline/io/discovery.py
 src/lpmo_pipeline/io/mmcif_ingest.py
 src/lpmo_pipeline/io/normalize_mmcif.py
@@ -27,9 +28,6 @@ src/lpmo_pipeline/io/protonate_export.py
 src/lpmo_pipeline/mapping/__init__.py
 src/lpmo_pipeline/mapping/cross_model_atom_mapping.py
 src/lpmo_pipeline/mapping/rename_atoms.py
-src/lpmo_pipeline/placer/__init__.py
-src/lpmo_pipeline/placer/rank_ensemble.py
-src/lpmo_pipeline/placer/run_placer.py
 src/lpmo_pipeline/qc/__init__.py
 src/lpmo_pipeline/qc/active_site_proximity.py
 src/lpmo_pipeline/qc/custom_geometry_checks.py

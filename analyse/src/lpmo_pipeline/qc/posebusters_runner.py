@@ -73,9 +73,12 @@ SOFT_WARNING_TYPES: set[str] = {
 # Columns from PoseBusters that track file loading, not test results
 _LOADING_COLUMNS: set[str] = {"mol_pred_loaded", "mol_true_loaded", "mol_cond_loaded"}
 
-# SIF container path for fallback execution
-POSEBUSTERS_SIF: Path = Path(
-    "/cluster/projects/nn1003k/prog/posebusters/build/posebusters.sif"
+# SIF container candidates (first existing path is used).
+# Here, "fallback" means path selection between known equivalent SIF files,
+# not skipping PoseBusters as a QC stage.
+POSEBUSTERS_SIF_CANDIDATES: tuple[Path, ...] = (
+    Path("/cluster/projects/nn1003k/prog/posebusters/build/posebusters.sif"),
+    Path("/cluster/projects/nn1003k/prog/posebusters/posebusters.sif"),
 )
 
 
@@ -90,8 +93,8 @@ def run_posebusters_single(
 ) -> PoseBustersSingleResult:
     """Run PoseBusters on a single PDB pose file.
 
-    Uses the PoseBusters Python API as primary backend.  Falls back to the
-    SIF container at ``POSEBUSTERS_SIF`` if the library is not importable.
+    Uses the PoseBusters Python API as primary backend. If that import is not
+    available, it runs PoseBusters from one of the known SIF paths.
 
     Args:
         pdb_path: Path to PDB file with CONECT records.
@@ -168,12 +171,13 @@ def _run_pb_sif(
     reference_path: Path | None,
 ) -> dict[str, bool]:
     """Run PoseBusters via SIF container.  Returns ``{test_name: passed}``."""
-    if not POSEBUSTERS_SIF.exists():
-        logger.error("PoseBusters SIF not found: %s", POSEBUSTERS_SIF)
+    sif_path = next((p for p in POSEBUSTERS_SIF_CANDIDATES if p.exists()), None)
+    if sif_path is None:
+        logger.error("PoseBusters SIF not found in candidates: %s", POSEBUSTERS_SIF_CANDIDATES)
         return {}
 
     cmd: list[str] = [
-        "apptainer", "exec", str(POSEBUSTERS_SIF),
+        "apptainer", "exec", str(sif_path),
         "bust", str(pdb_path),
     ]
     if protein_path:

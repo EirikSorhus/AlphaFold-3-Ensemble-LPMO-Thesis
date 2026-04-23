@@ -30,32 +30,46 @@ Locked values:
 
 ---
 
-### P2 — atom mapping modules (steps 5–6) exist but are not verified (PIPELINE BLOCKER)
+### P2 — atom mapping modules (steps 5–6) exist but are not verified (PIPELINE BLOCKER) — RESOLVED 2026-04-22
 
-**Priority:** HIGH — steps 5–6 (`mapping/cross_model_atom_mapping.py` and `mapping/rename_atoms.py`) are prerequisites for all QC and downstream analysis.
+**Priority:** RESOLVED
 
 **Description:**  
-Manual check MC7 showed that `mapping/cross_model_atom_mapping.py` and `mapping/rename_atoms.py` already exist in `src/lpmo_pipeline/mapping/`, but status and verification are stale. Atom mapping coverage = 100% is a hard requirement. Until mapping is verified on real AF3 data, QC, IFP, and geometry remain untrusted.
-
-**Proposed solution:**  
-1. Verify `cross_model_atom_mapping.py` on real AF3 inputs and inspect `atom_map.tsv` for one known NAG-residue; verify coverage = 100%.
-2. Verify `rename_atoms.py` with round-trip validation using the generated atom map.
-3. Run `pytest tests/test_mapping.py` (if tests exist) or add and run contract tests.
-4. Keep status in IMPLEMENTATION_PLAYBOOK.md as "kode finnes, ikke verifisert" until tests pass.
+Verified 2026-04-22 via `test_mapping_contracts.sh` on real AF3 data (A0A0A1ED04_NAG8). Both `mapping/cross_model_atom_mapping.py` and `mapping/rename_atoms.py` have been validated:
+- Atom mapping coverage = 100% achieved.
+- No unmapped atoms in structure.
+- Round-trip rename validation (forward→reverse) passed successfully.
+- `atom_map.tsv` and `rename_log.json` generated with correct schemas.
 
 ---
 
-### P3 — `io/protonate_export.py` broken (PIPELINE BLOCKER)
+### P3 — Step 7 protonation/export and step 7b CIF→PDB (RESOLVED 2026-04-23)
 
-**Priority:** HIGH — step 7 is broken ("feil gemmi API, må omskrives"). This blocks PoseBusters preparation and ProLIF input generation.
+**Priority:** RESOLVED
 
-**Description:**  
-IMPLEMENTATION_PLAYBOOK.md step 7 is marked ❌ Broken. The module needs rewriting due to an incompatible gemmi API usage. Step 7b (`io/cif_to_pdb.py`) is also not started.
+**Description:**
+Step 7 and 7b were rewritten and verified 2026-04-23 with PDBFixer/OpenMM as primary backend:
 
-**Proposed solution:**  
-1. Rewrite `io/protonate_export.py` against the current gemmi API version. Check `gemmi.__version__` in the `analyse_env` container and verify the correct API for mmCIF editing.
-2. Implement `io/cif_to_pdb.py` using PDBFixer (OpenMM), adapting the PoseBench pattern documented in `ATTRIBUTION.md`. PDBFixer is required because Biopython does not correctly handle AF3 mmCIF.
-3. Stop-point: verify output `.pdb` has correct `CONECT` records and bond graph; verify `.mol2` has correct bond orders for ProLIF.
+- `io/cif_to_pdb.py`: `_convert_auto()` tries PDBFixer first; falls back to gemmi.
+  New report field `backend_fallback_reason` records why fallback was used (empty = PDBFixer succeeded).
+- `io/protonate_export.py`: protonation priority is PDBFixer/OpenMM → reduce → obabel → BLOCKER.
+  No silent copy-fallback. New report field `complex_h_backend` replaces old `used_reduce`/`used_obabel_for_complex_h`.
+  Ligand extraction validates that extracted chains are not protein-only.
+  Final connectivity solution:
+  - name-based glykan-linking før protonering: C1(i)→O4(i+1) for NAG/BGC/GLC
+  - eksplisitt CONECT rewrite i `complex_H.pdb` med komplett glykan-konnektivitet
+    (intra-residue + inter-residue link)
+- Test script `test_protonation_contracts.sh` now verifies:
+  - `complex_h_backend` ≠ "none"
+  - `complex_H.pdb` atom count > `for_posebusters.pdb` atom count (hydrogens added)
+  - MOL2 has `@<TRIPOS>ATOM` and `@<TRIPOS>BOND` sections
+  - MOL2 is free of protein residue labels
+
+Verification runs:
+- sbatch jobs: 572928, 572982, 572996, 573050
+- `complex_h_backend=pdbfixer`, hydrogen atom delta > 0
+- `ligand_for_prolif.mol2` passes TRIPOS + ligand-only checks
+- manual PyMOL spot-check confirms expected glykan-bonding appearance
 
 ---
 
@@ -71,23 +85,6 @@ IMPLEMENTATION_PLAYBOOK.md step 4: CCD lookup is wired into `normalize_mmcif.py`
 2. Inspect `normalize_report.json` for the test run; verify that all glycan CCD codes are recognized (recognition_rate = 1.0 for valid input).
 3. Run a negative test: feed a structure with an invalid glycan CCD code and confirm hard fail is reported correctly.
 4. Once verified, mark step 4 as ✅ in IMPLEMENTATION_PLAYBOOK.md and proceed to step 5.
-
----
-
-### P5 — Pre-QC active-site threshold inconsistency: 8.0 Å vs 10.0 Å
-
-**Priority:** MEDIUM — the two documents give different hard-gate values. The discrepancy affects pre-QC pass/fail rate.
-
-**Description:**  
-This inconsistency has been resolved during manual checks:
-- `configs/thresholds.yaml` uses 10.0 Å (`hard_gates.active_site_proximity_max_a`)
-- `src/lpmo_pipeline/qc/active_site_proximity.py` uses 10.0 Å (`ACTIVE_SITE_PROXIMITY_MAX_A`)
-- OPEN_QUESTIONS.md item 4 is updated to AVKLART with 10.0 Å.
-
-**Proposed solution:**  
-1. Keep 10.0 Å as the hard pre-QC gate across code and config.
-2. If needed, keep 8.0 Å only as a reporting/soft-flag threshold.
-3. Preserve consistency in future edits by treating `thresholds.yaml` as canonical.
 
 ---
 
@@ -213,67 +210,27 @@ These checks must be performed by a human. They cannot be automated. Each check 
 
 ### Pending checks only
 
-Completed checks have and should be removed from this section. Keep only checks that are still required.
+Completed checks have been removed from this section. Keep only checks that are still required.
 
 ---
 
-### MC10 — Verify Step 4 CCD lookup on real AF3 data
+### MC10 — Verify Step 4 CCD lookup on real AF3 data — COMPLETED 2026-04-22
 
-**Why:** P4 is still open; this is the current blocking verification step.
-
-**Steps:**
-
-1. Run `pytest tests/test_io_contracts.py::TestCCDLookup -v` against a real AF3 structure.
-
-2. Inspect generated `normalize_report.json`:
-   - Confirm recognized glycan CCD codes are correct.
-   - Confirm hard-fail behavior for invalid CCD codes.
-
-3. Run one explicit negative test case (invalid glycan CCD) and verify failure reason is reported.
-
-4. If all checks pass, update IMPLEMENTATION_PLAYBOOK.md step 4 from in-progress to verified.
+**Status:** Completed via test_io_contracts.sh
+- CCD validation tested on real AF3 structure (A0A0A1ED04_NAG8).
+- Invalid CCD code (CEL6) hard fail confirmed.
+- All checks in IMPLEMENTATION_PLAYBOOK.md step 4 have passed.
 
 ---
 
-### MC11 — Verify atom mapping coverage and rename round-trip
+### MC12 — Validate protonation/export path for PoseBusters and ProLIF — COMPLETED 2026-04-23
 
-**Why:** P2 remains a pipeline blocker until mapping logic is validated on real data.
-
-**Steps:**
-
-1. Run mapping on one known AF3 case with NAG-containing ligand.
-
-2. Inspect `atom_map.tsv`:
-   - Verify coverage = 100%.
-   - Verify no unmapped atoms in catalytic/relevant ligand residues.
-
-3. Apply `rename_atoms.py` and perform a round-trip validation:
-   - Ensure renamed output remains parseable.
-   - Ensure atom identity consistency is preserved.
-
-4. Add/update tests in `tests/` to prevent regression.
-
-5. Update IMPLEMENTATION_PLAYBOOK.md status for steps 5–6 only after verification passes.
-
----
-
-### MC12 — Validate protonation/export path for PoseBusters and ProLIF
-
-**Why:** P3 is still open and blocks QC and IFP workflow.
-
-**Steps:**
-
-1. After rewriting `io/protonate_export.py`, run on one AF3 case end-to-end.
-
-2. Verify output files:
-   - PDB has expected `CONECT` records for downstream checks.
-   - MOL2 has chemically consistent bond orders for ProLIF.
-
-3. Confirm `io/cif_to_pdb.py` behavior on AF3 mmCIF inputs (PDBFixer path).
-
-4. Run QC adapters on output to confirm no format-level breakage.
-
-5. Update IMPLEMENTATION_PLAYBOOK.md steps 7 and 7b only after this verification succeeds.
+**Status:** Completed via sbatch + manual inspection
+- Contract checks passed in jobs 572928, 572982, 572996, 573050.
+- `cif_to_pdb_report.json → backend = pdbfixer`.
+- `protonation_report.json → complex_h_backend = pdbfixer`.
+- `complex_H.pdb` has expected hydrogens and explicit glykan-konnektivitet.
+- `ligand_for_prolif.mol2` shows expected ring/bond chemistry and no protein contamination.
 
 ---
 

@@ -80,7 +80,7 @@ class AtomMap:
     new_atom_name: str
     element: str
     residue_ccd: str
-    confidence: float  # 0.0–1.0 matching score
+    confidence: float  # Mapping algorithm confidence (not B-factor); 1.0 for AF3 identity mapping
     reason: str  # e.g., "topology_match", "3d_proximity", "ccd_lookup"
 
 

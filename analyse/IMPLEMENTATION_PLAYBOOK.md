@@ -31,10 +31,10 @@ Forutsetninger (oppdatert 21.04.2026):
 | 1 | `io/discovery.py` | ✅ Ferdig. Verifisert med 9 targets, 156K samples, af3_only + latest_only filter |
 | 2 | `io/mmcif_ingest.py` | ✅ Ferdig. Verifisert på ekte AF3-CIF (CEL6, NAG6, STA8) |
 | 3 | `io/normalize_mmcif.py` | ✅ Ferdig. Chain mapping A→A, C→B, B→E. Verifisert på alle 3 substrattyper |
-| 4 | `io/ccd_lookup.py` | 🔄 Pågår. Wired inn i normalize med CCD-gate + rapportering; gjenstår verifikasjon på ekte AF3-data |
-| 5–6 | `mapping/` | ⚠️ Kode finnes (`cross_model_atom_mapping.py`, `rename_atoms.py`), men mangler verifikasjon/kontraktstester |
-| 7 | `io/protonate_export.py` | ❌ Broken (feil gemmi API), må omskrives |
-| 7b | `io/cif_to_pdb.py` | ❌ Ikke startet |
+| 4 | `io/ccd_lookup.py` | ✅ Verifisert via test_io_contracts.sh. CCD-gate + rapportering fungerer på ekte AF3-data |
+| 5–6 | `mapping/` | ✅ Verifisert via test_mapping_contracts.sh. Coverage=100%, round-trip rename validert |
+| 7 | `io/protonate_export.py` | ✅ Verifisert 2026-04-23. PDBFixer/OpenMM primær-backend, ingen stille kopi-fallback. Name-based glycan-linking (C1→O4 for NAG/BGC/GLC) før protonering, og eksplisitt CONECT rewrite for komplett ligand-konnektivitet i `complex_H.pdb`. Verifisert via sbatch (572928, 572982, 572996, 573050). |
+| 7b | `io/cif_to_pdb.py` | ✅ Verifisert 2026-04-23. PDBFixer-backend er primær (AF3-riktig), gemmi fallback med `backend_fallback_reason`. Verifisert via test_protonation_contracts.sh (backend=pdbfixer). |
 | 8 | `qc/active_site_proximity.py` | ⚠️ Kode finnes, ikke testet på ekte data |
 | 9–12 | `qc/` (PoseBusters, Privateer, Cu-His, QC report) | ⚠️ Kode finnes, ikke testet |
 | 13 | `analysis/prolif_ifp.py` + `pose_ifp_table.tsv` | ⚠️ Kode finnes, ikke verifisert på ekte data |
@@ -60,23 +60,39 @@ Forutsetninger (oppdatert 21.04.2026):
 3. ✅ **`io/normalize_mmcif.py`** — Chain-rename (A/B-D/E), confidence-ekstraksjon.
    ⛔ STOPP: Verifiser `normalized.cif` med `gemmi validate`.
 
-4. **`io/ccd_lookup.py`** — CCD-cache + monosakkarid-validering.
-    Status 2026-04-09: wired inn i `normalize_mmcif.py` med hard fail ved ugyldig glykan-CCD og status i `normalize_report.json`.
-   Test: `pytest tests/test_io_contracts.py::TestCCDLookup -v`.
+4. ✅ **`io/ccd_lookup.py`** — CCD-cache + monosakkarid-validering.
+    Status 2026-04-22: Verifisert via test_io_contracts.sh på ekte AF3-data. Hard fail ved ugyldig glykan-CCD fungerer korrekt.
 
-5. **`mapping/cross_model_atom_mapping.py`** — 3-tier atom-matching.
-   ⛔ STOPP: Inspiser `atom_map.tsv` for én kjent NAG-residue. Coverage=100%?
+5. ✅ **`mapping/cross_model_atom_mapping.py`** — 3-tier atom-matching.
+   Status 2026-04-22: Verifisert via test_mapping_contracts.sh. Coverage=100%, atom_map.tsv generert korrekt.
 
-6. **`mapping/rename_atoms.py`** — Last og anvend atom_map.
-   Test: round-trip test med atom_map.tsv.
+6. ✅ **`mapping/rename_atoms.py`** — Last og anvend atom_map.
+   Status 2026-04-22: Verifisert via test_mapping_contracts.sh. Round-trip rename (forward/reverse) validert.
 
-7. **`io/protonate_export.py`** — Reduce + OpenBabel for protonering.
-   Forutsetning: `io/cif_to_pdb.py` omgjører mmCIF→PDB via PDBFixer først.
-   ⛔ STOPP: Inspiser for_posebusters.pdb (CONECT) og .mol2 (bond orders).
+7. ✅ **`io/protonate_export.py`** — Protonering og eksport til QC/analyse-artefakter.
+    Status 2026-04-23: verifisert via sbatch-kontrakter (572928, 572982, 572996, 573050).
+    Protonerings-backend-prioritet:
+      1. PDBFixer/OpenMM (primær) — `addMissingHydrogens(pH=7.0)`, preserverer chain IDs
+      2. reduce (sekundær, AmberTools)
+      3. obabel (tertiær)
+      4. Blocker i rapport — INGEN stille kopi-fallback lenger
+    Ligandekstraksjon validerer at glycan-kjeder ikke er protein-residuenames.
+    Rapport-felt: `complex_h_backend` erstatter `used_reduce`/`used_obabel_for_complex_h`.
+    For glykaner (NAG/BGC/GLC) legges C1(i)→O4(i+1)-koblinger til før protonering,
+    og `complex_H.pdb` får eksplisitte CONECT-linjer skrevet fra komplett bond-graf
+    (inkludert name-based intra-residue glycan-bonds + inter-residue C1→O4).
+    Verifisert resultat:
+    - `complex_h_backend = pdbfixer`
+    - `complex_H.pdb` atom-count > `for_posebusters.pdb`
+    - `ligand_for_prolif.mol2` har `@<TRIPOS>ATOM` og `@<TRIPOS>BOND`
+    - `ligand_for_prolif.mol2` inneholder ikke protein-residuenavn
 
-7b. **`io/cif_to_pdb.py`** — CIF→PDB konvertering via PDBFixer (adaptert fra PoseBench MIT).
-    Bruk PDBFixer for å håndtere AF3 mmCIF-format korrekt.
-    ⛔ STOPP: Verifiser at output PDB har CONECT records og korrekt bondgraf.
+7b. ✅ **`io/cif_to_pdb.py`** — CIF→PDB konvertering.
+    Status 2026-04-23: verifisert med PDBFixer som primær-backend.
+     Backend-valg: `_convert_auto()` → prøver PDBFixer, faller tilbake til gemmi med grunn.
+     `CIFToPDBReport` har nytt felt `backend_fallback_reason` som alltid settes.
+     Manuelt verifisert i PyMOL (2026-04-22): rå AF3 vs normalized vs PDB er identiske.
+    Sbatch-verifisert: `cif_to_pdb_report.json` rapporterer `backend=pdbfixer`.
 
 8. **`qc/active_site_proximity.py`** — pre-QC gate (ligand nær aktivt sete).
    Krav: beregn og logg `min_cu_ligand_distance`, `min_cu_c1`, `min_cu_c4` for alle poser.
@@ -84,7 +100,11 @@ Forutsetninger (oppdatert 21.04.2026):
 
 9. **`qc/posebusters_runner.py`** — PoseBusters-wrapper.
    Kjøres på AF3-poser direkte.
-   SIF: `/cluster/projects/nn1003k/prog/posebusters/build/posebusters.sif`.
+    Merk: "fallback-kandidater" betyr kun valg mellom to identiske SIF-paths
+    (ikke at PoseBusters-gaten hoppes over).
+     SIF (fallback-kandidater):
+    `/cluster/projects/nn1003k/prog/posebusters/build/posebusters.sif`,
+    `/cluster/projects/nn1003k/prog/posebusters/posebusters.sif`.
    Test: `pytest tests/test_qc_gates.py::TestPoseBustersGate`.
 
 10. **`qc/privateer_runner.py`** — Privateer-wrapper + 100%-recog gate.
