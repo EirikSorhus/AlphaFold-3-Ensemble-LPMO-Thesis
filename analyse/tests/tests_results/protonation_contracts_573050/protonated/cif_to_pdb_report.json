@@ -1,0 +1,11 @@
+{
+  "backend": "pdbfixer",
+  "input_cif": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/protonation_contracts_573050/normalize_for_protonation/normalized.cif",
+  "output_pdb": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/protonation_contracts_573050/protonated/for_posebusters.pdb",
+  "atom_count": 1393,
+  "model_count": 1,
+  "chain_count": 3,
+  "has_conect_records": false,
+  "has_link_records": false,
+  "backend_fallback_reason": ""
+}

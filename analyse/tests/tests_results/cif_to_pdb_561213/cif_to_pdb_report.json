@@ -1,0 +1,10 @@
+{
+  "backend": "gemmi",
+  "input_cif": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/mapping_contracts_554656/normalize_for_mapping/normalized.cif",
+  "output_pdb": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/cif_to_pdb_561213/for_posebusters.pdb",
+  "atom_count": 1393,
+  "model_count": 1,
+  "chain_count": 3,
+  "has_conect_records": false,
+  "has_link_records": false
+}

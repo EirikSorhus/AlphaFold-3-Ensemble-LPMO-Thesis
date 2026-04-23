@@ -1,0 +1,22 @@
+{
+  "ok": true,
+  "af3_only": true,
+  "normalized_cif": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/mapping_contracts_554656/normalize_for_mapping/normalized.cif",
+  "atom_map_tsv": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/mapping_contracts_554656/atom_map.tsv",
+  "rename_log_json": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/mapping_contracts_554656/rename_log.json",
+  "mapping_coverage": 1.0,
+  "mapped_atoms": 1393,
+  "unmapped_atoms": 0,
+  "round_trip": {
+    "target": {
+      "chain": "A",
+      "resnum": 1,
+      "old_atom_name": "N",
+      "temp_atom_name": "XN"
+    },
+    "forward_renamed_atoms": 1,
+    "reverse_renamed_atoms": 1,
+    "forward_cif": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/mapping_contracts_554656/renamed_forward.cif",
+    "roundtrip_cif": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/mapping_contracts_554656/renamed_roundtrip.cif"
+  }
+}

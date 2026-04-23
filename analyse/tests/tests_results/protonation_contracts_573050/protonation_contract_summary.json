@@ -1,0 +1,27 @@
+{
+  "ok_normalize": true,
+  "ok_protonate_export": true,
+  "test_cif": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work/NAG8/af3/runs/408004/A0A0A1ED04_NAG8/seed-1_sample-0/A0A0A1ED04_NAG8_seed-1_sample-0_model.cif",
+  "normalized_cif": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/protonation_contracts_573050/normalize_for_protonation/normalized.cif",
+  "cif_to_pdb_backend": "pdbfixer",
+  "cif_to_pdb_fallback_reason": "",
+  "for_posebusters_pdb": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/protonation_contracts_573050/protonated/for_posebusters.pdb",
+  "for_posebusters_atom_count": 1393,
+  "complex_h_pdb": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/protonation_contracts_573050/protonated/complex_H.pdb",
+  "complex_h_atom_count": 2666,
+  "complex_h_backend": "pdbfixer",
+  "hydrogen_atoms_added": 1273,
+  "ligand_for_prolif_mol2": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/protonation_contracts_573050/protonated/ligand_for_prolif.mol2",
+  "ligand_mol2_size_bytes": 22410,
+  "protonation_report": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/protonation_contracts_573050/protonated/protonation_report.json",
+  "blockers": [],
+  "warnings": [],
+  "checks_passed": {
+    "cif_to_pdb_backend_known": true,
+    "complex_h_backend_not_none": true,
+    "hydrogens_added": true,
+    "mol2_tripos_atom": true,
+    "mol2_tripos_bond": true,
+    "mol2_no_protein_residues": true
+  }
+}

@@ -97,17 +97,145 @@ class TestNormalizedCIFContract:
 class TestProtonationContract:
     """Verify protonation outputs have required features."""
 
-    def test_posebusters_pdb_has_conect(self, tmp_path: Path) -> None:
-        """for_posebusters.pdb must contain CONECT records."""
-        # PSEUDOCODE: check for CONECT lines in PDB
-        pass  # Placeholder
+    def test_cif_to_pdb_writes_posebusters_pdb(self, tmp_path: Path) -> None:
+        """Step 7b writes a PDB artifact from normalized mmCIF."""
+        from lpmo_pipeline.io.cif_to_pdb import convert_cif_to_pdb
 
-    def test_mol2_has_bond_orders(self, tmp_path: Path) -> None:
-        """ligand_for_prolif.mol2 must have bond order column."""
-        # PSEUDOCODE: check @<TRIPOS>BOND section
-        pass  # Placeholder
+        fixture = Path(__file__).parent / "fixtures" / "test_normalized.cif"
+        success, output_path = convert_cif_to_pdb(fixture, tmp_path)
 
-    def test_mol2_has_charges(self, tmp_path: Path) -> None:
-        """ligand_for_prolif.mol2 must have partial charges."""
-        # PSEUDOCODE: check @<TRIPOS>ATOM charge column
-        pass  # Placeholder
+        assert success is True
+        assert output_path is not None
+        assert output_path.name == "for_posebusters.pdb"
+        pdb_text = output_path.read_text()
+        assert "ATOM" in pdb_text or "HETATM" in pdb_text
+
+        report_path = tmp_path / "cif_to_pdb_report.json"
+        assert report_path.exists()
+
+    def test_cif_to_pdb_report_has_required_fields(self, tmp_path: Path) -> None:
+        """cif_to_pdb_report.json must record backend and fallback reason."""
+        import json
+        from lpmo_pipeline.io.cif_to_pdb import convert_cif_to_pdb
+
+        fixture = Path(__file__).parent / "fixtures" / "test_normalized.cif"
+        success, _ = convert_cif_to_pdb(fixture, tmp_path)
+        assert success is True
+
+        report = json.loads((tmp_path / "cif_to_pdb_report.json").read_text())
+        assert "backend" in report
+        assert report["backend"] in ("pdbfixer", "gemmi", "gemmi_atom_site_fallback")
+        assert "backend_fallback_reason" in report
+        assert "atom_count" in report
+        assert report["atom_count"] > 0
+
+    def test_cif_to_pdb_preferred_backend_is_pdbfixer(self, tmp_path: Path) -> None:
+        """When PDBFixer is available the reported backend must be 'pdbfixer'."""
+        import json
+        pytest.importorskip("pdbfixer")
+        pytest.importorskip("openmm")
+
+        from lpmo_pipeline.io.cif_to_pdb import convert_cif_to_pdb
+
+        fixture = Path(__file__).parent / "fixtures" / "test_normalized.cif"
+        success, _ = convert_cif_to_pdb(fixture, tmp_path)
+        assert success is True
+
+        report = json.loads((tmp_path / "cif_to_pdb_report.json").read_text())
+        assert report["backend"] == "pdbfixer", (
+            f"Expected backend=pdbfixer, got {report['backend']}. "
+            f"fallback_reason={report.get('backend_fallback_reason')}"
+        )
+
+    def test_protonation_report_schema(self, tmp_path: Path) -> None:
+        """protonation_report.json must have all required schema fields."""
+        import json
+        from lpmo_pipeline.io.protonate_export import protonate_and_export
+        from lpmo_pipeline.io.normalize_mmcif import NormalizeMMCIFRunner
+
+        fixture = Path(__file__).parent / "fixtures" / "test_normalized.cif"
+        # protonate_and_export accepts normalized CIF directly
+        ok, report = protonate_and_export(fixture, tmp_path)
+
+        report_path = tmp_path / "protonation_report.json"
+        assert report_path.exists(), "protonation_report.json must be written"
+
+        data = json.loads(report_path.read_text())
+        required_fields = {
+            "input_cif", "output_dir", "for_posebusters_pdb",
+            "complex_h_pdb", "ligand_mol2", "complex_h_backend",
+            "used_obabel", "blockers", "warnings",
+        }
+        missing = required_fields - data.keys()
+        assert not missing, f"protonation_report.json missing fields: {missing}"
+
+    @pytest.mark.slow
+    def test_complex_h_has_hydrogens(self, tmp_path: Path) -> None:
+        """complex_H.pdb must have more atom lines than for_posebusters.pdb."""
+        pytest.importorskip("pdbfixer")
+        pytest.importorskip("openmm")
+
+        import json
+        from lpmo_pipeline.io.protonate_export import protonate_and_export, _count_atom_lines
+
+        fixture = Path(__file__).parent / "fixtures" / "test_normalized.cif"
+        ok, report = protonate_and_export(fixture, tmp_path)
+        assert report is not None
+
+        data = json.loads((tmp_path / "protonation_report.json").read_text())
+        assert data["complex_h_backend"] != "none", (
+            "complex_H.pdb backend must not be 'none'; "
+            f"warnings={data.get('warnings')}"
+        )
+
+        posebusters_pdb = Path(data["for_posebusters_pdb"])
+        complex_h_pdb = Path(data["complex_h_pdb"])
+        assert posebusters_pdb.exists()
+        assert complex_h_pdb.exists()
+
+        n_base = _count_atom_lines(posebusters_pdb)
+        n_h = _count_atom_lines(complex_h_pdb)
+        assert n_h > n_base, (
+            f"complex_H.pdb must have more atoms than for_posebusters.pdb "
+            f"(base={n_base}, complex_h={n_h})"
+        )
+
+    @pytest.mark.slow
+    def test_mol2_has_tripos_sections(self, tmp_path: Path) -> None:
+        """ligand_for_prolif.mol2 must have @<TRIPOS>ATOM and @<TRIPOS>BOND sections."""
+        import json
+        from lpmo_pipeline.io.protonate_export import protonate_and_export
+
+        fixture = Path(__file__).parent / "fixtures" / "test_normalized.cif"
+        ok, report = protonate_and_export(fixture, tmp_path)
+        assert report is not None
+
+        data = json.loads((tmp_path / "protonation_report.json").read_text())
+        mol2_path = Path(data["ligand_mol2"])
+        if not mol2_path.exists():
+            pytest.skip("MOL2 not produced (obabel unavailable)")
+
+        mol2_text = mol2_path.read_text(errors="ignore")
+        assert "@<TRIPOS>ATOM" in mol2_text, "MOL2 missing @<TRIPOS>ATOM section"
+        assert "@<TRIPOS>BOND" in mol2_text, "MOL2 missing @<TRIPOS>BOND section"
+
+    @pytest.mark.slow
+    def test_mol2_is_ligand_only(self, tmp_path: Path) -> None:
+        """ligand_for_prolif.mol2 must not contain protein residue labels."""
+        import json
+        from lpmo_pipeline.io.protonate_export import protonate_and_export, _PROTEIN_RESIDUE_NAMES
+
+        fixture = Path(__file__).parent / "fixtures" / "test_normalized.cif"
+        ok, report = protonate_and_export(fixture, tmp_path)
+        assert report is not None
+
+        data = json.loads((tmp_path / "protonation_report.json").read_text())
+        mol2_path = Path(data["ligand_mol2"])
+        if not mol2_path.exists():
+            pytest.skip("MOL2 not produced (obabel unavailable)")
+
+        mol2_text = mol2_path.read_text(errors="ignore")
+        protein_hits = [r for r in _PROTEIN_RESIDUE_NAMES if r in mol2_text]
+        assert not protein_hits, (
+            f"ligand_for_prolif.mol2 contains protein residue labels: {protein_hits}"
+        )

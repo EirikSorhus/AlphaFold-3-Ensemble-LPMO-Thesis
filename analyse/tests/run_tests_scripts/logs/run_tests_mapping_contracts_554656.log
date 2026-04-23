@@ -1,0 +1,77 @@
+Starting job 554656 on c1-60 on Olivia at Wed Apr 22 11:56:18 CEST 2026
+
+[INFO] Running mapping unit tests
+============================= test session starts ==============================
+platform linux -- Python 3.11.15, pytest-9.0.2, pluggy-1.6.0 -- /OLIVIA_TYKKY_fdePlo2/miniforge/envs/env1/bin/python3.11
+cachedir: .pytest_cache
+rootdir: /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse
+configfile: pyproject.toml
+collecting ... collected 4 items
+
+tests/test_atom_mapping.py::TestAtomMappingCoverage::test_coverage_100_on_known_residue PASSED [ 25%]
+tests/test_atom_mapping.py::TestAtomMappingCoverage::test_coverage_below_100_raises_or_flags PASSED [ 50%]
+tests/test_atom_mapping.py::TestAtomMappingCoverage::test_atom_map_tsv_schema PASSED [ 75%]
+tests/test_atom_mapping.py::TestRenameAtoms::test_load_and_apply_round_trip PASSED [100%]
+
+============================== 4 passed in 0.10s ===============================
+[INFO] Running AF3 mapping contract check on: /cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work/NAG8/af3/runs/408004/A0A0A1ED04_NAG8/seed-1_sample-0/A0A0A1ED04_NAG8_seed-1_sample-0_model.cif
+2026-04-22 11:56:21,713 [normalize_mmcif] INFO: [normalize_mmcif] Starting...
+2026-04-22 11:56:21,726 [normalize_mmcif] INFO: Check 'chain_mapping': pass — Built 3 chain mappings: A→A, C→B, B→E
+2026-04-22 11:56:21,726 [normalize_mmcif] INFO: Check 'apply_chain_mapping': pass — Remapped chains: {'A': 'A', 'C': 'B', 'B': 'E'}
+2026-04-22 11:56:21,728 [normalize_mmcif] INFO: Check 'glycan_ccd_validation': pass — Validated 8 glycan residues against CCD monosaccharide rules
+2026-04-22 11:56:21,729 [normalize_mmcif] INFO: Check 'struct_conn_present': pass — _struct_conn has 7 connection(s)
+2026-04-22 11:56:21,729 [normalize_mmcif] INFO: Check 'chem_comp_bond_present': pass — _chem_comp_bond not present in CIF — expected for AF3; treated as informational
+2026-04-22 11:56:21,729 [normalize_mmcif] INFO: Check 'derive_confidence': pass — Derived residue confidence for 169 residues from B_iso
+2026-04-22 11:56:21,730 [normalize_mmcif] INFO: Artifact 'atom_map' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/mapping_contracts_554656/normalize_for_mapping/atom_map.tsv
+2026-04-22 11:56:21,731 [normalize_mmcif] INFO: Artifact 'rename_log' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/mapping_contracts_554656/normalize_for_mapping/rename_log.json
+2026-04-22 11:56:21,732 [normalize_mmcif] INFO: Artifact 'normalize_report' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/mapping_contracts_554656/normalize_for_mapping/normalize_report.json
+2026-04-22 11:56:21,738 [normalize_mmcif] INFO: [normalize_mmcif] SUCCESS (elapsed: 0.02s)
+[INFO] Mapping contract summary
+{
+  "ok": true,
+  "af3_only": true,
+  "normalized_cif": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/mapping_contracts_554656/normalize_for_mapping/normalized.cif",
+  "atom_map_tsv": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/mapping_contracts_554656/atom_map.tsv",
+  "rename_log_json": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/mapping_contracts_554656/rename_log.json",
+  "mapping_coverage": 1.0,
+  "mapped_atoms": 1393,
+  "unmapped_atoms": 0,
+  "round_trip": {
+    "target": {
+      "chain": "A",
+      "resnum": 1,
+      "old_atom_name": "N",
+      "temp_atom_name": "XN"
+    },
+    "forward_renamed_atoms": 1,
+    "reverse_renamed_atoms": 1,
+    "forward_cif": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/mapping_contracts_554656/renamed_forward.cif",
+    "roundtrip_cif": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/mapping_contracts_554656/renamed_roundtrip.cif"
+  }
+}
+[INFO] Mapping contract checks completed successfully
+[INFO] Results directory: /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results//mapping_contracts_554656
+
+Job 554656 consumed 0.0 billing hours and 0.0 GPU hours from project nn1003k.
+
+Submitted 2026-04-22T11:56:15; waited 4.0 seconds in the queue after becoming eligible to run.
+
+Requested wallclock time: 10.0 minutes
+Elapsed wallclock time:   3.0 seconds
+
+Job exited normally.
+
+Task and CPU statistics:
+ID            CPUs  Tasks  CPU util                Start  Elapsed  Exit status
+554656           1            0.0 %  2026-04-22T11:56:19    3.0 s  0
+554656.batch     1      1    91.6 %  2026-04-22T11:56:19    3.0 s  0
+
+Used CPU time:   2.7 CPU seconds
+Unused CPU time: 0.3 CPU seconds
+
+Memory statistics, in GiB:
+ID             Alloc   Usage
+554656           4.0        
+554656.batch     4.0     0.4
+
+Job 554656 completed at Wed Apr 22 11:56:21 CEST 2026
