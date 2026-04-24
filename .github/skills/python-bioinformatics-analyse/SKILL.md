@@ -1,6 +1,6 @@
 ---
 name: python-bioinformatics-analyse
-description: "Default Python coding workflow for almost all analyse/ tasks: implement or refactor parsers, validators, adapters, QC gates, artifact builders, manifest/report logic, schema contracts, and tests in analyse/src/lpmo_pipeline and analyse/tests. Use for mmCIF, Gemmi, PoseBusters, Privateer, MDAnalysis, ProLIF, HDBSCAN, and manifest consistency work. Do not use for installing programs/dependencies or R coding. Avoid re-implementing structure prediction runner internals."
+description: "Default Python coding workflow for almost all analyse/ tasks: implement or refactor parsers, validators, adapters, QC gates, artifact builders, manifest/report logic, schema contracts, and tests in analyse/src/lpmo_pipeline and analyse/tests. Use for mmCIF, Gemmi, PoseBusters, Privateer, MDAnalysis, ProLIF, HDBSCAN, manifest consistency work, and activating the correct pipeline-specific conda environment before running python or pytest. Never use pip or conda install commands. Do not use for installing programs/dependencies or R coding. Avoid re-implementing structure prediction runner internals."
 argument-hint: "Describe task + module path + expected input/output artifacts + constraints"
 ---
 
@@ -12,6 +12,8 @@ Use this skill for Python development in the unfinished analyse pipeline when im
 
 - Deliver robust, testable Python code for bioinformatics pipeline steps.
 - Keep changes small, explicit, and compatible with existing I/O contracts.
+- Ensure the correct pipeline-specific conda environment is activated before any `python` or `pytest` use.
+- Prevent package installation attempts during this workflow.
 - Preserve separation of concerns:
   - `analyse/` orchestrates analysis and validation.
   - `structure_pipeline/` remains the source of truth for prediction runner logic.
@@ -20,8 +22,20 @@ Use this skill for Python development in the unfinished analyse pipeline when im
 ## Non-Goals
 
 - Do not produce R code in this workflow.
+- Do not run `pip install`, `python -m pip`, `conda install`, `mamba install`, or any other package installation command.
 - Do not re-implement AF3/RF3/Boltz prediction-running internals in `analyse/`.
 - Do not hardcode site-specific HPC paths in source code.
+
+## Environment Rules
+
+- Python and pytest must only be run from an activated conda environment.
+- Never run any major coding or testing on the login node; use sbatch shell scripts.
+- Conda environments are located under `/cluster/work/projects/nn1003k/eirik/conda/`.
+- Always use the environment that matches the pipeline or subproject being changed.
+- For `analyse/` work, select the documented `analyse_env` environment before running `python` or `pytest`.
+- For other pipelines or subprojects, switch to that pipeline's corresponding environment first.
+- If the correct environment is unclear from repository documentation, stop and ask instead of guessing.
+- Never install packages with pip, conda, or mamba as part of this skill.
 
 ## When to Use
 
@@ -48,6 +62,7 @@ Before coding, identify:
 3. Hard gates and thresholds relevant to the step.
 4. Whether behavior must be config-driven via YAML instead of constants.
 5. Minimum regression tests needed for the changed behavior.
+6. Which conda environment under `/cluster/work/projects/nn1003k/eirik/conda/` corresponds to the target pipeline.
 
 ## Procedure
 
@@ -71,8 +86,10 @@ Before coding, identify:
    - artifact output paths
    - gate results
 8. Re-check that changes do not move prediction-runner logic into `analyse/`.
-9. Avoid running heavy pipeline jobs interactively; validate with targeted/unit/contract tests unless the user explicitly asks for a full run.
-10. If a step requires manual control/inspection, stop after preparing outputs and wait for user confirmation before treating the task as finished.
+9. Before any `python` or `pytest` command, activate the pipeline-specific environment under `/cluster/work/projects/nn1003k/eirik/conda/`.
+10. Never install dependencies with pip, conda, or mamba; if something is missing, report it instead of attempting installation.
+11. Avoid running heavy pipeline jobs interactively; validate with targeted/unit/contract tests unless the user explicitly asks for a full run.
+12. If a step requires manual control/inspection, stop after preparing outputs and wait for user confirmation before treating the task as finished.
 
 ## Design Rules for Reusability
 
@@ -106,6 +123,7 @@ Before coding, identify:
 - Add contract tests when artifact structure is part of pipeline guarantees.
 - For external-tool-dependent paths, isolate parsing/business logic so most tests run without those tools.
 - Use deterministic expected outputs for JSON/CSV where practical.
+- Run `pytest` only after activating the correct pipeline-specific conda environment.
 - When manifests are produced or consumed, test that artifact IDs, output paths, and checksums reconcile with manifest entries.
 - For changes needing manual validation, provide a clear checklist and wait for user confirmation before marking completion.
 
@@ -122,8 +140,11 @@ Before coding, identify:
 ## Anti-Patterns to Avoid
 
 - Mixing parse/extract logic with gate decision logic in one opaque block.
+- Running heavy pipeline jobs on login nodes instead of using sbatch scripts.
 - Name-only atom mapping when topology/geometry context is required.
 - Hardcoding thresholds in business logic instead of config/schema-driven values.
+- Using `python` or `pytest` without first activating the correct conda environment.
+- Installing packages with pip, conda, or mamba during normal task execution.
 - Running full heavy pipeline jobs interactively when targeted tests are sufficient.
 - Writing partial artifacts without validating required fields and manifest linkage.
 

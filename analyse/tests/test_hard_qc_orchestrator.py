@@ -11,6 +11,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from lpmo_pipeline.qc.active_site_proximity import ActiveSiteProximityResult
 from lpmo_pipeline.qc.custom_geometry_checks import CuHisMeasurement, GeometryResult
 from lpmo_pipeline.qc.hard_qc_orchestrator import HardQCInput, run_hard_qc
 from lpmo_pipeline.qc.posebusters_runner import PoseBustersSingleResult
@@ -22,6 +23,21 @@ def _make_input(pose_id: str = "pose_001") -> HardQCInput:
         mol_pred_path=Path("/fake/pose.pdb"),
         structure=MagicMock(),
     )
+
+
+@pytest.fixture(autouse=True)
+def _mock_proximity_gate():
+    """Default Stage 8 behavior in tests: proximity passes unless overridden."""
+    with patch("lpmo_pipeline.qc.hard_qc_orchestrator.check_active_site_proximity") as mock_prox:
+        mock_prox.return_value = ActiveSiteProximityResult(
+            pose_id="pose_default",
+            cu_found=True,
+            min_cu_ligand_distance=5.0,
+            min_cu_c1=4.2,
+            min_cu_c4=4.7,
+            passed=True,
+        )
+        yield mock_prox
 
 
 class TestHardQCOrchestrator:
@@ -162,3 +178,51 @@ class TestHardQCOrchestrator:
         assert report.total == 1
         verdict = report.verdicts[0]
         assert verdict.posebusters_passed is True  # None result -> default
+
+    @patch("lpmo_pipeline.qc.hard_qc_orchestrator.run_posebusters_single")
+    @patch("lpmo_pipeline.qc.hard_qc_orchestrator.check_geometry")
+    def test_pre_qc_failure_skips_pb_and_geometry(self, mock_geom, mock_pb, _mock_proximity_gate) -> None:
+        """Stage 8 fail should drop pose before PB/Privateer/geometry."""
+        _mock_proximity_gate.return_value = ActiveSiteProximityResult(
+            pose_id="pose_001",
+            cu_found=True,
+            min_cu_ligand_distance=12.1,
+            min_cu_c1=11.5,
+            min_cu_c4=10.9,
+            passed=False,
+            failure_reasons=["Ligand too far from active site"],
+        )
+
+        report = run_hard_qc([_make_input()], run_id="test_run")
+        verdict = report.verdicts[0]
+
+        assert verdict.status == "dropped"
+        assert any(r.startswith("active_site_proximity:") for r in verdict.drop_reasons)
+        mock_pb.assert_not_called()
+        mock_geom.assert_not_called()
+
+    @patch("lpmo_pipeline.qc.hard_qc_orchestrator.run_posebusters_single")
+    @patch("lpmo_pipeline.qc.hard_qc_orchestrator.check_geometry")
+    def test_pre_qc_failure_preserves_proximity_metrics(self, mock_geom, mock_pb, _mock_proximity_gate) -> None:
+        """Ikke-slett regel also applies to Stage 8 pre-QC metrics."""
+        _mock_proximity_gate.return_value = ActiveSiteProximityResult(
+            pose_id="pose_001",
+            cu_found=True,
+            min_cu_ligand_distance=13.0,
+            min_cu_c1=12.0,
+            min_cu_c4=9.5,
+            nearest_ligand_atom="B:NAG1:C1",
+            passed=False,
+            failure_reasons=["Ligand too far from active site"],
+        )
+
+        report = run_hard_qc([_make_input()], run_id="test_run")
+        verdict = report.verdicts[0]
+
+        assert verdict.status == "dropped"
+        assert verdict.metrics["min_cu_ligand_distance"] == pytest.approx(13.0)
+        assert verdict.metrics["min_cu_c1"] == pytest.approx(12.0)
+        assert verdict.metrics["min_cu_c4"] == pytest.approx(9.5)
+        assert verdict.metrics["nearest_ligand_atom"] == "B:NAG1:C1"
+        mock_pb.assert_not_called()
+        mock_geom.assert_not_called()

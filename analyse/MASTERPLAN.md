@@ -276,7 +276,7 @@ Tuning is optional and runs after baseline analysis as a comparative/sensitivity
 | glycan not CCD-valid for Privateer prep | YES | skip/drop | yes |
 | critical PoseBusters error | YES | drop pose | yes |
 | severe Privateer fail | YES | drop pose | yes |
-| Cu-His outside 1.9-2.6 A | YES | drop pose | yes |
+| Cu-His outside 1.9-2.6 A (selected brace N only: His1:N, His1:ND1, third non-His1 histidine N) | YES | drop pose | yes |
 | soft PB warning | NO | keep + flag | yes |
 | HDBSCAN outlier | NO | keep with outlier label | yes |
 | low crystal similarity | NO | keep + flag | yes |

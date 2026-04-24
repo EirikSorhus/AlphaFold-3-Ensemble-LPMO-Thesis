@@ -25,6 +25,17 @@ his_brace:
   n_atoms_required: 3             # number of brace N atoms expected in a functional LPMO
   protein_chain: "A"
 
+  # Locked coordinating-atom semantics (user decision 2026-04-24):
+  #   selected_three = [His1:N, His1:ND1, third_histidine_N]
+  #   - His1:N and His1:ND1 are mandatory
+  #   - His1:NE2 is excluded from selected_three and brace plane construction
+  #   - third_histidine_N must come from residue != 1
+  #   - Cu-His hard gate uses only selected_three distances
+  mandatory_his1_atoms: ["N", "ND1"]
+  excluded_his1_atoms: ["NE2"]
+  third_n_must_be_non_his1: true
+  gate_uses_selected_three_only: true
+
   # Identification procedure (see plan section 12.3 Step 4A):
   #   1. Enumerate all N atoms in chain A
   #   2. Sort by Euclidean distance to Cu (chain E)
@@ -33,7 +44,7 @@ his_brace:
   # N-terminal nitrogen identification (for oxyl placement direction)
   n_terminal_his:
     chain_position: 1             # residue number 1 in chain A (mature protein start)
-    # The N atom from residue 1 is identified among the 3 closest N atoms.
+    # The N atom from residue 1 (atom name N) is mandatory in selected_three.
     # It defines the trans-oxyl direction in Step 4D.
 
   # Soft brace integrity: not a hard gate, does not drop poses.

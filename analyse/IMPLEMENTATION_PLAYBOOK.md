@@ -35,8 +35,8 @@ Forutsetninger (oppdatert 21.04.2026):
 | 5–6 | `mapping/` | ✅ Verifisert via test_mapping_contracts.sh. Coverage=100%, round-trip rename validert |
 | 7 | `io/protonate_export.py` | ✅ Verifisert 2026-04-23. PDBFixer/OpenMM primær-backend, ingen stille kopi-fallback. Name-based glycan-linking (C1→O4 for NAG/BGC/GLC) før protonering, og eksplisitt CONECT rewrite for komplett ligand-konnektivitet i `complex_H.pdb`. Verifisert via sbatch (572928, 572982, 572996, 573050). |
 | 7b | `io/cif_to_pdb.py` | ✅ Verifisert 2026-04-23. PDBFixer-backend er primær (AF3-riktig), gemmi fallback med `backend_fallback_reason`. Verifisert via test_protonation_contracts.sh (backend=pdbfixer). |
-| 8 | `qc/active_site_proximity.py` | ⚠️ Kode finnes, ikke testet på ekte data |
-| 9–12 | `qc/` (PoseBusters, Privateer, Cu-His, QC report) | ⚠️ Kode finnes, ikke testet |
+| 8 | `qc/active_site_proximity.py` | ⚠️ Integrert i `hard_qc_orchestrator.py` og targeted tester passer (2026-04-23), men ikke testet på ekte data |
+| 9–12 | `qc/` (PoseBusters, Privateer, Cu-His, QC report) | ⚠️ Stage 9/11 logikk tester passer, Stage 10 wrapper er implementert og testet, Stage 12 har schema-backed test som passer; reell QC-kjoring pa ekte data gjenstar |
 | 13 | `analysis/prolif_ifp.py` + `pose_ifp_table.tsv` | ⚠️ Kode finnes, ikke verifisert på ekte data |
 | 13b | `analysis/residue_contact_extraction.py` + `pose_residue_contact_table.tsv` | ❌ Ikke startet (ny i v1.0) |
 | 14 | `analysis/mdanalysis_metrics.py` | ⚠️ Kode finnes, ikke verifisert på ekte data |
@@ -96,6 +96,7 @@ Forutsetninger (oppdatert 21.04.2026):
 
 8. **`qc/active_site_proximity.py`** — pre-QC gate (ligand nær aktivt sete).
    Krav: beregn og logg `min_cu_ligand_distance`, `min_cu_c1`, `min_cu_c4` for alle poser.
+    Status 2026-04-23: integrert i `hard_qc_orchestrator.py`. Targeted tester bekrefter at poser med stor avstand droppes for PB/Privateer, og at pre-QC-metrikker beholdes i verdict-data.
     ⛔ STOPP: Verifiser at poser med stor avstand droppes for PB/Privateer, men at metrikker beholdes i pose-nivå tabellene (`pose_manifest.tsv` + `pose_geometry.tsv`).
 
 9. **`qc/posebusters_runner.py`** — PoseBusters-wrapper.
@@ -105,15 +106,19 @@ Forutsetninger (oppdatert 21.04.2026):
      SIF (fallback-kandidater):
     `/cluster/projects/nn1003k/prog/posebusters/build/posebusters.sif`,
     `/cluster/projects/nn1003k/prog/posebusters/posebusters.sif`.
+    Status 2026-04-23: klassifiseringslogikk og batch-feilhåndtering dekkes av targeted pytest og passer i `analyse_env`.
    Test: `pytest tests/test_qc_gates.py::TestPoseBustersGate`.
 
 10. **`qc/privateer_runner.py`** — Privateer-wrapper + 100%-recog gate.
+    Status 2026-04-23: CLI-wrapper + JSON-parser + aggregasjon implementert. Targeted pytest passer i `analyse_env`. Verifikasjon mot faktisk Privateer-output på cluster gjenstar.
     Test: `pytest tests/test_qc_gates.py::TestPrivateerGate`.
 
 11. **`qc/custom_geometry_checks.py`** — Cu-His 1.9–2.6 Å gate.
+    Status 2026-04-23: gate-logikk og verdict-integrasjon dekkes av targeted pytest og passer i `analyse_env`.
     Test: `pytest tests/test_qc_gates.py::TestCuHisGate`.
 
 12. **`qc/qc_report.py`** — Samle pre-QC + PB + Privateer + geometri → verdict.
+    Status 2026-04-23: verdict-aggregasjon er i bruk og targeted orchestrator/gate-tester passer. Schema-backed pytest skriver og validerer `qc_report.json` for en syntetisk 3-pose batch i `analyse_env`. Full stopp-punkt med reelle poser gjenstar.
     ⛔ STOPP: Kjør full QC på 3 poser, verifiser JSON-rapport mot skjema.
 
 13. **`analysis/prolif_ifp.py`** — IFP-beregning med ProLIF.

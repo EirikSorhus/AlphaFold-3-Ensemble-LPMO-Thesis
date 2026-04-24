@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 CU_HIS_MIN: float = 1.9   # Å
 CU_HIS_MAX: float = 2.6   # Å
 CU_SUBSTRATE_FLAG: float = 7.0  # Å — flag if Cu–C1/C4 > this
+HIS_BRACE_MAX_SEARCH_A: float = 3.0  # Å
 
 
 @dataclass
@@ -116,37 +117,69 @@ def check_geometry(
     cu_pos = np.array([cu_atom.pos.x, cu_atom.pos.y, cu_atom.pos.z])
     result.cu_position = tuple(cu_pos.tolist())
 
-    # --- Step 2: Cu–His distances ---
+    # --- Step 2: Cu–His distances (locked brace rules) ---
     his_residues = _find_his_brace_residues(structure, protein_chain="A")
+    candidate_n_atoms: list[dict[str, Any]] = []
     for his_res in his_residues:
-        for atom_name in ["NE2", "ND1"]:
-            his_atom = _get_atom_by_name_or_element(his_res, atom_name, "N")
-            if his_atom is None:
-                continue
-            his_pos = np.array([his_atom.pos.x, his_atom.pos.y, his_atom.pos.z])
-            dist = float(np.linalg.norm(cu_pos - his_pos))
-            in_range = CU_HIS_MIN <= dist <= CU_HIS_MAX
+        resnum = his_res.seqid.num
+        if resnum == 1:
+            atom_names = ["N", "ND1", "NE2"]
+        else:
+            atom_names = ["ND1", "NE2"]
 
-            result.cu_his_measurements.append(CuHisMeasurement(
-                his_chain="A",
-                his_resnum=his_res.seqid.num,
-                his_atom=atom_name,
+        for atom_name in atom_names:
+            atom = _get_atom_by_exact_name(his_res, atom_name)
+            if atom is None:
+                continue
+            pos = np.array([atom.pos.x, atom.pos.y, atom.pos.z], dtype=float)
+            candidate_n_atoms.append(
+                {
+                    "his_chain": "A",
+                    "his_resnum": resnum,
+                    "atom_name": atom_name,
+                    "position": pos,
+                }
+            )
+
+    selected_n_atoms, selection_errors = _select_cu_his_gate_nitrogens(
+        candidate_n_atoms=candidate_n_atoms,
+        cu_pos=cu_pos,
+        max_search_a=HIS_BRACE_MAX_SEARCH_A,
+    )
+
+    for atom_rec in selected_n_atoms:
+        dist = float(atom_rec["distance_angstrom"])
+        in_range = CU_HIS_MIN <= dist <= CU_HIS_MAX
+        his_pos = np.asarray(atom_rec["position"], dtype=float)
+
+        result.cu_his_measurements.append(
+            CuHisMeasurement(
+                his_chain=str(atom_rec["his_chain"]),
+                his_resnum=int(atom_rec["his_resnum"]),
+                his_atom=str(atom_rec["atom_name"]),
                 cu_chain=cu_chain,
-                cu_resnum=cu_atom.residue_seqid if hasattr(cu_atom, 'residue_seqid') else 1,
+                cu_resnum=cu_atom.residue_seqid if hasattr(cu_atom, "residue_seqid") else 1,
                 distance_angstrom=dist,
                 in_range=in_range,
                 his_atom_position=tuple(his_pos.tolist()),
-            ))
+            )
+        )
 
-    result.cu_his_all_in_range = all(m.in_range for m in result.cu_his_measurements)
+    result.cu_his_all_in_range = (
+        len(result.cu_his_measurements) == 3
+        and all(m.in_range for m in result.cu_his_measurements)
+    )
     if not result.cu_his_all_in_range:
+        if selection_errors:
+            result.failure_reasons.extend(selection_errors)
         bad = [
             f"His{m.his_resnum}:{m.his_atom}={m.distance_angstrom:.2f}Å"
             for m in result.cu_his_measurements
             if not m.in_range
         ]
-        result.failure_reasons.append(f"Cu-His distance out of range: {bad}")
-        logger.error("GATE FAIL: Cu-His distance out of 1.9–2.6 Å: %s (pose %s)", bad, pose_id)
+        if bad:
+            result.failure_reasons.append(f"Cu-His distance out of range: {bad}")
+            logger.error("GATE FAIL: Cu-His distance out of 1.9–2.6 Å: %s (pose %s)", bad, pose_id)
 
     # --- Step 3: Cu–C1/C4 distances ---
     for gly_chain_name in glycan_chains:
@@ -268,6 +301,75 @@ def _get_atom_by_name_or_element(
         if atom.element.name == element:
             return atom
     return None
+
+
+def _get_atom_by_exact_name(residue: Any, atom_name: str) -> Any | None:
+    """Get atom by exact atom name from residue."""
+    for atom in residue:
+        if atom.name.strip() == atom_name:
+            return atom
+    return None
+
+
+def _select_cu_his_gate_nitrogens(
+    candidate_n_atoms: list[dict[str, Any]],
+    cu_pos: np.ndarray,
+    max_search_a: float,
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """Select the 3 Cu-His gate nitrogens using locked Stage 4 rules.
+
+    Rules:
+    - His1:N and His1:ND1 are mandatory
+    - His1:NE2 is excluded from selected gate atoms
+    - Third atom must be histidine N from residue != 1
+    """
+    errors: list[str] = []
+
+    def _find_one(resnum: int, atom_name: str) -> dict[str, Any] | None:
+        for rec in candidate_n_atoms:
+            if int(rec.get("his_resnum", -1)) == resnum and rec.get("atom_name") == atom_name:
+                return rec
+        return None
+
+    his1_n = _find_one(1, "N")
+    his1_nd1 = _find_one(1, "ND1")
+
+    if his1_n is None:
+        errors.append("Cu-His selection failed: mandatory His1:N not found")
+    if his1_nd1 is None:
+        errors.append("Cu-His selection failed: mandatory His1:ND1 not found")
+
+    selected: list[dict[str, Any]] = []
+    for rec in [his1_n, his1_nd1]:
+        if rec is None:
+            continue
+        pos = np.asarray(rec["position"], dtype=float)
+        dist = float(np.linalg.norm(cu_pos - pos))
+        selected.append({**rec, "distance_angstrom": dist})
+
+    third_candidates: list[dict[str, Any]] = []
+    for rec in candidate_n_atoms:
+        resnum = int(rec.get("his_resnum", -1))
+        atom_name = str(rec.get("atom_name", ""))
+        if resnum == 1:
+            continue
+        if atom_name not in {"ND1", "NE2"}:
+            continue
+        pos = np.asarray(rec["position"], dtype=float)
+        dist = float(np.linalg.norm(cu_pos - pos))
+        if dist <= max_search_a:
+            third_candidates.append({**rec, "distance_angstrom": dist})
+
+    if third_candidates:
+        third = min(third_candidates, key=lambda r: float(r["distance_angstrom"]))
+        selected.append(third)
+    else:
+        errors.append(
+            "Cu-His selection failed: no non-His1 histidine ND1/NE2 within "
+            f"{max_search_a:.2f} Å"
+        )
+
+    return selected, errors
 
 
 def _compute_his_brace_angle(

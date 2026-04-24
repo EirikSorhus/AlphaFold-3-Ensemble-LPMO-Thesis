@@ -73,7 +73,7 @@ Verification runs:
 
 ---
 
-### P4 — CCD lookup verification on real AF3 data not yet done (CURRENT STEP)
+### P4 — CCD lookup verification on real AF3 data not yet done (RESOLVED)
 
 **Priority:** HIGH — step 4 is in progress; remaining work is verification. This is the current implementation step.
 
@@ -99,7 +99,7 @@ OPEN_QUESTIONS.md item 5: which PDB codes to use as crystal references is not de
 1. For each LPMO family in the dataset, identify available PDB structures with bound oligosaccharide ligands (search PDB with family annotation and filter for saccharide ligands).
 2. Minimum: at least one C1-crystallized and one C4-crystallized structure per family if available.
 3. Document the chosen PDB codes in `metadata/crystal_reference_list.tsv` with columns: `protein_id`, `pdb_code`, `chain`, `has_ligand`, `family`, `regio_label`, `notes`.
-4. Update OPEN_QUESTIONS.md item 5 when the list is finalized.
+4. Update OPEN_QUESTIONS.md item 5 when the list is finalized and mark P6 in DOCUMENTATION_TODO_AND_MANUAL_CHECKS.md as RESOLVED.
 
 ---
 
@@ -118,18 +118,35 @@ OPEN_QUESTIONS.md item 13: the substrate-recognition surface residues used in Py
 
 ---
 
-### P8 — Privateer CLI version not autodetected
+### P8 — Privateer CLI version not autodetected (BLOCKED — Privateer not installed)
 
 **Priority:** MEDIUM — Privateer v1 and v2 produce different JSON output formats. Incorrect parsing will produce silent errors.
 
 **Description:**  
-OPEN_QUESTIONS.md item 2: Privateer v1 vs v2 has different JSON output. The installed version in the `analyse_env` container must be confirmed.
+OPEN_QUESTIONS.md item 2: Privateer v1 vs v2 has different JSON output. **BLOCKER: Privateer is not installed in `analyse_env`.** Job 574004 (sbatch run on 2026-04-23 17:39:46) confirmed: `[ERROR] privateer is not available in analyse_env PATH`. 
+
+Privateer must be installed before real-CIF verification can proceed.
 
 **Proposed solution:**  
-1. In `qc/privateer_runner.py`, implement version autodetection: run `privateer --version` and parse the version string at startup.
-2. Implement two JSON-parsing branches: one for v1 format, one for v2 format.
-3. Log the detected version to `run_manifest.json`.
-4. Add a contract test that runs Privateer on a known structure and checks that the output is parsed correctly for the detected version.
+1. **FIRST:** Install Privateer in `analyse_env`. Check with cluster admins or project manager for installation path/method.
+   - Likely source: Singularity container or conda package (if available in project channels).
+   - Confirm installation by running `privateer --version` in analyse_env.
+2. Once installed, in `qc/privateer_runner.py`, implement version autodetection: run `privateer --version` and parse the version string at startup.
+3. Implement two JSON-parsing branches: one for v1 format, one for v2 format.
+4. Log the detected version to `run_manifest.json`.
+5. Add a contract test that runs Privateer on a known structure and checks that the output is parsed correctly for the detected version.
+6. Add and run a manual real-CIF probe script under `tests/run_tests_scripts/` that stores `privateer --version`, help text, attempted JSON command templates, and raw stdout/stderr for several AF3 CIFs. Use this output to confirm what the JSON actually looks like before locking parser branches.
+
+Manual verification target files for the first probe run (three distinct CIFs are currently referenced in context; pass any additional CIF paths as script arguments):
+- `/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work/NAG4/af3/latest/Q7SCE9_NAG4/seed-4_sample-1/Q7SCE9_NAG4_seed-4_sample-1_model.cif`
+- `/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work/STA6/af3/latest/Q59930_STA6/seed-2_sample-0/Q59930_STA6_seed-2_sample-0_model.cif`
+- `/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work/STA4/af3/latest/A0A0S2GKZ1_STA4/seed-2_sample-2/A0A0S2GKZ1_STA4_seed-2_sample-2_model.cif`
+
+Outcome to record after the first run:
+- which command variant produced JSON, if any
+- whether stdout parsed as JSON
+- top-level JSON keys or top-level type
+- whether failures were tool-syntax failures, parse failures, or structure/content failures
 
 ---
 
@@ -212,27 +229,6 @@ These checks must be performed by a human. They cannot be automated. Each check 
 
 Completed checks have been removed from this section. Keep only checks that are still required.
 
----
-
-### MC10 — Verify Step 4 CCD lookup on real AF3 data — COMPLETED 2026-04-22
-
-**Status:** Completed via test_io_contracts.sh
-- CCD validation tested on real AF3 structure (A0A0A1ED04_NAG8).
-- Invalid CCD code (CEL6) hard fail confirmed.
-- All checks in IMPLEMENTATION_PLAYBOOK.md step 4 have passed.
-
----
-
-### MC12 — Validate protonation/export path for PoseBusters and ProLIF — COMPLETED 2026-04-23
-
-**Status:** Completed via sbatch + manual inspection
-- Contract checks passed in jobs 572928, 572982, 572996, 573050.
-- `cif_to_pdb_report.json → backend = pdbfixer`.
-- `protonation_report.json → complex_h_backend = pdbfixer`.
-- `complex_H.pdb` has expected hydrogens and explicit glykan-konnektivitet.
-- `ligand_for_prolif.mol2` shows expected ring/bond chemistry and no protein contamination.
-
----
 
 ### MC13 — Confirm Privateer version handling is implemented and tested
 

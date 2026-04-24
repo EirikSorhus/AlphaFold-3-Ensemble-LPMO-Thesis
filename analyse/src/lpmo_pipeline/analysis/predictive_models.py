@@ -30,8 +30,8 @@ class CVFold:
     """A single cross-validation fold."""
 
     fold_id: int
-    train_enzyme_ids: list[str] = field(default_factory=list)
-    test_enzyme_ids: list[str] = field(default_factory=list)
+    train_protein_ids: list[str] = field(default_factory=list)
+    test_protein_ids: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -47,9 +47,9 @@ class CVResult:
 
 
 def build_grouped_stratified_cv(
-    enzyme_ids: list[str],
-    activity_labels: dict[str, str],     # {enzyme_id: "C1"|"C4"|"C1+C4"}
-    hierarchy: dict[str, str],           # {enzyme_id: structure_group}
+    protein_ids: list[str],
+    activity_labels: dict[str, str],     # {protein_id: "C1"|"C4"|"C1+C4"}
+    hierarchy: dict[str, str],           # {protein_id: structure_group}
     n_folds: int = 5,
 ) -> list[CVFold]:
     """Build grouped + stratified CV folds.
@@ -58,8 +58,8 @@ def build_grouped_stratified_cv(
     Stratification: class balance (C1/C4/mixed) maintained per fold.
 
     Args:
-        enzyme_ids: All enzyme IDs in the dataset.
-        activity_labels: Activity class per enzyme.
+        protein_ids: All protein IDs in the dataset.
+        activity_labels: Activity class per protein.
         hierarchy: Grouping structure (e.g. by crystal family).
         n_folds: Number of CV folds.
 
@@ -68,9 +68,9 @@ def build_grouped_stratified_cv(
     """
     # --- Step 1: Group enzymes by hierarchy ---
     groups: dict[str, list[str]] = {}
-    for enzyme_id in enzyme_ids:
-        group = hierarchy.get(enzyme_id, enzyme_id)
-        groups.setdefault(group, []).append(enzyme_id)
+    for protein_id in protein_ids:
+        group = hierarchy.get(protein_id, protein_id)
+        groups.setdefault(group, []).append(protein_id)
 
     group_keys = sorted(groups.keys())
 
@@ -78,7 +78,7 @@ def build_grouped_stratified_cv(
     # Label each group by majority class of its enzymes
     group_labels: dict[str, str] = {}
     for gkey, ids in groups.items():
-        labels = [activity_labels.get(enzyme_id, "unknown") for enzyme_id in ids]
+        labels = [activity_labels.get(protein_id, "unknown") for protein_id in ids]
         # Majority vote
         from collections import Counter
         most_common = Counter(labels).most_common(1)[0][0]
@@ -94,9 +94,9 @@ def build_grouped_stratified_cv(
     # for fold_id, (train_idx, test_idx) in enumerate(skf.split(group_array, label_array)):
     #     train_groups = group_array[train_idx]
     #     test_groups = group_array[test_idx]
-    #     train_ids = [enzyme_id for g in train_groups for enzyme_id in groups[g]]
-    #     test_ids = [enzyme_id for g in test_groups for enzyme_id in groups[g]]
-    #     folds.append(CVFold(fold_id=fold_id, train_enzyme_ids=train_ids, test_enzyme_ids=test_ids))
+    #     train_ids = [protein_id for g in train_groups for protein_id in groups[g]]
+    #     test_ids = [protein_id for g in test_groups for protein_id in groups[g]]
+    #     folds.append(CVFold(fold_id=fold_id, train_protein_ids=train_ids, test_protein_ids=test_ids))
 
     folds: list[CVFold] = []  # PSEUDOCODE placeholder
     logger.info("Built %d grouped+stratified CV folds from %d groups", n_folds, len(groups))
@@ -106,7 +106,7 @@ def build_grouped_stratified_cv(
 def run_predictive_model(
     features: dict[str, list[float]],   # {cluster_id: feature_vector}
     labels: dict[str, str],             # {cluster_id: activity_class}
-    cluster_to_enzyme: dict[str, str],  # {cluster_id: enzyme_id}
+    cluster_to_protein: dict[str, str],  # {cluster_id: protein_id}
     folds: list[CVFold],
     model_type: str = "random_forest",
 ) -> CVResult:
@@ -117,8 +117,8 @@ def run_predictive_model(
     Args:
         features: Feature vectors per cluster row.
         labels: Activity labels per cluster row.
-        cluster_to_enzyme: Mapping to enforce grouped CV at enzyme level.
-        folds: Pre-built enzyme-level CV folds.
+        cluster_to_protein: Mapping to enforce grouped CV at protein level.
+        folds: Pre-built protein-level CV folds.
         model_type: "random_forest" | "logistic_regression"
 
     Returns:
@@ -133,12 +133,12 @@ def run_predictive_model(
     # importances_accumulator = np.zeros(n_features)
     # for fold in folds:
     #     train_clusters = [
-    #         cid for cid, enzyme_id in cluster_to_enzyme.items()
-    #         if enzyme_id in fold.train_enzyme_ids
+    #         cid for cid, protein_id in cluster_to_protein.items()
+    #         if protein_id in fold.train_protein_ids
     #     ]
     #     test_clusters = [
-    #         cid for cid, enzyme_id in cluster_to_enzyme.items()
-    #         if enzyme_id in fold.test_enzyme_ids
+    #         cid for cid, protein_id in cluster_to_protein.items()
+    #         if protein_id in fold.test_protein_ids
     #     ]
     #     X_train = np.array([features[cid] for cid in train_clusters])
     #     y_train = np.array([labels[cid] for cid in train_clusters])

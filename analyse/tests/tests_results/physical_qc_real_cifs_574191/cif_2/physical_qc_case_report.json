@@ -1,0 +1,173 @@
+{
+  "index": 2,
+  "cif_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work/STA6/af3/latest/Q59930_STA6/seed-2_sample-0/Q59930_STA6_seed-2_sample-0_model.cif",
+  "pose_id": "Q59930_STA6_seed-2_sample-0_model",
+  "status": "ok",
+  "error": null,
+  "normalize": {
+    "ok": true,
+    "normalized_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/physical_qc_real_cifs_574191/cif_2/normalize/normalized.cif",
+    "report_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/physical_qc_real_cifs_574191/cif_2/normalize/normalize_report.json"
+  },
+  "thresholds": {
+    "active_site_proximity_max_a": 10.0,
+    "cu_his_min_a": 1.9,
+    "cu_his_max_a": 2.6
+  },
+  "active_site_proximity": {
+    "passed": true,
+    "min_cu_ligand_distance": 6.2216738101575215,
+    "min_cu_c1": 7.770257395994036,
+    "min_cu_c4": 7.665917361933925,
+    "nearest_ligand_atom": "B:GLC3:O3",
+    "nearest_c1_atom": "B:GLC3:C1",
+    "nearest_c4_atom": "B:GLC3:C4",
+    "failure_reasons": [],
+    "warnings": [
+      "Cu-C1 distance flagged: 7.77 A > 7.00 A",
+      "Cu-C4 distance flagged: 7.67 A > 7.00 A"
+    ]
+  },
+  "geometry": {
+    "passed": false,
+    "cu_found": true,
+    "cu_position": [
+      -6.302,
+      -16.753,
+      -1.064
+    ],
+    "cu_his_all_in_range": false,
+    "cu_his_measurements": [
+      {
+        "his_chain": "A",
+        "his_resnum": 1,
+        "his_atom": "NE2",
+        "distance_angstrom": 3.7848202070904238,
+        "in_range": false
+      },
+      {
+        "his_chain": "A",
+        "his_resnum": 1,
+        "his_atom": "ND1",
+        "distance_angstrom": 1.7552475608870677,
+        "in_range": false
+      },
+      {
+        "his_chain": "A",
+        "his_resnum": 40,
+        "his_atom": "NE2",
+        "distance_angstrom": 17.240432970201184,
+        "in_range": false
+      },
+      {
+        "his_chain": "A",
+        "his_resnum": 40,
+        "his_atom": "ND1",
+        "distance_angstrom": 18.98186102572664,
+        "in_range": false
+      },
+      {
+        "his_chain": "A",
+        "his_resnum": 48,
+        "his_atom": "NE2",
+        "distance_angstrom": 10.764227143645755,
+        "in_range": false
+      },
+      {
+        "his_chain": "A",
+        "his_resnum": 48,
+        "his_atom": "ND1",
+        "distance_angstrom": 11.641694850836798,
+        "in_range": false
+      },
+      {
+        "his_chain": "A",
+        "his_resnum": 55,
+        "his_atom": "NE2",
+        "distance_angstrom": 11.61920974076981,
+        "in_range": false
+      },
+      {
+        "his_chain": "A",
+        "his_resnum": 55,
+        "his_atom": "ND1",
+        "distance_angstrom": 13.567180768309974,
+        "in_range": false
+      },
+      {
+        "his_chain": "A",
+        "his_resnum": 86,
+        "his_atom": "NE2",
+        "distance_angstrom": 1.9276509020048203,
+        "in_range": true
+      },
+      {
+        "his_chain": "A",
+        "his_resnum": 86,
+        "his_atom": "ND1",
+        "distance_angstrom": 4.059810956189955,
+        "in_range": false
+      },
+      {
+        "his_chain": "A",
+        "his_resnum": 132,
+        "his_atom": "NE2",
+        "distance_angstrom": 16.50255277222285,
+        "in_range": false
+      },
+      {
+        "his_chain": "A",
+        "his_resnum": 132,
+        "his_atom": "ND1",
+        "distance_angstrom": 16.642703326082575,
+        "in_range": false
+      }
+    ],
+    "cu_his_n_measurements": 12,
+    "min_cu_c1": 7.770257395994036,
+    "min_cu_c4": 7.665917361933925,
+    "his_brace_angle": 162.5689109447994,
+    "failure_reasons": [
+      "Cu-His distance out of range: ['His1:NE2=3.78\u00c5', 'His1:ND1=1.76\u00c5', 'His40:NE2=17.24\u00c5', 'His40:ND1=18.98\u00c5', 'His48:NE2=10.76\u00c5', 'His48:ND1=11.64\u00c5', 'His55:NE2=11.62\u00c5', 'His55:ND1=13.57\u00c5', 'His86:ND1=4.06\u00c5', 'His132:NE2=16.50\u00c5', 'His132:ND1=16.64\u00c5']"
+    ]
+  },
+  "qc_verdict": {
+    "status": "dropped",
+    "drop_reasons": [
+      "Cu-His distance out of range: ['His1:NE2=3.78\u00c5', 'His1:ND1=1.76\u00c5', 'His40:NE2=17.24\u00c5', 'His40:ND1=18.98\u00c5', 'His48:NE2=10.76\u00c5', 'His48:ND1=11.64\u00c5', 'His55:NE2=11.62\u00c5', 'His55:ND1=13.57\u00c5', 'His86:ND1=4.06\u00c5', 'His132:NE2=16.50\u00c5', 'His132:ND1=16.64\u00c5']"
+    ],
+    "warnings": [
+      "active_site_proximity:Cu-C1 distance flagged: 7.77 A > 7.00 A",
+      "active_site_proximity:Cu-C4 distance flagged: 7.67 A > 7.00 A"
+    ],
+    "metrics": {
+      "min_cu_ligand_distance": 6.2216738101575215,
+      "min_cu_c1": 7.770257395994036,
+      "min_cu_c4": 7.665917361933925,
+      "nearest_ligand_atom": "B:GLC3:O3",
+      "cu_found": true,
+      "cu_his_all_in_range": false,
+      "his_brace_angle": 162.5689109447994
+    },
+    "cu_geometry": {
+      "cu_his_distances_a": [
+        3.7848202070904238,
+        1.7552475608870677,
+        17.240432970201184,
+        18.98186102572664,
+        10.764227143645755,
+        11.641694850836798,
+        11.61920974076981,
+        13.567180768309974,
+        1.9276509020048203,
+        4.059810956189955,
+        16.50255277222285,
+        16.642703326082575
+      ],
+      "all_in_range": false,
+      "cu_c1_dist_a": 7.770257395994036,
+      "cu_c4_dist_a": 7.665917361933925
+    }
+  },
+  "case_report_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/physical_qc_real_cifs_574191/cif_2/physical_qc_case_report.json"
+}

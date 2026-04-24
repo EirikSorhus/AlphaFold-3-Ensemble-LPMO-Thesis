@@ -13,9 +13,12 @@ Performs residue importance analysis and produces summary reports.
 
 Primary governing document: [AF3_LPMO_pipeline_detailed_plan.md](AF3_LPMO_pipeline_detailed_plan.md) (v1.0, primary source from 2026-04-21).
 
-Current implementation status: step 4 is in progress. CCD monosaccharide
-validation is now wired into normalization; the remaining work for this step
-is verification on real AF3 data before moving on to atom mapping.
+Current implementation status: steps 1-7b are verified. Stage 8 pre-QC
+active-site proximity is now wired into hard QC, and targeted QC tests pass
+in the existing `analyse_env` environment. Stage 10 Privateer wrapper parsing
+and integration scaffolding are implemented and unit-tested. Stage 12 now has
+schema-backed QC report tests passing on synthetic three-pose batches.
+Real-data QC verification for stages 8-12 is still pending.
 
 **⚠️ Known open conflict: see [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md) item 11 (geometric planarity thresholds not yet operationalized).**
 
@@ -76,7 +79,7 @@ scripts/       – Helper scripts (including R-based EC activity mapping)
 - **Active-site proximity pre-gate** before PoseBusters/Privateer
 - **atom_mapping_coverage = 100%** — all atoms must be mapped
 - **Chain convention**: protein=A, glycans=B-D, metal=E
-- **Cu-His distance**: 1.9–2.6 Å (hard gate)
+- **Cu-His distance**: 1.9–2.6 Å hard gate evaluated on selected coordinating nitrogens only (`His1:N`, `His1:ND1`, and one non-His1 histidine N; `His1:NE2` excluded)
 - **Cluster rows are primary** for main descriptive and predictive analyses
 - **HDBSCAN params fixed per analysis run** (no in-run p-hacking)
 

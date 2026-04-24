@@ -12,6 +12,7 @@ Implements failure policy:
 """
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import json
 import logging
 from dataclasses import dataclass, field
@@ -42,6 +43,9 @@ class PoseQCVerdict:
     drop_reasons: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     metrics: dict[str, Any] = field(default_factory=dict)
+    posebusters: dict[str, Any] = field(default_factory=dict)
+    privateer: dict[str, Any] = field(default_factory=dict)
+    cu_geometry: dict[str, Any] = field(default_factory=dict)
 
 
 def compute_verdict(
@@ -83,6 +87,15 @@ def compute_verdict(
     # --- PoseBusters ---
     if pb_result is not None:
         verdict.posebusters_passed = pb_result.passed
+        error_counts: dict[str, int] = {}
+        for err in pb_result.critical_errors:
+            error_counts[err] = error_counts.get(err, 0) + 1
+        verdict.posebusters = {
+            "passed": pb_result.passed,
+            "errors": error_counts,
+            "critical": len(pb_result.critical_errors) > 0,
+            "warnings": list(pb_result.warnings),
+        }
         if not pb_result.passed:
             verdict.drop_reasons.extend(
                 [f"posebusters_critical:{e}" for e in pb_result.critical_errors]
@@ -95,8 +108,31 @@ def compute_verdict(
     # --- Privateer ---
     if priv_result is not None:
         verdict.privateer_passed = priv_result.all_pass
+        privateer_errors: list[str] = []
+        if priv_result.runner_error:
+            privateer_errors.append(f"runner_error:{priv_result.runner_error}")
+        if priv_result.recognition_rate < 1.0:
+            privateer_errors.append("recognition_rate_below_100")
+        if priv_result.anomer_pass < priv_result.total_sugars:
+            privateer_errors.append("anomer_failure")
+        if priv_result.ring_pucker_pass < priv_result.total_sugars:
+            privateer_errors.append("ring_pucker_failure")
+        if priv_result.linkage_pass < priv_result.total_sugars:
+            privateer_errors.append("linkage_failure")
+
+        verdict.privateer = {
+            "recognized_sugars": priv_result.recognized,
+            "total_sugars": priv_result.total_sugars,
+            "recognition_rate": priv_result.recognition_rate,
+            "anomer_ok": priv_result.anomer_pass == priv_result.total_sugars,
+            "ring_pucker_ok": priv_result.ring_pucker_pass == priv_result.total_sugars,
+            "linkage_ok": priv_result.linkage_pass == priv_result.total_sugars,
+            "errors": privateer_errors,
+        }
         if not priv_result.all_pass:
-            if priv_result.recognition_rate < 1.0:
+            if priv_result.runner_error:
+                verdict.drop_reasons.append(f"privateer_runner_error:{priv_result.runner_error}")
+            elif priv_result.recognition_rate < 1.0:
                 unrecognized = [
                     r.resname for r in priv_result.residues if not r.sugar_recognized
                 ]
@@ -115,6 +151,13 @@ def compute_verdict(
         verdict.geometry_passed = geom_result.passed
         if not geom_result.passed:
             verdict.drop_reasons.extend(geom_result.failure_reasons)
+        cu_his_distances = [m.distance_angstrom for m in geom_result.cu_his_measurements]
+        verdict.cu_geometry = {
+            "cu_his_distances_a": cu_his_distances,
+            "all_in_range": geom_result.cu_his_all_in_range,
+            "cu_c1_dist_a": None if geom_result.min_cu_c1 == float("inf") else geom_result.min_cu_c1,
+            "cu_c4_dist_a": None if geom_result.min_cu_c4 == float("inf") else geom_result.min_cu_c4,
+        }
         # Store metrics regardless
         verdict.metrics["cu_found"] = geom_result.cu_found
         verdict.metrics["min_cu_c1"] = geom_result.min_cu_c1
@@ -168,8 +211,42 @@ def build_qc_report(
 def write_qc_report(report: QCReport, output_path: Path) -> None:
     """Write QC report to JSON conforming to qc_report_schema.json."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now(timezone.utc).isoformat()
     data = {
+        "timestamp": timestamp,
         "run_id": report.run_id,
+        "poses": [
+            {
+                "pose_id": v.pose_id,
+                "overall_status": (
+                    "pass" if v.status == "passed"
+                    else "soft_flag" if v.status == "flagged"
+                    else "hard_fail"
+                ),
+                "posebusters": v.posebusters or {
+                    "passed": v.posebusters_passed,
+                    "errors": {},
+                    "critical": not v.posebusters_passed,
+                    "warnings": [],
+                },
+                "privateer": v.privateer or {
+                    "recognized_sugars": 0,
+                    "total_sugars": 0,
+                    "recognition_rate": 0.0,
+                    "anomer_ok": True,
+                    "ring_pucker_ok": True,
+                    "linkage_ok": True,
+                    "errors": [],
+                },
+                "cu_geometry": v.cu_geometry or {
+                    "cu_his_distances_a": [],
+                    "all_in_range": v.geometry_passed,
+                    "cu_c1_dist_a": None,
+                    "cu_c4_dist_a": None,
+                },
+            }
+            for v in report.verdicts
+        ],
         "total": report.total,
         "passed": report.passed,
         "flagged": report.flagged,

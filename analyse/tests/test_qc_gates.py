@@ -317,3 +317,95 @@ class TestCuHisAngle:
         assert angle is not None
         # NE2(His1) at (2,0,0) and ND1(His78) at (0,2.1,0) -> ~90 deg
         assert abs(angle - 90.0) < 1.0
+
+
+class TestCuHisGateAtomSelection:
+    """Tests for locked Cu-His gate atom-selection rules."""
+
+    def test_selects_his1_n_his1_nd1_and_non_his1_third(self) -> None:
+        """Selected set must be His1:N, His1:ND1, and one non-His1 histidine N."""
+        from lpmo_pipeline.qc.custom_geometry_checks import _select_cu_his_gate_nitrogens
+
+        cu_pos = np.array([0.0, 0.0, 0.0], dtype=float)
+        candidates = [
+            {"his_chain": "A", "his_resnum": 1, "atom_name": "N", "position": np.array([2.0, 0.0, 0.0])},
+            {"his_chain": "A", "his_resnum": 1, "atom_name": "ND1", "position": np.array([0.0, 2.1, 0.0])},
+            {"his_chain": "A", "his_resnum": 1, "atom_name": "NE2", "position": np.array([1.2, 0.0, 0.0])},
+            {"his_chain": "A", "his_resnum": 78, "atom_name": "NE2", "position": np.array([0.0, 0.0, 2.2])},
+            {"his_chain": "A", "his_resnum": 90, "atom_name": "ND1", "position": np.array([0.0, 0.0, 2.4])},
+        ]
+
+        selected, errors = _select_cu_his_gate_nitrogens(candidates, cu_pos, max_search_a=3.0)
+
+        assert errors == []
+        assert len(selected) == 3
+        labels = {(int(r["his_resnum"]), str(r["atom_name"])) for r in selected}
+        assert (1, "N") in labels
+        assert (1, "ND1") in labels
+        assert (1, "NE2") not in labels
+        assert any(resnum != 1 for resnum, _ in labels)
+
+    def test_missing_his1_n_reports_error(self) -> None:
+        """Mandatory His1:N missing should produce selection error."""
+        from lpmo_pipeline.qc.custom_geometry_checks import _select_cu_his_gate_nitrogens
+
+        cu_pos = np.array([0.0, 0.0, 0.0], dtype=float)
+        candidates = [
+            {"his_chain": "A", "his_resnum": 1, "atom_name": "ND1", "position": np.array([0.0, 2.1, 0.0])},
+            {"his_chain": "A", "his_resnum": 78, "atom_name": "NE2", "position": np.array([0.0, 0.0, 2.2])},
+        ]
+
+        selected, errors = _select_cu_his_gate_nitrogens(candidates, cu_pos, max_search_a=3.0)
+
+        assert len(selected) == 2
+        assert any("His1:N not found" in e for e in errors)
+
+    def test_his1_ne2_not_required_or_selected(self) -> None:
+        """His1:NE2 out-of-range/absent must not block selection."""
+        from lpmo_pipeline.qc.custom_geometry_checks import _select_cu_his_gate_nitrogens
+
+        cu_pos = np.array([0.0, 0.0, 0.0], dtype=float)
+        candidates = [
+            {"his_chain": "A", "his_resnum": 1, "atom_name": "N", "position": np.array([2.0, 0.0, 0.0])},
+            {"his_chain": "A", "his_resnum": 1, "atom_name": "ND1", "position": np.array([0.0, 2.0, 0.0])},
+            {"his_chain": "A", "his_resnum": 78, "atom_name": "ND1", "position": np.array([0.0, 0.0, 2.0])},
+        ]
+
+        selected, errors = _select_cu_his_gate_nitrogens(candidates, cu_pos, max_search_a=3.0)
+
+        assert errors == []
+        labels = {(int(r["his_resnum"]), str(r["atom_name"])) for r in selected}
+        assert (1, "NE2") not in labels
+
+    def test_third_n_must_be_non_his1_within_cutoff(self) -> None:
+        """No non-His1 candidate within cutoff should report selection failure."""
+        from lpmo_pipeline.qc.custom_geometry_checks import _select_cu_his_gate_nitrogens
+
+        cu_pos = np.array([0.0, 0.0, 0.0], dtype=float)
+        candidates = [
+            {"his_chain": "A", "his_resnum": 1, "atom_name": "N", "position": np.array([2.0, 0.0, 0.0])},
+            {"his_chain": "A", "his_resnum": 1, "atom_name": "ND1", "position": np.array([0.0, 2.0, 0.0])},
+            {"his_chain": "A", "his_resnum": 78, "atom_name": "ND1", "position": np.array([0.0, 0.0, 3.5])},
+        ]
+
+        selected, errors = _select_cu_his_gate_nitrogens(candidates, cu_pos, max_search_a=3.0)
+
+        assert len(selected) == 2
+        assert any("no non-His1 histidine" in e for e in errors)
+
+    def test_distances_are_euclidean(self) -> None:
+        """Computed distances for selected atoms should use Euclidean norm."""
+        from lpmo_pipeline.qc.custom_geometry_checks import _select_cu_his_gate_nitrogens
+
+        cu_pos = np.array([0.0, 0.0, 0.0], dtype=float)
+        candidates = [
+            {"his_chain": "A", "his_resnum": 1, "atom_name": "N", "position": np.array([1.0, 1.0, 1.0])},
+            {"his_chain": "A", "his_resnum": 1, "atom_name": "ND1", "position": np.array([0.0, 2.0, 0.0])},
+            {"his_chain": "A", "his_resnum": 78, "atom_name": "NE2", "position": np.array([0.0, 0.0, 2.0])},
+        ]
+
+        selected, errors = _select_cu_his_gate_nitrogens(candidates, cu_pos, max_search_a=3.0)
+        assert errors == []
+
+        d_his1_n = [r["distance_angstrom"] for r in selected if r["his_resnum"] == 1 and r["atom_name"] == "N"][0]
+        assert abs(float(d_his1_n) - float(np.sqrt(3.0))) < 1e-9

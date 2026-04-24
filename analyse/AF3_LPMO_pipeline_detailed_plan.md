@@ -515,13 +515,22 @@ Geometry is computed after IFP and cluster assignment will later be linked to ge
 
 Rule: identify the 3 copper-coordinating nitrogen atoms by proximity (atom-first, not residue-first).
 
+Locked atom-selection constraints for LPMO His-brace:
+
+* The selected 3 coordinating nitrogens must include `His1:N` and `His1:ND1`.
+* `His1:NE2` is never allowed in the selected 3 coordinating nitrogens.
+* The third coordinating nitrogen must come from a histidine with residue number other than 1.
+* Cu-His hard-gate evaluation uses only these selected 3 nitrogens.
+
 Procedure:
 
-1. Enumerate all nitrogen atoms in chain A.
-2. Compute Euclidean distance from each N atom to the Cu position (chain E).
-3. Sort by distance ascending; take the 3 closest N atoms within the search cutoff stored in `geometry_rules.yaml: his_brace.max_search_dist_a`.
-4. If fewer than 3 N atoms are found within the cutoff, record `brace_identification_status = partial`; if none, `failed`.
-5. Among the 3 N atoms, identify the N-terminal nitrogen: the N atom belonging to residue 1 of chain A (first residue of the mature protein). This nitrogen is used to define the oxyl placement direction.
+1. Require `His1:N` and `His1:ND1` from chain A residue 1.
+2. Enumerate candidate histidine nitrogens in chain A excluding `His1:NE2`.
+3. Compute Euclidean distance from each candidate N atom to the Cu position (chain E).
+4. Select the closest valid third nitrogen from histidine residue != 1 within `geometry_rules.yaml: his_brace.max_search_dist_a`.
+5. Build the coordinating set as exactly three atoms: `His1:N`, `His1:ND1`, and the selected third nitrogen.
+6. If the third nitrogen is missing within cutoff, record `brace_identification_status = partial`; if mandatory His1 atoms are missing, `failed`.
+7. Use `His1:N` as the N-terminal nitrogen for oxyl direction.
 
 Brace integrity is **not a hard QC gate** in Stage 4. Poses where the brace is partially distorted continue to geometry computation with reduced `brace_confidence`. A pose is blocked from geometry computation only if brace identification fully fails.
 

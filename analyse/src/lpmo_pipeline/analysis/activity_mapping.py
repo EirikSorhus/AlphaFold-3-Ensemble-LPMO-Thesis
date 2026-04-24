@@ -28,7 +28,7 @@ class ClusterActivityRow:
     """Primary predictive row: one row per cluster."""
 
     analysis_id: str = ""
-    enzyme_id: str = ""
+    protein_id: str = ""
     family: str = ""
     cbm_status: str = "unknown"
     substrate_class: str = ""
@@ -76,15 +76,15 @@ def build_predictive_cluster_rows(
 
     Args:
         cluster_rows: Rows from cluster_table-like source.
-        activity_annotation: {enzyme_id: {regio_label, ligand_specificity_label, ...}}
+        activity_annotation: {protein_id: {regio_label, ligand_specificity_label, ...}}
 
     Returns:
         List of ClusterActivityRow objects (one row per cluster).
     """
     out: list[ClusterActivityRow] = []
     for row in cluster_rows:
-        enzyme_id = str(row.get("enzyme_id", ""))
-        ann = activity_annotation.get(enzyme_id, {})
+        protein_id = str(row.get("protein_id", ""))
+        ann = activity_annotation.get(protein_id, {})
         occupancy = float(row.get("occupancy", 0.0))
         qc_factor = float(row.get("qc_factor", 1.0))
         support_factor = float(row.get("support_factor", 1.0))
@@ -92,7 +92,7 @@ def build_predictive_cluster_rows(
         out.append(
             ClusterActivityRow(
                 analysis_id=str(row.get("analysis_id", "")),
-                enzyme_id=enzyme_id,
+                protein_id=protein_id,
                 family=str(row.get("family", "")),
                 cbm_status=str(row.get("cbm_status", "unknown")),
                 substrate_class=str(row.get("substrate_class", "")),

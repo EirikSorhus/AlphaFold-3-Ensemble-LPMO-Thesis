@@ -6,7 +6,7 @@
 #   Rscript scripts/ec_activity_mapping.R \
 #     --input metadata.csv \
 #     --output activity_mapping.tsv \
-#     --id-col enzyme_id \
+#     --id-col protein_id \
 #     --ec-col ec_number \
 #     --family-col family
 
@@ -14,7 +14,7 @@ parse_args <- function(args) {
   opts <- list(
     input = NULL,
     output = NULL,
-    id_col = "enzyme_id",
+    id_col = "protein_id",
     ec_col = "ec_number",
     family_col = "family"
   )

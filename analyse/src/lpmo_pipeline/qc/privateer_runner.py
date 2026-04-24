@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -51,6 +52,7 @@ class PrivateerResult:
     ring_pucker_pass: int = 0
     linkage_pass: int = 0
     all_pass: bool = False
+    runner_error: str = ""
 
 
 # ---------------------------------------------------------------------------
@@ -73,53 +75,24 @@ def run_privateer(
     """
     logger.info("Running Privateer on %s (pose=%s)", cif_path, pose_id)
 
-    # --- Step 1: Call Privateer ---
-    # Option A: CLI
-    # cmd = ["privateer", "-pdbin", str(cif_path), "-mode", "glycan_validation"]
-    # proc = subprocess.run(cmd, capture_output=True, text=True, check=True)
-    # raw_output = proc.stdout
-    #
-    # Option B: Python API (privateer module)
-    # import privateer
-    # results = privateer.validate_glycans(str(cif_path))
-
-    # --- Step 2: Parse Privateer output ---
-    # PSEUDOCODE: Privateer outputs per-sugar diagnostics
-    # For each sugar residue in the output:
-    residue_results: list[PrivateerResidueResult] = []
-
-    # PSEUDOCODE: iterate parsed output
-    # for sugar_entry in privateer_parsed_output:
-    #     rr = PrivateerResidueResult(
-    #         chain=sugar_entry["chain"],
-    #         resname=sugar_entry["resname"],
-    #         resnum=sugar_entry["resnum"],
-    #         sugar_recognized=sugar_entry["is_recognized"],
-    #         anomer_ok=sugar_entry["anomer_correct"],
-    #         ring_pucker_ok=sugar_entry["ring_pucker_ok"],
-    #         ring_pucker_conformation=sugar_entry.get("conformation", ""),
-    #         linkage_ok=sugar_entry.get("linkage_ok", True),
-    #         diagnostics=sugar_entry,
-    #     )
-    #     residue_results.append(rr)
-
-    # --- Step 3: Aggregate ---
-    total = len(residue_results)
-    recognized = sum(1 for r in residue_results if r.sugar_recognized)
-    anomer_pass = sum(1 for r in residue_results if r.anomer_ok)
-    ring_pass = sum(1 for r in residue_results if r.ring_pucker_ok)
-    linkage_pass = sum(1 for r in residue_results if r.linkage_ok)
-
-    result = PrivateerResult(
-        residues=residue_results,
-        total_sugars=total,
-        recognized=recognized,
-        recognition_rate=recognized / total if total > 0 else 0.0,
-        anomer_pass=anomer_pass,
-        ring_pucker_pass=ring_pass,
-        linkage_pass=linkage_pass,
-        all_pass=(recognized == total and anomer_pass == total),
-    )
+    try:
+        raw = _run_privateer_cli(cif_path)
+        residue_results = _parse_privateer_output(raw)
+        result = _aggregate_privateer_results(residue_results)
+    except Exception as exc:
+        logger.error("Privateer execution failed for %s: %s", cif_path, exc)
+        # Conservative behavior: failed run is treated as failed gate.
+        return PrivateerResult(
+            residues=[],
+            total_sugars=0,
+            recognized=0,
+            recognition_rate=0.0,
+            anomer_pass=0,
+            ring_pucker_pass=0,
+            linkage_pass=0,
+            all_pass=False,
+            runner_error=str(exc),
+        )
 
     # Gate check
     if result.recognition_rate < 1.0:
@@ -145,9 +118,127 @@ def run_privateer(
 
     logger.info(
         "Privateer: %d/%d recognized, %d/%d anomer OK, %d/%d ring OK",
-        recognized, total, anomer_pass, total, ring_pass, total,
+        result.recognized,
+        result.total_sugars,
+        result.anomer_pass,
+        result.total_sugars,
+        result.ring_pucker_pass,
+        result.total_sugars,
     )
     return result
+
+
+def _run_privateer_cli(cif_path: Path) -> str:
+    """Run Privateer CLI and return stdout.
+
+    Environment override:
+      - ``LPMO_PRIVATEER_CMD`` can define a full command template containing
+        ``{input}``, for example:
+        ``privateer validate --input {input} --json``.
+    """
+    cmd_template = os.environ.get("LPMO_PRIVATEER_CMD", "privateer --json {input}")
+    rendered = cmd_template.replace("{input}", str(cif_path))
+    cmd = rendered.split()
+
+    proc = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=300,
+    )
+    if not proc.stdout.strip():
+        raise RuntimeError("Privateer produced empty stdout")
+    return proc.stdout
+
+
+def _parse_privateer_output(raw_output: str) -> list[PrivateerResidueResult]:
+    """Parse Privateer output into per-residue records.
+
+    Supported format (primary): JSON with residue records under one of
+    ``residues``, ``glycans``, ``results``, or as a top-level list.
+    """
+    payload: Any
+    try:
+        payload = json.loads(raw_output)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("Privateer output is not valid JSON") from exc
+
+    records: list[dict[str, Any]] = []
+    if isinstance(payload, list):
+        records = [r for r in payload if isinstance(r, dict)]
+    elif isinstance(payload, dict):
+        for key in ("residues", "glycans", "results"):
+            section = payload.get(key)
+            if isinstance(section, list):
+                records = [r for r in section if isinstance(r, dict)]
+                break
+
+    residue_results: list[PrivateerResidueResult] = []
+    for rec in records:
+        chain = str(rec.get("chain") or rec.get("chain_id") or "")
+        resname = str(rec.get("resname") or rec.get("residue_name") or "")
+        resnum = int(rec.get("resnum") or rec.get("residue_number") or 0)
+
+        recognized = _as_bool(
+            rec.get("sugar_recognized", rec.get("is_recognized", False))
+        )
+        anomer_ok = _as_bool(
+            rec.get("anomer_ok", rec.get("anomer_correct", False))
+        )
+        ring_ok = _as_bool(
+            rec.get("ring_pucker_ok", rec.get("puckering_ok", False))
+        )
+        linkage_ok = _as_bool(rec.get("linkage_ok", True))
+
+        residue_results.append(
+            PrivateerResidueResult(
+                chain=chain,
+                resname=resname,
+                resnum=resnum,
+                sugar_recognized=recognized,
+                anomer_ok=anomer_ok,
+                ring_pucker_ok=ring_ok,
+                ring_pucker_conformation=str(rec.get("ring_pucker_conformation", "")),
+                linkage_ok=linkage_ok,
+                diagnostics=rec,
+            )
+        )
+
+    return residue_results
+
+
+def _aggregate_privateer_results(
+    residue_results: list[PrivateerResidueResult],
+) -> PrivateerResult:
+    """Aggregate per-residue records into the QC gate summary."""
+    total = len(residue_results)
+    recognized = sum(1 for r in residue_results if r.sugar_recognized)
+    anomer_pass = sum(1 for r in residue_results if r.anomer_ok)
+    ring_pass = sum(1 for r in residue_results if r.ring_pucker_ok)
+    linkage_pass = sum(1 for r in residue_results if r.linkage_ok)
+
+    return PrivateerResult(
+        residues=residue_results,
+        total_sugars=total,
+        recognized=recognized,
+        recognition_rate=recognized / total if total > 0 else 0.0,
+        anomer_pass=anomer_pass,
+        ring_pucker_pass=ring_pass,
+        linkage_pass=linkage_pass,
+        all_pass=(recognized == total and anomer_pass == total),
+    )
+
+
+def _as_bool(value: Any) -> bool:
+    """Coerce common JSON/string truthy values to bool."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "y", "ok", "pass"}
+    return False
 
 
 def write_privateer_report(
