@@ -1,80 +1,53 @@
-# Global Copilot Instructions
+# Masteroppgave Copilot Instructions
 
 ## Scope
-- Gjelder hele repoet.
-- Ikke finn pa verktoy, kommandoer, paths eller konfigurasjoner som ikke er dokumentert.
-- Hvis informasjon mangler: bruk `TODO` eller `PLACEHOLDER`.
-- Ingen endringer, slettinger eller laging av nye filer skal skje ved kommandolinje operasjoner.
+- Gjelder hele `Masteroppgave/`.
+- Ikke finn pa verktoy, paths, kommandoer eller miljovalg som ikke er dokumentert i repoet.
+- Hvis informasjon mangler, bruk `TODO` eller `PLACEHOLDER` i stedet for antakelser.
+- Ikke opprett, endre eller slett filer via shell-kommandoer; bruk editor-baserte filendringer.
 
-## Project Context
-- Repoet utvikler en HPC-basert pipeline for strukturprediksjon og analyse av LPMO-enzymer.
-- Overordnet flyt: `metadata -> sequences -> ligand pairing -> structure prediction -> parsing -> analysis`.
-- Strukturprediksjon bruker `AF3`, `RF3` og `Boltz-2`.
+## First Routing Rule
+- Les aktuell filinstruksjon i `.github/instructions/` for delomradet du jobber i for du foreslar eller gjor endringer.
+- Bruk disse som primarkilde for mappe-spesifikke regler:
+  - `analyse/` -> `.github/instructions/analyse.instructions.md`
+  - `structure_pipeline/` -> `.github/instructions/structure_pipeline.instructions.md`
+  - `ligands/` -> `.github/instructions/ligands.instructions.md`
+  - `pipe_test/scripts/module_2_new/` -> `.github/instructions/module_2_new.instructions.md`
 
-## HPC Rules (Critical)
-- All kode som ikke er ekstremt lett skal kjores via SLURM.
-- Anta at compute-jobs kjores med `sbatch` eller tilsvarende scheduler.
-- Ikke implementer lokal kjaring for tunge oppgaver.
-- Design pipelinekode for batch-jobber, ikke interaktiv kjaring.
-- Gjor scripts kompatible med HPC job arrays nar relevant.
+## Project Map
+- Repoet inneholder en HPC-orientert arbeidsflyt for LPMO-prosjekter.
+- `structure_pipeline/` er produksjonsnart manifestdrevet prediksjonspipeline for `AF3`, `Boltz-2` og `RF3`.
+- `analyse/` er analysepipen og er na AF3-only; den skal konsumere prediksjonsartefakter og ikke reimplementere runner-logikk.
+- `ligands/` inneholder ligandfiler og konverteringshjelpere, ikke hoved-pipelineorkestrering.
+- `pipe_test/` er delvis eksperimentell; kun `pipe_test/scripts/module_2_new/` behandles som stabilt arbeidsomrade.
 
-## Python and Environments
-- System-Python pa HPC-clusteret er for gammel; ikke anta system-Python.
-- All Python-kode skal kjores i aktivert conda-environment.
-- Environmenter ligger i `eirik/conda/`.
-- Anta at riktig environment er aktivert forst.
-- Anta aldri environment uten dokumentasjon.
+## HPC And Environment Rules
+- Anta HPC-kjoring med SLURM for alt som er mer enn lett lokal validering.
+- Ikke design tunge workflows rundt interaktiv lokal kjoring.
+- System-Python pa clusteret skal ikke antas brukbar; bruk dokumentert conda-environment under `/cluster/work/projects/nn1003k/eirik/conda/`.
+- Hvis riktig environment ikke er dokumentert for delprosjektet, stopp og marker mangelen i stedet for a gjette.
 
-## Required Submodule Instructions
-- Les `.github/instructions/<submodule>.md` for aktuell mappe for du foreslar endringer.
-- Hver slik fil skal beskrive: formal, conda-environment, environment-aktivering, HPC-kjoring.
-- Hvis fil mangler eller er uklar: bruk `TODO` eller `PLACEHOLDER` i stedet for antakelser.
-
-## Repository Priorities
-- `ligands/`: ligandfiler og filkonvertering.
-- `structure_pipeline/`: i stor grad ferdig; kun sma, konservative endringer.
-- `analyse/`: hovedsakelig pseudokode; mangler implementasjon og logikkgjennomgang.
-- `pipe_test/`: fokuser kun pa `pipe_test/scripts/module_2_new/` og `pipe_test/data/`.
-- Andre `module_2*`-varianter i `pipe_test/scripts/` er gamle/ufullstendige og skal normalt ignoreres.
-
-## Frozen Code
-- `pipe_test/scripts/module_2_new/` er stabil, ferdig og behandles som frozen code.
-- Ikke refaktorer eller endre denne modulen uten eksplisitt brukerinstruksjon.
-- Hvis endringer i frozen code foreslas: merk dem tydelig som eksplisitt avvik.
-- Shell scripts som kjorer `module_2_new` skal ikke brukes eller endres uten eksplisitt foresporsel.
+## Terminal Session Rules
+- For `python` eller `pytest`: eksporter riktig environment-bin i `PATH` for aktiv terminalsession forst (en gang per terminal), for eksempel `export PATH="/cluster/work/projects/nn1003k/eirik/conda/<env>/bin:$PATH"`.
+- Små bash-kommandoer og svært små scripts kan kjores direkte pa login node.
+- Alle storre/tyngre oppgaver skal kjores via SLURM.
+- Kun bruker skal sende inn eller styre SLURM-jobber, med mindre brukeren gir eksplisitt tillatelse i chatten.
 
 ## Change Policy
-- Foretrekk sma, sikre og isolerte endringer.
-- Ikke endre mange moduler samtidig uten klar grunn.
-- Ikke bryt eksisterende IO-kontrakter.
-- Ikke fjern hardkodede paths uten dokumentert arsak (kan vaere nodvendig pa HPC).
-- I `analyse/`: vaer tydelig pa hva som er ny implementasjon vs eksisterende pseudokode.
+- Foretrekk sma, isolerte endringer som bevarer eksisterende IO-kontrakter.
+- Ikke endre hardkodede HPC-stier uten dokumentert grunnlag i repoet.
+- Bevar separasjonen mellom prediksjon (`structure_pipeline/`) og analyse (`analyse/`).
+- Naerliggende README eller annen styrende dokumentasjon skal oppdateres nar kodeendringen faktisk endrer bruk, input/output eller operative antakelser.
 
-## README Rule
-- Oppdater `README.md` hver gang kode endres.
-- Dokumenter nye scripts, workflow-endringer, nye steg og nye avhengigheter.
-- Foresla alltid README-endringer nar kode endres.
+## Frozen Areas
+- `pipe_test/scripts/module_2_new/` behandles som frozen code med mindre brukeren eksplisitt ber om endring der.
+- Andre `module_2*`-varianter under `pipe_test/scripts/` er eldre og skal normalt ignoreres.
 
-## Pipeline Design Principles
-- Hold pipeline-steg tydelig separert.
-- Gjor IO eksplisitt med tydelige input/output paths.
-- Unnga unodvendig kopiering av store filer.
+## Design And Reliability
+- Hold pipeline-steg tydelig separert med eksplisitte input/output paths.
+- Logg sentrale parametere, inputkilder, output paths og gate-utfall for pipeline-steg.
+- Feilmeldinger skal vaere handlingsrettede: hva som feilet, hvor det feilet, og hva som ma sjekkes.
 
-## Logging Requirements
-- Alle pipeline-steg bor logge inputfiler.
-- Alle pipeline-steg bor logge output paths.
-- Alle pipeline-steg bor logge parametere.
-- Alle pipeline-steg bor logge timestamps.
-- Alle pipeline-steg bor logge verktoy som brukes (`AF3`, `RF3`, `Boltz-2`).
-
-## Error Handling
-- Fail fast ved manglende input.
-- Feilmeldinger skal forklare hva som feilet.
-- Feilmeldinger skal forklare hvor det feilet.
-- Feilmeldinger skal forklare hvordan det kan fikses.
-
-## Long-Term Configuration Direction
-- Layered configuration management er et langsiktig maal.
-- Malet er multi-tool HPC pipelines med lagdelte config-filer.
-- Nar relevant kan struktur foreslas (for eksempel global + tool + run config).
-- Ikke implementer full konfigurasjonsplattform uten eksplisitt instruksjon.
+## Authoritative Documentation
+- For `analyse/`, bruk README + planfilene som kilde for operative beslutninger; ikke stol pa eldre pseudokode alene.
+- For `structure_pipeline/`, bruk `README.md`, `CODE_WALKTHROUGH.md`, CLI-en og konfigmodellene som autoritative beskrivelser av faktisk oppforsel.
