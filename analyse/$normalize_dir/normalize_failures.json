@@ -1,0 +1,11 @@
+[
+  {
+    "timestamp": "2026-04-29T16:33:24.073718",
+    "step": "normalize_mmcif",
+    "pose_id": null,
+    "reason": "exception",
+    "details": {
+      "error": "module 'gemmi' has no attribute 'read_structure'"
+    }
+  }
+]

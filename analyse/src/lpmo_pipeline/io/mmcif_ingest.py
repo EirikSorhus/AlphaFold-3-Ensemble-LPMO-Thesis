@@ -15,11 +15,7 @@ from typing import Tuple, Optional, Dict, List
 import json
 from datetime import datetime
 
-try:
-    import gemmi
-except ImportError:
-    gemmi = None
-
+from lpmo_pipeline.io.gemmi_compat import gemmi
 from lpmo_pipeline.utils.logging import StructuredLogger, FailureLog
 from lpmo_pipeline.utils.data_models import QCFlag, QCStatus, FailureReason
 

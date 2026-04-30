@@ -93,9 +93,6 @@ def run_posebusters_single(
 ) -> PoseBustersSingleResult:
     """Run PoseBusters on a single PDB pose file.
 
-    Uses the PoseBusters Python API as primary backend. If that import is not
-    available, it runs PoseBusters from one of the known SIF paths.
-
     Args:
         pdb_path: Path to PDB file with CONECT records.
         pose_id: Identifier for this pose.
@@ -107,64 +104,14 @@ def run_posebusters_single(
     """
     logger.info("Running PoseBusters on pose %s: %s", pose_id, pdb_path)
 
-    try:
-        all_tests = _run_pb_python_api(pdb_path, protein_path, reference_path)
-    except _PBImportError:
-        logger.info("PoseBusters Python API unavailable, trying SIF fallback")
-        all_tests = _run_pb_sif(pdb_path, protein_path, reference_path)
+    all_tests = _run_pb_sif(pdb_path, protein_path, reference_path)
 
     return _classify_results(pose_id, all_tests)
 
 
 # ---------------------------------------------------------------------------
-# PoseBusters backends
+# PoseBusters backend (SIF-only)
 # ---------------------------------------------------------------------------
-class _PBImportError(Exception):
-    """PoseBusters Python package not importable."""
-
-
-def _run_pb_python_api(
-    pdb_path: Path,
-    protein_path: Path | None,
-    reference_path: Path | None,
-) -> dict[str, bool]:
-    """Run PoseBusters via Python API.  Returns ``{test_name: passed}``."""
-    try:
-        from posebusters import PoseBusters  # type: ignore[import-untyped]
-    except ImportError as exc:
-        raise _PBImportError("posebusters not installed") from exc
-
-    if protein_path and reference_path:
-        config = "redock"
-    elif protein_path:
-        config = "dock"
-    else:
-        config = "mol"
-
-    pb = PoseBusters(config=config, max_workers=0)
-
-    try:
-        results_df = pb.bust(
-            mol_pred=pdb_path,
-            mol_cond=protein_path,
-            mol_true=reference_path,
-        )
-    except Exception:
-        logger.exception("PoseBusters bust() raised for %s", pdb_path)
-        return {}
-
-    if results_df.empty:
-        logger.warning("PoseBusters returned empty DataFrame for %s", pdb_path)
-        return {}
-
-    row = results_df.iloc[0]
-    return {
-        col: bool(row[col])
-        for col in results_df.columns
-        if col not in _LOADING_COLUMNS
-    }
-
-
 def _run_pb_sif(
     pdb_path: Path,
     protein_path: Path | None,

@@ -1,0 +1,21 @@
+INFO:    gocryptfs not found, will not be able to use gocryptfs
+alias: could not parse "pushd \"$CCP4\">/dev/null": 1:14: > is not a valid word
+alias: could not parse "pushd \"$CCP4_MASTER\">/dev/null": 1:21: > is not a valid word
+alias: could not parse "pushd \"$CBIN\">/dev/null": 1:14: > is not a valid word
+alias: could not parse "pushd \"$CETC\">/dev/null": 1:14: > is not a valid word
+alias: could not parse "pushd \"$CINCL\">/dev/null": 1:15: > is not a valid word
+alias: could not parse "pushd \"$CLIB\">/dev/null": 1:14: > is not a valid word
+alias: could not parse "pushd \"$CLIBD\">/dev/null": 1:15: > is not a valid word
+alias: could not parse "pushd \"$CBIN\">/dev/null": 1:14: > is not a valid word
+alias: could not parse "pushd \"$CEXAM\">/dev/null": 1:15: > is not a valid word
+alias: could not parse "pushd \"$CHTML\">/dev/null": 1:15: > is not a valid word
+alias: could not parse "pushd \"$CCP4\">/dev/null": 1:14: > is not a valid word
+alias: could not parse "pushd \"$CCP4_MASTER\">/dev/null": 1:21: > is not a valid word
+alias: could not parse "pushd \"$CBIN\">/dev/null": 1:14: > is not a valid word
+alias: could not parse "pushd \"$CETC\">/dev/null": 1:14: > is not a valid word
+alias: could not parse "pushd \"$CINCL\">/dev/null": 1:15: > is not a valid word
+alias: could not parse "pushd \"$CLIB\">/dev/null": 1:14: > is not a valid word
+alias: could not parse "pushd \"$CLIBD\">/dev/null": 1:15: > is not a valid word
+alias: could not parse "pushd \"$CBIN\">/dev/null": 1:14: > is not a valid word
+alias: could not parse "pushd \"$CEXAM\">/dev/null": 1:15: > is not a valid word
+alias: could not parse "pushd \"$CHTML\">/dev/null": 1:15: > is not a valid word

@@ -31,9 +31,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional, Tuple
 
-import gemmi
-
 from lpmo_pipeline.io.cif_to_pdb import convert_cif_to_pdb
+from lpmo_pipeline.io.gemmi_compat import gemmi
 from lpmo_pipeline.utils.logging import FailureLog, StructuredLogger
 
 # Residue names that are unambiguously protein — used to detect a contaminated

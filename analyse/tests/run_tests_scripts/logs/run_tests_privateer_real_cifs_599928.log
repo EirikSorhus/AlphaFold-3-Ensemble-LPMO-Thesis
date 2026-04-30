@@ -1,0 +1,220 @@
+Starting job 599928 on c1-80 on Olivia at Wed Apr 29 17:23:28 CEST 2026
+
+[INFO] Running targeted Privateer tests
+============================= test session starts ==============================
+platform linux -- Python 3.11.15, pytest-9.0.2, pluggy-1.6.0
+rootdir: /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse
+configfile: pyproject.toml
+collected 10 items
+
+tests/test_privateer_runner.py .........                                 [ 90%]
+tests/test_qc_gates.py .                                                 [100%]
+
+============================== 10 passed in 0.20s ==============================
+[INFO] Probing Privateer SIF metadata
+{
+  "privateer_path": "/cluster/projects/nn1003k/prog/privateer/privateer.sif",
+  "version_file": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/privateer_real_cifs_599928/privateer_version.txt",
+  "help_file": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/privateer_real_cifs_599928/privateer_help.txt",
+  "results": [
+    {
+      "index": 1,
+      "cif_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work/NAG4/af3/latest/Q7SCE9_NAG4/seed-4_sample-1/Q7SCE9_NAG4_seed-4_sample-1_model.cif",
+      "attempts": [
+        {
+          "template": "apptainer run --cleanenv /cluster/projects/nn1003k/prog/privateer/privateer.sif -pdbin {input}",
+          "command": [
+            "apptainer",
+            "run",
+            "--cleanenv",
+            "/cluster/projects/nn1003k/prog/privateer/privateer.sif",
+            "-pdbin",
+            "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work/NAG4/af3/latest/Q7SCE9_NAG4/seed-4_sample-1/Q7SCE9_NAG4_seed-4_sample-1_model.cif"
+          ],
+          "returncode": -6,
+          "stdout_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/privateer_real_cifs_599928/cif_1/attempt_1_stdout.txt",
+          "stderr_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/privateer_real_cifs_599928/cif_1/attempt_1_stderr.txt",
+          "stdout_nonempty": true,
+          "stderr_nonempty": true,
+          "stdout_summary": {
+            "parsed_as_json": false,
+            "error": "JSONDecodeError: Expecting value: line 1 column 1 (char 0)"
+          },
+          "generated_files": [
+            "core"
+          ]
+        },
+        {
+          "template": "apptainer run --cleanenv /cluster/projects/nn1003k/prog/privateer/privateer.sif -pdbin {input} -mode ccp4i2",
+          "command": [
+            "apptainer",
+            "run",
+            "--cleanenv",
+            "/cluster/projects/nn1003k/prog/privateer/privateer.sif",
+            "-pdbin",
+            "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work/NAG4/af3/latest/Q7SCE9_NAG4/seed-4_sample-1/Q7SCE9_NAG4_seed-4_sample-1_model.cif",
+            "-mode",
+            "ccp4i2"
+          ],
+          "returncode": -6,
+          "stdout_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/privateer_real_cifs_599928/cif_1/attempt_2_stdout.txt",
+          "stderr_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/privateer_real_cifs_599928/cif_1/attempt_2_stderr.txt",
+          "stdout_nonempty": true,
+          "stderr_nonempty": true,
+          "stdout_summary": {
+            "parsed_as_json": false,
+            "error": "JSONDecodeError: Expecting value: line 1 column 1 (char 0)"
+          },
+          "generated_files": [
+            "attempt_1_stderr.txt",
+            "attempt_1_stdout.txt",
+            "core",
+            "validation_data-privateer"
+          ]
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "cif_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work/STA6/af3/latest/Q59930_STA6/seed-2_sample-0/Q59930_STA6_seed-2_sample-0_model.cif",
+      "attempts": [
+        {
+          "template": "apptainer run --cleanenv /cluster/projects/nn1003k/prog/privateer/privateer.sif -pdbin {input}",
+          "command": [
+            "apptainer",
+            "run",
+            "--cleanenv",
+            "/cluster/projects/nn1003k/prog/privateer/privateer.sif",
+            "-pdbin",
+            "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work/STA6/af3/latest/Q59930_STA6/seed-2_sample-0/Q59930_STA6_seed-2_sample-0_model.cif"
+          ],
+          "returncode": -6,
+          "stdout_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/privateer_real_cifs_599928/cif_2/attempt_1_stdout.txt",
+          "stderr_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/privateer_real_cifs_599928/cif_2/attempt_1_stderr.txt",
+          "stdout_nonempty": true,
+          "stderr_nonempty": true,
+          "stdout_summary": {
+            "parsed_as_json": false,
+            "error": "JSONDecodeError: Expecting value: line 1 column 1 (char 0)"
+          },
+          "generated_files": [
+            "core"
+          ]
+        },
+        {
+          "template": "apptainer run --cleanenv /cluster/projects/nn1003k/prog/privateer/privateer.sif -pdbin {input} -mode ccp4i2",
+          "command": [
+            "apptainer",
+            "run",
+            "--cleanenv",
+            "/cluster/projects/nn1003k/prog/privateer/privateer.sif",
+            "-pdbin",
+            "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work/STA6/af3/latest/Q59930_STA6/seed-2_sample-0/Q59930_STA6_seed-2_sample-0_model.cif",
+            "-mode",
+            "ccp4i2"
+          ],
+          "returncode": -6,
+          "stdout_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/privateer_real_cifs_599928/cif_2/attempt_2_stdout.txt",
+          "stderr_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/privateer_real_cifs_599928/cif_2/attempt_2_stderr.txt",
+          "stdout_nonempty": true,
+          "stderr_nonempty": true,
+          "stdout_summary": {
+            "parsed_as_json": false,
+            "error": "JSONDecodeError: Expecting value: line 1 column 1 (char 0)"
+          },
+          "generated_files": [
+            "attempt_1_stderr.txt",
+            "attempt_1_stdout.txt",
+            "core",
+            "validation_data-privateer"
+          ]
+        }
+      ]
+    },
+    {
+      "index": 3,
+      "cif_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work/STA4/af3/latest/A0A0S2GKZ1_STA4/seed-2_sample-2/A0A0S2GKZ1_STA4_seed-2_sample-2_model.cif",
+      "attempts": [
+        {
+          "template": "apptainer run --cleanenv /cluster/projects/nn1003k/prog/privateer/privateer.sif -pdbin {input}",
+          "command": [
+            "apptainer",
+            "run",
+            "--cleanenv",
+            "/cluster/projects/nn1003k/prog/privateer/privateer.sif",
+            "-pdbin",
+            "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work/STA4/af3/latest/A0A0S2GKZ1_STA4/seed-2_sample-2/A0A0S2GKZ1_STA4_seed-2_sample-2_model.cif"
+          ],
+          "returncode": -6,
+          "stdout_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/privateer_real_cifs_599928/cif_3/attempt_1_stdout.txt",
+          "stderr_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/privateer_real_cifs_599928/cif_3/attempt_1_stderr.txt",
+          "stdout_nonempty": true,
+          "stderr_nonempty": true,
+          "stdout_summary": {
+            "parsed_as_json": false,
+            "error": "JSONDecodeError: Expecting value: line 1 column 1 (char 0)"
+          },
+          "generated_files": [
+            "core"
+          ]
+        },
+        {
+          "template": "apptainer run --cleanenv /cluster/projects/nn1003k/prog/privateer/privateer.sif -pdbin {input} -mode ccp4i2",
+          "command": [
+            "apptainer",
+            "run",
+            "--cleanenv",
+            "/cluster/projects/nn1003k/prog/privateer/privateer.sif",
+            "-pdbin",
+            "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work/STA4/af3/latest/A0A0S2GKZ1_STA4/seed-2_sample-2/A0A0S2GKZ1_STA4_seed-2_sample-2_model.cif",
+            "-mode",
+            "ccp4i2"
+          ],
+          "returncode": -6,
+          "stdout_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/privateer_real_cifs_599928/cif_3/attempt_2_stdout.txt",
+          "stderr_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/privateer_real_cifs_599928/cif_3/attempt_2_stderr.txt",
+          "stdout_nonempty": true,
+          "stderr_nonempty": true,
+          "stdout_summary": {
+            "parsed_as_json": false,
+            "error": "JSONDecodeError: Expecting value: line 1 column 1 (char 0)"
+          },
+          "generated_files": [
+            "attempt_1_stderr.txt",
+            "attempt_1_stdout.txt",
+            "core",
+            "validation_data-privateer"
+          ]
+        }
+      ]
+    }
+  ],
+  "warning": "No attempted Privateer command completed successfully. See per-attempt stderr/stdout artifacts for container and input-format diagnostics."
+}
+[WARN] None of the attempted Privateer command templates completed successfully.
+[INFO] Privateer real-CIF probe completed
+[INFO] Results directory: /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/privateer_real_cifs_599928
+
+Job 599928 consumed 0.0 billing hours and 0.0 GPU hours from project nn1003k.
+
+Submitted 2026-04-29T17:23:22; waited 6.0 seconds in the queue after becoming eligible to run.
+
+Requested wallclock time: 15.0 minutes
+Elapsed wallclock time:   4.0 seconds
+
+Job exited normally.
+
+Task and CPU statistics:
+ID            CPUs  Tasks  CPU util                Start  Elapsed  Exit status
+599928           1            0.0 %  2026-04-29T17:23:28    4.0 s  0
+599928.batch     1      1   100.2 %  2026-04-29T17:23:28    4.0 s  0
+
+Used CPU time:   4.0 CPU seconds
+Unused CPU time: 0.0 CPU seconds
+
+Memory statistics, in GiB:
+ID             Alloc   Usage
+599928           4.0        
+599928.batch     4.0     0.2
+
+Job 599928 completed at Wed Apr 29 17:23:33 CEST 2026

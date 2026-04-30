@@ -1,0 +1,105 @@
+INFO:    gocryptfs not found, will not be able to use gocryptfs
+alias: could not parse "pushd \"$CCP4\">/dev/null": 1:14: > is not a valid word
+alias: could not parse "pushd \"$CCP4_MASTER\">/dev/null": 1:21: > is not a valid word
+alias: could not parse "pushd \"$CBIN\">/dev/null": 1:14: > is not a valid word
+alias: could not parse "pushd \"$CETC\">/dev/null": 1:14: > is not a valid word
+alias: could not parse "pushd \"$CINCL\">/dev/null": 1:15: > is not a valid word
+alias: could not parse "pushd \"$CLIB\">/dev/null": 1:14: > is not a valid word
+alias: could not parse "pushd \"$CLIBD\">/dev/null": 1:15: > is not a valid word
+alias: could not parse "pushd \"$CBIN\">/dev/null": 1:14: > is not a valid word
+alias: could not parse "pushd \"$CEXAM\">/dev/null": 1:15: > is not a valid word
+alias: could not parse "pushd \"$CHTML\">/dev/null": 1:15: > is not a valid word
+alias: could not parse "pushd \"$CCP4\">/dev/null": 1:14: > is not a valid word
+alias: could not parse "pushd \"$CCP4_MASTER\">/dev/null": 1:21: > is not a valid word
+alias: could not parse "pushd \"$CBIN\">/dev/null": 1:14: > is not a valid word
+alias: could not parse "pushd \"$CETC\">/dev/null": 1:14: > is not a valid word
+alias: could not parse "pushd \"$CINCL\">/dev/null": 1:15: > is not a valid word
+alias: could not parse "pushd \"$CLIB\">/dev/null": 1:14: > is not a valid word
+alias: could not parse "pushd \"$CLIBD\">/dev/null": 1:15: > is not a valid word
+alias: could not parse "pushd \"$CBIN\">/dev/null": 1:14: > is not a valid word
+alias: could not parse "pushd \"$CEXAM\">/dev/null": 1:15: > is not a valid word
+alias: could not parse "pushd \"$CHTML\">/dev/null": 1:15: > is not a valid word
+<B><FONT COLOR='#FF0000'><!--SUMMARY_BEGIN-->
+<html> <!-- CCP4 HTML LOGFILE -->
+<hr>
+<pre>
+ 
+ ###############################################################
+ ###############################################################
+ ###############################################################
+ ### CCP4 9.0.014: Privateer            version MKV : 06/02/21##
+ ###############################################################
+ User: unknown  Run date: 29/ 4/2026 Run time: 18:31:25 
+
+
+ Please reference: Collaborative Computational Project, Number 4. 2011.
+ "Overview of the CCP4 suite and current developments". Acta Cryst. D67, 235-242.
+ as well as any specific reference in the program write-up.
+
+<!--SUMMARY_END--></FONT></B>
+
+Privateer Version MKV. Copyright 2013-2024 Jon Agirre (@glycojones) & University of York.
+Contributors: Haroldas Bagdonas (@GABRAHREX), Jordan Dialpuri (@Dialpuri), Lucy Schofield (@lcs551) and Lou Holland (@louholland).
+If you find Privateer useful, please reference these articles: 
+
+   - 'Online carbohydrate 3D structure validation with the Privateer web app'
+   -  Dialpuri et al., 2024, Acta Crystallographica Section F, 80, 30-35.
+
+   -  Analysis and validation of overall N-glycan conformation in Privateer.
+   -  Dialpuri et al., 2024, Acta Crystallographica Section D, 79, 462-472.
+
+   - 'Privateer: software for the conformational validation of carbohydrate structures'
+      Agirre et al., 2015 Nat Struct & Mol Biol 22(11):833-834.
+
+   - 'Leveraging glycomics data in glycoprotein 3D structure validation with Privateer'
+      Bagdonas, Ungar & Agirre, 2020 Beilstein Journal of Organic Chemistry 16(1):2523-2533.
+
+Supplied arguments: 
+list
+
+
+Printing list of supported three-letter codes
+
+Pyranoses: 
+
+0WK 145 147 149 15L 16G 18D 1GL 1GN 1SD 289 291 293 2DG 2F8 2FG 2GL 2GS 2M5 3FM 3HD 3MG 
+42D 445 46M 475 49A 4AM 4GP 4GL 4NN 4SG 5KV 5LS 5LT 5N6 5TH 5TJ 5TK 5TM 6C2 6GP 6MN 6PZ 
+6S2 7CV 7D1 7LQ 7GP 7JZ 83Y 8B9 8EX 8GP 9AM 9RN 9WJ A2G A6P AAL ABE AC1 ADA AGL AIG AOG 
+AMG AMN AMU AMV ANA AQA ARA ARB ARI ARW ASG ASO AXP B16 B6D B7G B8D B9D BBV BDF BDG BDP 
+BEM BG6 BGC BGN BGP BGL BGS BHG BM3 BMA BMX BNG BOG BXF C3X C4W C4X C5X CBF CDG CDR CEG 
+CGF CNP CR1 CR6 CRA CYH D6G DAG DAN DDA DDL DEG DFX DGO DGS DJB DJE DK4 DK5 DKX DKY DKZ 
+DL6 DLF DLG DO8 DRI DSR DT6 DVC E5G EAG EBG EBQ EGA EMP EPG EQP ERE ERI F1P FCA FCB FUC 
+FUL FUY G0S G16 G1P G2F G3F G4D G4S G6D G6P G6S G7P GAA GAD GAF GAL GAT GLA GLF GC1 GC4 
+GCD GCN GCS GCT GCU GCV GCW GDA GDL GFP GL0 GL1 GL2 GLA GLC GLD GLG GLP GLS GM0 GMB GMH 
+GN1 GN4 GNA GNS GNX GP1 GP4 GPH GPM GQ1 GS1 GTM GTR GU0 GU1 GU2 GU3 GU4 GU5 GU6 GU8 GU9 
+GUP GXL GYP H1M H2P HSH HSQ IDG IDR IDS IDX IDY IMK IDU IPT IXD JHM JZR KDA KDB KDD KDE 
+KDO KDR KME KTU KO1 KO2 KOT L6S LDY LEC LGC LGU LOG LOX LVZ LXB LXC LXZ LZ0 M07 M08 M09 
+M1P M6D M6P M7P M8C MA1 MA2 MA3 MAG MAN MAT MAV MAW MBF MBG MDA MDP MFB MFU MGC MGL MGS 
+MMA MN0 MNA MQT MRH MRP MSX MUB MUR MXY MXZ N1L NA1 NAA NAG NBG NDG NFG NGS NG1 NG6 NGA 
+NGC NGK NGZ NM6 NM9 NNG NOK NTF NXD OAK OPM OTG OX2 PA1 PDX PH5 PKM PNA PNG PNJ PNW PSG 
+PZU RAE RAM RAO RER RGG RIP RR7 RY7 RM4 RST RTV RUG S06 S13 SDY SFU SG4 SGA SGC SGD SGN 
+SHB SHD SHG SIA SID SLB SLM SN5 SNG SOG SOE SSG STZ SUS V3P TGA TGY TM9 TMR TMX TNR TOA 
+TOC TQY TU4 TUG TUJ TUP TVD TVG TVM TVS TVV TVY TWA TWD TWJ TWY TXB TYV U1Y U2A U2D U8V 
+UAP VG1 VJ1 VJ4 WIA X1P X0X X1X X2F YIO XYF XYP YYQ XYS XXR YYH YX0 YX1 YZ0 Z3K Z3L Z3Q 
+Z4K Z4R Z4S Z4U Z4Y Z5L Z61 Z6H Z8T Z9D Z9E Z9H Z9K Z9L Z9M ZB0 ZB1 ZB2 ZB3 ZCD ZD0 ZDO 
+ZCZ ZEE ZEL GCO GLO SOR 
+
+
+Furanoses: 
+
+13A 2DR 6LW AFP AH8 AHG AHR AMP AXR BDR BXX BXY EAT F1X F6P FBP FDP FRU FUB GZL K5B KD5 
+KHP LFR LRH OI7 P6P PPC PRP PSV RHC RIB RI2 TA6 TRV TT7 TTV UEA XYZ YYJ Z6W Z9N   A   U 
+  G   C   T  DA  DU  DG  DC  DT XLS XYL 
+
+
+Disaccharides: 
+
+SUC LAT LBT CBI MAL TRE BXP 
+
+
+<B><FONT COLOR='#FF0000'><!--SUMMARY_BEGIN-->
+Privateer: Success
+Times: User:       0.0s System:    0.0s Elapsed:     0:00  
+</pre>
+</html>
+<!--SUMMARY_END--></FONT></B>

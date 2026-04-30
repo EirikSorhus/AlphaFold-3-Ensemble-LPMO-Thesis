@@ -17,11 +17,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional, Tuple
 
-try:
-    import gemmi
-except ImportError:
-    gemmi = None
-
+from lpmo_pipeline.io.gemmi_compat import gemmi
 from lpmo_pipeline.utils.logging import FailureLog, StructuredLogger
 
 

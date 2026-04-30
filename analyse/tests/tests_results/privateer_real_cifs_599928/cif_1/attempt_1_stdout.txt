@@ -1,0 +1,41 @@
+<B><FONT COLOR='#FF0000'><!--SUMMARY_BEGIN-->
+<html> <!-- CCP4 HTML LOGFILE -->
+<hr>
+<pre>
+ 
+ ###############################################################
+ ###############################################################
+ ###############################################################
+ ### CCP4 9.0.014: Privateer            version MKV : 06/02/21##
+ ###############################################################
+ User: unknown  Run date: 29/ 4/2026 Run time: 17:23:31 
+
+
+ Please reference: Collaborative Computational Project, Number 4. 2011.
+ "Overview of the CCP4 suite and current developments". Acta Cryst. D67, 235-242.
+ as well as any specific reference in the program write-up.
+
+<!--SUMMARY_END--></FONT></B>
+
+Privateer Version MKV. Copyright 2013-2024 Jon Agirre (@glycojones) & University of York.
+Contributors: Haroldas Bagdonas (@GABRAHREX), Jordan Dialpuri (@Dialpuri), Lucy Schofield (@lcs551) and Lou Holland (@louholland).
+If you find Privateer useful, please reference these articles: 
+
+   - 'Online carbohydrate 3D structure validation with the Privateer web app'
+   -  Dialpuri et al., 2024, Acta Crystallographica Section F, 80, 30-35.
+
+   -  Analysis and validation of overall N-glycan conformation in Privateer.
+   -  Dialpuri et al., 2024, Acta Crystallographica Section D, 79, 462-472.
+
+   - 'Privateer: software for the conformational validation of carbohydrate structures'
+      Agirre et al., 2015 Nat Struct & Mol Biol 22(11):833-834.
+
+   - 'Leveraging glycomics data in glycoprotein 3D structure validation with Privateer'
+      Bagdonas, Ungar & Agirre, 2020 Beilstein Journal of Organic Chemistry 16(1):2523-2533.
+
+Supplied arguments: 
+pdbin 	/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work/NAG4/af3/latest/Q7SCE9_NAG4/seed-4_sample-1/Q7SCE9_NAG4_seed-4_sample-1_model.cif
+
+THREADING: Privateer will use 256 of the 256 available threads...
+
+Reading /cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work/NAG4/af3/latest/Q7SCE9_NAG4/seed-4_sample-1/Q7SCE9_NAG4_seed-4_sample-1_model.cif... 

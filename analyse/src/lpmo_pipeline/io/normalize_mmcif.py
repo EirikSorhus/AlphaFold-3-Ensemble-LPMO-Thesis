@@ -30,14 +30,10 @@ import json
 import statistics
 from dataclasses import dataclass, asdict
 
-try:
-    import gemmi
-except ImportError:
-    gemmi = None
-
 from lpmo_pipeline.utils.logging import StructuredLogger, FailureLog
 from lpmo_pipeline.utils.data_models import AtomMap, QCFlag, QCStatus, FailureReason
 from lpmo_pipeline.io.ccd_lookup import CCDLookupResult, validate_all_glycan_residues
+from lpmo_pipeline.io.gemmi_compat import gemmi, remap_cif_block_values
 
 
 # Entity type constants from AF3 CIF
@@ -352,6 +348,20 @@ class NormalizeMMCIFRunner:
                         if residue.subchain == chain.name:
                             residue.subchain = new_name
                     chain.name = new_name
+
+        remap_cif_block_values(
+            block,
+            remap,
+            [
+                "_struct_asym.id",
+                "_atom_site.label_asym_id",
+                "_atom_site.auth_asym_id",
+                "_struct_conn.ptnr1_auth_asym_id",
+                "_struct_conn.ptnr1_label_asym_id",
+                "_struct_conn.ptnr2_auth_asym_id",
+                "_struct_conn.ptnr2_label_asym_id",
+            ],
+        )
 
         self.logger.log_check(
             "apply_chain_mapping",

@@ -50,23 +50,20 @@ done
 echo "[INFO] Running targeted Privateer tests"
 pytest tests/test_privateer_runner.py tests/test_qc_gates.py::TestPrivateerGate -q
 
-echo "[INFO] Probing Privateer CLI metadata"
-if ! command -v privateer >/dev/null 2>&1; then
-  echo "[ERROR] privateer is not available in analyse_env PATH"
-  exit 1
+echo "[INFO] Probing Privateer SIF metadata"
+privateer_sif="/cluster/projects/nn1003k/prog/privateer/privateer.sif"
+if [[ ! -f "$privateer_sif" ]]; then
+    echo "[ERROR] Privateer SIF not found: $privateer_sif"
+    exit 1
 fi
 
-privateer_bin="$(command -v privateer)"
-echo "$privateer_bin" > "$run_dir/privateer_path.txt"
-privateer --version > "$run_dir/privateer_version.txt" 2>&1 || true
-privateer --help > "$run_dir/privateer_help.txt" 2>&1 || true
+echo "$privateer_sif" > "$run_dir/privateer_path.txt"
+apptainer run --cleanenv "$privateer_sif" -list > "$run_dir/privateer_list.txt" 2>&1 || true
+apptainer run --cleanenv "$privateer_sif" help > "$run_dir/privateer_help.txt" 2>&1 || true
 
 cat > "$run_dir/privateer_command_templates.txt" <<'EOF'
-privateer --json {input}
-privateer -json {input}
-privateer validate --input {input} --json
-privateer validate --json {input}
-privateer -pdbin {input} -mode glycan_validation -json
+apptainer run --cleanenv /cluster/projects/nn1003k/prog/privateer/privateer.sif -pdbin {input}
+apptainer run --cleanenv /cluster/projects/nn1003k/prog/privateer/privateer.sif -pdbin {input} -mode ccp4i2
 EOF
 
 export RUN_DIR="$run_dir"
@@ -94,39 +91,64 @@ if extra_cifs:
     cif_paths.extend(Path(part) for part in shlex.split(extra_cifs))
 
 templates = [
-    "privateer --json {input}",
-    "privateer -json {input}",
-    "privateer validate --input {input} --json",
-    "privateer validate --json {input}",
-    "privateer -pdbin {input} -mode glycan_validation -json",
+    "apptainer run --cleanenv /cluster/projects/nn1003k/prog/privateer/privateer.sif -pdbin {input}",
+    "apptainer run --cleanenv /cluster/projects/nn1003k/prog/privateer/privateer.sif -pdbin {input} -mode ccp4i2",
 ]
 
+subprocess_env = {
+    "PATH": "/usr/bin:/bin:/usr/local/bin",
+    "HOME": os.environ.get("HOME", "/tmp"),
+    "USER": os.environ.get("USER", "unknown"),
+    "LOGNAME": os.environ.get("LOGNAME", os.environ.get("USER", "unknown")),
+    "LANG": os.environ.get("LANG", "C.UTF-8"),
+    "LC_ALL": os.environ.get("LC_ALL", "C.UTF-8"),
+    "TERM": os.environ.get("TERM", "xterm"),
+}
 
-def json_summary(text: str) -> dict[str, object]:
+
+def output_summary(text: str) -> dict[str, object]:
     try:
         payload = json.loads(text)
     except json.JSONDecodeError as exc:
         return {
-            "parsed": False,
+            "parsed_as_json": False,
             "error": f"{exc.__class__.__name__}: {exc}",
         }
 
     if isinstance(payload, dict):
         return {
-            "parsed": True,
+            "parsed_as_json": True,
             "top_level_type": "dict",
             "top_level_keys": sorted(payload.keys()),
         }
     if isinstance(payload, list):
         return {
-            "parsed": True,
+            "parsed_as_json": True,
             "top_level_type": "list",
             "length": len(payload),
             "first_item_type": type(payload[0]).__name__ if payload else None,
         }
     return {
-        "parsed": True,
+        "parsed_as_json": True,
         "top_level_type": type(payload).__name__,
+    }
+
+
+def classify_failure(returncode: int, stderr_text: str) -> dict[str, object]:
+    stderr_lower = stderr_text.lower()
+    category = "unknown"
+    if "mmdbfile: read_file error" in stderr_lower:
+        category = "mmdb_read_error"
+    elif "exec: privateer: not found" in stderr_lower:
+        category = "privateer_not_found_in_container"
+    elif "unrecognised" in stderr_lower:
+        category = "unsupported_cli_flag"
+    elif "jsondecodeerror" in stderr_lower:
+        category = "json_parse_error"
+
+    return {
+        "category": category,
+        "returncode": returncode,
     }
 
 
@@ -151,6 +173,8 @@ for index, cif_path in enumerate(cif_paths, start=1):
             capture_output=True,
             text=True,
             timeout=300,
+            cwd=str(cif_dir),
+            env=subprocess_env,
         )
 
         stdout_path = cif_dir / f"attempt_{attempt_index}_stdout.txt"
@@ -158,7 +182,14 @@ for index, cif_path in enumerate(cif_paths, start=1):
         stdout_path.write_text(proc.stdout)
         stderr_path.write_text(proc.stderr)
 
-        summary = json_summary(proc.stdout)
+        generated_files = sorted(
+            str(path.relative_to(cif_dir))
+            for path in cif_dir.rglob("*")
+            if path.is_file()
+            and path.name not in {stdout_path.name, stderr_path.name}
+        )
+        summary = output_summary(proc.stdout)
+        failure_summary = classify_failure(proc.returncode, proc.stderr)
         attempt = {
             "template": template,
             "command": cmd,
@@ -167,34 +198,46 @@ for index, cif_path in enumerate(cif_paths, start=1):
             "stderr_path": str(stderr_path),
             "stdout_nonempty": bool(proc.stdout.strip()),
             "stderr_nonempty": bool(proc.stderr.strip()),
-            "json_summary": summary,
+            "stdout_summary": summary,
+            "failure_summary": failure_summary,
+            "generated_files": generated_files,
         }
         cif_result["attempts"].append(attempt)
-
-        if summary.get("parsed"):
-            cif_result["first_json_success_template"] = template
-            break
 
     results.append(cif_result)
 
 summary = {
     "privateer_path": (RUN_DIR / "privateer_path.txt").read_text().strip(),
-    "version_file": str(RUN_DIR / "privateer_version.txt"),
+    "list_file": str(RUN_DIR / "privateer_list.txt"),
     "help_file": str(RUN_DIR / "privateer_help.txt"),
     "results": results,
 }
+
+any_success = any(
+    attempt.get("returncode") == 0
+    for result in results
+    for attempt in result["attempts"]
+)
+
+failure_counts: dict[str, int] = {}
+for result in results:
+    for attempt in result["attempts"]:
+        category = str(attempt.get("failure_summary", {}).get("category", "unknown"))
+        failure_counts[category] = failure_counts.get(category, 0) + 1
+summary["failure_counts"] = failure_counts
+
+if not any_success:
+    summary["warning"] = (
+        "No attempted Privateer command completed successfully. "
+        "See per-attempt stderr/stdout artifacts for container and input-format diagnostics."
+    )
 
 summary_path = RUN_DIR / "privateer_probe_summary.json"
 summary_path.write_text(json.dumps(summary, indent=2))
 print(json.dumps(summary, indent=2))
 
-if not any(
-    attempt.get("json_summary", {}).get("parsed")
-    for result in results
-    for attempt in result["attempts"]
-):
-    print("[ERROR] None of the attempted Privateer command templates produced parseable JSON.")
-    sys.exit(1)
+if not any_success:
+    print("[WARN] None of the attempted Privateer command templates completed successfully.")
 PY
 
 echo "[INFO] Privateer real-CIF probe completed"

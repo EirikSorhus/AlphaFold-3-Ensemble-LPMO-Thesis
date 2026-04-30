@@ -1,0 +1,27 @@
+INFO:    gocryptfs not found, will not be able to use gocryptfs
+alias: could not parse "pushd \"$CCP4\">/dev/null": 1:14: > is not a valid word
+alias: could not parse "pushd \"$CCP4_MASTER\">/dev/null": 1:21: > is not a valid word
+alias: could not parse "pushd \"$CBIN\">/dev/null": 1:14: > is not a valid word
+alias: could not parse "pushd \"$CETC\">/dev/null": 1:14: > is not a valid word
+alias: could not parse "pushd \"$CINCL\">/dev/null": 1:15: > is not a valid word
+alias: could not parse "pushd \"$CLIB\">/dev/null": 1:14: > is not a valid word
+alias: could not parse "pushd \"$CLIBD\">/dev/null": 1:15: > is not a valid word
+alias: could not parse "pushd \"$CBIN\">/dev/null": 1:14: > is not a valid word
+alias: could not parse "pushd \"$CEXAM\">/dev/null": 1:15: > is not a valid word
+alias: could not parse "pushd \"$CHTML\">/dev/null": 1:15: > is not a valid word
+alias: could not parse "pushd \"$CCP4\">/dev/null": 1:14: > is not a valid word
+alias: could not parse "pushd \"$CCP4_MASTER\">/dev/null": 1:21: > is not a valid word
+alias: could not parse "pushd \"$CBIN\">/dev/null": 1:14: > is not a valid word
+alias: could not parse "pushd \"$CETC\">/dev/null": 1:14: > is not a valid word
+alias: could not parse "pushd \"$CINCL\">/dev/null": 1:15: > is not a valid word
+alias: could not parse "pushd \"$CLIB\">/dev/null": 1:14: > is not a valid word
+alias: could not parse "pushd \"$CLIBD\">/dev/null": 1:15: > is not a valid word
+alias: could not parse "pushd \"$CBIN\">/dev/null": 1:14: > is not a valid word
+alias: could not parse "pushd \"$CEXAM\">/dev/null": 1:15: > is not a valid word
+alias: could not parse "pushd \"$CHTML\">/dev/null": 1:15: > is not a valid word
+total 860K
+drwxr-xr-x 2 eisorhus eisorhus 4.0K Mar 31 03:06 .
+drwxr-xr-x 3 eisorhus eisorhus   60 Apr 29 18:35 ..
+-rw-r--r-- 1 eisorhus eisorhus 681K Mar 31 03:06 Q7SCE9_NAG4_seed-4_sample-1_confidences.json
+-rw-r--r-- 1 eisorhus eisorhus 167K Mar 31 03:06 Q7SCE9_NAG4_seed-4_sample-1_model.cif
+-rw-r--r-- 1 eisorhus eisorhus  450 Mar 31 03:06 Q7SCE9_NAG4_seed-4_sample-1_summary_confidences.json

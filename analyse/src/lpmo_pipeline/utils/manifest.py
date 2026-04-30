@@ -20,6 +20,8 @@ import hashlib
 from datetime import datetime
 import subprocess
 
+from lpmo_pipeline.io.gemmi_compat import gemmi_version
+from lpmo_pipeline.qc.privateer_runner import get_privateer_version
 from lpmo_pipeline.utils.data_models import RunManifest
 
 
@@ -115,9 +117,8 @@ class ToolVersionFetcher:
         
         # Gemmi (Python library version)
         try:
-            import gemmi
-            versions["gemmi"] = gemmi.__version__
-        except ImportError:
+            versions["gemmi"] = gemmi_version()
+        except Exception:
             versions["gemmi"] = "not_installed"
         
         # PLACER (external, query via CLI)
@@ -135,40 +136,34 @@ class ToolVersionFetcher:
         # PoseBusters
         try:
             import posebusters
-            versions["posebusters"] = posebusters.__version__
+            versions["posebusters"] = getattr(posebusters, "__version__", "unknown_version")
         except ImportError:
             versions["posebusters"] = "not_installed"
         
         # Privateer (external)
         try:
-            result = subprocess.run(
-                ["privateer", "-V"],
-                capture_output=True,
-                text=True,
-                timeout=5
-            )
-            versions["privateer"] = result.stdout.strip() or "unknown"
+            versions["privateer"] = get_privateer_version()
         except Exception:
             versions["privateer"] = "not_found"
         
         # MDAnalysis
         try:
             import MDAnalysis
-            versions["mdanalysis"] = MDAnalysis.__version__
+            versions["mdanalysis"] = getattr(MDAnalysis, "__version__", "unknown_version")
         except ImportError:
             versions["mdanalysis"] = "not_installed"
         
         # ProLIF
         try:
             import prolif
-            versions["prolif"] = prolif.__version__
+            versions["prolif"] = getattr(prolif, "__version__", "unknown_version")
         except ImportError:
             versions["prolif"] = "not_installed"
         
         # HDBSCAN
         try:
             import hdbscan
-            versions["hdbscan"] = hdbscan.__version__
+            versions["hdbscan"] = getattr(hdbscan, "__version__", "unknown_version")
         except ImportError:
             versions["hdbscan"] = "not_installed"
         

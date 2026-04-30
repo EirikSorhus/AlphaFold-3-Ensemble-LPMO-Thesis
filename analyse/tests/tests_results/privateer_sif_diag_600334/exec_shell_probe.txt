@@ -1,0 +1,27 @@
+INFO:    gocryptfs not found, will not be able to use gocryptfs
+alias: could not parse "pushd \"$CCP4\">/dev/null": 1:14: > is not a valid word
+alias: could not parse "pushd \"$CCP4_MASTER\">/dev/null": 1:21: > is not a valid word
+alias: could not parse "pushd \"$CBIN\">/dev/null": 1:14: > is not a valid word
+alias: could not parse "pushd \"$CETC\">/dev/null": 1:14: > is not a valid word
+alias: could not parse "pushd \"$CINCL\">/dev/null": 1:15: > is not a valid word
+alias: could not parse "pushd \"$CLIB\">/dev/null": 1:14: > is not a valid word
+alias: could not parse "pushd \"$CLIBD\">/dev/null": 1:15: > is not a valid word
+alias: could not parse "pushd \"$CBIN\">/dev/null": 1:14: > is not a valid word
+alias: could not parse "pushd \"$CEXAM\">/dev/null": 1:15: > is not a valid word
+alias: could not parse "pushd \"$CHTML\">/dev/null": 1:15: > is not a valid word
+alias: could not parse "pushd \"$CCP4\">/dev/null": 1:14: > is not a valid word
+alias: could not parse "pushd \"$CCP4_MASTER\">/dev/null": 1:21: > is not a valid word
+alias: could not parse "pushd \"$CBIN\">/dev/null": 1:14: > is not a valid word
+alias: could not parse "pushd \"$CETC\">/dev/null": 1:14: > is not a valid word
+alias: could not parse "pushd \"$CINCL\">/dev/null": 1:15: > is not a valid word
+alias: could not parse "pushd \"$CLIB\">/dev/null": 1:14: > is not a valid word
+alias: could not parse "pushd \"$CLIBD\">/dev/null": 1:15: > is not a valid word
+alias: could not parse "pushd \"$CBIN\">/dev/null": 1:14: > is not a valid word
+alias: could not parse "pushd \"$CEXAM\">/dev/null": 1:15: > is not a valid word
+alias: could not parse "pushd \"$CHTML\">/dev/null": 1:15: > is not a valid word
+/opt/privateer-venv/bin/privateer
+/opt/ccp4-9/bin/ctruncate
+CBIN=/opt/ccp4-9/bin
+CCP4=/opt/ccp4-9
+CLIB=/opt/ccp4-9/lib
+PATH=/opt/privateer-venv/bin:/opt/arp_warp_8.0/bin/bin-x86_64-Linux:/opt/ccp4-9/etc:/opt/ccp4-9/bin:/opt/arp_warp_8.0/bin/bin-x86_64-Linux:/opt/ccp4-9/etc:/opt/ccp4-9/bin:/opt/phenix-2.0-5936/phenix_bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin

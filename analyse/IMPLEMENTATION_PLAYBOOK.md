@@ -36,7 +36,7 @@ Forutsetninger (oppdatert 21.04.2026):
 | 7 | `io/protonate_export.py` | ✅ Verifisert 2026-04-23. PDBFixer/OpenMM primær-backend, ingen stille kopi-fallback. Name-based glycan-linking (C1→O4 for NAG/BGC/GLC) før protonering, og eksplisitt CONECT rewrite for komplett ligand-konnektivitet i `complex_H.pdb`. Verifisert via sbatch (572928, 572982, 572996, 573050). |
 | 7b | `io/cif_to_pdb.py` | ✅ Verifisert 2026-04-23. PDBFixer-backend er primær (AF3-riktig), gemmi fallback med `backend_fallback_reason`. Verifisert via test_protonation_contracts.sh (backend=pdbfixer). |
 | 8 | `qc/active_site_proximity.py` | ⚠️ Integrert i `hard_qc_orchestrator.py` og targeted tester passer (2026-04-23), men ikke testet på ekte data |
-| 9–12 | `qc/` (PoseBusters, Privateer, Cu-His, QC report) | ⚠️ Stage 9/11 logikk tester passer, Stage 10 wrapper er implementert og testet, Stage 12 har schema-backed test som passer; reell QC-kjoring pa ekte data gjenstar |
+| 9–12 | `qc/` (PoseBusters, Privateer, Cu-His, QC report) | ⚠️ Stage 9/11 logikk tester passer, Stage 10 wrapper er implementert med SIF-kjoring (`/cluster/projects/nn1003k/prog/privateer/privateer.sif`), Stage 12 har schema-backed test som passer; reell QC-kjoring pa ekte data gjenstar |
 | 13 | `analysis/prolif_ifp.py` + `pose_ifp_table.tsv` | ⚠️ Kode finnes, ikke verifisert på ekte data |
 | 13b | `analysis/residue_contact_extraction.py` + `pose_residue_contact_table.tsv` | ❌ Ikke startet (ny i v1.0) |
 | 14 | `analysis/mdanalysis_metrics.py` | ⚠️ Kode finnes, ikke verifisert på ekte data |
@@ -110,7 +110,7 @@ Forutsetninger (oppdatert 21.04.2026):
    Test: `pytest tests/test_qc_gates.py::TestPoseBustersGate`.
 
 10. **`qc/privateer_runner.py`** — Privateer-wrapper + 100%-recog gate.
-    Status 2026-04-23: CLI-wrapper + JSON-parser + aggregasjon implementert. Targeted pytest passer i `analyse_env`. Verifikasjon mot faktisk Privateer-output på cluster gjenstar.
+    Status 2026-04-29: Wrapper kjores via SIF (`/cluster/projects/nn1003k/prog/privateer/privateer.sif`) med `apptainer exec` (ikke PATH/env-avhengig). JSON-parser + aggregasjon implementert. Targeted pytest passer i `analyse_env`. Verifikasjon mot faktisk Privateer-output på cluster gjenstar.
     Test: `pytest tests/test_qc_gates.py::TestPrivateerGate`.
 
 11. **`qc/custom_geometry_checks.py`** — Cu-His 1.9–2.6 Å gate.

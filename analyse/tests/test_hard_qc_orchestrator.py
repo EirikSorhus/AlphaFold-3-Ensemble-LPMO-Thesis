@@ -14,6 +14,7 @@ import pytest
 from lpmo_pipeline.qc.active_site_proximity import ActiveSiteProximityResult
 from lpmo_pipeline.qc.custom_geometry_checks import CuHisMeasurement, GeometryResult
 from lpmo_pipeline.qc.hard_qc_orchestrator import HardQCInput, run_hard_qc
+from lpmo_pipeline.qc.privateer_runner import PrivateerResult
 from lpmo_pipeline.qc.posebusters_runner import PoseBustersSingleResult
 
 
@@ -123,6 +124,54 @@ class TestHardQCOrchestrator:
         verdict = report.verdicts[0]
         assert verdict.privateer_passed is True
         assert verdict.status == "passed"
+
+    @patch("lpmo_pipeline.qc.hard_qc_orchestrator.run_privateer_batch")
+    @patch("lpmo_pipeline.qc.hard_qc_orchestrator.run_posebusters_single")
+    @patch("lpmo_pipeline.qc.hard_qc_orchestrator.check_geometry")
+    def test_privateer_runs_as_batch_for_multiple_eligible_poses(
+        self,
+        mock_geom,
+        mock_pb,
+        mock_privateer_batch,
+    ) -> None:
+        mock_pb.side_effect = [
+            PoseBustersSingleResult(pose_id="pose_1", passed=True),
+            PoseBustersSingleResult(pose_id="pose_2", passed=True),
+        ]
+        mock_geom.side_effect = [
+            GeometryResult(pose_id="pose_1", cu_found=True, cu_his_all_in_range=True, passed=True),
+            GeometryResult(pose_id="pose_2", cu_found=True, cu_his_all_in_range=True, passed=True),
+        ]
+        mock_privateer_batch.return_value = [
+            PrivateerResult(pose_id="pose_1", all_pass=True),
+            PrivateerResult(pose_id="pose_2", all_pass=True),
+        ]
+
+        inputs = [
+            HardQCInput(
+                pose_id="pose_1",
+                mol_pred_path=Path("/fake/pose1.pdb"),
+                structure=MagicMock(),
+                privateer_cif_path=Path("/fake/privateer1.cif"),
+            ),
+            HardQCInput(
+                pose_id="pose_2",
+                mol_pred_path=Path("/fake/pose2.pdb"),
+                structure=MagicMock(),
+                privateer_cif_path=Path("/fake/privateer2.cif"),
+            ),
+        ]
+
+        report = run_hard_qc(inputs, run_id="batch_privateer")
+
+        assert report.total == 2
+        assert mock_privateer_batch.call_count == 1
+        batch_inputs = mock_privateer_batch.call_args.args[0]
+        assert [item.pose_id for item in batch_inputs] == ["pose_1", "pose_2"]
+        assert [item.cif_path for item in batch_inputs] == [
+            Path("/fake/privateer1.cif"),
+            Path("/fake/privateer2.cif"),
+        ]
 
     @patch("lpmo_pipeline.qc.hard_qc_orchestrator.run_posebusters_single")
     @patch("lpmo_pipeline.qc.hard_qc_orchestrator.check_geometry")

@@ -10,9 +10,9 @@ foreslått default-valg slik at arbeidet kan fortsette uten blokkering.
 1. ~~**PLACER GPU-krav**~~ — **AVKLART 2026-04-21: PLACER er fjernet fra analysen helt. Steg 1 er avviklet.**
 
 2. **Privateer CLI-versjon** — Privateer v1 vs v2 har ulik JSON-output.
-   **STATUS 2026-04-23:** Privateer er **IKKE installert** i `analyse_env` (sbatch job 574004 bekreftet). Privateer må lastes ned og installeres før videre testing.
-   Hvilken versjon er installert? *Default: autodetekt fra `privateer --version` når tilgjengelig.*
-   Oppfolgingsoppgave: installer Privateer i analyse_env, kjør deretter en eksplisitt real-CIF probe og lagre rå JSON/stdout for å verifisere faktisk outputformat før parseren låses endelig.
+   **STATUS 2026-04-29:** Privateer er tilgjengelig som SIF: `/cluster/projects/nn1003k/prog/privateer/privateer.sif`.
+   Pipeline-policy: Privateer kjøres via `apptainer exec` mot SIF (ikke via `analyse_env`/PATH).
+   Oppfolgingsoppgave: kjør eksplisitt real-CIF probe og lagre rå JSON/stdout for å verifisere faktisk outputformat før parseren låses endelig.
 
 3. **Reduce-versjon** — MolProbity Reduce vs AmberTools reduce?
    *Default: AmberTools `reduce` (mest tilgjengelig via conda).*

@@ -24,7 +24,11 @@ from typing import Any
 from lpmo_pipeline.qc.active_site_proximity import check_active_site_proximity
 from lpmo_pipeline.qc.custom_geometry_checks import GeometryResult, check_geometry
 from lpmo_pipeline.qc.posebusters_runner import PoseBustersSingleResult, run_posebusters_single
-from lpmo_pipeline.qc.privateer_runner import PrivateerResult, run_privateer
+from lpmo_pipeline.qc.privateer_runner import (
+    PrivateerBatchInput,
+    PrivateerResult,
+    run_privateer_batch,
+)
 from lpmo_pipeline.qc.qc_report import (
     PoseQCVerdict,
     QCReport,
@@ -33,6 +37,15 @@ from lpmo_pipeline.qc.qc_report import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class _PoseEvaluation:
+    pose: HardQCInput
+    proximity_result: Any
+    pb_result: PoseBustersSingleResult | None
+    geom_result: GeometryResult | None
+    precomputed_verdict: PoseQCVerdict | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -93,6 +106,7 @@ def run_hard_qc(
         :class:`QCReport` with per-pose verdicts and aggregate counts.
     """
     verdicts: list[PoseQCVerdict] = []
+    evaluations: list[_PoseEvaluation] = []
 
     for pose in poses:
         logger.info("Hard QC: processing pose %s", pose.pose_id)
@@ -114,7 +128,15 @@ def run_hard_qc(
                 geom_result=None,
                 proximity_result=proximity_result,
             )
-            verdicts.append(verdict)
+            evaluations.append(
+                _PoseEvaluation(
+                    pose=pose,
+                    proximity_result=proximity_result,
+                    pb_result=None,
+                    geom_result=None,
+                    precomputed_verdict=verdict,
+                )
+            )
             logger.info(
                 "Hard QC verdict for %s: %s (pre-QC fail; drop_reasons=%s)",
                 pose.pose_id,
@@ -154,34 +176,47 @@ def run_hard_qc(
                 pose.pose_id,
             )
 
-        # --- Step 4: Privateer ---
-        priv_result: PrivateerResult | None = None
-        if pose.privateer_cif_path is not None:
-            try:
-                priv_result = run_privateer(
-                    cif_path=pose.privateer_cif_path,
-                    pose_id=pose.pose_id,
-                )
-            except Exception:
-                logger.exception(
-                    "Privateer raised an unexpected error for pose %s; "
-                    "continuing without Privateer result",
-                    pose.pose_id,
-                )
+        evaluations.append(
+            _PoseEvaluation(
+                pose=pose,
+                proximity_result=proximity_result,
+                pb_result=pb_result,
+                geom_result=geom_result,
+            )
+        )
 
-        # --- Step 5: Aggregate verdict ---
+    privateer_results: dict[str, PrivateerResult] = {}
+    privateer_inputs = [
+        PrivateerBatchInput(cif_path=evaluation.pose.privateer_cif_path, pose_id=evaluation.pose.pose_id)
+        for evaluation in evaluations
+        if evaluation.precomputed_verdict is None and evaluation.pose.privateer_cif_path is not None
+    ]
+    if privateer_inputs:
+        try:
+            for result in run_privateer_batch(privateer_inputs):
+                privateer_results[result.pose_id] = result
+        except Exception:
+            logger.exception(
+                "Privateer batch raised an unexpected error; continuing without Privateer results"
+            )
+
+    for evaluation in evaluations:
+        if evaluation.precomputed_verdict is not None:
+            verdicts.append(evaluation.precomputed_verdict)
+            continue
+
         verdict = compute_verdict(
-            pose_id=pose.pose_id,
-            pb_result=pb_result,
-            priv_result=priv_result,
-            geom_result=geom_result,
-            proximity_result=proximity_result,
+            pose_id=evaluation.pose.pose_id,
+            pb_result=evaluation.pb_result,
+            priv_result=privateer_results.get(evaluation.pose.pose_id),
+            geom_result=evaluation.geom_result,
+            proximity_result=evaluation.proximity_result,
         )
         verdicts.append(verdict)
 
         logger.info(
             "Hard QC verdict for %s: %s (drop_reasons=%s)",
-            pose.pose_id,
+            evaluation.pose.pose_id,
             verdict.status,
             verdict.drop_reasons or "none",
         )
