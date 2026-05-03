@@ -9,6 +9,7 @@ pipe_test/logs/
 discovery_cache.json
 **/results/
 **/result/
+**/tests_results/
 pipe_test/scripts/__pycache__/__init__.cpython-36.pyc
 pipe_test/scripts/__pycache__/__init__.cpython-311.pyc
 pipe_test/interpro_cache.json
@@ -20,3 +21,4 @@ pipe_test/run_metadata_20251215.json
 pipe_test/scripts/module_2_new/interpro_cache.json
 **/manifest/
 /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/
+**/temp/
