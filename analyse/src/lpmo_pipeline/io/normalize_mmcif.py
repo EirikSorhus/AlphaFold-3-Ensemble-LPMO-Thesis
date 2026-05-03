@@ -205,9 +205,11 @@ class NormalizeMMCIFRunner:
                 self.logger.close()
                 return False, None
 
-            # Save normalized CIF
+            # Save the remapped CIF document. The chain-ID remaps are applied on
+            # the parsed CIF block, and reconstructing a fresh document from the
+            # structure can reintroduce the original AF3 chain labels.
             output_path = self.output_dir / "normalized.cif"
-            structure.make_mmcif_document().write_file(str(output_path))
+            doc.write_file(str(output_path))
 
             elapsed = (datetime.utcnow() - start).total_seconds()
             self.logger.log_step_end(
@@ -354,8 +356,14 @@ class NormalizeMMCIFRunner:
             remap,
             [
                 "_struct_asym.id",
+                "_ma_qa_metric_local.label_asym_id",
                 "_atom_site.label_asym_id",
                 "_atom_site.auth_asym_id",
+                "_pdbx_branch_scheme.asym_id",
+                "_pdbx_branch_scheme.auth_asym_id",
+                "_pdbx_branch_scheme.pdb_asym_id",
+                "_pdbx_nonpoly_scheme.asym_id",
+                "_pdbx_nonpoly_scheme.pdb_strand_id",
                 "_struct_conn.ptnr1_auth_asym_id",
                 "_struct_conn.ptnr1_label_asym_id",
                 "_struct_conn.ptnr2_auth_asym_id",

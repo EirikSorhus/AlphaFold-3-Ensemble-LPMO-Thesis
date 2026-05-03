@@ -4,15 +4,15 @@ Responsibility: Orchestrate the hard QC sequence for a batch of poses.
 
 Sequence per pose:
     1. Run active-site proximity pre-gate (Stage 8)
-    2. If proximity fails: mark dropped and skip PoseBusters/Privateer
-    3. If proximity passes: run PoseBusters
-    4. Run Cu-His + substrate geometry checks
-    5. Skip Privateer (disabled until download issues resolved)
-    6. Aggregate into unified QC verdict via compute_verdict()
+        2. Run PoseBusters
+        3. Run Cu-His + substrate geometry checks
+        4. Run Privateer when input is available
+        5. Aggregate into unified QC verdict via compute_verdict()
 
 INVARIANT — "Ikke-slett regel":
   All numeric metrics are preserved in the verdict even when the pose is
-  dropped by a hard gate.  Nothing computed is discarded.
+    dropped by a hard gate. Nothing computed is discarded, so thresholds can
+    be revisited without rerunning downstream QC.
 """
 from __future__ import annotations
 
@@ -23,6 +23,7 @@ from typing import Any
 
 from lpmo_pipeline.qc.active_site_proximity import check_active_site_proximity
 from lpmo_pipeline.qc.custom_geometry_checks import GeometryResult, check_geometry
+from lpmo_pipeline.qc.gates import GateConfig, load_gate_config_from_yaml
 from lpmo_pipeline.qc.posebusters_runner import PoseBustersSingleResult, run_posebusters_single
 from lpmo_pipeline.qc.privateer_runner import (
     PrivateerBatchInput,
@@ -39,13 +40,16 @@ from lpmo_pipeline.qc.qc_report import (
 logger = logging.getLogger(__name__)
 
 
+def _default_qc_config_path() -> Path:
+    return Path(__file__).resolve().parents[3] / "configs" / "thresholds.yaml"
+
+
 @dataclass
 class _PoseEvaluation:
     pose: HardQCInput
     proximity_result: Any
     pb_result: PoseBustersSingleResult | None
     geom_result: GeometryResult | None
-    precomputed_verdict: PoseQCVerdict | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -82,13 +86,15 @@ class HardQCInput:
 def run_hard_qc(
     poses: list[HardQCInput],
     run_id: str = "",
+    config: GateConfig | None = None,
+    config_path: Path | None = None,
 ) -> QCReport:
     """Run the full hard-QC sequence on a list of poses.
 
     For each pose the following checks are executed:
         1. **Active-site proximity** — pre-QC gate (Stage 8).
-            If this fails, the pose is dropped for PB/Privateer, but computed
-            numeric metrics are preserved in the verdict.
+            If this fails, the pose is still fully evaluated so downstream
+            metrics remain available for later threshold tuning.
         2. **PoseBusters** — chemical/stereochemical validation.
          If the PoseBusters backend raises an unexpected exception the pose
          is still processed (``pb_result`` set to ``None``).
@@ -105,6 +111,7 @@ def run_hard_qc(
     Returns:
         :class:`QCReport` with per-pose verdicts and aggregate counts.
     """
+    gate_config = config or load_gate_config_from_yaml(config_path or _default_qc_config_path())
     verdicts: list[PoseQCVerdict] = []
     evaluations: list[_PoseEvaluation] = []
 
@@ -117,33 +124,15 @@ def run_hard_qc(
             pose_id=pose.pose_id,
             cu_chain=pose.cu_chain,
             glycan_chains=pose.glycan_chains,
+            hard_cutoff_a=gate_config.active_site_proximity_max_a,
+            cu_c_soft_flag_a=gate_config.cu_c_proximity_threshold_a,
         )
 
-        # Stage 8 hard-fail: keep metrics, skip PB/Privateer and mark dropped.
         if not proximity_result.passed:
-            verdict = compute_verdict(
-                pose_id=pose.pose_id,
-                pb_result=None,
-                priv_result=None,
-                geom_result=None,
-                proximity_result=proximity_result,
-            )
-            evaluations.append(
-                _PoseEvaluation(
-                    pose=pose,
-                    proximity_result=proximity_result,
-                    pb_result=None,
-                    geom_result=None,
-                    precomputed_verdict=verdict,
-                )
-            )
             logger.info(
-                "Hard QC verdict for %s: %s (pre-QC fail; drop_reasons=%s)",
+                "Pre-QC hard gate failed for %s; continuing remaining QC to preserve downstream metrics",
                 pose.pose_id,
-                verdict.status,
-                verdict.drop_reasons or "none",
             )
-            continue
 
         # --- Step 2: PoseBusters ---
         pb_result: PoseBustersSingleResult | None = None
@@ -169,6 +158,12 @@ def run_hard_qc(
                 pose_id=pose.pose_id,
                 cu_chain=pose.cu_chain,
                 glycan_chains=pose.glycan_chains,
+                hard_cu_his_min_a=gate_config.cu_his_dist_min,
+                hard_cu_his_max_a=gate_config.cu_his_dist_max,
+                soft_cu_his_min_a=gate_config.cu_his_soft_min_a,
+                soft_cu_his_max_a=gate_config.cu_his_soft_max_a,
+                cu_c_soft_flag_a=gate_config.cu_c_proximity_threshold_a,
+                his_brace_max_search_a=gate_config.his_brace_max_search_a,
             )
         except Exception:
             logger.exception(
@@ -189,7 +184,7 @@ def run_hard_qc(
     privateer_inputs = [
         PrivateerBatchInput(cif_path=evaluation.pose.privateer_cif_path, pose_id=evaluation.pose.pose_id)
         for evaluation in evaluations
-        if evaluation.precomputed_verdict is None and evaluation.pose.privateer_cif_path is not None
+        if evaluation.pose.privateer_cif_path is not None
     ]
     if privateer_inputs:
         try:
@@ -201,10 +196,6 @@ def run_hard_qc(
             )
 
     for evaluation in evaluations:
-        if evaluation.precomputed_verdict is not None:
-            verdicts.append(evaluation.precomputed_verdict)
-            continue
-
         verdict = compute_verdict(
             pose_id=evaluation.pose.pose_id,
             pb_result=evaluation.pb_result,

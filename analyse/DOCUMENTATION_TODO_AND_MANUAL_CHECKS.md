@@ -118,35 +118,112 @@ OPEN_QUESTIONS.md item 13: the substrate-recognition surface residues used in Py
 
 ---
 
-### P8 — Privateer CLI version not autodetected (BLOCKED — Privateer not installed)
+### P8 — Privateer SIF execution path and output contract (RESOLVED 2026-04-30)
 
-**Priority:** MEDIUM — Privateer v1 and v2 produce different JSON output formats. Incorrect parsing will produce silent errors.
+**Priority:** RESOLVED
 
 **Description:**  
-OPEN_QUESTIONS.md item 2: Privateer v1 vs v2 has different JSON output. **BLOCKER: Privateer is not installed in `analyse_env`.** Job 574004 (sbatch run on 2026-04-23 17:39:46) confirmed: `[ERROR] privateer is not available in analyse_env PATH`. 
+Privateer is now integrated via SIF instead of host PATH installation. The resolved execution path is `apptainer run --cleanenv /cluster/projects/nn1003k/prog/privateer/privateer.sif ...` with explicit bind mounts. The resolved output contract is `-mode ccp4i2` plus parsing of `validation_data-privateer`, not JSON stdout.
 
-Privateer must be installed before real-CIF verification can proceed.
+Implemented and verified points:
+- `qc/privateer_runner.py` builds bind-aware SIF invocations and parses `validation_data-privateer`.
+- `get_privateer_version()` queries the SIF with `-list`, and `utils/manifest.py` now records that version instead of calling `privateer -V` on the host.
+- hard QC uses the runner through `hard_qc_orchestrator.py`, including batched Privateer dispatch for eligible poses.
+- successful runs now keep `validation_data-privateer` by default; raw stdout/stderr are retained only on failure or when `debug_output=True`.
+- targeted pytest coverage passes for the runner, dry-run path, QC gates, QC report, manifest path, and hard-QC orchestration.
 
-**Proposed solution:**  
-1. **FIRST:** Install Privateer in `analyse_env`. Check with cluster admins or project manager for installation path/method.
-   - Likely source: Singularity container or conda package (if available in project channels).
-   - Confirm installation by running `privateer --version` in analyse_env.
-2. Once installed, in `qc/privateer_runner.py`, implement version autodetection: run `privateer --version` and parse the version string at startup.
-3. Implement two JSON-parsing branches: one for v1 format, one for v2 format.
-4. Log the detected version to `run_manifest.json`.
-5. Add a contract test that runs Privateer on a known structure and checks that the output is parsed correctly for the detected version.
-6. Add and run a manual real-CIF probe script under `tests/run_tests_scripts/` that stores `privateer --version`, help text, attempted JSON command templates, and raw stdout/stderr for several AF3 CIFs. Use this output to confirm what the JSON actually looks like before locking parser branches.
+**Remaining action:**  
+Operational verification now belongs to the real-pose hard-QC check in the implementation playbook, not to CLI/version/output-format discovery.
 
-Manual verification target files for the first probe run (three distinct CIFs are currently referenced in context; pass any additional CIF paths as script arguments):
-- `/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work/NAG4/af3/latest/Q7SCE9_NAG4/seed-4_sample-1/Q7SCE9_NAG4_seed-4_sample-1_model.cif`
-- `/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work/STA6/af3/latest/Q59930_STA6/seed-2_sample-0/Q59930_STA6_seed-2_sample-0_model.cif`
-- `/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work/STA4/af3/latest/A0A0S2GKZ1_STA4/seed-2_sample-2/A0A0S2GKZ1_STA4_seed-2_sample-2_model.cif`
+---
 
-Outcome to record after the first run:
-- which command variant produced JSON, if any
-- whether stdout parsed as JSON
-- top-level JSON keys or top-level type
-- whether failures were tool-syntax failures, parse failures, or structure/content failures
+### P8a — Native Gemmi remapping for normalized/privateer inputs (RESOLVED 2026-05-01)
+
+**Priority:** RESOLVED
+
+**Description:**
+Native Gemmi importability alone was not sufficient: earlier remap logic only mutated the fallback compatibility objects correctly. On native Gemmi, loop-backed tags were not being rewritten the same way, which could leave regenerated `normalized.cif` and `privateer_input.cif` with stale chain assignments even though parsing itself succeeded.
+
+Implemented and verified points:
+- native-Gemmi-compatible mutation paths are now used for remapped scalar and loop-backed mmCIF values.
+- the target analysis environment now reports functional native Gemmi (`gemmi_is_functional() = True`, version `0.7.5`).
+- a fresh real-case parse of `privateer_input.cif` shows the expected chain layout `['A', 'E', 'B']` after regeneration.
+- downstream real-case Privateer runs again recognize the expected glycan residues from regenerated input.
+
+**Remaining action:**
+No separate blocker remains; final confirmation now belongs to the planned 3-pose hard-QC manual run.
+
+---
+
+### P8b — PoseBusters metal-containing input PDB (RESOLVED 2026-05-01)
+
+**Priority:** RESOLVED
+
+**Description:**
+PoseBusters could return no usable results on the real exported `for_posebusters.pdb` when a Cu atom was present. The resolved contract is now:
+- `for_posebusters.pdb` is a PoseBusters-specific export with incompatible metal atom records removed.
+- metal-only `TER` / `LINK` / `CONECT` references are removed at the same time.
+- non-metal `CONECT` records are retained.
+- `complex_H.pdb` is still generated from a full-complex temporary export, so Cu remains present in downstream analysis artifacts.
+
+Implemented and verified points:
+- `io/cif_to_pdb.py` now strips incompatible metal atoms from the public PoseBusters PDB and records the stripped element/count in `cif_to_pdb_report.json`.
+- `io/protonate_export.py` now protonates a full-complex temporary export so `complex_H.pdb` retains Cu.
+- focused regression coverage now checks both Cu removal and retention of non-metal connectivity.
+- on the real one-case validation rerun, the regenerated `for_posebusters.pdb` yields PoseBusters CSV output, while the raw full-complex export and `complex_H.pdb` still retain Cu.
+
+**Remaining action:**
+No separate blocker remains; the same export contract was reconfirmed in
+the integrated 3-pose hard-QC rerun `hard_qc_real_cifs_612234` (job 612234).
+
+---
+
+### P8c — PoseBusters combined-input contract and real hard-QC rerun (RESOLVED 2026-05-03)
+
+**Priority:** RESOLVED
+
+**Description:**
+After the Cu-stripping fix, PoseBusters still produced false real-case hard
+fails because the pipeline treated a combined AF3 protein+glycan
+`for_posebusters.pdb` as standalone `mol_pred` in `mol` mode. The resolved
+contract is now:
+- combined AF3 PoseBusters PDBs are auto-split into ligand-only `mol_pred`
+  and protein `mol_cond`
+- PoseBusters is invoked in documented `dock` mode for that case
+- the hard-QC sbatch harness now includes `tests/test_posebusters_runner.py`
+  in its focused regression phase
+
+Implemented and verified points:
+- `qc/posebusters_runner.py` now auto-prepares ligand/protein inputs from
+  combined AF3 exports before invoking PoseBusters.
+- focused regression `tests/test_posebusters_runner.py` passes and is now run
+  from `tests/run_tests_scripts/test_hard_qc_real_cifs.sh`.
+- integrated 3-pose hard-QC rerun `hard_qc_real_cifs_612234` (job 612234)
+  completed with schema-valid `qc_report.json` and no longer shows the prior
+  false PoseBusters hard fails.
+- rerun outcome on real data: 1 `pass`, 1 `soft_flag`, 1 `hard_fail`.
+- the only remaining PoseBusters hard-fail code on real data is
+  `minimum_distance_to_protein`; the same STA4 case also retains a real
+  Privateer anomer failure.
+
+**Remaining action:**
+Severity policy for PoseBusters fail codes is still open; see
+`OPEN_QUESTIONS.md` item 18.
+
+---
+
+### P8d — Downstream dropped-vs-flagged filtering audit not completed
+
+**Priority:** MEDIUM — hard/soft QC semantics are implemented in QC itself, but downstream consumers still need confirmation.
+
+**Description:**
+Hard QC now drops poses from downstream analysis while preserving all computed metrics and QC artifacts. Soft failures remain analyzable and should only be flagged. This contract is implemented in the QC orchestration/reporting path, but downstream consumers outside the QC module have not yet been re-audited against the updated behavior.
+
+**Proposed solution:**
+1. Trace each consumer of `qc_report.json`, pose summary tables, and later-stage analysis inputs.
+2. Verify dropped poses are excluded only at the downstream-analysis boundary, not earlier when artifacts are generated.
+3. Verify soft-flagged poses remain included and visibly marked.
+4. Add one integration-level check at the final filtering boundary once the consuming surface is identified.
 
 ---
 
@@ -229,22 +306,6 @@ These checks must be performed by a human. They cannot be automated. Each check 
 
 Completed checks have been removed from this section. Keep only checks that are still required.
 
-
-### MC13 — Confirm Privateer version handling is implemented and tested
-
-**Why:** P8 remains open; output parsing can silently fail if version format differs.
-
-**Steps:**
-
-1. Run `privateer --version` in the analysis environment and capture the exact version string.
-
-2. Confirm `qc/privateer_runner.py` detects version and selects correct parser branch.
-
-3. Run one contract test on known structure and verify parsed fields match expected schema.
-
-4. Ensure detected version is written to `run_manifest.json`.
-
----
 
 ### MC14 — Define and verify crystal anchoring reference metadata
 

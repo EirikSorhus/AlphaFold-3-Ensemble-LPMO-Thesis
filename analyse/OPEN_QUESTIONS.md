@@ -9,10 +9,12 @@ foreslått default-valg slik at arbeidet kan fortsette uten blokkering.
 
 1. ~~**PLACER GPU-krav**~~ — **AVKLART 2026-04-21: PLACER er fjernet fra analysen helt. Steg 1 er avviklet.**
 
-2. **Privateer CLI-versjon** — Privateer v1 vs v2 har ulik JSON-output.
-   **STATUS 2026-04-29:** Privateer er tilgjengelig som SIF: `/cluster/projects/nn1003k/prog/privateer/privateer.sif`.
-   Pipeline-policy: Privateer kjøres via `apptainer exec` mot SIF (ikke via `analyse_env`/PATH).
-   Oppfolgingsoppgave: kjør eksplisitt real-CIF probe og lagre rå JSON/stdout for å verifisere faktisk outputformat før parseren låses endelig.
+2. ~~**Privateer CLI-versjon**~~ — **AVKLART 2026-04-30.**
+   Privateer kjøres via SIF: `/cluster/projects/nn1003k/prog/privateer/privateer.sif`.
+   Pipeline-policy: Privateer kjøres via `apptainer run --cleanenv` mot SIF (ikke via `analyse_env`/PATH).
+   Avklart outputkontrakt: cluster-buildet gir ikke stabil JSON på stdout; den operative parse-kilden er `validation_data-privateer` skrevet av `-mode ccp4i2`.
+   `qc/privateer_runner.py` bygger bind-aware SIF-kjøring, parser `validation_data-privateer`, henter versjon via `-list`, og beholder rå stdout/stderr kun ved feil eller eksplisitt debug-flag.
+   Gjenstående arbeid er ikke outputformat-avklaring, men full hard-QC-verifikasjon på ekte poser.
 
 3. **Reduce-versjon** — MolProbity Reduce vs AmberTools reduce?
    *Default: AmberTools `reduce` (mest tilgjengelig via conda).*
@@ -95,3 +97,13 @@ foreslått default-valg slik at arbeidet kan fortsette uten blokkering.
     - `pose_ifp_table.tsv`
     - `pose_residue_contact_table.tsv`
     - `pose_geometry.tsv`
+
+18. **PoseBusters hard-fail policy** — Hvilke PoseBusters-feil skal telle som hard QC fail vs soft flag/pass?
+   Bakgrunn: Etter korrigert PoseBusters-kontrakt for kombinerte AF3-eksporter
+   (auto-splitt til ligand `mol_pred` + protein `mol_cond` i `dock`-modus)
+   forsvant de tidligere falske real-case feilene `all_atoms_connected` og
+   `internal_steric_clash`. I siste 3-pose PoseBusters-validering er eneste
+   gjenstående PB-fail `minimum_distance_to_protein`.
+   *Default: behold dagens konservative klassifisering midlertidig, men avklar
+   eksplisitt om `minimum_distance_to_protein` og andre pocket-/distance-relaterte
+   PoseBusters-feil skal gi `hard_fail`, `soft_flag` eller kun rapporteres.*

@@ -36,7 +36,7 @@ Forutsetninger (oppdatert 21.04.2026):
 | 7 | `io/protonate_export.py` | ✅ Verifisert 2026-04-23. PDBFixer/OpenMM primær-backend, ingen stille kopi-fallback. Name-based glycan-linking (C1→O4 for NAG/BGC/GLC) før protonering, og eksplisitt CONECT rewrite for komplett ligand-konnektivitet i `complex_H.pdb`. Verifisert via sbatch (572928, 572982, 572996, 573050). |
 | 7b | `io/cif_to_pdb.py` | ✅ Verifisert 2026-04-23. PDBFixer-backend er primær (AF3-riktig), gemmi fallback med `backend_fallback_reason`. Verifisert via test_protonation_contracts.sh (backend=pdbfixer). |
 | 8 | `qc/active_site_proximity.py` | ⚠️ Integrert i `hard_qc_orchestrator.py` og targeted tester passer (2026-04-23), men ikke testet på ekte data |
-| 9–12 | `qc/` (PoseBusters, Privateer, Cu-His, QC report) | ⚠️ Stage 9/11 logikk tester passer, Stage 10 wrapper er implementert med SIF-kjoring (`/cluster/projects/nn1003k/prog/privateer/privateer.sif`), Stage 12 har schema-backed test som passer; reell QC-kjoring pa ekte data gjenstar |
+| 9–12 | `qc/` (PoseBusters, Privateer, Cu-His, QC report) | ✅ Reell 3-pose hard-QC-kjøring er verifisert 2026-05-03 via `tests/run_tests_scripts/test_hard_qc_real_cifs.sh` (jobb 612234, run `hard_qc_real_cifs_612234`). PoseBusters auto-splitter kombinerte AF3 protein+glykan-input til ligand+protein og kjører i `dock`-modus. Resultat: 1 pass, 1 soft_flag, 1 hard_fail; eneste gjenstående PB-hardfail er `minimum_distance_to_protein`, og samme STA4-case har fortsatt en reell Privateer anomer-feil. |
 | 13 | `analysis/prolif_ifp.py` + `pose_ifp_table.tsv` | ⚠️ Kode finnes, ikke verifisert på ekte data |
 | 13b | `analysis/residue_contact_extraction.py` + `pose_residue_contact_table.tsv` | ❌ Ikke startet (ny i v1.0) |
 | 14 | `analysis/mdanalysis_metrics.py` | ⚠️ Kode finnes, ikke verifisert på ekte data |
@@ -106,11 +106,17 @@ Forutsetninger (oppdatert 21.04.2026):
      SIF (fallback-kandidater):
     `/cluster/projects/nn1003k/prog/posebusters/build/posebusters.sif`,
     `/cluster/projects/nn1003k/prog/posebusters/posebusters.sif`.
-    Status 2026-04-23: klassifiseringslogikk og batch-feilhåndtering dekkes av targeted pytest og passer i `analyse_env`.
+    Status 2026-05-03: wrapperen er verifisert både med targeted pytest og i
+    full hard-QC real-run. Kombinerte AF3 protein+glykan `for_posebusters.pdb`
+    auto-splittes til ligand + protein før PoseBusters, og real-run
+    `hard_qc_real_cifs_612234` kjørte `dock`-modus for alle 3 caser. De tidligere
+    falske real-case hard-failene `all_atoms_connected` og
+    `internal_steric_clash` er borte; eneste gjenstående PB-hardfail på ekte data
+    er `minimum_distance_to_protein` i STA4-caset.
    Test: `pytest tests/test_qc_gates.py::TestPoseBustersGate`.
 
 10. **`qc/privateer_runner.py`** — Privateer-wrapper + 100%-recog gate.
-    Status 2026-04-29: Wrapper kjores via SIF (`/cluster/projects/nn1003k/prog/privateer/privateer.sif`) med `apptainer exec` (ikke PATH/env-avhengig). JSON-parser + aggregasjon implementert. Targeted pytest passer i `analyse_env`. Verifikasjon mot faktisk Privateer-output på cluster gjenstar.
+    Status 2026-04-30: wrapperen kjøres via SIF (`/cluster/projects/nn1003k/prog/privateer/privateer.sif`) med `apptainer run --cleanenv` og eksplisitte bind mounts. Avklart parse-kilde er `validation_data-privateer` fra `-mode ccp4i2`, ikke JSON stdout. Dry-run, batch-kjøring, SIF-basert versjonsdeteksjon, og filtrert artefakt-retensjon er implementert. Targeted pytest passer i `analyse_env`. Verifikasjon i full QC på ekte poser gjenstår.
     Test: `pytest tests/test_qc_gates.py::TestPrivateerGate`.
 
 11. **`qc/custom_geometry_checks.py`** — Cu-His 1.9–2.6 Å gate.
@@ -118,8 +124,12 @@ Forutsetninger (oppdatert 21.04.2026):
     Test: `pytest tests/test_qc_gates.py::TestCuHisGate`.
 
 12. **`qc/qc_report.py`** — Samle pre-QC + PB + Privateer + geometri → verdict.
-    Status 2026-04-23: verdict-aggregasjon er i bruk og targeted orchestrator/gate-tester passer. Schema-backed pytest skriver og validerer `qc_report.json` for en syntetisk 3-pose batch i `analyse_env`. Full stopp-punkt med reelle poser gjenstar.
-    ⛔ STOPP: Kjør full QC på 3 poser, verifiser JSON-rapport mot skjema.
+    Status 2026-05-03: verdict-aggregasjon er verifisert i full 3-pose real-run
+    via `tests/run_tests_scripts/test_hard_qc_real_cifs.sh`. Run
+    `hard_qc_real_cifs_612234` skrev schema-valid `qc_report.json` med
+    sluttstatus 1 `pass`, 1 `soft_flag`, 1 `hard_fail`.
+    ✅ STOPP-PUNKT verifisert 2026-05-03: full QC på 3 poser kjørt, og JSON-rapport
+    validert mot skjema.
 
 13. **`analysis/prolif_ifp.py`** — IFP-beregning med ProLIF.
     Bruker AF3-poser direkte.

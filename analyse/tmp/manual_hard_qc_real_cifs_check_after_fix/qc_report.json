@@ -1,0 +1,218 @@
+{
+  "timestamp": "2026-05-01T17:35:23.476082+00:00",
+  "run_id": "manual_hard_qc_real_cifs_check_after_fix",
+  "poses": [
+    {
+      "pose_id": "Q7SCE9_NAG4_seed-4_sample-1_model",
+      "overall_status": "hard_fail",
+      "posebusters": {
+        "passed": false,
+        "errors": {
+          "all_atoms_connected": 1,
+          "bond_lengths": 1,
+          "internal_steric_clash": 1
+        },
+        "critical": true,
+        "warnings": [
+          "inchi_convertible",
+          "internal_energy"
+        ]
+      },
+      "privateer": {
+        "recognized_sugars": 4,
+        "total_sugars": 4,
+        "recognition_rate": 1.0,
+        "anomer_ok": true,
+        "ring_pucker_ok": true,
+        "linkage_ok": true,
+        "errors": []
+      },
+      "cu_geometry": {
+        "cu_his_distances_a": [
+          2.5263103530643263,
+          1.8174229007030802,
+          1.9628950557785816
+        ],
+        "all_in_range": true,
+        "all_in_soft_range": true,
+        "cu_c1_dist_a": 5.797463842060596,
+        "cu_c4_dist_a": 5.479366569230424
+      }
+    },
+    {
+      "pose_id": "Q59930_STA6_seed-2_sample-0_model",
+      "overall_status": "hard_fail",
+      "posebusters": {
+        "passed": false,
+        "errors": {
+          "all_atoms_connected": 1,
+          "bond_lengths": 1,
+          "internal_steric_clash": 1
+        },
+        "critical": true,
+        "warnings": [
+          "inchi_convertible",
+          "internal_energy"
+        ]
+      },
+      "privateer": {
+        "recognized_sugars": 6,
+        "total_sugars": 6,
+        "recognition_rate": 1.0,
+        "anomer_ok": true,
+        "ring_pucker_ok": true,
+        "linkage_ok": true,
+        "errors": []
+      },
+      "cu_geometry": {
+        "cu_his_distances_a": [
+          2.3153993176124072,
+          1.7552475608870677,
+          1.9276509020048203
+        ],
+        "all_in_range": true,
+        "all_in_soft_range": false,
+        "cu_c1_dist_a": 7.770257395994036,
+        "cu_c4_dist_a": 7.665917361933925
+      }
+    },
+    {
+      "pose_id": "A0A0S2GKZ1_STA4_seed-2_sample-2_model",
+      "overall_status": "hard_fail",
+      "posebusters": {
+        "passed": false,
+        "errors": {
+          "all_atoms_connected": 1,
+          "bond_lengths": 1,
+          "internal_steric_clash": 1
+        },
+        "critical": true,
+        "warnings": [
+          "inchi_convertible",
+          "internal_energy"
+        ]
+      },
+      "privateer": {
+        "recognized_sugars": 4,
+        "total_sugars": 4,
+        "recognition_rate": 1.0,
+        "anomer_ok": false,
+        "ring_pucker_ok": true,
+        "linkage_ok": true,
+        "errors": [
+          "anomer_failure"
+        ]
+      },
+      "cu_geometry": {
+        "cu_his_distances_a": [
+          2.322476479967021,
+          1.9300246112420432,
+          2.0279339239728698
+        ],
+        "all_in_range": true,
+        "all_in_soft_range": true,
+        "cu_c1_dist_a": 7.1732742872414965,
+        "cu_c4_dist_a": 8.458510152503218
+      }
+    }
+  ],
+  "total": 3,
+  "passed": 0,
+  "flagged": 0,
+  "dropped": 3,
+  "verdicts": [
+    {
+      "pose_id": "Q7SCE9_NAG4_seed-4_sample-1_model",
+      "status": "dropped",
+      "proximity_passed": true,
+      "posebusters_passed": false,
+      "privateer_passed": true,
+      "geometry_passed": true,
+      "drop_reasons": [
+        "posebusters_critical:all_atoms_connected",
+        "posebusters_critical:bond_lengths",
+        "posebusters_critical:internal_steric_clash"
+      ],
+      "warnings": [
+        "posebusters_soft:inchi_convertible",
+        "posebusters_soft:internal_energy"
+      ],
+      "metrics": {
+        "min_cu_ligand_distance": 5.036367341646159,
+        "min_cu_c1": 5.797463842060596,
+        "min_cu_c4": 5.479366569230424,
+        "nearest_ligand_atom": "B:NAG3:C5",
+        "cu_found": true,
+        "geometry_min_cu_c1": 5.797463842060596,
+        "geometry_min_cu_c4": 5.479366569230424,
+        "cu_his_all_in_range": true,
+        "cu_his_all_in_soft_range": true,
+        "his_brace_angle": 169.26578681897357
+      }
+    },
+    {
+      "pose_id": "Q59930_STA6_seed-2_sample-0_model",
+      "status": "dropped",
+      "proximity_passed": true,
+      "posebusters_passed": false,
+      "privateer_passed": true,
+      "geometry_passed": true,
+      "drop_reasons": [
+        "posebusters_critical:all_atoms_connected",
+        "posebusters_critical:bond_lengths",
+        "posebusters_critical:internal_steric_clash"
+      ],
+      "warnings": [
+        "active_site_proximity:Cu-C1 distance flagged: 7.77 A > 7.00 A",
+        "active_site_proximity:Cu-C4 distance flagged: 7.67 A > 7.00 A",
+        "posebusters_soft:inchi_convertible",
+        "posebusters_soft:internal_energy",
+        "geometry_soft:Cu-His distance outside preferred QC range: ['His1:ND1=1.76\u00c5'] not in [1.80, 2.60] A"
+      ],
+      "metrics": {
+        "min_cu_ligand_distance": 6.2216738101575215,
+        "min_cu_c1": 7.770257395994036,
+        "min_cu_c4": 7.665917361933925,
+        "nearest_ligand_atom": "B:GLC3:O3",
+        "cu_found": true,
+        "geometry_min_cu_c1": 7.770257395994036,
+        "geometry_min_cu_c4": 7.665917361933925,
+        "cu_his_all_in_range": true,
+        "cu_his_all_in_soft_range": false,
+        "his_brace_angle": 162.5689109447994
+      }
+    },
+    {
+      "pose_id": "A0A0S2GKZ1_STA4_seed-2_sample-2_model",
+      "status": "dropped",
+      "proximity_passed": true,
+      "posebusters_passed": false,
+      "privateer_passed": false,
+      "geometry_passed": true,
+      "drop_reasons": [
+        "posebusters_critical:all_atoms_connected",
+        "posebusters_critical:bond_lengths",
+        "posebusters_critical:internal_steric_clash",
+        "privateer_anomer:['B:GLC4']"
+      ],
+      "warnings": [
+        "active_site_proximity:Cu-C1 distance flagged: 7.17 A > 7.00 A",
+        "active_site_proximity:Cu-C4 distance flagged: 8.46 A > 7.00 A",
+        "posebusters_soft:inchi_convertible",
+        "posebusters_soft:internal_energy"
+      ],
+      "metrics": {
+        "min_cu_ligand_distance": 7.102159882739898,
+        "min_cu_c1": 7.1732742872414965,
+        "min_cu_c4": 8.458510152503218,
+        "nearest_ligand_atom": "B:GLC3:C2",
+        "cu_found": true,
+        "geometry_min_cu_c1": 7.1732742872414965,
+        "geometry_min_cu_c4": 8.458510152503218,
+        "cu_his_all_in_range": true,
+        "cu_his_all_in_soft_range": true,
+        "his_brace_angle": 175.3794135930525
+      }
+    }
+  ]
+}

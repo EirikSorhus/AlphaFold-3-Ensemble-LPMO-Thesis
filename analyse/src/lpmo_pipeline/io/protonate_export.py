@@ -26,6 +26,7 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+import tempfile
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -134,22 +135,34 @@ class ProtonationExportRunner:
 
             # ----------------------------------------------------------------
             # 2) Add hydrogens → complex_H.pdb
-            #    Priority: PDBFixer/OpenMM → reduce → obabel → BLOCKER
+            #    Use a full-complex export here so metals remain present in the
+            #    hydrogenated analysis artifact.
             # ----------------------------------------------------------------
-            complex_h_backend, h_warnings = _add_hydrogens(for_posebusters, complex_h)
-            warnings.extend(h_warnings)
-            if complex_h_backend == "none":
-                blockers.append("complex_h_protonation_failed_no_tool_available")
-            else:
-                # Sanity-check: complex_H.pdb must have more atoms than the
-                # unprotonated for_posebusters.pdb.
-                n_base = _count_atom_lines(for_posebusters)
-                n_h = _count_atom_lines(complex_h)
-                if n_h <= n_base:
-                    warnings.append(
-                        f"complex_h_no_new_atoms: base={n_base} complex_h={n_h} "
-                        f"backend={complex_h_backend}"
-                    )
+            with tempfile.TemporaryDirectory(prefix="complex_h_input_", dir=protonated_dir) as tmp_dir:
+                full_complex_dir = Path(tmp_dir)
+                success_full_pdb, full_pdb_path = convert_cif_to_pdb(
+                    self.input_cif,
+                    full_complex_dir,
+                    strip_metals_for_posebusters=False,
+                )
+                if not success_full_pdb or full_pdb_path is None or not full_pdb_path.exists():
+                    blockers.append("cif_to_pdb_full_complex_failed")
+                    raise RuntimeError("Failed to generate full-complex PDB for protonation")
+
+                complex_h_backend, h_warnings = _add_hydrogens(full_pdb_path, complex_h)
+                warnings.extend(h_warnings)
+                if complex_h_backend == "none":
+                    blockers.append("complex_h_protonation_failed_no_tool_available")
+                else:
+                    # Sanity-check: complex_H.pdb must gain atoms relative to the
+                    # full-complex PDB that was protonated.
+                    n_base = _count_atom_lines(full_pdb_path)
+                    n_h = _count_atom_lines(complex_h)
+                    if n_h <= n_base:
+                        warnings.append(
+                            f"complex_h_no_new_atoms: base={n_base} complex_h={n_h} "
+                            f"backend={complex_h_backend}"
+                        )
 
             # ----------------------------------------------------------------
             # 3) Export ligand-only MOL2 (glycan chains B/C/D) via obabel
@@ -462,6 +475,12 @@ def _augment_glycan_bonds_from_names(
         key = (str(atom["chain"]), int(atom["resseq"]), str(atom["resname"]))
         by_residue.setdefault(key, {})[str(atom["atom_name"])] = int(atom["serial"])
 
+    for atom_map in by_residue.values():
+        c1_serial = atom_map.get("C1")
+        o4_serial = atom_map.get("O4")
+        if c1_serial is not None and o4_serial is not None:
+            _remove_adjacency_edge(adjacency, c1_serial, o4_serial)
+
     # Intra-residue bonds from known glycan atom naming conventions.
     for atom_map in by_residue.values():
         for a_name, b_name in (_GLYCAN_CORE_BONDS + _GLYCAN_OPTIONAL_BONDS):
@@ -501,6 +520,14 @@ def _add_adjacency_edge(adjacency: dict[int, set[int]], a: int, b: int) -> None:
         return
     adjacency[a].add(b)
     adjacency[b].add(a)
+
+
+def _remove_adjacency_edge(adjacency: dict[int, set[int]], a: int, b: int) -> None:
+    """Remove an undirected bond edge from adjacency when a template bond is wrong."""
+    if a not in adjacency or b not in adjacency:
+        return
+    adjacency[a].discard(b)
+    adjacency[b].discard(a)
 
 
 def _residue_seq_id(residue) -> Optional[int]:

@@ -109,9 +109,111 @@ class TestProtonationContract:
         assert output_path.name == "for_posebusters.pdb"
         pdb_text = output_path.read_text()
         assert "ATOM" in pdb_text or "HETATM" in pdb_text
+        assert not any(
+            line.startswith(("ATOM  ", "HETATM")) and line[76:78].strip().upper() == "CU"
+            for line in pdb_text.splitlines()
+        )
 
         report_path = tmp_path / "cif_to_pdb_report.json"
         assert report_path.exists()
+
+    def test_posebusters_pdb_strips_metals_but_keeps_nonmetal_conect(self, tmp_path: Path) -> None:
+        """Metal cleanup must not discard glycan connectivity between non-metal atoms."""
+        from lpmo_pipeline.io.cif_to_pdb import _write_posebusters_ready_pdb
+
+        input_pdb = tmp_path / "input_with_metal.pdb"
+        output_pdb = tmp_path / "for_posebusters.pdb"
+        input_pdb.write_text(
+            "\n".join(
+                [
+                    "HETATM    1 CU    CU E   1       0.255   8.022   9.115  1.00  0.00          CU",
+                    "TER       2      CU E   1",
+                    "HETATM    3 C1   NAG B   1      12.500  10.000  10.000  1.00  0.00           C",
+                    "HETATM    4 O4   NAG C   1      15.000  10.000  10.000  1.00  0.00           O",
+                    "CONECT    1    3",
+                    "CONECT    3    1    4",
+                    "CONECT    4    3",
+                    "END",
+                ]
+            )
+            + "\n"
+        )
+
+        sanitization = _write_posebusters_ready_pdb(input_pdb, output_pdb)
+        pdb_text = output_pdb.read_text()
+
+        assert sanitization.stripped_metal_atom_count == 1
+        assert sanitization.stripped_metal_elements == ("CU",)
+        assert "HETATM    1 CU    CU E   1" not in pdb_text
+        assert "TER       2      CU E   1" not in pdb_text
+        assert "CONECT    3    4" in pdb_text
+        assert "CONECT    4    3" in pdb_text
+
+    def test_rewrite_conect_from_topology_adds_explicit_glycan_bonds(self, tmp_path: Path) -> None:
+        """Sparse topology exports should be repaired with explicit glycan CONECT records."""
+        from lpmo_pipeline.io.cif_to_pdb import _rewrite_conect_from_topology
+
+        class _FakeAtom:
+            def __init__(self, index: int) -> None:
+                self.index = index
+
+        class _FakeTopology:
+            def __init__(self, atom_count: int, bond_pairs: list[tuple[int, int]] | None = None) -> None:
+                self._atoms = [_FakeAtom(index) for index in range(atom_count)]
+                self._bond_pairs = bond_pairs or []
+
+            def atoms(self):
+                return iter(self._atoms)
+
+            def bonds(self):
+                return iter(
+                    (self._atoms[left], self._atoms[right])
+                    for left, right in self._bond_pairs
+                )
+
+        pdb_path = tmp_path / "for_posebusters.pdb"
+        pdb_path.write_text(
+            "\n".join(
+                [
+                    "HETATM    1  C1  NAG B   1       0.000   0.000   0.000  1.00  0.00           C",
+                    "HETATM    2  C2  NAG B   1       1.500   0.000   0.000  1.00  0.00           C",
+                    "HETATM    3  C3  NAG B   1       2.500   1.000   0.000  1.00  0.00           C",
+                    "HETATM    4  C4  NAG B   1       2.500   2.400   0.000  1.00  0.00           C",
+                    "HETATM    5  C5  NAG B   1       1.300   3.100   0.000  1.00  0.00           C",
+                    "HETATM    6  C6  NAG B   1       1.300   4.600   0.000  1.00  0.00           C",
+                    "HETATM    7  O4  NAG B   1       3.700   3.100   0.000  1.00  0.00           O",
+                    "HETATM    8  O5  NAG B   1       0.000   2.400   0.000  1.00  0.00           O",
+                    "HETATM    9  C1  NAG B   2       5.000   3.100   0.000  1.00  0.00           C",
+                    "HETATM   10  C2  NAG B   2       6.500   3.100   0.000  1.00  0.00           C",
+                    "HETATM   11  C3  NAG B   2       7.500   4.100   0.000  1.00  0.00           C",
+                    "HETATM   12  C4  NAG B   2       7.500   5.500   0.000  1.00  0.00           C",
+                    "HETATM   13  C5  NAG B   2       6.300   6.200   0.000  1.00  0.00           C",
+                    "HETATM   14  C6  NAG B   2       6.300   7.700   0.000  1.00  0.00           C",
+                    "HETATM   15  O4  NAG B   2       8.700   6.200   0.000  1.00  0.00           O",
+                    "HETATM   16  O5  NAG B   2       5.000   5.500   0.000  1.00  0.00           O",
+                    "END",
+                ]
+            )
+            + "\n"
+        )
+
+        _rewrite_conect_from_topology(pdb_path, _FakeTopology(atom_count=16, bond_pairs=[(0, 6)]))
+
+        conect_map: dict[int, set[int]] = {}
+        for line in pdb_path.read_text().splitlines():
+            if not line.startswith("CONECT"):
+                continue
+            serials = [int(token) for token in line[6:].split()]
+            if len(serials) < 2:
+                continue
+            conect_map.setdefault(serials[0], set()).update(serials[1:])
+
+        assert 1 in conect_map
+        assert 2 in conect_map[1]
+        assert 8 in conect_map[1]
+        assert 15 in conect_map[1]
+        assert 7 not in conect_map[1]
+        assert 4 in conect_map[7]
 
     def test_cif_to_pdb_report_has_required_fields(self, tmp_path: Path) -> None:
         """cif_to_pdb_report.json must record backend and fallback reason."""

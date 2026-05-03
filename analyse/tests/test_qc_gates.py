@@ -84,6 +84,85 @@ class TestCuHisGate:
         assert verdict.status == "passed"
 
 
+class TestCheckGeometryThresholds:
+    """Threshold overrides should flow into live geometry evaluation."""
+
+    def test_check_geometry_accepts_threshold_overrides_and_sets_soft_warning(self) -> None:
+        from types import SimpleNamespace
+
+        from lpmo_pipeline.qc.custom_geometry_checks import check_geometry
+
+        class _FakeAtom:
+            def __init__(self, name: str, element: str, coords: tuple[float, float, float]) -> None:
+                self.name = name
+                self.element = SimpleNamespace(name=element)
+                self.pos = SimpleNamespace(x=coords[0], y=coords[1], z=coords[2])
+
+        class _FakeResidue(list):
+            def __init__(self, name: str, seqnum: int, atoms: list[_FakeAtom]) -> None:
+                super().__init__(atoms)
+                self.name = name
+                self.seqid = SimpleNamespace(num=seqnum)
+
+        class _FakeChain(list):
+            def __init__(self, name: str, residues: list[_FakeResidue]) -> None:
+                super().__init__(residues)
+                self.name = name
+
+        his1 = _FakeResidue(
+            "HIS",
+            1,
+            [
+                _FakeAtom("N", "N", (2.0, 0.0, 0.0)),
+                _FakeAtom("ND1", "N", (0.0, 2.0, 0.0)),
+            ],
+        )
+        his78 = _FakeResidue(
+            "HIS",
+            78,
+            [_FakeAtom("NE2", "N", (0.0, 0.0, 1.76))],
+        )
+        cu_residue = _FakeResidue("CU", 1, [_FakeAtom("CU", "Cu", (0.0, 0.0, 0.0))])
+        glycan = _FakeResidue(
+            "NAG",
+            3,
+            [
+                _FakeAtom("C1", "C", (5.0, 0.0, 0.0)),
+                _FakeAtom("C4", "C", (0.0, 6.0, 0.0)),
+            ],
+        )
+        structure = [[
+            _FakeChain("A", [his1, his78]),
+            _FakeChain("E", [cu_residue]),
+            _FakeChain("B", [glycan]),
+        ]]
+
+        result = check_geometry(
+            structure=structure,
+            pose_id="pose_thresholds",
+            glycan_chains=["B"],
+            hard_cu_his_min_a=1.5,
+            hard_cu_his_max_a=3.0,
+            soft_cu_his_min_a=1.8,
+            soft_cu_his_max_a=2.6,
+            cu_c_soft_flag_a=6.2,
+            his_brace_max_search_a=3.4,
+        )
+
+        assert result.passed is True
+        assert result.cu_found is True
+        assert result.cu_his_all_in_range is True
+        assert result.cu_his_all_in_soft_range is False
+        assert len(result.cu_his_measurements) == 3
+        assert result.min_cu_c1 == pytest.approx(5.0)
+        assert result.min_cu_c4 == pytest.approx(6.0)
+        assert result.failure_reasons == []
+        assert len(result.warnings) == 1
+        assert "Cu-His distance outside preferred QC range:" in result.warnings[0]
+        assert "His78:NE2=1.76Å" in result.warnings[0]
+        assert "[1.80, 2.60] A" in result.warnings[0]
+
+
 class TestPrivateerGate:
     """privateer_recognized_sugars = 100%."""
 
@@ -215,6 +294,32 @@ class TestPoseBustersRunner:
         assert result["internal_steric_clash"] is True
         # Loading columns should be excluded
         assert "mol_pred_loaded" not in result
+
+    def test_result_table_parsing_excludes_loading_columns_and_nan(self) -> None:
+        """_parse_result_table should drop loading columns and coerce NaN-like values to False."""
+        import pandas as pd
+
+        from lpmo_pipeline.qc.posebusters_runner import _parse_result_table
+
+        table = pd.DataFrame(
+            [
+                {
+                    "mol_pred_loaded": True,
+                    "sanitization": True,
+                    "bond_lengths": False,
+                    "internal_energy": float("nan"),
+                    "inchi_convertible": "True",
+                }
+            ]
+        )
+
+        result = _parse_result_table(table)
+
+        assert "mol_pred_loaded" not in result
+        assert result["sanitization"] is True
+        assert result["bond_lengths"] is False
+        assert result["internal_energy"] is False
+        assert result["inchi_convertible"] is True
 
 
 class TestCuHisAngle:

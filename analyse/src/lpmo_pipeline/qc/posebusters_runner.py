@@ -1,7 +1,10 @@
 # src/lpmo_pipeline/qc/posebusters_runner.py
 """
 Responsibility: Run PoseBusters on AF3 poses (after normalization + protonation).
-Input:  PDB file (for_posebusters.pdb) from protonation step
+Input:  AF3 PoseBusters PDB export. Combined protein+glycan exports are
+    auto-split into ligand-only ``mol_pred`` and protein ``mol_cond``
+    so PoseBusters is invoked with the documented ``dock``/``redock``
+    contract instead of treating the whole complex as a standalone ligand.
 Output: PoseBustersResult with per-test pass/fail + error types
 
 GATE: no_critical_posebusters_errors = true  (hard-fail → drop pose)
@@ -10,13 +13,16 @@ SOFT: minor warnings → keep pose, mark flag
 from __future__ import annotations
 
 import csv
+from contextlib import contextmanager
 import io
 import json
 import logging
+import math
 import subprocess
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +87,8 @@ POSEBUSTERS_SIF_CANDIDATES: tuple[Path, ...] = (
     Path("/cluster/projects/nn1003k/prog/posebusters/posebusters.sif"),
 )
 
+_PROTEIN_CHAIN_ID = "A"
+
 
 # ---------------------------------------------------------------------------
 # Runner
@@ -94,7 +102,9 @@ def run_posebusters_single(
     """Run PoseBusters on a single PDB pose file.
 
     Args:
-        pdb_path: Path to PDB file with CONECT records.
+        pdb_path: Path to AF3 PoseBusters PDB export. Combined protein+ligand
+            files are auto-split into ligand/protein inputs before PoseBusters
+            is invoked.
         pose_id: Identifier for this pose.
         protein_path: Optional protein PDB for dock/redock mode.
         reference_path: Optional true ligand for redock RMSD.
@@ -118,31 +128,230 @@ def _run_pb_sif(
     reference_path: Path | None,
 ) -> dict[str, bool]:
     """Run PoseBusters via SIF container.  Returns ``{test_name: passed}``."""
-    sif_path = next((p for p in POSEBUSTERS_SIF_CANDIDATES if p.exists()), None)
-    if sif_path is None:
-        logger.error("PoseBusters SIF not found in candidates: %s", POSEBUSTERS_SIF_CANDIDATES)
-        return {}
+    with _prepare_posebusters_inputs(
+        pdb_path,
+        protein_path=protein_path,
+        reference_path=reference_path,
+    ) as (mol_pred_path, mol_cond_path, mol_true_path):
+        api_results = _run_pb_api(mol_pred_path, mol_cond_path, mol_true_path)
+        if api_results is not None:
+            return api_results
 
-    cmd: list[str] = [
-        "apptainer", "exec", str(sif_path),
-        "bust", str(pdb_path),
-    ]
-    if protein_path:
-        cmd.extend(["-p", str(protein_path)])
-    if reference_path:
-        cmd.extend(["-l", str(reference_path)])
-    cmd.extend(["--outfmt", "csv"])
+        sif_path = next((p for p in POSEBUSTERS_SIF_CANDIDATES if p.exists()), None)
+        if sif_path is None:
+            logger.error("PoseBusters SIF not found in candidates: %s", POSEBUSTERS_SIF_CANDIDATES)
+            return {}
+
+        cmd: list[str] = [
+            "apptainer", "exec", str(sif_path),
+            "bust", str(mol_pred_path),
+        ]
+        if mol_cond_path:
+            cmd.extend(["-p", str(mol_cond_path)])
+        if mol_true_path:
+            cmd.extend(["-l", str(mol_true_path)])
+        cmd.extend(["--outfmt", "csv"])
+
+        try:
+            proc = subprocess.run(
+                cmd, capture_output=True, text=True, check=True, timeout=300,
+            )
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired,
+                FileNotFoundError) as exc:
+            logger.error("PoseBusters SIF execution failed: %s", exc)
+            return {}
+
+        return _parse_csv_output(proc.stdout)
+
+
+def _run_pb_api(
+    pdb_path: Path,
+    protein_path: Path | None,
+    reference_path: Path | None,
+) -> dict[str, bool] | None:
+    """Run PoseBusters through the installed Python API when available."""
+    try:
+        from posebusters import PoseBusters
+    except ImportError:
+        return None
+
+    config = _select_pb_api_config(protein_path=protein_path, reference_path=reference_path)
+    kwargs: dict[str, str] = {}
+    if protein_path is not None:
+        kwargs["mol_cond"] = str(protein_path)
+    if protein_path is not None and reference_path is not None:
+        kwargs["mol_true"] = str(reference_path)
+
+    logger.info(
+        "PoseBusters Python API config=%s mol_pred=%s mol_cond=%s mol_true=%s",
+        config,
+        pdb_path,
+        protein_path,
+        reference_path,
+    )
 
     try:
-        proc = subprocess.run(
-            cmd, capture_output=True, text=True, check=True, timeout=300,
+        results_table = PoseBusters(config=config, max_workers=0).bust(
+            str(pdb_path),
+            full_report=False,
+            **kwargs,
         )
-    except (subprocess.CalledProcessError, subprocess.TimeoutExpired,
-            FileNotFoundError) as exc:
-        logger.error("PoseBusters SIF execution failed: %s", exc)
+    except Exception as exc:
+        logger.warning("PoseBusters Python API failed for %s: %s", pdb_path, exc)
+        return None
+
+    return _parse_result_table(results_table)
+
+
+def _select_pb_api_config(
+    *,
+    protein_path: Path | None,
+    reference_path: Path | None,
+) -> str:
+    if protein_path is not None and reference_path is not None:
+        return "redock"
+    if protein_path is not None:
+        return "dock"
+    return "mol"
+
+
+@contextmanager
+def _prepare_posebusters_inputs(
+    pdb_path: Path,
+    *,
+    protein_path: Path | None,
+    reference_path: Path | None,
+) -> Iterator[tuple[Path, Path | None, Path | None]]:
+    """Yield PoseBusters inputs that follow the documented ligand/protein contract.
+
+    AF3 exports enter this module as combined protein+glycan PDB files. PoseBusters,
+    however, expects ``mol_pred`` to be the ligand and ``mol_cond`` to be the
+    conditioning protein for ``dock``/``redock`` mode. When we detect a combined
+    export, split it on the fly into ligand-only and protein-only inputs.
+    """
+
+    split_lines = _split_combined_pose_pdb_lines(pdb_path)
+    if split_lines is None:
+        yield pdb_path, protein_path, reference_path
+        return
+
+    ligand_lines, protein_lines = split_lines
+    with tempfile.TemporaryDirectory(prefix="posebusters_input_") as tmp_dir_name:
+        tmp_dir = Path(tmp_dir_name)
+        ligand_path = tmp_dir / f"{pdb_path.stem}_ligand.pdb"
+        auto_protein_path = tmp_dir / f"{pdb_path.stem}_protein.pdb"
+        ligand_path.write_text("\n".join(ligand_lines) + "\n")
+        auto_protein_path.write_text("\n".join(protein_lines) + "\n")
+
+        effective_protein_path = protein_path or auto_protein_path
+        logger.info(
+            "PoseBusters auto-split combined input %s into ligand=%s protein=%s",
+            pdb_path,
+            ligand_path,
+            effective_protein_path,
+        )
+        yield ligand_path, effective_protein_path, reference_path
+
+
+def _split_combined_pose_pdb_lines(pdb_path: Path) -> tuple[list[str], list[str]] | None:
+    """Split a combined AF3 PDB export into ligand-only and protein-only records.
+
+    Returns ``None`` when the input does not look like the combined AF3 export we
+    generate for hard QC.
+    """
+
+    try:
+        lines = pdb_path.read_text().splitlines()
+    except OSError as exc:
+        logger.warning("Failed to read PoseBusters input %s for auto-split: %s", pdb_path, exc)
+        return None
+
+    protein_lines: list[str] = []
+    ligand_lines: list[str] = []
+    ligand_serials: set[int] = set()
+    has_protein = False
+    has_ligand = False
+
+    for line in lines:
+        if not line.startswith(("ATOM  ", "HETATM")):
+            continue
+
+        serial = _parse_pdb_serial(line[6:11])
+        if serial is None:
+            continue
+
+        chain_id = line[21].strip()
+        if chain_id == _PROTEIN_CHAIN_ID:
+            protein_lines.append(line)
+            has_protein = True
+        else:
+            ligand_lines.append(line)
+            ligand_serials.add(serial)
+            has_ligand = True
+
+    if not (has_protein and has_ligand):
+        return None
+
+    for line in lines:
+        if not line.startswith("CONECT"):
+            continue
+        serials = _parse_pdb_conect_serials(line)
+        kept_serials = [serial for serial in serials if serial in ligand_serials]
+        if len(kept_serials) >= 2:
+            ligand_lines.append(_format_pdb_conect_line(kept_serials))
+
+    protein_lines.append("END")
+    ligand_lines.append("END")
+    return ligand_lines, protein_lines
+
+
+def _parse_pdb_serial(field: str) -> int | None:
+    try:
+        return int(field.strip())
+    except ValueError:
+        return None
+
+
+def _parse_pdb_conect_serials(line: str) -> list[int]:
+    serials: list[int] = []
+    for token in line[6:].split():
+        serial = _parse_pdb_serial(token)
+        if serial is not None:
+            serials.append(serial)
+    return serials
+
+
+def _format_pdb_conect_line(serials: list[int]) -> str:
+    return "CONECT" + "".join(f"{serial:5d}" for serial in serials)
+
+
+def _parse_result_table(results_table: Any) -> dict[str, bool]:
+    """Convert the first PoseBusters result row into ``{test_name: passed}``."""
+    try:
+        row = results_table.iloc[0]
+    except Exception:
         return {}
 
-    return _parse_csv_output(proc.stdout)
+    return {
+        str(key): _coerce_pb_value(value)
+        for key, value in row.items()
+        if key not in _LOADING_COLUMNS
+    }
+
+
+def _coerce_pb_value(value: Any) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() == "true"
+    try:
+        if math.isnan(value):
+            return False
+    except TypeError:
+        pass
+    return bool(value)
 
 
 def _parse_csv_output(csv_text: str) -> dict[str, bool]:

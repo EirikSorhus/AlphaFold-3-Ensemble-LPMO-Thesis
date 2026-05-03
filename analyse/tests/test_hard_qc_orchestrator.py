@@ -104,11 +104,16 @@ class TestHardQCOrchestrator:
         report = run_hard_qc([_make_input()], run_id="test_run")
         verdict = report.verdicts[0]
         assert verdict.status == "dropped"
-        # Metrics from geometry check must be preserved
+        # Canonical min_cu_* keys remain bound to the pre-QC proximity gate.
         assert "min_cu_c1" in verdict.metrics
-        assert verdict.metrics["min_cu_c1"] == pytest.approx(5.3)
+        assert verdict.metrics["min_cu_c1"] == pytest.approx(4.2)
         assert "min_cu_c4" in verdict.metrics
-        assert verdict.metrics["min_cu_c4"] == pytest.approx(6.1)
+        assert verdict.metrics["min_cu_c4"] == pytest.approx(4.7)
+        # Geometry metrics are still preserved explicitly for downstream use.
+        assert verdict.metrics["geometry_min_cu_c1"] == pytest.approx(5.3)
+        assert verdict.metrics["geometry_min_cu_c4"] == pytest.approx(6.1)
+        assert verdict.cu_geometry["cu_c1_dist_a"] == pytest.approx(5.3)
+        assert verdict.cu_geometry["cu_c4_dist_a"] == pytest.approx(6.1)
 
     @patch("lpmo_pipeline.qc.hard_qc_orchestrator.run_posebusters_single")
     @patch("lpmo_pipeline.qc.hard_qc_orchestrator.check_geometry")
@@ -188,6 +193,78 @@ class TestHardQCOrchestrator:
         assert report.flagged == 1
         assert report.dropped == 0
 
+        @patch("lpmo_pipeline.qc.hard_qc_orchestrator.run_posebusters_single")
+        @patch("lpmo_pipeline.qc.hard_qc_orchestrator.check_geometry")
+        def test_geometry_soft_warning_flags_pose(self, mock_geom, mock_pb) -> None:
+                """Preferred QC band miss should flag, not drop."""
+                mock_pb.return_value = PoseBustersSingleResult(
+                        pose_id="pose_001", passed=True,
+                )
+                mock_geom.return_value = GeometryResult(
+                        pose_id="pose_001",
+                        cu_found=True,
+                        cu_his_all_in_range=True,
+                        cu_his_all_in_soft_range=False,
+                        passed=True,
+                        warnings=["Cu-His distance outside preferred QC range"],
+                )
+
+                report = run_hard_qc([_make_input()], run_id="test_run")
+
+                assert report.flagged == 1
+                assert report.dropped == 0
+                assert any(
+                        warning.startswith("geometry_soft:")
+                        for warning in report.verdicts[0].warnings
+                )
+
+        @patch("lpmo_pipeline.qc.hard_qc_orchestrator.run_posebusters_single")
+        @patch("lpmo_pipeline.qc.hard_qc_orchestrator.check_geometry")
+        def test_threshold_config_is_passed_into_qc_checks(
+                self,
+                mock_geom,
+                mock_pb,
+                _mock_proximity_gate,
+                tmp_path: Path,
+        ) -> None:
+                config_path = tmp_path / "thresholds.yaml"
+                config_path.write_text(
+                        """
+hard_gates:
+    active_site_proximity_max_a: 9.5
+    cu_his_distance_min_a: 1.5
+    cu_his_distance_max_a: 3.0
+soft_thresholds:
+    cu_c_proximity_max_a: 6.2
+geometry_rules:
+    his_brace:
+        max_search_dist_a: 3.4
+qc:
+    pre_qc_active_site_max_a: 9.0
+    cu_his_min_a: 1.8
+    cu_his_max_a: 2.6
+""".lstrip()
+                )
+
+                mock_pb.return_value = PoseBustersSingleResult(pose_id="pose_001", passed=True)
+                mock_geom.return_value = GeometryResult(
+                        pose_id="pose_001", cu_found=True, cu_his_all_in_range=True, passed=True,
+                )
+
+                run_hard_qc([_make_input()], run_id="test_run", config_path=config_path)
+
+                proximity_kwargs = _mock_proximity_gate.call_args.kwargs
+                assert proximity_kwargs["hard_cutoff_a"] == pytest.approx(9.5)
+                assert proximity_kwargs["cu_c_soft_flag_a"] == pytest.approx(6.2)
+
+                geometry_kwargs = mock_geom.call_args.kwargs
+                assert geometry_kwargs["hard_cu_his_min_a"] == pytest.approx(1.5)
+                assert geometry_kwargs["hard_cu_his_max_a"] == pytest.approx(3.0)
+                assert geometry_kwargs["soft_cu_his_min_a"] == pytest.approx(1.8)
+                assert geometry_kwargs["soft_cu_his_max_a"] == pytest.approx(2.6)
+                assert geometry_kwargs["cu_c_soft_flag_a"] == pytest.approx(6.2)
+                assert geometry_kwargs["his_brace_max_search_a"] == pytest.approx(3.4)
+
     @patch("lpmo_pipeline.qc.hard_qc_orchestrator.run_posebusters_single")
     @patch("lpmo_pipeline.qc.hard_qc_orchestrator.check_geometry")
     def test_multiple_poses(self, mock_geom, mock_pb) -> None:
@@ -230,8 +307,8 @@ class TestHardQCOrchestrator:
 
     @patch("lpmo_pipeline.qc.hard_qc_orchestrator.run_posebusters_single")
     @patch("lpmo_pipeline.qc.hard_qc_orchestrator.check_geometry")
-    def test_pre_qc_failure_skips_pb_and_geometry(self, mock_geom, mock_pb, _mock_proximity_gate) -> None:
-        """Stage 8 fail should drop pose before PB/Privateer/geometry."""
+    def test_pre_qc_failure_still_runs_remaining_qc(self, mock_geom, mock_pb, _mock_proximity_gate) -> None:
+        """Stage 8 fail should still evaluate remaining QC once, but final status is dropped."""
         _mock_proximity_gate.return_value = ActiveSiteProximityResult(
             pose_id="pose_001",
             cu_found=True,
@@ -241,14 +318,24 @@ class TestHardQCOrchestrator:
             passed=False,
             failure_reasons=["Ligand too far from active site"],
         )
+        mock_pb.return_value = PoseBustersSingleResult(
+            pose_id="pose_001",
+            passed=True,
+        )
+        mock_geom.return_value = GeometryResult(
+            pose_id="pose_001",
+            cu_found=True,
+            cu_his_all_in_range=True,
+            passed=True,
+        )
 
         report = run_hard_qc([_make_input()], run_id="test_run")
         verdict = report.verdicts[0]
 
         assert verdict.status == "dropped"
         assert any(r.startswith("active_site_proximity:") for r in verdict.drop_reasons)
-        mock_pb.assert_not_called()
-        mock_geom.assert_not_called()
+        mock_pb.assert_called_once()
+        mock_geom.assert_called_once()
 
     @patch("lpmo_pipeline.qc.hard_qc_orchestrator.run_posebusters_single")
     @patch("lpmo_pipeline.qc.hard_qc_orchestrator.check_geometry")
@@ -264,6 +351,18 @@ class TestHardQCOrchestrator:
             passed=False,
             failure_reasons=["Ligand too far from active site"],
         )
+        mock_pb.return_value = PoseBustersSingleResult(
+            pose_id="pose_001",
+            passed=True,
+        )
+        mock_geom.return_value = GeometryResult(
+            pose_id="pose_001",
+            cu_found=True,
+            cu_his_all_in_range=True,
+            passed=True,
+            min_cu_c1=5.5,
+            min_cu_c4=6.4,
+        )
 
         report = run_hard_qc([_make_input()], run_id="test_run")
         verdict = report.verdicts[0]
@@ -273,5 +372,7 @@ class TestHardQCOrchestrator:
         assert verdict.metrics["min_cu_c1"] == pytest.approx(12.0)
         assert verdict.metrics["min_cu_c4"] == pytest.approx(9.5)
         assert verdict.metrics["nearest_ligand_atom"] == "B:NAG1:C1"
-        mock_pb.assert_not_called()
-        mock_geom.assert_not_called()
+        assert verdict.cu_geometry["cu_c1_dist_a"] == pytest.approx(5.5)
+        assert verdict.cu_geometry["cu_c4_dist_a"] == pytest.approx(6.4)
+        mock_pb.assert_called_once()
+        mock_geom.assert_called_once()

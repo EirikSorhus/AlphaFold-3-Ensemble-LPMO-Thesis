@@ -1,0 +1,15 @@
+{
+  "backend": "pdbfixer",
+  "input_cif": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tmp/manual_hard_qc_real_cifs_check_after_fix/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/normalize/normalized.cif",
+  "output_pdb": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tmp/manual_hard_qc_real_cifs_check_after_fix/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/posebusters_input/for_posebusters.pdb",
+  "atom_count": 1725,
+  "model_count": 1,
+  "chain_count": 2,
+  "has_conect_records": true,
+  "has_link_records": false,
+  "stripped_metal_atom_count": 1,
+  "stripped_metal_elements": [
+    "CU"
+  ],
+  "backend_fallback_reason": ""
+}

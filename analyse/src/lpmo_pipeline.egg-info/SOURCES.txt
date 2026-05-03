@@ -22,6 +22,7 @@ src/lpmo_pipeline/io/__init__.py
 src/lpmo_pipeline/io/ccd_lookup.py
 src/lpmo_pipeline/io/cif_to_pdb.py
 src/lpmo_pipeline/io/discovery.py
+src/lpmo_pipeline/io/gemmi_compat.py
 src/lpmo_pipeline/io/mmcif_ingest.py
 src/lpmo_pipeline/io/normalize_mmcif.py
 src/lpmo_pipeline/io/protonate_export.py
@@ -59,5 +60,9 @@ tests/test_discovery.py
 tests/test_hard_qc_orchestrator.py
 tests/test_ingest.py
 tests/test_io_contracts.py
+tests/test_manifest.py
 tests/test_normalize.py
+tests/test_privateer_pipeline_dry_run.py
+tests/test_privateer_runner.py
 tests/test_qc_gates.py
+tests/test_qc_report.py

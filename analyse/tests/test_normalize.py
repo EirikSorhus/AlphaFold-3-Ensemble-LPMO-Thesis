@@ -17,6 +17,7 @@ from pathlib import Path
 
 import pytest
 
+from lpmo_pipeline.io.gemmi_compat import gemmi
 from lpmo_pipeline.io.normalize_mmcif import NormalizeMMCIFRunner
 
 
@@ -92,6 +93,28 @@ _struct_conn.ptnr2_label_comp_id
 _struct_conn.ptnr2_label_seq_id
 _struct_conn.ptnr2_symmetry
 covale covale1 ? ? ? ? ? ? C 1 C C1 BGC . 1_555 C 2 C O4 BGC . 1_555
+#
+loop_
+_pdbx_branch_scheme.asym_id
+_pdbx_branch_scheme.auth_asym_id
+_pdbx_branch_scheme.auth_seq_num
+_pdbx_branch_scheme.entity_id
+_pdbx_branch_scheme.hetero
+_pdbx_branch_scheme.mon_id
+_pdbx_branch_scheme.num
+_pdbx_branch_scheme.pdb_asym_id
+_pdbx_branch_scheme.pdb_ins_code
+_pdbx_branch_scheme.pdb_seq_num
+C C 1 3 n BGC 1 C . 1
+C C 2 3 n BGC 2 C . 2
+#
+_pdbx_nonpoly_scheme.asym_id B
+_pdbx_nonpoly_scheme.auth_seq_num 1
+_pdbx_nonpoly_scheme.entity_id 2
+_pdbx_nonpoly_scheme.mon_id CU
+_pdbx_nonpoly_scheme.pdb_ins_code .
+_pdbx_nonpoly_scheme.pdb_seq_num 1
+_pdbx_nonpoly_scheme.pdb_strand_id B
 #
 _struct_conn_type.criteria  ?
 _struct_conn_type.id        covale
@@ -240,6 +263,29 @@ class TestChainRemapping:
         assert (out / "normalized.cif").exists()
         content = (out / "normalized.cif").read_text()
         assert len(content) > 100
+
+    def test_written_normalized_cif_uses_canonical_chain_ids(
+        self, af3_cif: Path, tmp_path: Path
+    ) -> None:
+        out = tmp_path / "out"
+        runner = NormalizeMMCIFRunner(af3_cif, out)
+        ok, path = runner.run()
+
+        assert ok is True
+        assert path is not None
+
+        block = gemmi.cif.read(str(path)).sole_block()
+
+        atom_label_asym_ids = set(block.find_values("_atom_site.label_asym_id"))
+        atom_auth_asym_ids = set(block.find_values("_atom_site.auth_asym_id"))
+
+        assert atom_label_asym_ids == {"A", "B", "E"}
+        assert atom_auth_asym_ids == {"A", "B", "E"}
+        assert list(block.find_values("_pdbx_nonpoly_scheme.asym_id")) == ["E"]
+        assert list(block.find_values("_pdbx_nonpoly_scheme.pdb_strand_id")) == ["E"]
+        assert set(block.find_values("_pdbx_branch_scheme.asym_id")) == {"B"}
+        assert set(block.find_values("_pdbx_branch_scheme.auth_asym_id")) == {"B"}
+        assert set(block.find_values("_pdbx_branch_scheme.pdb_asym_id")) == {"B"}
 
 
 # ---------------------------------------------------------------------------

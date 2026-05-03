@@ -61,7 +61,8 @@ def compute_verdict(
             - Pre-QC active-site proximity fail -> drop
       - Any critical PoseBusters error → drop
       - Privateer recognition < 100% or anomer fail → drop
-      - Cu–His outside 1.9–2.6 Å → drop
+        - Cu–His outside hard gate window → drop
+        - Cu–His outside preferred QC window → flag
       - Soft PoseBusters warnings → flag (keep)
       - Crystal similarity low → flag (keep)
     """
@@ -151,18 +152,27 @@ def compute_verdict(
         verdict.geometry_passed = geom_result.passed
         if not geom_result.passed:
             verdict.drop_reasons.extend(geom_result.failure_reasons)
+        if geom_result.warnings:
+            verdict.warnings.extend(
+                [f"geometry_soft:{warning}" for warning in geom_result.warnings]
+            )
         cu_his_distances = [m.distance_angstrom for m in geom_result.cu_his_measurements]
         verdict.cu_geometry = {
             "cu_his_distances_a": cu_his_distances,
             "all_in_range": geom_result.cu_his_all_in_range,
+            "all_in_soft_range": geom_result.cu_his_all_in_soft_range,
             "cu_c1_dist_a": None if geom_result.min_cu_c1 == float("inf") else geom_result.min_cu_c1,
             "cu_c4_dist_a": None if geom_result.min_cu_c4 == float("inf") else geom_result.min_cu_c4,
         }
-        # Store metrics regardless
+        # Preserve pre-QC Cu-substrate metrics when present; geometry keeps its
+        # own explicit distance keys so both measurement surfaces remain usable.
         verdict.metrics["cu_found"] = geom_result.cu_found
-        verdict.metrics["min_cu_c1"] = geom_result.min_cu_c1
-        verdict.metrics["min_cu_c4"] = geom_result.min_cu_c4
+        verdict.metrics.setdefault("min_cu_c1", geom_result.min_cu_c1)
+        verdict.metrics.setdefault("min_cu_c4", geom_result.min_cu_c4)
+        verdict.metrics["geometry_min_cu_c1"] = geom_result.min_cu_c1
+        verdict.metrics["geometry_min_cu_c4"] = geom_result.min_cu_c4
         verdict.metrics["cu_his_all_in_range"] = geom_result.cu_his_all_in_range
+        verdict.metrics["cu_his_all_in_soft_range"] = geom_result.cu_his_all_in_soft_range
         if geom_result.his_brace_angle is not None:
             verdict.metrics["his_brace_angle"] = geom_result.his_brace_angle
 

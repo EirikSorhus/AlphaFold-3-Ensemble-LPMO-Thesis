@@ -34,10 +34,43 @@ def gemmi_version() -> str:
 
 
 def remap_cif_block_values(block: Any, remap: dict[str, str], tags: list[str]) -> None:
-    if not hasattr(block, "remap_values"):
+    if hasattr(block, "remap_values"):
+        for tag in tags:
+            block.remap_values(tag, remap)
         return
+
     for tag in tags:
-        block.remap_values(tag, remap)
+        pair = block.find_pair(tag)
+        if pair:
+            value = pair[1]
+            new_value = remap.get(str(value).strip(), value)
+            if new_value != value:
+                block.set_pair(tag, str(new_value))
+
+        column = block.find_loop(tag)
+        if not column:
+            continue
+
+        loop = column.get_loop()
+        tags_in_loop = list(loop.tags)
+        if tag not in tags_in_loop:
+            continue
+
+        column_index = tags_in_loop.index(tag)
+        width = loop.width()
+        columns: list[list[str]] = []
+        for current_column_index in range(width):
+            current_column: list[str] = []
+            for row_index in range(loop.length()):
+                offset = row_index * width + current_column_index
+                current_column.append(str(loop.values[offset]))
+            columns.append(current_column)
+
+        columns[column_index] = [
+            str(remap.get(str(value).strip(), value))
+            for value in columns[column_index]
+        ]
+        loop.set_all_values(columns)
 
 
 if _REAL_GEMMI is not None:
@@ -171,6 +204,18 @@ else:
             return []
 
         def remap_values(self, tag: str, remap: dict[str, str]) -> None:
+            if tag in self._scalars:
+                old_value = self._scalars[tag]
+                new_value = remap.get(old_value.strip(), old_value)
+                if new_value == old_value:
+                    return
+                self._scalars[tag] = new_value
+                for index, record in enumerate(self._records):
+                    if isinstance(record, tuple) and record[0] == tag:
+                        self._records[index] = (tag, new_value)
+                        break
+                return
+
             loop = self._tag_to_loop.get(tag)
             if loop is None:
                 return

@@ -1,0 +1,523 @@
+Starting job 612228 on c1-3 on Olivia at Sun May 3 16:56:29 CEST 2026
+
+[INFO] Running focused PoseBusters regression test
+============================= test session starts ==============================
+platform linux -- Python 3.11.15, pytest-9.0.2, pluggy-1.6.0
+rootdir: /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse
+configfile: pyproject.toml
+collected 1 item
+
+tests/test_posebusters_runner.py .                                       [100%]
+
+============================== 1 passed in 0.32s ===============================
+[INFO] Running PoseBusters-only validation on 3 CIFs
+[INFO] Preparing 3 CIF inputs for PoseBusters-only validation
+2026-05-03 16:56:33,575 [normalize_mmcif] INFO: [normalize_mmcif] Starting...
+[INFO] [normalize_mmcif] Starting...
+2026-05-03 16:56:33,603 [normalize_mmcif] INFO: Check 'chain_mapping': pass — Built 3 chain mappings: A→A, C→B, B→E
+[INFO] Check 'chain_mapping': pass — Built 3 chain mappings: A→A, C→B, B→E
+2026-05-03 16:56:52,705 [normalize_mmcif] INFO: Check 'apply_chain_mapping': pass — Remapped chains: {'A': 'A', 'C': 'B', 'B': 'E'}
+[INFO] Check 'apply_chain_mapping': pass — Remapped chains: {'A': 'A', 'C': 'B', 'B': 'E'}
+2026-05-03 16:56:52,708 [normalize_mmcif] INFO: Check 'glycan_ccd_validation': pass — Validated 4 glycan residues against CCD monosaccharide rules
+[INFO] Check 'glycan_ccd_validation': pass — Validated 4 glycan residues against CCD monosaccharide rules
+2026-05-03 16:56:52,708 [normalize_mmcif] INFO: Check 'struct_conn_present': pass — _struct_conn has 3 connection(s)
+[INFO] Check 'struct_conn_present': pass — _struct_conn has 3 connection(s)
+2026-05-03 16:56:52,708 [normalize_mmcif] INFO: Check 'chem_comp_bond_present': pass — _chem_comp_bond not present in CIF — expected for AF3; treated as informational
+[INFO] Check 'chem_comp_bond_present': pass — _chem_comp_bond not present in CIF — expected for AF3; treated as informational
+2026-05-03 16:56:52,709 [normalize_mmcif] INFO: Check 'derive_confidence': pass — Derived residue confidence for 235 residues from B_iso
+[INFO] Check 'derive_confidence': pass — Derived residue confidence for 235 residues from B_iso
+2026-05-03 16:56:52,711 [normalize_mmcif] INFO: Artifact 'atom_map' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/01_Q7SCE9_NAG4_seed-4_sample-1_model/normalize/atom_map.tsv
+[INFO] Artifact 'atom_map' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/01_Q7SCE9_NAG4_seed-4_sample-1_model/normalize/atom_map.tsv
+2026-05-03 16:56:52,712 [normalize_mmcif] INFO: Artifact 'rename_log' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/01_Q7SCE9_NAG4_seed-4_sample-1_model/normalize/rename_log.json
+[INFO] Artifact 'rename_log' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/01_Q7SCE9_NAG4_seed-4_sample-1_model/normalize/rename_log.json
+2026-05-03 16:56:52,714 [normalize_mmcif] INFO: Artifact 'normalize_report' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/01_Q7SCE9_NAG4_seed-4_sample-1_model/normalize/normalize_report.json
+[INFO] Artifact 'normalize_report' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/01_Q7SCE9_NAG4_seed-4_sample-1_model/normalize/normalize_report.json
+2026-05-03 16:56:52,714 [normalize_mmcif] INFO: [normalize_mmcif] SUCCESS (elapsed: 19.14s)
+[INFO] [normalize_mmcif] SUCCESS (elapsed: 19.14s)
+2026-05-03 16:56:52,717 [cif_to_pdb] INFO: [cif_to_pdb] Starting...
+[INFO] [cif_to_pdb] Starting...
+2026-05-03 16:56:52,937 [cif_to_pdb] INFO: Artifact 'for_posebusters_pdb' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/01_Q7SCE9_NAG4_seed-4_sample-1_model/posebusters_input/for_posebusters.pdb
+[INFO] Artifact 'for_posebusters_pdb' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/01_Q7SCE9_NAG4_seed-4_sample-1_model/posebusters_input/for_posebusters.pdb
+2026-05-03 16:56:52,938 [cif_to_pdb] INFO: Artifact 'cif_to_pdb_report' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/01_Q7SCE9_NAG4_seed-4_sample-1_model/posebusters_input/cif_to_pdb_report.json
+[INFO] Artifact 'cif_to_pdb_report' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/01_Q7SCE9_NAG4_seed-4_sample-1_model/posebusters_input/cif_to_pdb_report.json
+2026-05-03 16:56:52,938 [cif_to_pdb] INFO: [cif_to_pdb] SUCCESS (elapsed: 0.22s)
+[INFO] [cif_to_pdb] SUCCESS (elapsed: 0.22s)
+[INFO] Running PoseBusters on pose Q7SCE9_NAG4_seed-4_sample-1_model: /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/01_Q7SCE9_NAG4_seed-4_sample-1_model/posebusters_input/for_posebusters.pdb
+[INFO] PoseBusters auto-split combined input /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/01_Q7SCE9_NAG4_seed-4_sample-1_model/posebusters_input/for_posebusters.pdb into ligand=/tmp/posebusters_input_27ehqqv5/for_posebusters_ligand.pdb protein=/tmp/posebusters_input_27ehqqv5/for_posebusters_protein.pdb
+[INFO] PoseBusters Python API config=dock mol_pred=/tmp/posebusters_input_27ehqqv5/for_posebusters_ligand.pdb mol_cond=/tmp/posebusters_input_27ehqqv5/for_posebusters_protein.pdb mol_true=None
+[INFO] Using default configuration for mode dock.
+2026-05-03 16:57:04,326 [normalize_mmcif] INFO: [normalize_mmcif] Starting...
+2026-05-03 16:57:04,326 [normalize_mmcif] INFO: [normalize_mmcif] Starting...
+[INFO] [normalize_mmcif] Starting...
+2026-05-03 16:57:04,330 [normalize_mmcif] INFO: Check 'chain_mapping': pass — Built 3 chain mappings: A→A, C→B, B→E
+2026-05-03 16:57:04,330 [normalize_mmcif] INFO: Check 'chain_mapping': pass — Built 3 chain mappings: A→A, C→B, B→E
+[INFO] Check 'chain_mapping': pass — Built 3 chain mappings: A→A, C→B, B→E
+2026-05-03 16:57:17,043 [normalize_mmcif] INFO: Check 'apply_chain_mapping': pass — Remapped chains: {'A': 'A', 'C': 'B', 'B': 'E'}
+2026-05-03 16:57:17,043 [normalize_mmcif] INFO: Check 'apply_chain_mapping': pass — Remapped chains: {'A': 'A', 'C': 'B', 'B': 'E'}
+[INFO] Check 'apply_chain_mapping': pass — Remapped chains: {'A': 'A', 'C': 'B', 'B': 'E'}
+2026-05-03 16:57:17,046 [normalize_mmcif] INFO: Check 'glycan_ccd_validation': pass — Validated 6 glycan residues against CCD monosaccharide rules
+2026-05-03 16:57:17,046 [normalize_mmcif] INFO: Check 'glycan_ccd_validation': pass — Validated 6 glycan residues against CCD monosaccharide rules
+[INFO] Check 'glycan_ccd_validation': pass — Validated 6 glycan residues against CCD monosaccharide rules
+2026-05-03 16:57:17,046 [normalize_mmcif] INFO: Check 'struct_conn_present': pass — _struct_conn has 5 connection(s)
+2026-05-03 16:57:17,046 [normalize_mmcif] INFO: Check 'struct_conn_present': pass — _struct_conn has 5 connection(s)
+[INFO] Check 'struct_conn_present': pass — _struct_conn has 5 connection(s)
+2026-05-03 16:57:17,046 [normalize_mmcif] INFO: Check 'chem_comp_bond_present': pass — _chem_comp_bond not present in CIF — expected for AF3; treated as informational
+2026-05-03 16:57:17,046 [normalize_mmcif] INFO: Check 'chem_comp_bond_present': pass — _chem_comp_bond not present in CIF — expected for AF3; treated as informational
+[INFO] Check 'chem_comp_bond_present': pass — _chem_comp_bond not present in CIF — expected for AF3; treated as informational
+2026-05-03 16:57:17,047 [normalize_mmcif] INFO: Check 'derive_confidence': pass — Derived residue confidence for 175 residues from B_iso
+2026-05-03 16:57:17,047 [normalize_mmcif] INFO: Check 'derive_confidence': pass — Derived residue confidence for 175 residues from B_iso
+[INFO] Check 'derive_confidence': pass — Derived residue confidence for 175 residues from B_iso
+2026-05-03 16:57:17,050 [normalize_mmcif] INFO: Artifact 'atom_map' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/02_Q59930_STA6_seed-2_sample-0_model/normalize/atom_map.tsv
+2026-05-03 16:57:17,050 [normalize_mmcif] INFO: Artifact 'atom_map' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/02_Q59930_STA6_seed-2_sample-0_model/normalize/atom_map.tsv
+[INFO] Artifact 'atom_map' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/02_Q59930_STA6_seed-2_sample-0_model/normalize/atom_map.tsv
+2026-05-03 16:57:17,050 [normalize_mmcif] INFO: Artifact 'rename_log' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/02_Q59930_STA6_seed-2_sample-0_model/normalize/rename_log.json
+2026-05-03 16:57:17,050 [normalize_mmcif] INFO: Artifact 'rename_log' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/02_Q59930_STA6_seed-2_sample-0_model/normalize/rename_log.json
+[INFO] Artifact 'rename_log' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/02_Q59930_STA6_seed-2_sample-0_model/normalize/rename_log.json
+2026-05-03 16:57:17,051 [normalize_mmcif] INFO: Artifact 'normalize_report' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/02_Q59930_STA6_seed-2_sample-0_model/normalize/normalize_report.json
+2026-05-03 16:57:17,051 [normalize_mmcif] INFO: Artifact 'normalize_report' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/02_Q59930_STA6_seed-2_sample-0_model/normalize/normalize_report.json
+[INFO] Artifact 'normalize_report' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/02_Q59930_STA6_seed-2_sample-0_model/normalize/normalize_report.json
+2026-05-03 16:57:17,052 [normalize_mmcif] INFO: [normalize_mmcif] SUCCESS (elapsed: 12.73s)
+2026-05-03 16:57:17,052 [normalize_mmcif] INFO: [normalize_mmcif] SUCCESS (elapsed: 12.73s)
+[INFO] [normalize_mmcif] SUCCESS (elapsed: 12.73s)
+2026-05-03 16:57:17,055 [cif_to_pdb] INFO: [cif_to_pdb] Starting...
+2026-05-03 16:57:17,055 [cif_to_pdb] INFO: [cif_to_pdb] Starting...
+[INFO] [cif_to_pdb] Starting...
+2026-05-03 16:57:17,116 [cif_to_pdb] INFO: Artifact 'for_posebusters_pdb' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/02_Q59930_STA6_seed-2_sample-0_model/posebusters_input/for_posebusters.pdb
+2026-05-03 16:57:17,116 [cif_to_pdb] INFO: Artifact 'for_posebusters_pdb' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/02_Q59930_STA6_seed-2_sample-0_model/posebusters_input/for_posebusters.pdb
+[INFO] Artifact 'for_posebusters_pdb' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/02_Q59930_STA6_seed-2_sample-0_model/posebusters_input/for_posebusters.pdb
+2026-05-03 16:57:17,116 [cif_to_pdb] INFO: Artifact 'cif_to_pdb_report' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/02_Q59930_STA6_seed-2_sample-0_model/posebusters_input/cif_to_pdb_report.json
+2026-05-03 16:57:17,116 [cif_to_pdb] INFO: Artifact 'cif_to_pdb_report' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/02_Q59930_STA6_seed-2_sample-0_model/posebusters_input/cif_to_pdb_report.json
+[INFO] Artifact 'cif_to_pdb_report' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/02_Q59930_STA6_seed-2_sample-0_model/posebusters_input/cif_to_pdb_report.json
+2026-05-03 16:57:17,116 [cif_to_pdb] INFO: [cif_to_pdb] SUCCESS (elapsed: 0.06s)
+2026-05-03 16:57:17,116 [cif_to_pdb] INFO: [cif_to_pdb] SUCCESS (elapsed: 0.06s)
+[INFO] [cif_to_pdb] SUCCESS (elapsed: 0.06s)
+[INFO] Running PoseBusters on pose Q59930_STA6_seed-2_sample-0_model: /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/02_Q59930_STA6_seed-2_sample-0_model/posebusters_input/for_posebusters.pdb
+[INFO] PoseBusters auto-split combined input /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/02_Q59930_STA6_seed-2_sample-0_model/posebusters_input/for_posebusters.pdb into ligand=/tmp/posebusters_input_sdsfu1wz/for_posebusters_ligand.pdb protein=/tmp/posebusters_input_sdsfu1wz/for_posebusters_protein.pdb
+[INFO] PoseBusters Python API config=dock mol_pred=/tmp/posebusters_input_sdsfu1wz/for_posebusters_ligand.pdb mol_cond=/tmp/posebusters_input_sdsfu1wz/for_posebusters_protein.pdb mol_true=None
+[INFO] Using default configuration for mode dock.
+2026-05-03 16:57:49,584 [normalize_mmcif] INFO: [normalize_mmcif] Starting...
+2026-05-03 16:57:49,584 [normalize_mmcif] INFO: [normalize_mmcif] Starting...
+2026-05-03 16:57:49,584 [normalize_mmcif] INFO: [normalize_mmcif] Starting...
+[INFO] [normalize_mmcif] Starting...
+2026-05-03 16:57:49,589 [normalize_mmcif] INFO: Check 'chain_mapping': pass — Built 3 chain mappings: A→A, C→B, B→E
+2026-05-03 16:57:49,589 [normalize_mmcif] INFO: Check 'chain_mapping': pass — Built 3 chain mappings: A→A, C→B, B→E
+2026-05-03 16:57:49,589 [normalize_mmcif] INFO: Check 'chain_mapping': pass — Built 3 chain mappings: A→A, C→B, B→E
+[INFO] Check 'chain_mapping': pass — Built 3 chain mappings: A→A, C→B, B→E
+2026-05-03 16:58:10,453 [normalize_mmcif] INFO: Check 'apply_chain_mapping': pass — Remapped chains: {'A': 'A', 'C': 'B', 'B': 'E'}
+2026-05-03 16:58:10,453 [normalize_mmcif] INFO: Check 'apply_chain_mapping': pass — Remapped chains: {'A': 'A', 'C': 'B', 'B': 'E'}
+2026-05-03 16:58:10,453 [normalize_mmcif] INFO: Check 'apply_chain_mapping': pass — Remapped chains: {'A': 'A', 'C': 'B', 'B': 'E'}
+[INFO] Check 'apply_chain_mapping': pass — Remapped chains: {'A': 'A', 'C': 'B', 'B': 'E'}
+2026-05-03 16:58:10,456 [normalize_mmcif] INFO: Check 'glycan_ccd_validation': pass — Validated 4 glycan residues against CCD monosaccharide rules
+2026-05-03 16:58:10,456 [normalize_mmcif] INFO: Check 'glycan_ccd_validation': pass — Validated 4 glycan residues against CCD monosaccharide rules
+2026-05-03 16:58:10,456 [normalize_mmcif] INFO: Check 'glycan_ccd_validation': pass — Validated 4 glycan residues against CCD monosaccharide rules
+[INFO] Check 'glycan_ccd_validation': pass — Validated 4 glycan residues against CCD monosaccharide rules
+2026-05-03 16:58:10,456 [normalize_mmcif] INFO: Check 'struct_conn_present': pass — _struct_conn has 3 connection(s)
+2026-05-03 16:58:10,456 [normalize_mmcif] INFO: Check 'struct_conn_present': pass — _struct_conn has 3 connection(s)
+2026-05-03 16:58:10,456 [normalize_mmcif] INFO: Check 'struct_conn_present': pass — _struct_conn has 3 connection(s)
+[INFO] Check 'struct_conn_present': pass — _struct_conn has 3 connection(s)
+2026-05-03 16:58:10,456 [normalize_mmcif] INFO: Check 'chem_comp_bond_present': pass — _chem_comp_bond not present in CIF — expected for AF3; treated as informational
+2026-05-03 16:58:10,456 [normalize_mmcif] INFO: Check 'chem_comp_bond_present': pass — _chem_comp_bond not present in CIF — expected for AF3; treated as informational
+2026-05-03 16:58:10,456 [normalize_mmcif] INFO: Check 'chem_comp_bond_present': pass — _chem_comp_bond not present in CIF — expected for AF3; treated as informational
+[INFO] Check 'chem_comp_bond_present': pass — _chem_comp_bond not present in CIF — expected for AF3; treated as informational
+2026-05-03 16:58:10,457 [normalize_mmcif] INFO: Check 'derive_confidence': pass — Derived residue confidence for 223 residues from B_iso
+2026-05-03 16:58:10,457 [normalize_mmcif] INFO: Check 'derive_confidence': pass — Derived residue confidence for 223 residues from B_iso
+2026-05-03 16:58:10,457 [normalize_mmcif] INFO: Check 'derive_confidence': pass — Derived residue confidence for 223 residues from B_iso
+[INFO] Check 'derive_confidence': pass — Derived residue confidence for 223 residues from B_iso
+2026-05-03 16:58:10,459 [normalize_mmcif] INFO: Artifact 'atom_map' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/normalize/atom_map.tsv
+2026-05-03 16:58:10,459 [normalize_mmcif] INFO: Artifact 'atom_map' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/normalize/atom_map.tsv
+2026-05-03 16:58:10,459 [normalize_mmcif] INFO: Artifact 'atom_map' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/normalize/atom_map.tsv
+[INFO] Artifact 'atom_map' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/normalize/atom_map.tsv
+2026-05-03 16:58:10,460 [normalize_mmcif] INFO: Artifact 'rename_log' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/normalize/rename_log.json
+2026-05-03 16:58:10,460 [normalize_mmcif] INFO: Artifact 'rename_log' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/normalize/rename_log.json
+2026-05-03 16:58:10,460 [normalize_mmcif] INFO: Artifact 'rename_log' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/normalize/rename_log.json
+[INFO] Artifact 'rename_log' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/normalize/rename_log.json
+2026-05-03 16:58:10,461 [normalize_mmcif] INFO: Artifact 'normalize_report' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/normalize/normalize_report.json
+2026-05-03 16:58:10,461 [normalize_mmcif] INFO: Artifact 'normalize_report' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/normalize/normalize_report.json
+2026-05-03 16:58:10,461 [normalize_mmcif] INFO: Artifact 'normalize_report' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/normalize/normalize_report.json
+[INFO] Artifact 'normalize_report' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/normalize/normalize_report.json
+2026-05-03 16:58:10,462 [normalize_mmcif] INFO: [normalize_mmcif] SUCCESS (elapsed: 20.88s)
+2026-05-03 16:58:10,462 [normalize_mmcif] INFO: [normalize_mmcif] SUCCESS (elapsed: 20.88s)
+2026-05-03 16:58:10,462 [normalize_mmcif] INFO: [normalize_mmcif] SUCCESS (elapsed: 20.88s)
+[INFO] [normalize_mmcif] SUCCESS (elapsed: 20.88s)
+2026-05-03 16:58:10,465 [cif_to_pdb] INFO: [cif_to_pdb] Starting...
+2026-05-03 16:58:10,465 [cif_to_pdb] INFO: [cif_to_pdb] Starting...
+2026-05-03 16:58:10,465 [cif_to_pdb] INFO: [cif_to_pdb] Starting...
+[INFO] [cif_to_pdb] Starting...
+2026-05-03 16:58:10,532 [cif_to_pdb] INFO: Artifact 'for_posebusters_pdb' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/posebusters_input/for_posebusters.pdb
+2026-05-03 16:58:10,532 [cif_to_pdb] INFO: Artifact 'for_posebusters_pdb' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/posebusters_input/for_posebusters.pdb
+2026-05-03 16:58:10,532 [cif_to_pdb] INFO: Artifact 'for_posebusters_pdb' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/posebusters_input/for_posebusters.pdb
+[INFO] Artifact 'for_posebusters_pdb' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/posebusters_input/for_posebusters.pdb
+2026-05-03 16:58:10,532 [cif_to_pdb] INFO: Artifact 'cif_to_pdb_report' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/posebusters_input/cif_to_pdb_report.json
+2026-05-03 16:58:10,532 [cif_to_pdb] INFO: Artifact 'cif_to_pdb_report' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/posebusters_input/cif_to_pdb_report.json
+2026-05-03 16:58:10,532 [cif_to_pdb] INFO: Artifact 'cif_to_pdb_report' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/posebusters_input/cif_to_pdb_report.json
+[INFO] Artifact 'cif_to_pdb_report' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/posebusters_input/cif_to_pdb_report.json
+2026-05-03 16:58:10,532 [cif_to_pdb] INFO: [cif_to_pdb] SUCCESS (elapsed: 0.07s)
+2026-05-03 16:58:10,532 [cif_to_pdb] INFO: [cif_to_pdb] SUCCESS (elapsed: 0.07s)
+2026-05-03 16:58:10,532 [cif_to_pdb] INFO: [cif_to_pdb] SUCCESS (elapsed: 0.07s)
+[INFO] [cif_to_pdb] SUCCESS (elapsed: 0.07s)
+[INFO] Running PoseBusters on pose A0A0S2GKZ1_STA4_seed-2_sample-2_model: /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/posebusters_input/for_posebusters.pdb
+[INFO] PoseBusters auto-split combined input /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/posebusters_input/for_posebusters.pdb into ligand=/tmp/posebusters_input_owy2b2uk/for_posebusters_ligand.pdb protein=/tmp/posebusters_input_owy2b2uk/for_posebusters_protein.pdb
+[INFO] PoseBusters Python API config=dock mol_pred=/tmp/posebusters_input_owy2b2uk/for_posebusters_ligand.pdb mol_cond=/tmp/posebusters_input_owy2b2uk/for_posebusters_protein.pdb mol_true=None
+[INFO] Using default configuration for mode dock.
+{
+  "run_dir": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228",
+  "run_id": "posebusters_real_cifs_612228",
+  "requested_cifs": [
+    "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work/NAG4/af3/runs/408002/Q7SCE9_NAG4/seed-4_sample-1/Q7SCE9_NAG4_seed-4_sample-1_model.cif",
+    "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work/STA6/af3/runs/408006/Q59930_STA6/seed-2_sample-0/Q59930_STA6_seed-2_sample-0_model.cif",
+    "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work/STA4/af3/runs/408005/A0A0S2GKZ1_STA4/seed-2_sample-2/A0A0S2GKZ1_STA4_seed-2_sample-2_model.cif"
+  ],
+  "n_requested": 3,
+  "cases": [
+    {
+      "index": 1,
+      "pose_id": "Q7SCE9_NAG4_seed-4_sample-1_model",
+      "cif_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work/NAG4/af3/runs/408002/Q7SCE9_NAG4/seed-4_sample-1/Q7SCE9_NAG4_seed-4_sample-1_model.cif",
+      "case_dir": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/01_Q7SCE9_NAG4_seed-4_sample-1_model",
+      "status": "tested",
+      "normalize_report_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/01_Q7SCE9_NAG4_seed-4_sample-1_model/normalize/normalize_report.json",
+      "cif_to_pdb_report_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/01_Q7SCE9_NAG4_seed-4_sample-1_model/posebusters_input/cif_to_pdb_report.json",
+      "normalized_cif": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/01_Q7SCE9_NAG4_seed-4_sample-1_model/normalize/normalized.cif",
+      "posebusters_pdb": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/01_Q7SCE9_NAG4_seed-4_sample-1_model/posebusters_input/for_posebusters.pdb",
+      "posebusters_chain_summary": {
+        "A": [
+          "ALA",
+          "ARG",
+          "ASN",
+          "ASP",
+          "CYS",
+          "GLN",
+          "GLU",
+          "GLY",
+          "HIS",
+          "ILE",
+          "LEU",
+          "LYS",
+          "MET",
+          "PHE",
+          "PRO",
+          "SER",
+          "THR",
+          "TRP",
+          "TYR",
+          "VAL"
+        ],
+        "B": [
+          "NAG"
+        ]
+      },
+      "posebusters_input_contract": "dock_auto_split_from_combined_pdb",
+      "posebusters_result": {
+        "passed": true,
+        "critical_errors": [],
+        "warnings": [],
+        "details": {
+          "sanitization": {
+            "passed": true
+          },
+          "inchi_convertible": {
+            "passed": true
+          },
+          "all_atoms_connected": {
+            "passed": true
+          },
+          "no_radicals": {
+            "passed": true
+          },
+          "bond_lengths": {
+            "passed": true
+          },
+          "bond_angles": {
+            "passed": true
+          },
+          "internal_steric_clash": {
+            "passed": true
+          },
+          "aromatic_ring_flatness": {
+            "passed": true
+          },
+          "non-aromatic_ring_non-flatness": {
+            "passed": true
+          },
+          "double_bond_flatness": {
+            "passed": true
+          },
+          "internal_energy": {
+            "passed": true
+          },
+          "protein-ligand_maximum_distance": {
+            "passed": true
+          },
+          "minimum_distance_to_protein": {
+            "passed": true
+          },
+          "minimum_distance_to_organic_cofactors": {
+            "passed": true
+          },
+          "minimum_distance_to_inorganic_cofactors": {
+            "passed": true
+          },
+          "minimum_distance_to_waters": {
+            "passed": true
+          },
+          "volume_overlap_with_protein": {
+            "passed": true
+          },
+          "volume_overlap_with_organic_cofactors": {
+            "passed": true
+          },
+          "volume_overlap_with_inorganic_cofactors": {
+            "passed": true
+          },
+          "volume_overlap_with_waters": {
+            "passed": true
+          }
+        }
+      }
+    },
+    {
+      "index": 2,
+      "pose_id": "Q59930_STA6_seed-2_sample-0_model",
+      "cif_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work/STA6/af3/runs/408006/Q59930_STA6/seed-2_sample-0/Q59930_STA6_seed-2_sample-0_model.cif",
+      "case_dir": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/02_Q59930_STA6_seed-2_sample-0_model",
+      "status": "tested",
+      "normalize_report_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/02_Q59930_STA6_seed-2_sample-0_model/normalize/normalize_report.json",
+      "cif_to_pdb_report_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/02_Q59930_STA6_seed-2_sample-0_model/posebusters_input/cif_to_pdb_report.json",
+      "normalized_cif": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/02_Q59930_STA6_seed-2_sample-0_model/normalize/normalized.cif",
+      "posebusters_pdb": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/02_Q59930_STA6_seed-2_sample-0_model/posebusters_input/for_posebusters.pdb",
+      "posebusters_chain_summary": {
+        "A": [
+          "ALA",
+          "ARG",
+          "ASN",
+          "ASP",
+          "CYS",
+          "GLN",
+          "GLU",
+          "GLY",
+          "HIS",
+          "ILE",
+          "LEU",
+          "LYS",
+          "PHE",
+          "PRO",
+          "SER",
+          "THR",
+          "TRP",
+          "TYR",
+          "VAL"
+        ],
+        "B": [
+          "GLC"
+        ]
+      },
+      "posebusters_input_contract": "dock_auto_split_from_combined_pdb",
+      "posebusters_result": {
+        "passed": true,
+        "critical_errors": [],
+        "warnings": [],
+        "details": {
+          "sanitization": {
+            "passed": true
+          },
+          "inchi_convertible": {
+            "passed": true
+          },
+          "all_atoms_connected": {
+            "passed": true
+          },
+          "no_radicals": {
+            "passed": true
+          },
+          "bond_lengths": {
+            "passed": true
+          },
+          "bond_angles": {
+            "passed": true
+          },
+          "internal_steric_clash": {
+            "passed": true
+          },
+          "aromatic_ring_flatness": {
+            "passed": true
+          },
+          "non-aromatic_ring_non-flatness": {
+            "passed": true
+          },
+          "double_bond_flatness": {
+            "passed": true
+          },
+          "internal_energy": {
+            "passed": true
+          },
+          "protein-ligand_maximum_distance": {
+            "passed": true
+          },
+          "minimum_distance_to_protein": {
+            "passed": true
+          },
+          "minimum_distance_to_organic_cofactors": {
+            "passed": true
+          },
+          "minimum_distance_to_inorganic_cofactors": {
+            "passed": true
+          },
+          "minimum_distance_to_waters": {
+            "passed": true
+          },
+          "volume_overlap_with_protein": {
+            "passed": true
+          },
+          "volume_overlap_with_organic_cofactors": {
+            "passed": true
+          },
+          "volume_overlap_with_inorganic_cofactors": {
+            "passed": true
+          },
+          "volume_overlap_with_waters": {
+            "passed": true
+          }
+        }
+      }
+    },
+    {
+      "index": 3,
+      "pose_id": "A0A0S2GKZ1_STA4_seed-2_sample-2_model",
+      "cif_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work/STA4/af3/runs/408005/A0A0S2GKZ1_STA4/seed-2_sample-2/A0A0S2GKZ1_STA4_seed-2_sample-2_model.cif",
+      "case_dir": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model",
+      "status": "tested",
+      "normalize_report_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/normalize/normalize_report.json",
+      "cif_to_pdb_report_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/posebusters_input/cif_to_pdb_report.json",
+      "normalized_cif": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/normalize/normalized.cif",
+      "posebusters_pdb": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/posebusters_input/for_posebusters.pdb",
+      "posebusters_chain_summary": {
+        "A": [
+          "ALA",
+          "ARG",
+          "ASN",
+          "ASP",
+          "CYS",
+          "GLN",
+          "GLU",
+          "GLY",
+          "HIS",
+          "ILE",
+          "LEU",
+          "LYS",
+          "MET",
+          "PHE",
+          "PRO",
+          "SER",
+          "THR",
+          "TRP",
+          "TYR",
+          "VAL"
+        ],
+        "B": [
+          "GLC"
+        ]
+      },
+      "posebusters_input_contract": "dock_auto_split_from_combined_pdb",
+      "posebusters_result": {
+        "passed": false,
+        "critical_errors": [
+          "minimum_distance_to_protein"
+        ],
+        "warnings": [],
+        "details": {
+          "sanitization": {
+            "passed": true
+          },
+          "inchi_convertible": {
+            "passed": true
+          },
+          "all_atoms_connected": {
+            "passed": true
+          },
+          "no_radicals": {
+            "passed": true
+          },
+          "bond_lengths": {
+            "passed": true
+          },
+          "bond_angles": {
+            "passed": true
+          },
+          "internal_steric_clash": {
+            "passed": true
+          },
+          "aromatic_ring_flatness": {
+            "passed": true
+          },
+          "non-aromatic_ring_non-flatness": {
+            "passed": true
+          },
+          "double_bond_flatness": {
+            "passed": true
+          },
+          "internal_energy": {
+            "passed": true
+          },
+          "protein-ligand_maximum_distance": {
+            "passed": true
+          },
+          "minimum_distance_to_protein": {
+            "passed": false
+          },
+          "minimum_distance_to_organic_cofactors": {
+            "passed": true
+          },
+          "minimum_distance_to_inorganic_cofactors": {
+            "passed": true
+          },
+          "minimum_distance_to_waters": {
+            "passed": true
+          },
+          "volume_overlap_with_protein": {
+            "passed": true
+          },
+          "volume_overlap_with_organic_cofactors": {
+            "passed": true
+          },
+          "volume_overlap_with_inorganic_cofactors": {
+            "passed": true
+          },
+          "volume_overlap_with_waters": {
+            "passed": true
+          }
+        }
+      }
+    }
+  ],
+  "n_tested": 3,
+  "n_errors": 0,
+  "n_passed": 2,
+  "n_failed": 1
+}
+[INFO] PoseBusters-only run completed
+[INFO] Results directory: /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228
+[INFO] Run summary: /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/posebusters_real_cifs_612228/posebusters_real_cifs_summary.json
+
+Job 612228 consumed 0.1 billing hours and 0.0 GPU hours from project nn1003k.
+
+Submitted 2026-05-03T16:56:27; waited 2.0 seconds in the queue after becoming eligible to run.
+
+Requested wallclock time: 20.0 minutes
+Elapsed wallclock time:   1.8 minutes
+
+Job exited normally.
+
+Task and CPU statistics:
+ID            CPUs  Tasks  CPU util                Start  Elapsed  Exit status
+612228           2            0.0 %  2026-05-03T16:56:29  106.0 s  0
+612228.batch     2      1    71.2 %  2026-05-03T16:56:29  106.0 s  0
+
+Used CPU time:   2.5 CPU minutes
+Unused CPU time: 1.0 CPU minutes
+
+Memory statistics, in GiB:
+ID             Alloc   Usage
+612228           8.0        
+612228.batch     8.0     1.0
+
+Job 612228 completed at Sun May 3 16:58:16 CEST 2026

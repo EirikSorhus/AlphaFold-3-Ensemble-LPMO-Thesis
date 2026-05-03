@@ -1,0 +1,11 @@
+{
+  "backend": "pdbfixer",
+  "input_cif": "tmp/qc_one_case_after_remap2/normalize/normalized.cif",
+  "output_pdb": "tmp/qc_one_case_after_remap2/posebusters_input/for_posebusters.pdb",
+  "atom_count": 1824,
+  "model_count": 1,
+  "chain_count": 3,
+  "has_conect_records": true,
+  "has_link_records": false,
+  "backend_fallback_reason": ""
+}

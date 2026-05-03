@@ -152,5 +152,5 @@ clustering:
 qc:
   # Mirrors hard_gates names used in checklist language
   pre_qc_active_site_max_a: 10.0
-  cu_his_min_a: 1.9
+  cu_his_min_a: 1.8
   cu_his_max_a: 2.6

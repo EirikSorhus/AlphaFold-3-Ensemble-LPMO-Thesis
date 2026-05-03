@@ -25,6 +25,16 @@ ACTIVE_SITE_PROXIMITY_MAX_A: float = 10.0
 CU_C_SOFT_FLAG_A: float = 7.0
 
 
+def _atom_position(atom: Any) -> np.ndarray:
+    """Return atom coordinates for native gemmi and compat fallback atoms."""
+    pos = getattr(atom, "pos", None)
+    if pos is not None and all(hasattr(pos, axis) for axis in ("x", "y", "z")):
+        return np.array([float(pos.x), float(pos.y), float(pos.z)], dtype=float)
+    if all(hasattr(atom, axis) for axis in ("x", "y", "z")):
+        return np.array([float(atom.x), float(atom.y), float(atom.z)], dtype=float)
+    raise AttributeError("Atom has no compatible coordinate attributes")
+
+
 @dataclass
 class ActiveSiteProximityResult:
     """Result of active-site proximity pre-check for one pose."""
@@ -48,6 +58,7 @@ def check_active_site_proximity(
     cu_chain: str = "E",
     glycan_chains: list[str] | None = None,
     hard_cutoff_a: float = ACTIVE_SITE_PROXIMITY_MAX_A,
+    cu_c_soft_flag_a: float = CU_C_SOFT_FLAG_A,
 ) -> ActiveSiteProximityResult:
     """Run pre-QC active-site proximity check.
 
@@ -57,6 +68,7 @@ def check_active_site_proximity(
         cu_chain: Expected Cu chain (default E).
         glycan_chains: Ligand chains to evaluate (default B/C/D).
         hard_cutoff_a: Hard gate threshold for nearest Cu-ligand distance.
+        cu_c_soft_flag_a: Soft warning threshold for nearest Cu-C1/C4 distance.
 
     Returns:
         ActiveSiteProximityResult with metrics and pass/fail.
@@ -73,7 +85,7 @@ def check_active_site_proximity(
         return result
 
     result.cu_found = True
-    cu_pos = np.array([cu_atom.pos.x, cu_atom.pos.y, cu_atom.pos.z], dtype=float)
+    cu_pos = _atom_position(cu_atom)
 
     for gly_chain_name in glycan_chains:
         gly_chain = _get_chain(structure, gly_chain_name)
@@ -84,7 +96,7 @@ def check_active_site_proximity(
             for atom in residue:
                 if atom.element.name == "H":
                     continue
-                atom_pos = np.array([atom.pos.x, atom.pos.y, atom.pos.z], dtype=float)
+                atom_pos = _atom_position(atom)
                 dist = float(np.linalg.norm(cu_pos - atom_pos))
                 if dist < result.min_cu_ligand_distance:
                     result.min_cu_ligand_distance = dist
@@ -94,7 +106,7 @@ def check_active_site_proximity(
 
             c1_atom = _get_atom_by_name_or_element(residue, preferred_name="C1", element="C")
             if c1_atom is not None:
-                c1_pos = np.array([c1_atom.pos.x, c1_atom.pos.y, c1_atom.pos.z], dtype=float)
+                c1_pos = _atom_position(c1_atom)
                 c1_dist = float(np.linalg.norm(cu_pos - c1_pos))
                 if c1_dist < result.min_cu_c1:
                     result.min_cu_c1 = c1_dist
@@ -104,7 +116,7 @@ def check_active_site_proximity(
 
             c4_atom = _get_atom_by_name_or_element(residue, preferred_name="C4", element="C")
             if c4_atom is not None:
-                c4_pos = np.array([c4_atom.pos.x, c4_atom.pos.y, c4_atom.pos.z], dtype=float)
+                c4_pos = _atom_position(c4_atom)
                 c4_dist = float(np.linalg.norm(cu_pos - c4_pos))
                 if c4_dist < result.min_cu_c4:
                     result.min_cu_c4 = c4_dist
@@ -123,14 +135,14 @@ def check_active_site_proximity(
             f"min Cu-ligand={result.min_cu_ligand_distance:.2f} A > {hard_cutoff_a:.2f} A"
         )
 
-    if result.min_cu_c1 != float("inf") and result.min_cu_c1 > CU_C_SOFT_FLAG_A:
+    if result.min_cu_c1 != float("inf") and result.min_cu_c1 > cu_c_soft_flag_a:
         result.warnings.append(
-            f"Cu-C1 distance flagged: {result.min_cu_c1:.2f} A > {CU_C_SOFT_FLAG_A:.2f} A"
+            f"Cu-C1 distance flagged: {result.min_cu_c1:.2f} A > {cu_c_soft_flag_a:.2f} A"
         )
 
-    if result.min_cu_c4 != float("inf") and result.min_cu_c4 > CU_C_SOFT_FLAG_A:
+    if result.min_cu_c4 != float("inf") and result.min_cu_c4 > cu_c_soft_flag_a:
         result.warnings.append(
-            f"Cu-C4 distance flagged: {result.min_cu_c4:.2f} A > {CU_C_SOFT_FLAG_A:.2f} A"
+            f"Cu-C4 distance flagged: {result.min_cu_c4:.2f} A > {cu_c_soft_flag_a:.2f} A"
         )
 
     result.passed = len(result.failure_reasons) == 0

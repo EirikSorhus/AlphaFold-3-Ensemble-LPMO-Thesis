@@ -68,6 +68,7 @@ class GeometryResult:
 
     cu_his_measurements: list[CuHisMeasurement] = field(default_factory=list)
     cu_his_all_in_range: bool = False
+    cu_his_all_in_soft_range: bool = False
 
     cu_c1_measurements: list[CuSubstrateMeasurement] = field(default_factory=list)
     cu_c4_measurements: list[CuSubstrateMeasurement] = field(default_factory=list)
@@ -79,6 +80,7 @@ class GeometryResult:
 
     passed: bool = False
     failure_reasons: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -89,6 +91,12 @@ def check_geometry(
     pose_id: str = "",
     cu_chain: str = "E",
     glycan_chains: list[str] | None = None,
+    hard_cu_his_min_a: float = CU_HIS_MIN,
+    hard_cu_his_max_a: float = CU_HIS_MAX,
+    soft_cu_his_min_a: float = CU_HIS_MIN,
+    soft_cu_his_max_a: float = CU_HIS_MAX,
+    cu_c_soft_flag_a: float = CU_SUBSTRATE_FLAG,
+    his_brace_max_search_a: float = HIS_BRACE_MAX_SEARCH_A,
 ) -> GeometryResult:
     """Run all LPMO-specific geometry checks.
 
@@ -144,12 +152,12 @@ def check_geometry(
     selected_n_atoms, selection_errors = _select_cu_his_gate_nitrogens(
         candidate_n_atoms=candidate_n_atoms,
         cu_pos=cu_pos,
-        max_search_a=HIS_BRACE_MAX_SEARCH_A,
+        max_search_a=his_brace_max_search_a,
     )
 
     for atom_rec in selected_n_atoms:
         dist = float(atom_rec["distance_angstrom"])
-        in_range = CU_HIS_MIN <= dist <= CU_HIS_MAX
+        in_range = hard_cu_his_min_a <= dist <= hard_cu_his_max_a
         his_pos = np.asarray(atom_rec["position"], dtype=float)
 
         result.cu_his_measurements.append(
@@ -169,6 +177,13 @@ def check_geometry(
         len(result.cu_his_measurements) == 3
         and all(m.in_range for m in result.cu_his_measurements)
     )
+    result.cu_his_all_in_soft_range = (
+        len(result.cu_his_measurements) == 3
+        and all(
+            soft_cu_his_min_a <= m.distance_angstrom <= soft_cu_his_max_a
+            for m in result.cu_his_measurements
+        )
+    )
     if not result.cu_his_all_in_range:
         if selection_errors:
             result.failure_reasons.extend(selection_errors)
@@ -178,8 +193,30 @@ def check_geometry(
             if not m.in_range
         ]
         if bad:
-            result.failure_reasons.append(f"Cu-His distance out of range: {bad}")
-            logger.error("GATE FAIL: Cu-His distance out of 1.9–2.6 Å: %s (pose %s)", bad, pose_id)
+            result.failure_reasons.append(
+                "Cu-His distance out of range: "
+                f"{bad} not in [{hard_cu_his_min_a:.2f}, {hard_cu_his_max_a:.2f}] A"
+            )
+            logger.error(
+                "GATE FAIL: Cu-His distance outside hard range %.2f-%.2f A: %s (pose %s)",
+                hard_cu_his_min_a,
+                hard_cu_his_max_a,
+                bad,
+                pose_id,
+            )
+    elif not result.cu_his_all_in_soft_range:
+        soft_bad = [
+            f"His{m.his_resnum}:{m.his_atom}={m.distance_angstrom:.2f}Å"
+            for m in result.cu_his_measurements
+            if not (soft_cu_his_min_a <= m.distance_angstrom <= soft_cu_his_max_a)
+        ]
+        if soft_bad:
+            warning = (
+                "Cu-His distance outside preferred QC range: "
+                f"{soft_bad} not in [{soft_cu_his_min_a:.2f}, {soft_cu_his_max_a:.2f}] A"
+            )
+            result.warnings.append(warning)
+            logger.warning("SOFT QC: %s (pose %s)", warning, pose_id)
 
     # --- Step 3: Cu–C1/C4 distances ---
     for gly_chain_name in glycan_chains:
@@ -199,7 +236,7 @@ def check_geometry(
                     resnum=residue.seqid.num,
                     atom_name=c1.name,
                     distance_angstrom=d_c1,
-                    flagged=d_c1 > CU_SUBSTRATE_FLAG,
+                    flagged=d_c1 > cu_c_soft_flag_a,
                 ))
                 result.min_cu_c1 = min(result.min_cu_c1, d_c1)
 
@@ -214,7 +251,7 @@ def check_geometry(
                     resnum=residue.seqid.num,
                     atom_name=c4.name,
                     distance_angstrom=d_c4,
-                    flagged=d_c4 > CU_SUBSTRATE_FLAG,
+                    flagged=d_c4 > cu_c_soft_flag_a,
                 ))
                 result.min_cu_c4 = min(result.min_cu_c4, d_c4)
 
@@ -232,9 +269,12 @@ def check_geometry(
     )
 
     logger.info(
-        "Geometry check pose=%s: passed=%s, Cu-His OK=%s, "
+        "Geometry check pose=%s: passed=%s, Cu-His hard=%s, Cu-His soft=%s, "
         "min Cu-C1=%.2f, min Cu-C4=%.2f",
-        pose_id, result.passed, result.cu_his_all_in_range,
+        pose_id,
+        result.passed,
+        result.cu_his_all_in_range,
+        result.cu_his_all_in_soft_range,
         result.min_cu_c1, result.min_cu_c4,
     )
     return result

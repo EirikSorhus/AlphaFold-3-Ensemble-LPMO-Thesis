@@ -1,0 +1,4 @@
+{"timestamp": "2026-05-01T14:30:31.994344", "event": "step_start", "step": "cif_to_pdb", "input": {"input": "tmp/qc_one_case/normalize/normalized.cif"}}
+{"timestamp": "2026-05-01T14:30:32.182863", "event": "artifact", "artifact": "for_posebusters_pdb", "path": "tmp/qc_one_case/posebusters_input/for_posebusters.pdb", "size_bytes": 147912, "description": "PDB export for PoseBusters"}
+{"timestamp": "2026-05-01T14:30:32.183038", "event": "artifact", "artifact": "cif_to_pdb_report", "path": "tmp/qc_one_case/posebusters_input/cif_to_pdb_report.json", "size_bytes": 313, "description": "mmCIF to PDB conversion report"}
+{"timestamp": "2026-05-01T14:30:32.183113", "event": "step_end", "step": "cif_to_pdb", "status": "success", "output": {"backend": "pdbfixer", "atom_count": 1824, "chain_count": 3, "has_conect_records": true, "has_link_records": false}, "elapsed_sec": 0.188768}

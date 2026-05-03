@@ -35,10 +35,16 @@ class GateConfig:
     # PoseBusters (critical errors that cause hard fail)
     posebusters_critical_errors: List[str] = None  # e.g., ["steric_clash", "valence_error"]
     
-    # Cu geometry
+    # Cu geometry hard gate
     cu_his_dist_min: float = 1.9  # Ångström
     cu_his_dist_max: float = 2.6
+
+    # Cu geometry soft QC band
+    cu_his_soft_min_a: float = 1.8
+    cu_his_soft_max_a: float = 2.6
+
     cu_c_proximity_threshold_a: float = 7.0
+    his_brace_max_search_a: float = 3.0
     
     # Crystal anchoring (soft threshold)
     crystal_ifp_similarity_soft_threshold: float = 0.3
@@ -234,18 +240,29 @@ def load_gate_config_from_yaml(config_path: Path) -> GateConfig:
 
         hard = data.get("gates") or data.get("hard_gates") or {}
         soft = data.get("soft_thresholds") or data.get("soft") or {}
+        qc = data.get("qc") or {}
+        geometry_rules = data.get("geometry_rules") or {}
+        his_brace = geometry_rules.get("his_brace") or {}
         clustering = data.get("clustering") or data.get("hdbscan") or {}
 
         # Map YAML keys to GateConfig fields (supports legacy and current schema)
         return GateConfig(
             atom_mapping_coverage_min=hard.get("atom_mapping_coverage_min", 1.0),
-            active_site_proximity_max_a=hard.get("active_site_proximity_max_a", 10.0),
+            active_site_proximity_max_a=hard.get(
+                "active_site_proximity_max_a",
+                qc.get("pre_qc_active_site_max_a", 10.0),
+            ),
             privateer_recognized_min=hard.get(
                 "privateer_recognized_min",
                 hard.get("privateer_recognized_sugars_min", 1.0),
             ),
+            posebusters_critical_errors=data.get("posebusters_critical_errors"),
             cu_his_dist_min=hard.get("cu_his_dist_min", hard.get("cu_his_distance_min_a", 1.9)),
             cu_his_dist_max=hard.get("cu_his_dist_max", hard.get("cu_his_distance_max_a", 2.6)),
+            cu_his_soft_min_a=qc.get("cu_his_min_a", hard.get("cu_his_distance_min_a", 1.9)),
+            cu_his_soft_max_a=qc.get("cu_his_max_a", hard.get("cu_his_distance_max_a", 2.6)),
+            cu_c_proximity_threshold_a=soft.get("cu_c_proximity_max_a", 7.0),
+            his_brace_max_search_a=his_brace.get("max_search_dist_a", 3.0),
             crystal_ifp_similarity_soft_threshold=soft.get(
                 "crystal_ifp_similarity_soft_threshold",
                 soft.get("crystal_ifp_similarity_min", 0.3),

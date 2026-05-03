@@ -1,0 +1,497 @@
+{
+  "run_dir": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tmp/manual_hard_qc_real_cifs_check_after_fix",
+  "run_id": "manual_hard_qc_real_cifs_check_after_fix",
+  "schema_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/schemas/qc_report_schema.json",
+  "requested_cifs": [
+    "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work/NAG4/af3/latest/Q7SCE9_NAG4/seed-4_sample-1/Q7SCE9_NAG4_seed-4_sample-1_model.cif",
+    "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work/STA6/af3/latest/Q59930_STA6/seed-2_sample-0/Q59930_STA6_seed-2_sample-0_model.cif",
+    "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work/STA4/af3/latest/A0A0S2GKZ1_STA4/seed-2_sample-2/A0A0S2GKZ1_STA4_seed-2_sample-2_model.cif"
+  ],
+  "n_requested": 3,
+  "privateer_version": "MKV",
+  "cases": [
+    {
+      "index": 1,
+      "pose_id": "Q7SCE9_NAG4_seed-4_sample-1_model",
+      "cif_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work/NAG4/af3/latest/Q7SCE9_NAG4/seed-4_sample-1/Q7SCE9_NAG4_seed-4_sample-1_model.cif",
+      "case_dir": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tmp/manual_hard_qc_real_cifs_check_after_fix/01_Q7SCE9_NAG4_seed-4_sample-1_model",
+      "status": "prepared",
+      "normalize_report_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tmp/manual_hard_qc_real_cifs_check_after_fix/01_Q7SCE9_NAG4_seed-4_sample-1_model/normalize/normalize_report.json",
+      "cif_to_pdb_report_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tmp/manual_hard_qc_real_cifs_check_after_fix/01_Q7SCE9_NAG4_seed-4_sample-1_model/posebusters_input/cif_to_pdb_report.json",
+      "normalized_cif": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tmp/manual_hard_qc_real_cifs_check_after_fix/01_Q7SCE9_NAG4_seed-4_sample-1_model/normalize/normalized.cif",
+      "posebusters_pdb": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tmp/manual_hard_qc_real_cifs_check_after_fix/01_Q7SCE9_NAG4_seed-4_sample-1_model/posebusters_input/for_posebusters.pdb",
+      "privateer_input_cif": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tmp/manual_hard_qc_real_cifs_check_after_fix/01_Q7SCE9_NAG4_seed-4_sample-1_model/privateer_input.cif",
+      "privateer_output_dir": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tmp/manual_hard_qc_real_cifs_check_after_fix/01_Q7SCE9_NAG4_seed-4_sample-1_model/privateer_output/Q7SCE9_NAG4_seed-4_sample-1_model",
+      "qc_verdict": {
+        "pose_id": "Q7SCE9_NAG4_seed-4_sample-1_model",
+        "status": "dropped",
+        "proximity_passed": true,
+        "posebusters_passed": false,
+        "privateer_passed": true,
+        "geometry_passed": true,
+        "drop_reasons": [
+          "posebusters_critical:all_atoms_connected",
+          "posebusters_critical:bond_lengths",
+          "posebusters_critical:internal_steric_clash"
+        ],
+        "warnings": [
+          "posebusters_soft:inchi_convertible",
+          "posebusters_soft:internal_energy"
+        ],
+        "metrics": {
+          "min_cu_ligand_distance": 5.036367341646159,
+          "min_cu_c1": 5.797463842060596,
+          "min_cu_c4": 5.479366569230424,
+          "nearest_ligand_atom": "B:NAG3:C5",
+          "cu_found": true,
+          "geometry_min_cu_c1": 5.797463842060596,
+          "geometry_min_cu_c4": 5.479366569230424,
+          "cu_his_all_in_range": true,
+          "cu_his_all_in_soft_range": true,
+          "his_brace_angle": 169.26578681897357
+        }
+      },
+      "qc_pose_payload": {
+        "pose_id": "Q7SCE9_NAG4_seed-4_sample-1_model",
+        "overall_status": "hard_fail",
+        "posebusters": {
+          "passed": false,
+          "errors": {
+            "all_atoms_connected": 1,
+            "bond_lengths": 1,
+            "internal_steric_clash": 1
+          },
+          "critical": true,
+          "warnings": [
+            "inchi_convertible",
+            "internal_energy"
+          ]
+        },
+        "privateer": {
+          "recognized_sugars": 4,
+          "total_sugars": 4,
+          "recognition_rate": 1.0,
+          "anomer_ok": true,
+          "ring_pucker_ok": true,
+          "linkage_ok": true,
+          "errors": []
+        },
+        "cu_geometry": {
+          "cu_his_distances_a": [
+            2.5263103530643263,
+            1.8174229007030802,
+            1.9628950557785816
+          ],
+          "all_in_range": true,
+          "all_in_soft_range": true,
+          "cu_c1_dist_a": 5.797463842060596,
+          "cu_c4_dist_a": 5.479366569230424
+        }
+      },
+      "privateer_artifacts": {
+        "validation_data": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tmp/manual_hard_qc_real_cifs_check_after_fix/01_Q7SCE9_NAG4_seed-4_sample-1_model/privateer_output/Q7SCE9_NAG4_seed-4_sample-1_model/validation_data-privateer"
+      }
+    },
+    {
+      "index": 2,
+      "pose_id": "Q59930_STA6_seed-2_sample-0_model",
+      "cif_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work/STA6/af3/latest/Q59930_STA6/seed-2_sample-0/Q59930_STA6_seed-2_sample-0_model.cif",
+      "case_dir": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tmp/manual_hard_qc_real_cifs_check_after_fix/02_Q59930_STA6_seed-2_sample-0_model",
+      "status": "prepared",
+      "normalize_report_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tmp/manual_hard_qc_real_cifs_check_after_fix/02_Q59930_STA6_seed-2_sample-0_model/normalize/normalize_report.json",
+      "cif_to_pdb_report_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tmp/manual_hard_qc_real_cifs_check_after_fix/02_Q59930_STA6_seed-2_sample-0_model/posebusters_input/cif_to_pdb_report.json",
+      "normalized_cif": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tmp/manual_hard_qc_real_cifs_check_after_fix/02_Q59930_STA6_seed-2_sample-0_model/normalize/normalized.cif",
+      "posebusters_pdb": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tmp/manual_hard_qc_real_cifs_check_after_fix/02_Q59930_STA6_seed-2_sample-0_model/posebusters_input/for_posebusters.pdb",
+      "privateer_input_cif": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tmp/manual_hard_qc_real_cifs_check_after_fix/02_Q59930_STA6_seed-2_sample-0_model/privateer_input.cif",
+      "privateer_output_dir": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tmp/manual_hard_qc_real_cifs_check_after_fix/02_Q59930_STA6_seed-2_sample-0_model/privateer_output/Q59930_STA6_seed-2_sample-0_model",
+      "qc_verdict": {
+        "pose_id": "Q59930_STA6_seed-2_sample-0_model",
+        "status": "dropped",
+        "proximity_passed": true,
+        "posebusters_passed": false,
+        "privateer_passed": true,
+        "geometry_passed": true,
+        "drop_reasons": [
+          "posebusters_critical:all_atoms_connected",
+          "posebusters_critical:bond_lengths",
+          "posebusters_critical:internal_steric_clash"
+        ],
+        "warnings": [
+          "active_site_proximity:Cu-C1 distance flagged: 7.77 A > 7.00 A",
+          "active_site_proximity:Cu-C4 distance flagged: 7.67 A > 7.00 A",
+          "posebusters_soft:inchi_convertible",
+          "posebusters_soft:internal_energy",
+          "geometry_soft:Cu-His distance outside preferred QC range: ['His1:ND1=1.76\u00c5'] not in [1.80, 2.60] A"
+        ],
+        "metrics": {
+          "min_cu_ligand_distance": 6.2216738101575215,
+          "min_cu_c1": 7.770257395994036,
+          "min_cu_c4": 7.665917361933925,
+          "nearest_ligand_atom": "B:GLC3:O3",
+          "cu_found": true,
+          "geometry_min_cu_c1": 7.770257395994036,
+          "geometry_min_cu_c4": 7.665917361933925,
+          "cu_his_all_in_range": true,
+          "cu_his_all_in_soft_range": false,
+          "his_brace_angle": 162.5689109447994
+        }
+      },
+      "qc_pose_payload": {
+        "pose_id": "Q59930_STA6_seed-2_sample-0_model",
+        "overall_status": "hard_fail",
+        "posebusters": {
+          "passed": false,
+          "errors": {
+            "all_atoms_connected": 1,
+            "bond_lengths": 1,
+            "internal_steric_clash": 1
+          },
+          "critical": true,
+          "warnings": [
+            "inchi_convertible",
+            "internal_energy"
+          ]
+        },
+        "privateer": {
+          "recognized_sugars": 6,
+          "total_sugars": 6,
+          "recognition_rate": 1.0,
+          "anomer_ok": true,
+          "ring_pucker_ok": true,
+          "linkage_ok": true,
+          "errors": []
+        },
+        "cu_geometry": {
+          "cu_his_distances_a": [
+            2.3153993176124072,
+            1.7552475608870677,
+            1.9276509020048203
+          ],
+          "all_in_range": true,
+          "all_in_soft_range": false,
+          "cu_c1_dist_a": 7.770257395994036,
+          "cu_c4_dist_a": 7.665917361933925
+        }
+      },
+      "privateer_artifacts": {
+        "validation_data": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tmp/manual_hard_qc_real_cifs_check_after_fix/02_Q59930_STA6_seed-2_sample-0_model/privateer_output/Q59930_STA6_seed-2_sample-0_model/validation_data-privateer"
+      }
+    },
+    {
+      "index": 3,
+      "pose_id": "A0A0S2GKZ1_STA4_seed-2_sample-2_model",
+      "cif_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work/STA4/af3/latest/A0A0S2GKZ1_STA4/seed-2_sample-2/A0A0S2GKZ1_STA4_seed-2_sample-2_model.cif",
+      "case_dir": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tmp/manual_hard_qc_real_cifs_check_after_fix/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model",
+      "status": "prepared",
+      "normalize_report_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tmp/manual_hard_qc_real_cifs_check_after_fix/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/normalize/normalize_report.json",
+      "cif_to_pdb_report_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tmp/manual_hard_qc_real_cifs_check_after_fix/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/posebusters_input/cif_to_pdb_report.json",
+      "normalized_cif": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tmp/manual_hard_qc_real_cifs_check_after_fix/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/normalize/normalized.cif",
+      "posebusters_pdb": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tmp/manual_hard_qc_real_cifs_check_after_fix/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/posebusters_input/for_posebusters.pdb",
+      "privateer_input_cif": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tmp/manual_hard_qc_real_cifs_check_after_fix/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/privateer_input.cif",
+      "privateer_output_dir": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tmp/manual_hard_qc_real_cifs_check_after_fix/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/privateer_output/A0A0S2GKZ1_STA4_seed-2_sample-2_model",
+      "qc_verdict": {
+        "pose_id": "A0A0S2GKZ1_STA4_seed-2_sample-2_model",
+        "status": "dropped",
+        "proximity_passed": true,
+        "posebusters_passed": false,
+        "privateer_passed": false,
+        "geometry_passed": true,
+        "drop_reasons": [
+          "posebusters_critical:all_atoms_connected",
+          "posebusters_critical:bond_lengths",
+          "posebusters_critical:internal_steric_clash",
+          "privateer_anomer:['B:GLC4']"
+        ],
+        "warnings": [
+          "active_site_proximity:Cu-C1 distance flagged: 7.17 A > 7.00 A",
+          "active_site_proximity:Cu-C4 distance flagged: 8.46 A > 7.00 A",
+          "posebusters_soft:inchi_convertible",
+          "posebusters_soft:internal_energy"
+        ],
+        "metrics": {
+          "min_cu_ligand_distance": 7.102159882739898,
+          "min_cu_c1": 7.1732742872414965,
+          "min_cu_c4": 8.458510152503218,
+          "nearest_ligand_atom": "B:GLC3:C2",
+          "cu_found": true,
+          "geometry_min_cu_c1": 7.1732742872414965,
+          "geometry_min_cu_c4": 8.458510152503218,
+          "cu_his_all_in_range": true,
+          "cu_his_all_in_soft_range": true,
+          "his_brace_angle": 175.3794135930525
+        }
+      },
+      "qc_pose_payload": {
+        "pose_id": "A0A0S2GKZ1_STA4_seed-2_sample-2_model",
+        "overall_status": "hard_fail",
+        "posebusters": {
+          "passed": false,
+          "errors": {
+            "all_atoms_connected": 1,
+            "bond_lengths": 1,
+            "internal_steric_clash": 1
+          },
+          "critical": true,
+          "warnings": [
+            "inchi_convertible",
+            "internal_energy"
+          ]
+        },
+        "privateer": {
+          "recognized_sugars": 4,
+          "total_sugars": 4,
+          "recognition_rate": 1.0,
+          "anomer_ok": false,
+          "ring_pucker_ok": true,
+          "linkage_ok": true,
+          "errors": [
+            "anomer_failure"
+          ]
+        },
+        "cu_geometry": {
+          "cu_his_distances_a": [
+            2.322476479967021,
+            1.9300246112420432,
+            2.0279339239728698
+          ],
+          "all_in_range": true,
+          "all_in_soft_range": true,
+          "cu_c1_dist_a": 7.1732742872414965,
+          "cu_c4_dist_a": 8.458510152503218
+        }
+      },
+      "privateer_artifacts": {
+        "validation_data": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tmp/manual_hard_qc_real_cifs_check_after_fix/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/privateer_output/A0A0S2GKZ1_STA4_seed-2_sample-2_model/validation_data-privateer"
+      }
+    }
+  ],
+  "n_prepared": 3,
+  "n_prep_errors": 0,
+  "schema_valid": true,
+  "qc_report_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tmp/manual_hard_qc_real_cifs_check_after_fix/qc_report.json",
+  "qc_report_payload": {
+    "timestamp": "2026-05-01T17:35:23.476082+00:00",
+    "run_id": "manual_hard_qc_real_cifs_check_after_fix",
+    "poses": [
+      {
+        "pose_id": "Q7SCE9_NAG4_seed-4_sample-1_model",
+        "overall_status": "hard_fail",
+        "posebusters": {
+          "passed": false,
+          "errors": {
+            "all_atoms_connected": 1,
+            "bond_lengths": 1,
+            "internal_steric_clash": 1
+          },
+          "critical": true,
+          "warnings": [
+            "inchi_convertible",
+            "internal_energy"
+          ]
+        },
+        "privateer": {
+          "recognized_sugars": 4,
+          "total_sugars": 4,
+          "recognition_rate": 1.0,
+          "anomer_ok": true,
+          "ring_pucker_ok": true,
+          "linkage_ok": true,
+          "errors": []
+        },
+        "cu_geometry": {
+          "cu_his_distances_a": [
+            2.5263103530643263,
+            1.8174229007030802,
+            1.9628950557785816
+          ],
+          "all_in_range": true,
+          "all_in_soft_range": true,
+          "cu_c1_dist_a": 5.797463842060596,
+          "cu_c4_dist_a": 5.479366569230424
+        }
+      },
+      {
+        "pose_id": "Q59930_STA6_seed-2_sample-0_model",
+        "overall_status": "hard_fail",
+        "posebusters": {
+          "passed": false,
+          "errors": {
+            "all_atoms_connected": 1,
+            "bond_lengths": 1,
+            "internal_steric_clash": 1
+          },
+          "critical": true,
+          "warnings": [
+            "inchi_convertible",
+            "internal_energy"
+          ]
+        },
+        "privateer": {
+          "recognized_sugars": 6,
+          "total_sugars": 6,
+          "recognition_rate": 1.0,
+          "anomer_ok": true,
+          "ring_pucker_ok": true,
+          "linkage_ok": true,
+          "errors": []
+        },
+        "cu_geometry": {
+          "cu_his_distances_a": [
+            2.3153993176124072,
+            1.7552475608870677,
+            1.9276509020048203
+          ],
+          "all_in_range": true,
+          "all_in_soft_range": false,
+          "cu_c1_dist_a": 7.770257395994036,
+          "cu_c4_dist_a": 7.665917361933925
+        }
+      },
+      {
+        "pose_id": "A0A0S2GKZ1_STA4_seed-2_sample-2_model",
+        "overall_status": "hard_fail",
+        "posebusters": {
+          "passed": false,
+          "errors": {
+            "all_atoms_connected": 1,
+            "bond_lengths": 1,
+            "internal_steric_clash": 1
+          },
+          "critical": true,
+          "warnings": [
+            "inchi_convertible",
+            "internal_energy"
+          ]
+        },
+        "privateer": {
+          "recognized_sugars": 4,
+          "total_sugars": 4,
+          "recognition_rate": 1.0,
+          "anomer_ok": false,
+          "ring_pucker_ok": true,
+          "linkage_ok": true,
+          "errors": [
+            "anomer_failure"
+          ]
+        },
+        "cu_geometry": {
+          "cu_his_distances_a": [
+            2.322476479967021,
+            1.9300246112420432,
+            2.0279339239728698
+          ],
+          "all_in_range": true,
+          "all_in_soft_range": true,
+          "cu_c1_dist_a": 7.1732742872414965,
+          "cu_c4_dist_a": 8.458510152503218
+        }
+      }
+    ],
+    "total": 3,
+    "passed": 0,
+    "flagged": 0,
+    "dropped": 3,
+    "verdicts": [
+      {
+        "pose_id": "Q7SCE9_NAG4_seed-4_sample-1_model",
+        "status": "dropped",
+        "proximity_passed": true,
+        "posebusters_passed": false,
+        "privateer_passed": true,
+        "geometry_passed": true,
+        "drop_reasons": [
+          "posebusters_critical:all_atoms_connected",
+          "posebusters_critical:bond_lengths",
+          "posebusters_critical:internal_steric_clash"
+        ],
+        "warnings": [
+          "posebusters_soft:inchi_convertible",
+          "posebusters_soft:internal_energy"
+        ],
+        "metrics": {
+          "min_cu_ligand_distance": 5.036367341646159,
+          "min_cu_c1": 5.797463842060596,
+          "min_cu_c4": 5.479366569230424,
+          "nearest_ligand_atom": "B:NAG3:C5",
+          "cu_found": true,
+          "geometry_min_cu_c1": 5.797463842060596,
+          "geometry_min_cu_c4": 5.479366569230424,
+          "cu_his_all_in_range": true,
+          "cu_his_all_in_soft_range": true,
+          "his_brace_angle": 169.26578681897357
+        }
+      },
+      {
+        "pose_id": "Q59930_STA6_seed-2_sample-0_model",
+        "status": "dropped",
+        "proximity_passed": true,
+        "posebusters_passed": false,
+        "privateer_passed": true,
+        "geometry_passed": true,
+        "drop_reasons": [
+          "posebusters_critical:all_atoms_connected",
+          "posebusters_critical:bond_lengths",
+          "posebusters_critical:internal_steric_clash"
+        ],
+        "warnings": [
+          "active_site_proximity:Cu-C1 distance flagged: 7.77 A > 7.00 A",
+          "active_site_proximity:Cu-C4 distance flagged: 7.67 A > 7.00 A",
+          "posebusters_soft:inchi_convertible",
+          "posebusters_soft:internal_energy",
+          "geometry_soft:Cu-His distance outside preferred QC range: ['His1:ND1=1.76\u00c5'] not in [1.80, 2.60] A"
+        ],
+        "metrics": {
+          "min_cu_ligand_distance": 6.2216738101575215,
+          "min_cu_c1": 7.770257395994036,
+          "min_cu_c4": 7.665917361933925,
+          "nearest_ligand_atom": "B:GLC3:O3",
+          "cu_found": true,
+          "geometry_min_cu_c1": 7.770257395994036,
+          "geometry_min_cu_c4": 7.665917361933925,
+          "cu_his_all_in_range": true,
+          "cu_his_all_in_soft_range": false,
+          "his_brace_angle": 162.5689109447994
+        }
+      },
+      {
+        "pose_id": "A0A0S2GKZ1_STA4_seed-2_sample-2_model",
+        "status": "dropped",
+        "proximity_passed": true,
+        "posebusters_passed": false,
+        "privateer_passed": false,
+        "geometry_passed": true,
+        "drop_reasons": [
+          "posebusters_critical:all_atoms_connected",
+          "posebusters_critical:bond_lengths",
+          "posebusters_critical:internal_steric_clash",
+          "privateer_anomer:['B:GLC4']"
+        ],
+        "warnings": [
+          "active_site_proximity:Cu-C1 distance flagged: 7.17 A > 7.00 A",
+          "active_site_proximity:Cu-C4 distance flagged: 8.46 A > 7.00 A",
+          "posebusters_soft:inchi_convertible",
+          "posebusters_soft:internal_energy"
+        ],
+        "metrics": {
+          "min_cu_ligand_distance": 7.102159882739898,
+          "min_cu_c1": 7.1732742872414965,
+          "min_cu_c4": 8.458510152503218,
+          "nearest_ligand_atom": "B:GLC3:C2",
+          "cu_found": true,
+          "geometry_min_cu_c1": 7.1732742872414965,
+          "geometry_min_cu_c4": 8.458510152503218,
+          "cu_his_all_in_range": true,
+          "cu_his_all_in_soft_range": true,
+          "his_brace_angle": 175.3794135930525
+        }
+      }
+    ]
+  },
+  "qc_counts": {
+    "total": 3,
+    "passed": 0,
+    "flagged": 0,
+    "dropped": 3
+  },
+  "results_root": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tmp/manual_hard_qc_real_cifs_check_after_fix"
+}
