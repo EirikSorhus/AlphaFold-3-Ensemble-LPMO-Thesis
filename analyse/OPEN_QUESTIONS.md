@@ -107,3 +107,10 @@ foreslått default-valg slik at arbeidet kan fortsette uten blokkering.
    *Default: behold dagens konservative klassifisering midlertidig, men avklar
    eksplisitt om `minimum_distance_to_protein` og andre pocket-/distance-relaterte
    PoseBusters-feil skal gi `hard_fail`, `soft_flag` eller kun rapporteres.*
+
+19. **ProLIF interaction-type pruning** — Skal endelig utvalg av ProLIF-interaksjonstyper
+   bestemmes bare ved enkel sparsity-/nyttevurdering, eller er det verdt å lage en
+   form for statistisk analyse/test for dette?
+   *Default: ikke blokker på dette. Behold enkel manuell vurdering senere som første
+   steg. Eventuell statistisk analyse er lav prioritet, ikke spesielt viktig akkurat nå,
+   og kan ta tid å designe og teste på en meningsfull måte.*

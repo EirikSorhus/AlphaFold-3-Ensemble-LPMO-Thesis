@@ -25,6 +25,89 @@ from lpmo_pipeline.qc.privateer_runner import get_privateer_version
 from lpmo_pipeline.utils.data_models import RunManifest
 
 
+def _probe_gemmi() -> str:
+    """Run a lightweight functional probe against the active Gemmi binding."""
+    try:
+        from lpmo_pipeline.io.gemmi_compat import gemmi
+
+        if not hasattr(gemmi, "read_structure") or not hasattr(gemmi, "cif"):
+            return "missing_required_api"
+
+        doc = gemmi.cif.read_string("data_probe\n_entry.id probe\n")
+        block = doc.sole_block()
+        if block.find_value("_entry.id") != "probe":
+            return "unexpected_probe_result"
+    except Exception as exc:
+        return f"{exc.__class__.__name__}: {exc}"
+
+    return "ok"
+
+
+def _probe_mdanalysis() -> str:
+    """Run a minimal in-memory Universe probe for MDAnalysis."""
+    try:
+        import numpy as np
+        import MDAnalysis as mda
+
+        universe = mda.Universe.empty(
+            1,
+            n_residues=1,
+            atom_resindex=np.array([0], dtype=int),
+            trajectory=True,
+        )
+        if universe.atoms.n_atoms != 1 or universe.residues.n_residues != 1:
+            return "unexpected_probe_result"
+        if universe.trajectory.ts.positions.shape != (1, 3):
+            return "unexpected_probe_result"
+    except Exception as exc:
+        return f"{exc.__class__.__name__}: {exc}"
+
+    return "ok"
+
+
+def _probe_prolif() -> str:
+    """Confirm ProLIF can instantiate the configured fingerprint surface."""
+    try:
+        import prolif as plf
+
+        fingerprint = plf.Fingerprint(["HBDonor", "HBAcceptor"])
+        interaction_names = set(fingerprint.interactions.keys())
+        if {"HBDonor", "HBAcceptor"} - interaction_names:
+            return "unexpected_probe_result"
+    except Exception as exc:
+        return f"{exc.__class__.__name__}: {exc}"
+
+    return "ok"
+
+
+def _probe_hdbscan() -> str:
+    """Run a tiny deterministic clustering job to catch broken native wheels."""
+    try:
+        import numpy as np
+        import hdbscan
+
+        probe_points = np.array(
+            [
+                [0.0, 0.0],
+                [0.0, 0.01],
+                [0.01, 0.0],
+                [5.0, 5.0],
+                [5.0, 5.01],
+                [5.01, 5.0],
+            ],
+            dtype=float,
+        )
+        labels = hdbscan.HDBSCAN(min_cluster_size=2, min_samples=1).fit_predict(probe_points)
+        if len(labels) != len(probe_points):
+            return "unexpected_probe_result"
+        if all(label == -1 for label in labels):
+            return "unexpected_probe_result"
+    except Exception as exc:
+        return f"{exc.__class__.__name__}: {exc}"
+
+    return "ok"
+
+
 class ManifestBuilder:
     """Build run_manifest.json incrementally throughout execution."""
     
@@ -168,3 +251,13 @@ class ToolVersionFetcher:
             versions["hdbscan"] = "not_installed"
         
         return versions
+
+    @staticmethod
+    def get_analysis_dependency_statuses() -> Dict[str, str]:
+        """Run lightweight functional probes for clustering-critical dependencies."""
+        return {
+            "gemmi": _probe_gemmi(),
+            "mdanalysis": _probe_mdanalysis(),
+            "prolif": _probe_prolif(),
+            "hdbscan": _probe_hdbscan(),
+        }

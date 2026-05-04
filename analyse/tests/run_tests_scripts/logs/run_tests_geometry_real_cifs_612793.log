@@ -1,0 +1,363 @@
+Starting job 612793 on c1-80 on Olivia at Sun May 3 20:19:49 CEST 2026
+
+[INFO] Running focused downstream geometry tests
+============================= test session starts ==============================
+platform linux -- Python 3.11.15, pytest-9.0.2, pluggy-1.6.0
+rootdir: /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse
+configfile: pyproject.toml
+collected 8 items
+
+tests/test_mdanalysis_metrics.py ........                                [100%]
+
+============================== 8 passed in 0.35s ===============================
+[INFO] Running downstream geometry probe on 3 CIFs
+[INFO] Preparing 3 CIF inputs for downstream geometry test
+2026-05-03 20:19:54,172 [normalize_mmcif] INFO: [normalize_mmcif] Starting...
+[INFO] [normalize_mmcif] Starting...
+2026-05-03 20:19:54,183 [normalize_mmcif] INFO: Check 'chain_mapping': pass — Built 3 chain mappings: A→A, C→B, B→E
+[INFO] Check 'chain_mapping': pass — Built 3 chain mappings: A→A, C→B, B→E
+2026-05-03 20:20:10,804 [normalize_mmcif] INFO: Check 'apply_chain_mapping': pass — Remapped chains: {'A': 'A', 'C': 'B', 'B': 'E'}
+[INFO] Check 'apply_chain_mapping': pass — Remapped chains: {'A': 'A', 'C': 'B', 'B': 'E'}
+2026-05-03 20:20:10,806 [normalize_mmcif] INFO: Check 'glycan_ccd_validation': pass — Validated 4 glycan residues against CCD monosaccharide rules
+[INFO] Check 'glycan_ccd_validation': pass — Validated 4 glycan residues against CCD monosaccharide rules
+2026-05-03 20:20:10,806 [normalize_mmcif] INFO: Check 'struct_conn_present': pass — _struct_conn has 3 connection(s)
+[INFO] Check 'struct_conn_present': pass — _struct_conn has 3 connection(s)
+2026-05-03 20:20:10,806 [normalize_mmcif] INFO: Check 'chem_comp_bond_present': pass — _chem_comp_bond not present in CIF — expected for AF3; treated as informational
+[INFO] Check 'chem_comp_bond_present': pass — _chem_comp_bond not present in CIF — expected for AF3; treated as informational
+2026-05-03 20:20:10,807 [normalize_mmcif] INFO: Check 'derive_confidence': pass — Derived residue confidence for 235 residues from B_iso
+[INFO] Check 'derive_confidence': pass — Derived residue confidence for 235 residues from B_iso
+2026-05-03 20:20:10,810 [normalize_mmcif] INFO: Artifact 'atom_map' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/01_Q7SCE9_NAG4_seed-4_sample-1_model/normalize/atom_map.tsv
+[INFO] Artifact 'atom_map' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/01_Q7SCE9_NAG4_seed-4_sample-1_model/normalize/atom_map.tsv
+2026-05-03 20:20:10,811 [normalize_mmcif] INFO: Artifact 'rename_log' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/01_Q7SCE9_NAG4_seed-4_sample-1_model/normalize/rename_log.json
+[INFO] Artifact 'rename_log' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/01_Q7SCE9_NAG4_seed-4_sample-1_model/normalize/rename_log.json
+2026-05-03 20:20:10,812 [normalize_mmcif] INFO: Artifact 'normalize_report' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/01_Q7SCE9_NAG4_seed-4_sample-1_model/normalize/normalize_report.json
+[INFO] Artifact 'normalize_report' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/01_Q7SCE9_NAG4_seed-4_sample-1_model/normalize/normalize_report.json
+2026-05-03 20:20:10,813 [normalize_mmcif] INFO: [normalize_mmcif] SUCCESS (elapsed: 16.64s)
+[INFO] [normalize_mmcif] SUCCESS (elapsed: 16.64s)
+[INFO] Computing downstream geometry metrics for pose Q7SCE9_NAG4_seed-4_sample-1_model
+[ERROR] GATE FAIL: Cu-His distance outside hard range 1.90-2.60 A: ['His1:ND1=1.82Å'] (pose Q7SCE9_NAG4_seed-4_sample-1_model)
+[INFO] Geometry check pose=Q7SCE9_NAG4_seed-4_sample-1_model: passed=False, Cu-His hard=False, Cu-His soft=False, min Cu-C1=5.80, min Cu-C4=5.48
+[INFO] Wrote geometry metrics debug JSON to /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/01_Q7SCE9_NAG4_seed-4_sample-1_model/geometry_metrics.json
+[INFO] Wrote geometry debug PDB to /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/01_Q7SCE9_NAG4_seed-4_sample-1_model/geometry_debug.pdb
+2026-05-03 20:20:10,846 [normalize_mmcif] INFO: [normalize_mmcif] Starting...
+2026-05-03 20:20:10,846 [normalize_mmcif] INFO: [normalize_mmcif] Starting...
+[INFO] [normalize_mmcif] Starting...
+2026-05-03 20:20:10,848 [normalize_mmcif] INFO: Check 'chain_mapping': pass — Built 3 chain mappings: A→A, C→B, B→E
+2026-05-03 20:20:10,848 [normalize_mmcif] INFO: Check 'chain_mapping': pass — Built 3 chain mappings: A→A, C→B, B→E
+[INFO] Check 'chain_mapping': pass — Built 3 chain mappings: A→A, C→B, B→E
+2026-05-03 20:20:20,851 [normalize_mmcif] INFO: Check 'apply_chain_mapping': pass — Remapped chains: {'A': 'A', 'C': 'B', 'B': 'E'}
+2026-05-03 20:20:20,851 [normalize_mmcif] INFO: Check 'apply_chain_mapping': pass — Remapped chains: {'A': 'A', 'C': 'B', 'B': 'E'}
+[INFO] Check 'apply_chain_mapping': pass — Remapped chains: {'A': 'A', 'C': 'B', 'B': 'E'}
+2026-05-03 20:20:20,853 [normalize_mmcif] INFO: Check 'glycan_ccd_validation': pass — Validated 6 glycan residues against CCD monosaccharide rules
+2026-05-03 20:20:20,853 [normalize_mmcif] INFO: Check 'glycan_ccd_validation': pass — Validated 6 glycan residues against CCD monosaccharide rules
+[INFO] Check 'glycan_ccd_validation': pass — Validated 6 glycan residues against CCD monosaccharide rules
+2026-05-03 20:20:20,853 [normalize_mmcif] INFO: Check 'struct_conn_present': pass — _struct_conn has 5 connection(s)
+2026-05-03 20:20:20,853 [normalize_mmcif] INFO: Check 'struct_conn_present': pass — _struct_conn has 5 connection(s)
+[INFO] Check 'struct_conn_present': pass — _struct_conn has 5 connection(s)
+2026-05-03 20:20:20,853 [normalize_mmcif] INFO: Check 'chem_comp_bond_present': pass — _chem_comp_bond not present in CIF — expected for AF3; treated as informational
+2026-05-03 20:20:20,853 [normalize_mmcif] INFO: Check 'chem_comp_bond_present': pass — _chem_comp_bond not present in CIF — expected for AF3; treated as informational
+[INFO] Check 'chem_comp_bond_present': pass — _chem_comp_bond not present in CIF — expected for AF3; treated as informational
+2026-05-03 20:20:20,854 [normalize_mmcif] INFO: Check 'derive_confidence': pass — Derived residue confidence for 175 residues from B_iso
+2026-05-03 20:20:20,854 [normalize_mmcif] INFO: Check 'derive_confidence': pass — Derived residue confidence for 175 residues from B_iso
+[INFO] Check 'derive_confidence': pass — Derived residue confidence for 175 residues from B_iso
+2026-05-03 20:20:20,856 [normalize_mmcif] INFO: Artifact 'atom_map' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/02_Q59930_STA6_seed-2_sample-0_model/normalize/atom_map.tsv
+2026-05-03 20:20:20,856 [normalize_mmcif] INFO: Artifact 'atom_map' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/02_Q59930_STA6_seed-2_sample-0_model/normalize/atom_map.tsv
+[INFO] Artifact 'atom_map' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/02_Q59930_STA6_seed-2_sample-0_model/normalize/atom_map.tsv
+2026-05-03 20:20:20,857 [normalize_mmcif] INFO: Artifact 'rename_log' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/02_Q59930_STA6_seed-2_sample-0_model/normalize/rename_log.json
+2026-05-03 20:20:20,857 [normalize_mmcif] INFO: Artifact 'rename_log' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/02_Q59930_STA6_seed-2_sample-0_model/normalize/rename_log.json
+[INFO] Artifact 'rename_log' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/02_Q59930_STA6_seed-2_sample-0_model/normalize/rename_log.json
+2026-05-03 20:20:20,858 [normalize_mmcif] INFO: Artifact 'normalize_report' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/02_Q59930_STA6_seed-2_sample-0_model/normalize/normalize_report.json
+2026-05-03 20:20:20,858 [normalize_mmcif] INFO: Artifact 'normalize_report' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/02_Q59930_STA6_seed-2_sample-0_model/normalize/normalize_report.json
+[INFO] Artifact 'normalize_report' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/02_Q59930_STA6_seed-2_sample-0_model/normalize/normalize_report.json
+2026-05-03 20:20:20,859 [normalize_mmcif] INFO: [normalize_mmcif] SUCCESS (elapsed: 10.01s)
+2026-05-03 20:20:20,859 [normalize_mmcif] INFO: [normalize_mmcif] SUCCESS (elapsed: 10.01s)
+[INFO] [normalize_mmcif] SUCCESS (elapsed: 10.01s)
+[INFO] Computing downstream geometry metrics for pose Q59930_STA6_seed-2_sample-0_model
+[ERROR] GATE FAIL: Cu-His distance outside hard range 1.90-2.60 A: ['His1:ND1=1.76Å'] (pose Q59930_STA6_seed-2_sample-0_model)
+[INFO] Geometry check pose=Q59930_STA6_seed-2_sample-0_model: passed=False, Cu-His hard=False, Cu-His soft=False, min Cu-C1=7.77, min Cu-C4=7.67
+[INFO] Wrote geometry metrics debug JSON to /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/02_Q59930_STA6_seed-2_sample-0_model/geometry_metrics.json
+[INFO] Wrote geometry debug PDB to /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/02_Q59930_STA6_seed-2_sample-0_model/geometry_debug.pdb
+2026-05-03 20:20:20,871 [normalize_mmcif] INFO: [normalize_mmcif] Starting...
+2026-05-03 20:20:20,871 [normalize_mmcif] INFO: [normalize_mmcif] Starting...
+2026-05-03 20:20:20,871 [normalize_mmcif] INFO: [normalize_mmcif] Starting...
+[INFO] [normalize_mmcif] Starting...
+2026-05-03 20:20:20,874 [normalize_mmcif] INFO: Check 'chain_mapping': pass — Built 3 chain mappings: A→A, C→B, B→E
+2026-05-03 20:20:20,874 [normalize_mmcif] INFO: Check 'chain_mapping': pass — Built 3 chain mappings: A→A, C→B, B→E
+2026-05-03 20:20:20,874 [normalize_mmcif] INFO: Check 'chain_mapping': pass — Built 3 chain mappings: A→A, C→B, B→E
+[INFO] Check 'chain_mapping': pass — Built 3 chain mappings: A→A, C→B, B→E
+2026-05-03 20:20:37,428 [normalize_mmcif] INFO: Check 'apply_chain_mapping': pass — Remapped chains: {'A': 'A', 'C': 'B', 'B': 'E'}
+2026-05-03 20:20:37,428 [normalize_mmcif] INFO: Check 'apply_chain_mapping': pass — Remapped chains: {'A': 'A', 'C': 'B', 'B': 'E'}
+2026-05-03 20:20:37,428 [normalize_mmcif] INFO: Check 'apply_chain_mapping': pass — Remapped chains: {'A': 'A', 'C': 'B', 'B': 'E'}
+[INFO] Check 'apply_chain_mapping': pass — Remapped chains: {'A': 'A', 'C': 'B', 'B': 'E'}
+2026-05-03 20:20:37,430 [normalize_mmcif] INFO: Check 'glycan_ccd_validation': pass — Validated 4 glycan residues against CCD monosaccharide rules
+2026-05-03 20:20:37,430 [normalize_mmcif] INFO: Check 'glycan_ccd_validation': pass — Validated 4 glycan residues against CCD monosaccharide rules
+2026-05-03 20:20:37,430 [normalize_mmcif] INFO: Check 'glycan_ccd_validation': pass — Validated 4 glycan residues against CCD monosaccharide rules
+[INFO] Check 'glycan_ccd_validation': pass — Validated 4 glycan residues against CCD monosaccharide rules
+2026-05-03 20:20:37,430 [normalize_mmcif] INFO: Check 'struct_conn_present': pass — _struct_conn has 3 connection(s)
+2026-05-03 20:20:37,430 [normalize_mmcif] INFO: Check 'struct_conn_present': pass — _struct_conn has 3 connection(s)
+2026-05-03 20:20:37,430 [normalize_mmcif] INFO: Check 'struct_conn_present': pass — _struct_conn has 3 connection(s)
+[INFO] Check 'struct_conn_present': pass — _struct_conn has 3 connection(s)
+2026-05-03 20:20:37,430 [normalize_mmcif] INFO: Check 'chem_comp_bond_present': pass — _chem_comp_bond not present in CIF — expected for AF3; treated as informational
+2026-05-03 20:20:37,430 [normalize_mmcif] INFO: Check 'chem_comp_bond_present': pass — _chem_comp_bond not present in CIF — expected for AF3; treated as informational
+2026-05-03 20:20:37,430 [normalize_mmcif] INFO: Check 'chem_comp_bond_present': pass — _chem_comp_bond not present in CIF — expected for AF3; treated as informational
+[INFO] Check 'chem_comp_bond_present': pass — _chem_comp_bond not present in CIF — expected for AF3; treated as informational
+2026-05-03 20:20:37,431 [normalize_mmcif] INFO: Check 'derive_confidence': pass — Derived residue confidence for 223 residues from B_iso
+2026-05-03 20:20:37,431 [normalize_mmcif] INFO: Check 'derive_confidence': pass — Derived residue confidence for 223 residues from B_iso
+2026-05-03 20:20:37,431 [normalize_mmcif] INFO: Check 'derive_confidence': pass — Derived residue confidence for 223 residues from B_iso
+[INFO] Check 'derive_confidence': pass — Derived residue confidence for 223 residues from B_iso
+2026-05-03 20:20:37,433 [normalize_mmcif] INFO: Artifact 'atom_map' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/normalize/atom_map.tsv
+2026-05-03 20:20:37,433 [normalize_mmcif] INFO: Artifact 'atom_map' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/normalize/atom_map.tsv
+2026-05-03 20:20:37,433 [normalize_mmcif] INFO: Artifact 'atom_map' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/normalize/atom_map.tsv
+[INFO] Artifact 'atom_map' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/normalize/atom_map.tsv
+2026-05-03 20:20:37,435 [normalize_mmcif] INFO: Artifact 'rename_log' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/normalize/rename_log.json
+2026-05-03 20:20:37,435 [normalize_mmcif] INFO: Artifact 'rename_log' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/normalize/rename_log.json
+2026-05-03 20:20:37,435 [normalize_mmcif] INFO: Artifact 'rename_log' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/normalize/rename_log.json
+[INFO] Artifact 'rename_log' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/normalize/rename_log.json
+2026-05-03 20:20:37,436 [normalize_mmcif] INFO: Artifact 'normalize_report' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/normalize/normalize_report.json
+2026-05-03 20:20:37,436 [normalize_mmcif] INFO: Artifact 'normalize_report' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/normalize/normalize_report.json
+2026-05-03 20:20:37,436 [normalize_mmcif] INFO: Artifact 'normalize_report' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/normalize/normalize_report.json
+[INFO] Artifact 'normalize_report' → /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/normalize/normalize_report.json
+2026-05-03 20:20:37,437 [normalize_mmcif] INFO: [normalize_mmcif] SUCCESS (elapsed: 16.57s)
+2026-05-03 20:20:37,437 [normalize_mmcif] INFO: [normalize_mmcif] SUCCESS (elapsed: 16.57s)
+2026-05-03 20:20:37,437 [normalize_mmcif] INFO: [normalize_mmcif] SUCCESS (elapsed: 16.57s)
+[INFO] [normalize_mmcif] SUCCESS (elapsed: 16.57s)
+[INFO] Computing downstream geometry metrics for pose A0A0S2GKZ1_STA4_seed-2_sample-2_model
+[INFO] Geometry check pose=A0A0S2GKZ1_STA4_seed-2_sample-2_model: passed=True, Cu-His hard=True, Cu-His soft=True, min Cu-C1=7.17, min Cu-C4=8.46
+[INFO] Wrote geometry metrics debug JSON to /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/geometry_metrics.json
+[INFO] Wrote geometry debug PDB to /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/geometry_debug.pdb
+[INFO] Wrote pose_geometry.tsv (3 rows) to /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/pose_geometry.tsv
+{
+  "run_dir": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793",
+  "run_id": "geometry_real_cifs_612793",
+  "requested_cifs": [
+    "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work/NAG4/af3/runs/408002/Q7SCE9_NAG4/seed-4_sample-1/Q7SCE9_NAG4_seed-4_sample-1_model.cif",
+    "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work/STA6/af3/runs/408006/Q59930_STA6/seed-2_sample-0/Q59930_STA6_seed-2_sample-0_model.cif",
+    "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work/STA4/af3/runs/408005/A0A0S2GKZ1_STA4/seed-2_sample-2/A0A0S2GKZ1_STA4_seed-2_sample-2_model.cif"
+  ],
+  "n_requested": 3,
+  "cases": [
+    {
+      "index": 1,
+      "pose_id": "Q7SCE9_NAG4_seed-4_sample-1_model",
+      "protein_id": "Q7SCE9",
+      "ligand_id": "NAG4",
+      "model": "af3",
+      "cif_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work/NAG4/af3/runs/408002/Q7SCE9_NAG4/seed-4_sample-1/Q7SCE9_NAG4_seed-4_sample-1_model.cif",
+      "case_dir": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/01_Q7SCE9_NAG4_seed-4_sample-1_model",
+      "status": "prepared",
+      "normalize_report_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/01_Q7SCE9_NAG4_seed-4_sample-1_model/normalize/normalize_report.json",
+      "normalized_cif": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/01_Q7SCE9_NAG4_seed-4_sample-1_model/normalize/normalized.cif",
+      "geometry_metrics_json": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/01_Q7SCE9_NAG4_seed-4_sample-1_model/geometry_metrics.json",
+      "geometry_debug_pdb": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/01_Q7SCE9_NAG4_seed-4_sample-1_model/geometry_debug.pdb",
+      "geometry_row": {
+        "pose_id": "Q7SCE9_NAG4_seed-4_sample-1_model",
+        "model": "af3",
+        "protein_id": "Q7SCE9",
+        "ligand_id": "NAG4",
+        "proximal_sugar_id": "B:NAG3",
+        "brace_integrity_flag": true,
+        "Cu_C1_distance": 6.2408489629038275,
+        "Cu_C4_distance": 6.020030573934912,
+        "oxyl_H_C1_distance": 4.220860998061286,
+        "oxyl_H_C4_distance": 5.8592609737526775,
+        "attack_angle_C1": 36.638903335746456,
+        "attack_angle_C4": 175.44947184941674,
+        "sugar_face_orientation": "ring_normal_away_from_cu",
+        "ring_normal_vs_brace_normal": 126.05180033952118,
+        "oxyl_H_score_C1": NaN,
+        "oxyl_H_score_C4": NaN,
+        "geometry_status_C1": "geometry_computable_implausible",
+        "geometry_status_C4": "geometry_computable_implausible",
+        "his_brace_angle_deg": 169.26578681897357,
+        "core_rmsd_vs_reference": null,
+        "pocket_rmsd_vs_crystal": null
+      },
+      "debug_coordinates": {
+        "original_cu_coordinates": [
+          0.255,
+          8.022,
+          9.115
+        ],
+        "repositioned_cu_coordinates": [
+          0.3183333333333334,
+          8.041,
+          8.309
+        ],
+        "virtual_oxyl_coordinates": [
+          0.43828158872434136,
+          8.291643319791037,
+          10.087423555363788
+        ],
+        "virtual_h_c1_coordinates": [
+          2.0811353662520093,
+          11.891685808426267,
+          11.555889799660553
+        ],
+        "virtual_h_c4_coordinates": [
+          -1.4866866126133664,
+          12.905572024486684,
+          13.143090175001047
+        ]
+      }
+    },
+    {
+      "index": 2,
+      "pose_id": "Q59930_STA6_seed-2_sample-0_model",
+      "protein_id": "Q59930",
+      "ligand_id": "STA6",
+      "model": "af3",
+      "cif_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work/STA6/af3/runs/408006/Q59930_STA6/seed-2_sample-0/Q59930_STA6_seed-2_sample-0_model.cif",
+      "case_dir": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/02_Q59930_STA6_seed-2_sample-0_model",
+      "status": "prepared",
+      "normalize_report_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/02_Q59930_STA6_seed-2_sample-0_model/normalize/normalize_report.json",
+      "normalized_cif": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/02_Q59930_STA6_seed-2_sample-0_model/normalize/normalized.cif",
+      "geometry_metrics_json": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/02_Q59930_STA6_seed-2_sample-0_model/geometry_metrics.json",
+      "geometry_debug_pdb": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/02_Q59930_STA6_seed-2_sample-0_model/geometry_debug.pdb",
+      "geometry_row": {
+        "pose_id": "Q59930_STA6_seed-2_sample-0_model",
+        "model": "af3",
+        "protein_id": "Q59930",
+        "ligand_id": "STA6",
+        "proximal_sugar_id": "B:GLC3",
+        "brace_integrity_flag": true,
+        "Cu_C1_distance": 7.729267235644012,
+        "Cu_C4_distance": 7.442288424940275,
+        "oxyl_H_C1_distance": 8.26028541305689,
+        "oxyl_H_C4_distance": 7.940391788152425,
+        "attack_angle_C1": 83.3295331364785,
+        "attack_angle_C4": 58.77509998890454,
+        "sugar_face_orientation": "ring_normal_toward_cu",
+        "ring_normal_vs_brace_normal": 88.35627321360113,
+        "oxyl_H_score_C1": NaN,
+        "oxyl_H_score_C4": NaN,
+        "geometry_status_C1": "geometry_computable_implausible",
+        "geometry_status_C4": "geometry_computable_implausible",
+        "his_brace_angle_deg": 162.5689109447994,
+        "core_rmsd_vs_reference": null,
+        "pocket_rmsd_vs_crystal": null
+      },
+      "debug_coordinates": {
+        "original_cu_coordinates": [
+          -6.302,
+          -16.753,
+          -1.064
+        ],
+        "repositioned_cu_coordinates": [
+          -5.744,
+          -16.521,
+          -0.9660000000000001
+        ],
+        "virtual_oxyl_coordinates": [
+          -7.190051145645203,
+          -17.54489242338713,
+          -1.2831441147311926
+        ],
+        "virtual_h_c1_coordinates": [
+          -9.282230919182584,
+          -10.363431972594098,
+          2.221385053938552
+        ],
+        "virtual_h_c4_coordinates": [
+          -5.404660454968285,
+          -11.502198555311274,
+          3.5488381542471545
+        ]
+      }
+    },
+    {
+      "index": 3,
+      "pose_id": "A0A0S2GKZ1_STA4_seed-2_sample-2_model",
+      "protein_id": "A0A0S2GKZ1",
+      "ligand_id": "STA4",
+      "model": "af3",
+      "cif_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work/STA4/af3/runs/408005/A0A0S2GKZ1_STA4/seed-2_sample-2/A0A0S2GKZ1_STA4_seed-2_sample-2_model.cif",
+      "case_dir": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model",
+      "status": "prepared",
+      "normalize_report_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/normalize/normalize_report.json",
+      "normalized_cif": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/normalize/normalized.cif",
+      "geometry_metrics_json": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/geometry_metrics.json",
+      "geometry_debug_pdb": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/03_A0A0S2GKZ1_STA4_seed-2_sample-2_model/geometry_debug.pdb",
+      "geometry_row": {
+        "pose_id": "A0A0S2GKZ1_STA4_seed-2_sample-2_model",
+        "model": "af3",
+        "protein_id": "A0A0S2GKZ1",
+        "ligand_id": "STA4",
+        "proximal_sugar_id": "B:GLC3",
+        "brace_integrity_flag": true,
+        "Cu_C1_distance": 7.750027225758629,
+        "Cu_C4_distance": 9.044523536372715,
+        "oxyl_H_C1_distance": 5.521155710121435,
+        "oxyl_H_C4_distance": 6.953202799534448,
+        "attack_angle_C1": 42.3707237864274,
+        "attack_angle_C4": 53.59800052542664,
+        "sugar_face_orientation": "ring_normal_away_from_cu",
+        "ring_normal_vs_brace_normal": 131.1828525782621,
+        "oxyl_H_score_C1": NaN,
+        "oxyl_H_score_C4": NaN,
+        "geometry_status_C1": "geometry_computable_implausible",
+        "geometry_status_C4": "geometry_computable_implausible",
+        "his_brace_angle_deg": 175.3794135930525,
+        "core_rmsd_vs_reference": null,
+        "pocket_rmsd_vs_crystal": null
+      },
+      "debug_coordinates": {
+        "original_cu_coordinates": [
+          -13.509,
+          -4.997,
+          2.344
+        ],
+        "repositioned_cu_coordinates": [
+          -12.865,
+          -5.336000000000001,
+          2.421
+        ],
+        "virtual_oxyl_coordinates": [
+          -14.491377773051305,
+          -4.620574614078198,
+          2.132795460647614
+        ],
+        "virtual_h_c1_coordinates": [
+          -19.437918932793384,
+          -6.590087173132529,
+          0.6713197646090945
+        ],
+        "virtual_h_c4_coordinates": [
+          -19.34232416673757,
+          -4.487187976560095,
+          -2.8469190153005326
+        ]
+      }
+    }
+  ],
+  "n_prepared": 3,
+  "n_prep_errors": 0,
+  "pose_geometry_tsv": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/pose_geometry.tsv"
+}
+[INFO] Geometry test run completed
+[INFO] Results directory: /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793
+[INFO] Pose geometry table: /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/pose_geometry.tsv
+[INFO] Visual PDBs: /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/geometry_real_cifs_612793/<case>/geometry_debug.pdb
+
+Job 612793 consumed 0.0 billing hours and 0.0 GPU hours from project nn1003k.
+
+Submitted 2026-05-03T20:19:48; waited 0.0 seconds in the queue after becoming eligible to run.
+
+Requested wallclock time: 20.0 minutes
+Elapsed wallclock time:   49.0 seconds
+
+Job exited normally.
+
+Task and CPU statistics:
+ID            CPUs  Tasks  CPU util                Start  Elapsed  Exit status
+612793           1            0.0 %  2026-05-03T20:19:48   49.0 s  0
+612793.batch     1      1    97.3 %  2026-05-03T20:19:48   49.0 s  0
+
+Used CPU time:   47.7 CPU seconds
+Unused CPU time: 1.3 CPU seconds
+
+Memory statistics, in GiB:
+ID             Alloc   Usage
+612793           6.0        
+612793.batch     6.0     0.2
+
+Job 612793 completed at Sun May 3 20:20:37 CEST 2026

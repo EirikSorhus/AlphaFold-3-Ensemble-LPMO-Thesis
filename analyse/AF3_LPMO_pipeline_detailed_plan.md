@@ -447,16 +447,27 @@ For each pose:
 * add hydrogens to copy if needed by the IFP engine
 * use the same residue and ligand selection masks for every pose in the same sub-analysis
 * generate binary IFP over a fixed set of interaction types
+* preserve each monosaccharide as a separate ligand residue in the feature space
 
-Recommended main interaction types:
+Current validated default interaction types (matching `configs/prolif_features.yaml`):
 
 * Hbond donor
 * Hbond acceptor
 * hydrophobic
 * aromatic / stacking
-* cation-pi only if robustly detected and not too sparse
+* anionic
+* cationic
+* cation-pi
+* pi-cation
+* van der Waals contact
 
-Avoid creating many fragile interaction classes that explode sparsity.
+This broad default is useful for early validation and inspection, but avoid
+creating many fragile interaction classes that explode sparsity. The final set
+of interaction types to keep can be decided later after reviewing the real-data
+behavior. Keep the interaction set locked within one sub-analysis. If later
+sparsity review motivates pruning, do it as a config change before the full run
+and rerun the entire sub-analysis; do not mix feature spaces within the same
+batch.
 
 ### 11.4 Per-pose outputs
 
@@ -467,11 +478,18 @@ Avoid creating many fragile interaction classes that explode sparsity.
 * `ifp\_generation\_status`
 * `ifp\_vector`
 * `ifp\_feature\_names`
+* feature names use `ligand_residue|protein_residue|interaction`
 * `n\_total\_contacts`
 * `n\_hbond\_donor`
 * `n\_hbond\_acceptor`
 * `n\_hydrophobic`
 * `n\_aromatic`
+
+Current standalone implementation note (validated 2026-05-04):
+
+* also writes `n\_anionic`, `n\_cationic`, `n\_cation\_pi`, `n\_pi\_cation`, `n\_vdw\_contact`
+* writes `ifp\_interaction\_counts` as a JSON map of all active interaction types
+* treats collapsed `UNL`-style ligand labels as invalid for the monosaccharide-resolved branch
 
 ### 11.5 Residue-contact extraction
 
@@ -496,6 +514,9 @@ One row per `pose\_id x residue\_id x interaction\_type` with:
 * `is\_linker\_region`
 
 This table is essential for later residue interpretation.
+
+Current status 2026-05-04: `pose\_residue\_contact\_table.tsv` remains planned;
+the standalone ProLIF implementation has not yet emitted this table.
 
 \---
 

@@ -4,33 +4,32 @@
 # ──────────────────────────────────────────────────────────
 
 # ── Interaction types ──
-# Plan section 11.3: use a fixed, limited set to avoid sparsity explosion.
+# Early production validation keeps the full supported ProLIF interaction surface
+# so downstream clustering can decide later whether any interaction types should
+# be pruned for sparsity or noise reasons.
 interaction_types:
   primary:               # Always included in IFP
     - HBDonor            # protein residue is H-bond donor
     - HBAcceptor         # protein residue is H-bond acceptor
     - Hydrophobic        # hydrophobic contact
     - PiStacking         # aromatic / stacking
-
-  optional:              # Include only if not too sparse for the dataset
-    - PiCation           # cation-pi; enable after checking sparsity
-
-  excluded:              # Do NOT use in main analysis
-    - VdWContact         # too frequent, too noisy for IFP clustering
-    - Anionic            # charge interactions rare in this context
+    - Anionic            # anion / anion interactions
     - Cationic
-    - MetalCoordination  # Cu coordination handled separately in geometry pipeline
-    - WaterBridge        # solvent not modeled consistently in AF3 poses
+    - CationPi
+    - PiCation
+    - VdWContact
 
-# Default active set for all sub-analyses (overrides optional/excluded above)
-# Copy primary + any optional interactions that pass sparsity check here
-# before locking for production run.
+# Default active set for all sub-analyses.
 active_interaction_types:
   - HBDonor
   - HBAcceptor
   - Hydrophobic
   - PiStacking
-  # PiCation: add here after sparsity check
+  - Anionic
+  - Cationic
+  - CationPi
+  - PiCation
+  - VdWContact
 
 # ── Cutoff distances (Å) ──
 # ProLIF defaults; override only if domain-specific tuning is needed.
@@ -40,6 +39,7 @@ cutoffs:
   Hydrophobic: 4.5   # C…C distance
   PiStacking: 5.5    # ring centroid distance
   PiCation:   4.5    # ring centroid to cation
+  # Other interactions use the installed ProLIF defaults.
 
 # ── Molecular selections ──
 # MDAnalysis / ProLIF selection syntax after chain normalization.
@@ -58,12 +58,14 @@ selection:
 
 # ── Feature naming convention ──
 # IFP column labels; must be consistent within and across sub-analyses.
-# Format: {chain}:{resnum}{resname}_{interaction_type}
-# Example: A:1HIS_HBAcceptor
+# Format in the flattened feature vector:
+# {ligand_residue}|{protein_residue}|{interaction_type}
+# Example: NAG4.B|ASN88.A|HBDonor
 feature_naming:
-  format: "{chain}:{resnum}{resname}_{interaction}"
+  format: "{ligand_residue}|{protein_residue}|{interaction}"
   include_chain: true
   include_resname: true
+  include_ligand_residue: true
 
 # ── IFP vectorization ──
 # How to represent the fingerprint for clustering input.

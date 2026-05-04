@@ -19,6 +19,15 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 
+def _geometry_value(metrics: dict[str, Any], *keys: str) -> float | None:
+    """Read the first non-null value from legacy or pose_geometry row keys."""
+    for key in keys:
+        value = metrics.get(key)
+        if value is not None:
+            return value
+    return None
+
+
 @dataclass
 class ClusterSignature:
     """Aggregated signature for a single cluster."""
@@ -86,12 +95,12 @@ def compute_cluster_signatures(
 
         # --- Geometry aggregation ---
         cu_c1_vals = [
-            geometry_metrics[pid].get("min_cu_c1", float("inf"))
+            _geometry_value(geometry_metrics[pid], "min_cu_c1", "Cu_C1_distance",)
             for pid in members
             if pid in geometry_metrics
         ]
         cu_c4_vals = [
-            geometry_metrics[pid].get("min_cu_c4", float("inf"))
+            _geometry_value(geometry_metrics[pid], "min_cu_c4", "Cu_C4_distance",)
             for pid in members
             if pid in geometry_metrics
         ]
@@ -103,13 +112,13 @@ def compute_cluster_signatures(
         ]
 
         if cu_c1_vals:
-            arr = np.array([v for v in cu_c1_vals if v < float("inf")])
+            arr = np.array([v for v in cu_c1_vals if v is not None])
             if len(arr) > 0:
                 sig.mean_cu_c1 = float(np.mean(arr))
                 sig.std_cu_c1 = float(np.std(arr))
 
         if cu_c4_vals:
-            arr = np.array([v for v in cu_c4_vals if v < float("inf")])
+            arr = np.array([v for v in cu_c4_vals if v is not None])
             if len(arr) > 0:
                 sig.mean_cu_c4 = float(np.mean(arr))
                 sig.std_cu_c4 = float(np.std(arr))

@@ -12,6 +12,7 @@ import json
 import sys
 from pathlib import Path
 
+from lpmo_pipeline.analysis.analysis_orchestrator import run_analysis_core
 from lpmo_pipeline.io.discovery import discover_work_root
 from lpmo_pipeline.tuning.tune_orchestrator import run_tuning
 from lpmo_pipeline.utils.manifest import ManifestBuilder, ToolVersionFetcher
@@ -168,21 +169,44 @@ def cmd_run(args):
     tuning_ref = config.get("tuning_reference")
     if tuning_ref:
         manifest_builder.set_tuning_reference(tuning_ref)
-    
-    print("[RUN] Production mode (implementation placeholder)")
-    print("  Steps: ingest -> normalize -> glycan_prep -> placer -> pre_qc_proximity -> qc -> analysis -> reporting")
-    
-    # Write manifest
+
     manifest_builder.record_gate("production_pipeline_started", True)
     manifest_path = args.output / "run_manifest.json"
-    manifest_builder.write(manifest_path)
-    
-    print(f"[RUN] Manifest written to {manifest_path}")
-    
-    # TODO: Implement full pipeline orchestration
-    print("[RUN] (Full implementation pending)")
-    
-    return 0
+
+    try:
+        result = run_analysis_core(config=config, output_dir=args.output, del_variant=args.del_branch)
+        manifest_builder.record_gate("analysis_core_completed", result.success)
+        manifest_builder.record_gate("hard_qc_completed", result.qc_report_path is not None)
+        manifest_builder.record_gate(
+            "geometry_stage_completed",
+            result.pose_geometry_tsv_path is not None,
+        )
+        manifest_builder.write(manifest_path)
+
+        if not result.success:
+            print("[ERROR] Production analysis finished without any prepared poses", file=sys.stderr)
+            return 1
+
+        print("[RUN] Analysis core completed")
+        if result.qc_report_path is not None:
+            print(f"  QC report: {result.qc_report_path}")
+        if result.pose_geometry_tsv_path is not None:
+            print(f"  Pose geometry: {result.pose_geometry_tsv_path}")
+        if result.metrics_csv_path is not None:
+            print(f"  Metrics CSV: {result.metrics_csv_path}")
+        if result.summary_json_path is not None:
+            print(f"  Summary JSON: {result.summary_json_path}")
+        if result.report_html_path is not None:
+            print(f"  HTML report: {result.report_html_path}")
+        print(f"  Run summary: {result.summary_path}")
+        print(f"  Manifest: {manifest_path}")
+        return 0
+
+    except Exception as e:
+        print(f"[ERROR] Production run failed: {e}", file=sys.stderr)
+        manifest_builder.record_gate("analysis_core_completed", False)
+        manifest_builder.write(manifest_path)
+        return 1
 
 
 def cmd_discover(args):

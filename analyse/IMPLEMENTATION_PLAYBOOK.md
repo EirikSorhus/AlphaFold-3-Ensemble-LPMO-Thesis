@@ -35,17 +35,17 @@ Forutsetninger (oppdatert 21.04.2026):
 | 5–6 | `mapping/` | ✅ Verifisert via test_mapping_contracts.sh. Coverage=100%, round-trip rename validert |
 | 7 | `io/protonate_export.py` | ✅ Verifisert 2026-04-23. PDBFixer/OpenMM primær-backend, ingen stille kopi-fallback. Name-based glycan-linking (C1→O4 for NAG/BGC/GLC) før protonering, og eksplisitt CONECT rewrite for komplett ligand-konnektivitet i `complex_H.pdb`. Verifisert via sbatch (572928, 572982, 572996, 573050). |
 | 7b | `io/cif_to_pdb.py` | ✅ Verifisert 2026-04-23. PDBFixer-backend er primær (AF3-riktig), gemmi fallback med `backend_fallback_reason`. Verifisert via test_protonation_contracts.sh (backend=pdbfixer). |
-| 8 | `qc/active_site_proximity.py` | ⚠️ Integrert i `hard_qc_orchestrator.py` og targeted tester passer (2026-04-23), men ikke testet på ekte data |
+| 8 | `qc/active_site_proximity.py` | ⚠️ Integrert og real-data-verifisert i hard-QC/analysis-core (2026-05-03), men endelig pose-manifestflate for metrikker fra droppede poser er fortsatt uavklart |
 | 9–12 | `qc/` (PoseBusters, Privateer, Cu-His, QC report) | ✅ Reell 3-pose hard-QC-kjøring er verifisert 2026-05-03 via `tests/run_tests_scripts/test_hard_qc_real_cifs.sh` (jobb 612234, run `hard_qc_real_cifs_612234`). PoseBusters auto-splitter kombinerte AF3 protein+glykan-input til ligand+protein og kjører i `dock`-modus. Resultat: 1 pass, 1 soft_flag, 1 hard_fail; eneste gjenstående PB-hardfail er `minimum_distance_to_protein`, og samme STA4-case har fortsatt en reell Privateer anomer-feil. |
-| 13 | `analysis/prolif_ifp.py` + `pose_ifp_table.tsv` | ⚠️ Kode finnes, ikke verifisert på ekte data |
+| 13 | `analysis/prolif_ifp.py` + `pose_ifp_table.tsv` | ✅ Standalone slice verifisert på ekte data 2026-05-04 via `test_prolif_real_cifs.sh` (jobb 617120); produksjonsintegrasjon gjenstår |
 | 13b | `analysis/residue_contact_extraction.py` + `pose_residue_contact_table.tsv` | ❌ Ikke startet (ny i v1.0) |
-| 14 | `analysis/mdanalysis_metrics.py` | ⚠️ Kode finnes, ikke verifisert på ekte data |
+| 14 | `analysis/mdanalysis_metrics.py` | ⚠️ Implementert, koblet inn i analysis-core produksjonssti, og verifisert på ekte data; RMSD-felter og videre geometry-hardening gjenstår |
 | 14b | `analysis/convergence_metrics.py` | ❌ Ikke startet (ny i v1.0) |
-| 15 | `analysis/clustering_hdbscan.py` | ⚠️ Kode finnes, ikke verifisert på ekte data |
+| 15 | `analysis/clustering_hdbscan.py` | ⚠️ Refaktorert 2026-05-04 til AF3-only condition-wise HDBSCAN med eksakte Jaccard-medoider og focused pytest; real-data verifikasjon og produksjonsintegrasjon gjenstår |
 | 16 | `analysis/cluster_signatures.py` | ⚠️ Kode finnes, ikke verifisert på ekte data |
 | 16b | `analysis/residue_importance.py` | ❌ Ikke startet (ny i v1.0) |
 | 17 | `placer/run_placer.py` | ❌ FJERNET — PLACER er fjernet fra analysen (beslutning 2026-04-21) |
-| 18–25 | Analyse, aktivitetsmapping, modeller, rapportering | ⚠️ Delvis påbegynt (flere moduler finnes), ikke ende-til-ende verifisert |
+| 18–25 | Analyse, aktivitetsmapping, modeller, rapportering | ⚠️ Delvis påbegynt. `report/` + `cli.py` analysis-core produksjonssti er verifisert på ekte data (jobb 613251), men ProLIF/clustering/crystal anchoring og senere analyser er ikke ende-til-ende integrert |
 
 ---
 
@@ -53,6 +53,14 @@ Forutsetninger (oppdatert 21.04.2026):
 
 1. ✅ **Installer avhengigheter** — `pip install -e ".[dev]"` fra pyproject.toml.
    Verifiser at gemmi, posebusters, hdbscan, prolif, mdanalysis importeres.
+    Status 2026-05-04: tidlig funksjonell smoke-test er lagt til via
+    `tests/run_tests_scripts/test_analysis_tools_smoke.sh` +
+    `tests/run_tests_scripts/run_analysis_tools_smoke.py`.
+    Denne sjekker i `analyse_env` at:
+    - gemmi, MDAnalysis, ProLIF og HDBSCAN ikke bare importeres, men bestar en liten funksjonell probe
+    - `apptainer` finnes på PATH
+    - PoseBusters SIF finnes og er kjoreklar
+    - Privateer-versjon kan hentes via eksisterende SIF-helper
 
 2. ✅ **`io/mmcif_ingest.py`** — Implementer `ingest()` med ekte gemmi-parsing.
    ⛔ STOPP: Kjør på én AF3-CIF og inspiser resultatet manuelt.
@@ -97,7 +105,8 @@ Forutsetninger (oppdatert 21.04.2026):
 8. **`qc/active_site_proximity.py`** — pre-QC gate (ligand nær aktivt sete).
    Krav: beregn og logg `min_cu_ligand_distance`, `min_cu_c1`, `min_cu_c4` for alle poser.
     Status 2026-04-23: integrert i `hard_qc_orchestrator.py`. Targeted tester bekrefter at poser med stor avstand droppes for PB/Privateer, og at pre-QC-metrikker beholdes i verdict-data.
-    ⛔ STOPP: Verifiser at poser med stor avstand droppes for PB/Privateer, men at metrikker beholdes i pose-nivå tabellene (`pose_manifest.tsv` + `pose_geometry.tsv`).
+    Status 2026-05-03: verifisert på ekte data i den nye analysis-core produksjonsstien via `tests/run_tests_scripts/test_analysis_core_real_cifs.sh` (jobb 613251, run `analysis_core_real_cifs_613251`). I denne kjøringen ble STA4-caset droppet før downstream geometri (`analysis_status = skipped_dropped`), STA6-caset beholdt som `flagged` og analysert videre, og pre-QC-metrikker ble bevart i `qc_report.json` og `analysis_core_summary.json`.
+    ⛔ STOPP: Avklar om `qc_report.json` + `analysis_core_summary.json` er den endelige flaten for metrikker fra droppede poser, eller implementer en eksplisitt `pose_manifest.tsv` som beholder disse uten å slippe droppede poser inn i downstream geometri/IFP.
 
 9. **`qc/posebusters_runner.py`** — PoseBusters-wrapper.
    Kjøres på AF3-poser direkte.
@@ -134,7 +143,24 @@ Forutsetninger (oppdatert 21.04.2026):
 13. **`analysis/prolif_ifp.py`** — IFP-beregning med ProLIF.
     Bruker AF3-poser direkte.
     Output: `pose_ifp_table.tsv` med IFP-vektor, feature-navn og per-type kontakttelling.
-    ⛔ STOPP: Visualiser IFP-matrise for 5 poser.
+        Status 2026-05-04: standalone ProLIF-slice er verifisert på ekte data via
+        `tests/run_tests_scripts/test_prolif_real_cifs.sh` (jobb 617120, run `prolif_real_cifs_617120`).
+        Implementert nå:
+        - `ligand_for_prolif.mol2` lastes residue-aware slik at monosakkarider beholdes
+            som egne ligandresiduer (`NAG1.B`, `GLC2.B`, ...) i stedet for å kollapse til `UNL1`
+        - alle 9 interaksjonstyper eksponert av installert ProLIF-build brukes som
+            låst standardsett (`HBDonor`, `HBAcceptor`, `Hydrophobic`, `PiStacking`,
+            `Anionic`, `Cationic`, `CationPi`, `PiCation`, `VdWContact`)
+        - `ifp_feature_names` skrives som `ligand_residue|protein_residue|interaction`
+        - `pose_ifp_table.tsv` skriver utvidede per-type tellekolonner + `ifp_interaction_counts`
+        - real-run `prolif_real_cifs_617120` ga 3/3 `normalize_ok`, 3/3 `protonate_ok`,
+            3/3 ProLIF `status = ok`, og ingen kollapsede `UNL`-ligandetiketter
+        Gjenstår:
+        - koble samme slice inn i analysis-core / `lpmo-pipeline run`
+        - implementere `pose_residue_contact_table.tsv`
+        - oppdatere downstream signatur/parsing til det nye feature-navneskjemaet
+        ✅ STOPP-PUNKT verifisert 2026-05-04: `pose_ifp_table.tsv` og `ifp_matrix.csv`
+        skrevet med ligand-residue-oppløste features på ekte AF3-data (jobb 617120).
 
 13b. **`analysis/residue_contact_extraction.py`** — Residue-nivå kontakttabell (ny i v1.0).
     Kjøres parallelt med IFP-generering.
@@ -145,7 +171,26 @@ Forutsetninger (oppdatert 21.04.2026):
     ⛔ STOPP: Sjekk at residue-mapping er konsistent med IFP-features.
 
 14. **`analysis/mdanalysis_metrics.py`** — 3D-metrikker per pose → `pose_geometry.tsv`.
-    ⛔ STOPP: Sjekk Cu-C1, Cu-C4, RMSD mot forventa størrelsesorden.
+    Status 2026-05-03: downstream geometri-grenen er nå implementert, koblet inn
+    i analysis-core produksjonsstien og verifisert med focused pytest
+    (`tests/test_mdanalysis_metrics.py`), dedikert real-data-harness
+    (`tests/run_tests_scripts/test_geometry_real_cifs.sh` +
+    `tests/run_tests_scripts/run_geometry_real_cifs.py`), og produksjonsnær
+    real-data smoke run (`tests/run_tests_scripts/test_analysis_core_real_cifs.sh`,
+    jobb 613251, run `analysis_core_real_cifs_613251`).
+    Implementert nå:
+    - `PoseGeometryMetrics.to_row()` + `write_pose_geometry_tsv()` skriver den planlagte `pose_geometry.tsv`-kontrakten.
+    - `qc/custom_geometry_checks.check_geometry()` gjenbrukes for Cu-/His-brace-identifikasjon og `his_brace_angle_deg`.
+    - Downstream `Cu_C1_distance` og `Cu_C4_distance` beregnes deretter pa nytt mot reposisjonert Cu i oxyl-modellen; de kopieres ikke fra hard-QC-feltene `min_cu_c1` / `min_cu_c4`.
+    - `geometry_metrics.json` og `geometry_debug.pdb` finnes bare som test-/debugartefakter for manuell inspeksjon og skal ikke vaere standard output i produksjonspipen.
+    - Virtuell H-plassering inkluderer naa kryss-residue glycosidiske naboer via `structure.connections` / `_struct_conn`, som fikset HC1-feilplasseringen i STA4-debugcaset.
+    - `analysis/analysis_orchestrator.py` + `cli.py` skriver nå `pose_geometry.tsv` i produksjonsoutput for `passed` og `flagged` poser, mens droppede poser stoppes ved analysegrensen.
+    - Den integrerte produksjonsstien skriver ikke `geometry_debug.pdb`.
+    Gjenstar for full ferdigstillelse:
+    - erstatte dagens `_struct_conn`-baserte naboheuristikk med full CCD-topologi for virtuell H-plassering
+    - implementere RMSD-feltene som fortsatt er placeholders
+    - utvide den samme produksjonsstien videre inn i ProLIF/IFP, clustering og crystal anchoring
+    ✅ STOPP-PUNKT verifisert 2026-05-03: integrert analysis-core-kjøring skrev `pose_geometry.tsv` fra analysepipen uten å eksportere `geometry_debug.pdb` i produksjon (jobb 613251).
 
 14b. **`analysis/convergence_metrics.py`** — Konvergensmetrikker per betingelse (ny i v1.0).
     Per pose: `ligand_rmsd_to_reference`, `convergent_flag` (RMSD < 2.0 Å anbefalt).
@@ -155,6 +200,14 @@ Forutsetninger (oppdatert 21.04.2026):
 
 15. **`analysis/clustering_hdbscan.py`** — HDBSCAN med Jaccard-metrikk på IFP-only.
     Kjør innen-modell clustering per (enzym, substrat, DP).
+    Status 2026-05-04: modul refaktorert mot gjeldende AF3-only plan slik at den
+    klynger én protein-ligand-betingelse om gangen, laster HDBSCAN-parametre fra
+    `configs/thresholds.yaml`, handterer degenerert identisk IFP-matrise som én
+    cluster i stedet for falsk all-noise, returnerer all-noise når antall poser er
+    lavere enn `min_cluster_size`, og velger medoid med minimum summert Jaccard-avstand
+    innen cluster. Nye hjelpefunksjoner bygger rå-rader for `cluster_assignments.tsv`,
+    `medoid_manifest.tsv` og `condition_cluster_summary.tsv`. Focused pytest passer,
+    men real-data harness og produksjonskobling gjenstår.
     Test: `pytest tests/test_clustering.py`.
     ⛔ STOPP: Inspiser klynge-output for ≥2 systemer.
 
@@ -193,10 +246,12 @@ Forutsetninger (oppdatert 21.04.2026):
     ⛔ STOPP: Verifiser cluster_signatures/predictive_cluster_table mot skjema.
 
 22. **`report/`** — build_summary_json, build_metrics_csv, build_report_html.
-    Verifiser summary.json mot schema, metrics.csv kolonner, HTML visuelt.
+    Status 2026-05-03: `build_summary_json`, `build_metrics_csv` og `build_report_html` brukes nå fra analysis-core produksjonsstien. Real-data smoke run `analysis_core_real_cifs_613251` skrev `summary.json`, `metrics.csv` og `report.html`; det droppede STA4-caset ble ekskludert fra `metrics.csv`, mens `passed`/`flagged` poser ble beholdt.
+    ⛔ STOPP: Når ProLIF/clustering er koblet inn, verifiser schema og HTML visuelt på nytt med de rikere feltene.
 
 23. **`cli.py`** — Integrer alle steg. Kjør `lpmo-pipeline run --config ...`.
-    ⛔ STOPP: End-to-end test på 1 system (AF3). Sammenlign med forventet output.
+    Status 2026-05-03: `lpmo-pipeline run` er nå koblet til analysis-core produksjonsstien (`analysis/analysis_orchestrator.py`) for discovery → normalize → hard QC → downstream geometri → rapportering. Real-data smoke run via `tests/run_tests_scripts/test_analysis_core_real_cifs.sh` (jobb 613251) staged 3 CIFs gjennom discovery og produserte 1 `pass`, 1 `soft_flag`, 1 `hard_fail`; 2 poser ble analysert videre.
+    ⛔ STOPP: Full end-to-end hovedanalyse gjenstår etter at ProLIF/IFP, clustering og crystal anchoring er integrert.
 
 24. **`tuning/` (valgfritt etteranalyse)** — implementer sweep_runner + tune_orchestrator.
     Kjør sammenlignende tuning etter baseline leveranse, dokumenter eventuell parameteroppdatering.

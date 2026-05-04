@@ -28,3 +28,37 @@ def test_tool_version_fetcher_uses_privateer_sif_helper(monkeypatch) -> None:
 
     assert versions["privateer"] == "MKV"
     assert ["privateer", "-V"] not in seen_commands
+
+
+def test_tool_probe_fetcher_runs_all_analysis_probes(monkeypatch) -> None:
+    from lpmo_pipeline.utils import manifest as mod
+
+    monkeypatch.setattr(mod, "_probe_gemmi", lambda: "ok")
+    monkeypatch.setattr(mod, "_probe_mdanalysis", lambda: "ok")
+    monkeypatch.setattr(mod, "_probe_prolif", lambda: "ok")
+    monkeypatch.setattr(mod, "_probe_hdbscan", lambda: "ok")
+
+    statuses = ToolVersionFetcher.get_analysis_dependency_statuses()
+
+    assert statuses == {
+        "gemmi": "ok",
+        "mdanalysis": "ok",
+        "prolif": "ok",
+        "hdbscan": "ok",
+    }
+
+
+def test_tool_probe_fetcher_keeps_probe_failure_details(monkeypatch) -> None:
+    from lpmo_pipeline.utils import manifest as mod
+
+    monkeypatch.setattr(mod, "_probe_gemmi", lambda: "missing_required_api")
+    monkeypatch.setattr(mod, "_probe_mdanalysis", lambda: "ValueError: broken wheel")
+    monkeypatch.setattr(mod, "_probe_prolif", lambda: "ok")
+    monkeypatch.setattr(mod, "_probe_hdbscan", lambda: "RuntimeError: probe failed")
+
+    statuses = ToolVersionFetcher.get_analysis_dependency_statuses()
+
+    assert statuses["gemmi"] == "missing_required_api"
+    assert statuses["mdanalysis"] == "ValueError: broken wheel"
+    assert statuses["prolif"] == "ok"
+    assert statuses["hdbscan"] == "RuntimeError: probe failed"

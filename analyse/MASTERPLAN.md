@@ -120,8 +120,9 @@ Implementation order follows `IMPLEMENTATION_PLAYBOOK.md`.
 ### Stage 3 - IFP Generation (was Step 4 / Branch A)
 - Use AF3 structures as-is. Do NOT reposition Cu. Do NOT add virtual oxyl/H.
 - Generate binary ProLIF vectors with fixed interaction types per sub-analysis.
-- Recommended interaction types: HBond donor, HBond acceptor, hydrophobic, aromatic/stacking, cation-pi (only if not too sparse).
-- Generate `pose_ifp_table.tsv` and `pose_residue_contact_table.tsv` in parallel.
+- Current validated standalone default uses all 9 interactions in `configs/prolif_features.yaml`: `HBDonor`, `HBAcceptor`, `Hydrophobic`, `PiStacking`, `Anionic`, `Cationic`, `CationPi`, `PiCation`, `VdWContact`. Any later pruning for sparsity must be a locked config decision per sub-analysis.
+- Ligand handling must keep each monosaccharide as a separate ligand residue in the feature space. Current flattened feature naming contract: `ligand_residue|protein_residue|interaction`.
+- `pose_ifp_table.tsv` is currently validated on real data as a standalone slice; `pose_residue_contact_table.tsv` remains planned and should reuse the same ligand-resolved residue labels.
 
 ### Stage 4 - Geometry Branch (was Step 5 / Branch B)
 - Identify histidine-brace atoms, build brace plane.

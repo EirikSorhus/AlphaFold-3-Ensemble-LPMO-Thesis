@@ -17,6 +17,15 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
+def _geometry_value(metrics: dict[str, Any], *keys: str) -> float | None:
+    """Read the first non-null geometry value across legacy and new keys."""
+    for key in keys:
+        value = metrics.get(key)
+        if value is not None:
+            return value
+    return None
+
+
 def build_summary(
     run_id: str,
     mode: str,
@@ -27,6 +36,7 @@ def build_summary(
     crystal_reports: list[dict[str, Any]] | None = None,
     tuning_summary: dict[str, Any] | None = None,
     activity_features: list[dict[str, Any]] | None = None,
+    pipeline_version: str = "",
 ) -> dict[str, Any]:
     """Build the unified summary.json.
 
@@ -54,13 +64,12 @@ def build_summary(
     n_models = len(set(
         r.get("model", "") for g in geometry_stats for r in [g]
     ))
-    n_total_poses = len(geometry_stats)
-
     # --- QC stats ---
     total_qc = sum(q.get("total", 0) for q in qc_reports)
     total_passed = sum(q.get("passed", 0) for q in qc_reports)
     total_flagged = sum(q.get("flagged", 0) for q in qc_reports)
     total_dropped = sum(q.get("dropped", 0) for q in qc_reports)
+    n_total_poses = max(len(geometry_stats), total_qc)
 
     # --- Cluster stats ---
     all_n_clusters = [c.get("n_clusters", 0) for c in cluster_results]
@@ -72,17 +81,24 @@ def build_summary(
 
     # --- Geometry stats ---
     cu_c1_vals = [
-        g.get("min_cu_c1", float("inf"))
-        for g in geometry_stats
-        if g.get("min_cu_c1", float("inf")) < float("inf")
+        value
+        for value in (
+            _geometry_value(g, "min_cu_c1", "Cu_C1_distance")
+            for g in geometry_stats
+        )
+        if value is not None and value < float("inf")
     ]
     cu_c4_vals = [
-        g.get("min_cu_c4", float("inf"))
-        for g in geometry_stats
-        if g.get("min_cu_c4", float("inf")) < float("inf")
+        value
+        for value in (
+            _geometry_value(g, "min_cu_c4", "Cu_C4_distance")
+            for g in geometry_stats
+        )
+        if value is not None and value < float("inf")
     ]
 
     summary: dict[str, Any] = {
+        "pipeline_version": pipeline_version,
         "run_id": run_id,
         "timestamp": datetime.utcnow().isoformat() + "Z",
         "mode": mode,
@@ -92,6 +108,8 @@ def build_summary(
             "n_ligands": n_ligands,
             "n_models": n_models,
             "n_total_poses": n_total_poses,
+            "n_passed_qc": total_passed,
+            "n_dropped": total_dropped,
         },
         "qc_stats": {
             "total_poses_qc": total_qc,

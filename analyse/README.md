@@ -17,8 +17,18 @@ Current implementation status: steps 1-7b are verified. Stage 8 pre-QC
 active-site proximity is now wired into hard QC, and targeted QC tests pass
 in the existing `analyse_env` environment. Stage 10 Privateer wrapper parsing
 and integration scaffolding are implemented and unit-tested. Stage 12 now has
-schema-backed QC report tests passing on synthetic three-pose batches.
-Real-data QC verification for stages 8-12 is still pending.
+schema-backed QC report tests passing on synthetic three-pose batches. Stages
+8-12 hard QC are now also verified on real AF3 data via
+`tests/run_tests_scripts/test_hard_qc_real_cifs.sh` (job 612234). Stage 14
+downstream geometry is implemented, wired into the current production
+analysis-core slice, and verified on real AF3 data via
+`tests/run_tests_scripts/test_analysis_core_real_cifs.sh` (job 613251). Stage 13
+ProLIF/IFP is now verified as a standalone real-data slice via
+`tests/run_tests_scripts/test_prolif_real_cifs.sh` (job 617120); that slice
+preserves ligand monosaccharides as separate residues in the ProLIF feature
+space and writes the expanded nine-interaction count fields. The current
+production `run` path still stops before ProLIF/IFP generation,
+clustering, and crystal anchoring.
 
 **⚠️ Known open conflict: see [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md) item 11 (geometric planarity thresholds not yet operationalized).**
 
@@ -41,17 +51,58 @@ See [MASTERPLAN.md](MASTERPLAN.md) for full integrated specification.
 # Install
 pip install -e ".[dev]"
 
-# Production mode (run full pipeline)
-lpmo-pipeline run --config configs/defaults.yaml --systems-csv systems.csv
+# Production mode (current analysis-core slice: QC + geometry + reports)
+lpmo-pipeline run \
+  --mode production \
+  --config configs/production.analysis_core.example.yaml \
+  --output results/del_a \
+  --del del_a
 
 # Optional post-analysis tuning (comparative reruns)
-lpmo-pipeline tune --config configs/tuning_af3.yaml
+lpmo-pipeline tune \
+  --model AF3 \
+  --config configs/tuning_af3.yaml \
+  --output results/tuning_af3
+
+# Real-data smoke test for the current production entry path
+sbatch tests/run_tests_scripts/test_analysis_core_real_cifs.sh
+
+# Standalone real-data ProLIF validation
+sbatch tests/run_tests_scripts/test_prolif_real_cifs.sh
 
 # EC metadata -> activity labels (R helper script)
 Rscript scripts/ec_activity_mapping.R \
   --input metadata/enzyme_metadata.csv \
   --output results/activity_mapping.tsv
 ```
+
+## Production Config
+
+The current production entry path is the analysis-core slice. It runs discovery,
+normalization, hard QC, downstream geometry, and report generation. It stops
+before ProLIF/IFP generation, clustering, and crystal anchoring.
+
+Verified 2026-05-03 on 3 staged real AF3 CIFs (`analysis_core_real_cifs_613251`):
+1 `pass`, 1 `soft_flag`, 1 `hard_fail`; 2 poses were analyzed downstream, and
+no production `geometry_debug.pdb` files were written.
+
+Use [configs/production.analysis_core.example.yaml](configs/production.analysis_core.example.yaml)
+as the starting point.
+
+Current keys:
+
+- `production.work_root`: absolute path to the `structure_pipeline/work` directory
+- `production.run_id`: optional identifier written into the production outputs
+- `production.af3_only`: limit discovery to AF3 runs
+- `production.latest_only`: prefer the `latest` symlink under each target/model
+- `production.max_cases`: optional cap for smaller validation runs
+- `production.include_targets`: optional target whitelist such as `NAG4`, `STA4`, `STA6`
+
+Notes:
+
+- The output directory is still controlled by the CLI `--output` argument, not the YAML file.
+- The DEL branch is still controlled by the CLI `--del` argument.
+- Production output must not contain `geometry_debug.pdb`; that file remains test-only.
 
 ## Project Structure
 

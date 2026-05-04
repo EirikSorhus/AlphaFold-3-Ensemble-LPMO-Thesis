@@ -1,54 +1,134 @@
-# tests/test_clustering.py
-"""
-Tests for HDBSCAN clustering module.
-Verifies param locking and basic clustering behavior.
-"""
 from __future__ import annotations
+
+from pathlib import Path
 
 import numpy as np
 import pytest
 
-
-class TestHDBSCANParamLocking:
-    """INVARIANT: HDBSCAN params locked after tuning."""
-
-    def test_config_from_yaml(self) -> None:
-        """Config should load min_cluster_size from locked tuning output."""
-        # PSEUDOCODE: load configs/defaults.yaml → hdbscan section
-        # from lpmo_pipeline.analysis.clustering_hdbscan import HDBSCANConfig
-        # config = HDBSCANConfig(min_cluster_size=5, metric="jaccard")
-        # assert config.min_cluster_size == 5
-        # assert config.metric == "jaccard"
-        pass
-
-    def test_production_does_not_change_params(self) -> None:
-        """In production mode, HDBSCAN params must not be re-tuned."""
-        # This is enforced architecturally:
-        # - tune_orchestrator writes locked config
-        # - production reads locked config
-        # - no parameter search code in production path
-        pass
+from lpmo_pipeline.analysis.clustering_hdbscan import (
+    HDBANSCANClusterer,
+    HDBSCANClusterer,
+    build_cluster_assignment_rows,
+    build_condition_cluster_summary,
+    load_hdbscan_config,
+)
 
 
-class TestClusteringBasic:
-    """Basic clustering behavior tests."""
+def test_config_from_yaml() -> None:
+    config = load_hdbscan_config()
 
-    def test_single_cluster_from_identical_vectors(self) -> None:
-        """Identical IFP vectors → 1 cluster, 0 outliers."""
-        # PSEUDOCODE: feed HDBSCAN 20 identical binary vectors
-        # matrix = np.ones((20, 50), dtype=int)
-        # from lpmo_pipeline.analysis.clustering_hdbscan import HDBANSCANClusterer
-        # clusterer = HDBANSCANClusterer(min_cluster_size=5)
-        # result = clusterer.cluster(matrix, [f"p{i}" for i in range(20)])
-        # assert result.n_clusters == 1
-        # assert result.n_outliers == 0
-        pass
+    assert config.min_cluster_size == 10
+    assert config.min_samples is None
+    assert config.metric == "jaccard"
+    assert config.cluster_selection_method == "eom"
+    assert config.locked is False
 
-    def test_outliers_labeled_minus_one(self) -> None:
-        """Noise points should get label -1."""
-        # PSEUDOCODE: feed mix of tight cluster + random noise
-        pass
 
-    def test_too_few_poses_returns_single_cluster(self) -> None:
-        """If n_poses < min_cluster_size, should handle gracefully."""
-        pass
+def test_production_clusterer_uses_loaded_config_without_mutation() -> None:
+    config = load_hdbscan_config()
+    clusterer = HDBSCANClusterer(config=config, output_dir=Path("."))
+
+    result = clusterer.cluster(np.zeros((2, 4), dtype=np.uint8), ["p0", "p1"])
+
+    assert clusterer.config == config
+    assert result.n_clusters == 0
+    assert result.n_outliers == 2
+    assert HDBANSCANClusterer is HDBSCANClusterer
+
+
+def test_single_cluster_from_identical_vectors() -> None:
+    matrix = np.ones((20, 50), dtype=np.uint8)
+    pose_ids = [f"p{i}" for i in range(20)]
+
+    clusterer = HDBSCANClusterer(min_cluster_size=5, min_samples=1)
+    result = clusterer.cluster(matrix, pose_ids)
+
+    assert result.n_clusters == 1
+    assert result.n_outliers == 0
+    assert result.cluster_labels.tolist() == [0] * 20
+    assert result.cluster_sizes == {0: 20}
+    assert result.medoids == {0: 0}
+
+
+def test_outliers_labeled_minus_one() -> None:
+    matrix = np.array(
+        [
+            [1, 1, 0, 0],
+            [1, 1, 0, 0],
+            [1, 1, 0, 0],
+            [0, 0, 1, 1],
+            [0, 0, 1, 1],
+            [0, 0, 1, 1],
+            [0, 0, 0, 0],
+        ],
+        dtype=np.uint8,
+    )
+    pose_ids = [f"p{i}" for i in range(len(matrix))]
+
+    clusterer = HDBSCANClusterer(min_cluster_size=3, min_samples=1)
+    result = clusterer.cluster(matrix, pose_ids)
+    distance_matrix = clusterer.compute_jaccard_distances(matrix)
+    rows = build_cluster_assignment_rows(
+        "P1__domain_only__chitin_DP4",
+        pose_ids,
+        result.cluster_labels,
+        distance_matrix=distance_matrix,
+        medoids=result.medoids,
+    )
+    summary = build_condition_cluster_summary(
+        "P1__domain_only__chitin_DP4",
+        result,
+        n_qc_pass_poses=9,
+    )
+
+    assert result.n_clusters == 2
+    assert result.n_outliers == 1
+    assert sorted(result.cluster_sizes.values()) == [3, 3]
+    assert result.cluster_labels[-1] == -1
+    assert rows[-1]["noise_flag"] is True
+    assert rows[-1]["cluster_member_flag"] is False
+    assert rows[-1]["distance_to_cluster_representative"] is None
+    assert summary.n_ifp_clustered == 7
+    assert summary.n_noise == 1
+    assert summary.top_cluster_occupancy == pytest.approx(0.5)
+    assert summary.cluster_entropy == pytest.approx(1.0)
+    assert summary.occupancy_gini == pytest.approx(0.0)
+
+
+def test_too_few_poses_returns_all_noise() -> None:
+    matrix = np.array(
+        [
+            [1, 0, 0, 0],
+            [0, 1, 0, 0],
+        ],
+        dtype=np.uint8,
+    )
+
+    clusterer = HDBSCANClusterer(min_cluster_size=3, min_samples=1)
+    result = clusterer.cluster(matrix, ["p0", "p1"])
+
+    assert result.n_clusters == 0
+    assert result.n_outliers == 2
+    assert result.cluster_labels.tolist() == [-1, -1]
+    assert result.medoids == {}
+
+
+def test_select_medoids_uses_minimum_summed_jaccard_distance() -> None:
+    matrix = np.array(
+        [
+            [1, 1, 0, 0],
+            [1, 1, 0, 1],
+            [1, 1, 1, 1],
+        ],
+        dtype=np.uint8,
+    )
+    labels = np.array([0, 0, 0], dtype=int)
+    clusterer = HDBSCANClusterer(min_cluster_size=2, min_samples=1)
+
+    medoids, medoid_distance_sums = clusterer.select_medoids(
+        clusterer.compute_jaccard_distances(matrix),
+        labels,
+    )
+
+    assert medoids == {0: 1}
+    assert medoid_distance_sums[0] == pytest.approx((1.0 / 3.0) + (1.0 / 4.0))

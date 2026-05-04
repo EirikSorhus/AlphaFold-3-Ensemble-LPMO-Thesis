@@ -219,11 +219,63 @@ Severity policy for PoseBusters fail codes is still open; see
 **Description:**
 Hard QC now drops poses from downstream analysis while preserving all computed metrics and QC artifacts. Soft failures remain analyzable and should only be flagged. This contract is implemented in the QC orchestration/reporting path, but downstream consumers outside the QC module have not yet been re-audited against the updated behavior.
 
+Update 2026-05-03:
+The current analysis-core production slice has now been checked at the actual QC → downstream-analysis boundary via `tests/run_tests_scripts/test_analysis_core_real_cifs.sh` (job 613251, run `analysis_core_real_cifs_613251`). In that run:
+- the dropped STA4 pose was excluded from downstream geometry (`analysis_status = skipped_dropped`)
+- the soft-flagged STA6 pose remained analyzable and was kept in downstream outputs
+- the passed NAG4 pose remained analyzable as expected
+- `metrics.csv`, `summary.json`, and `report.html` reflected the same pass/flag/drop split
+
+The remaining gap is that dropped-pose numeric metrics currently persist in `qc_report.json` and `analysis_core_summary.json`; there is still no dedicated pose-manifest table surface for later reporting.
+
 **Proposed solution:**
-1. Trace each consumer of `qc_report.json`, pose summary tables, and later-stage analysis inputs.
-2. Verify dropped poses are excluded only at the downstream-analysis boundary, not earlier when artifacts are generated.
-3. Verify soft-flagged poses remain included and visibly marked.
-4. Add one integration-level check at the final filtering boundary once the consuming surface is identified.
+1. Decide whether `qc_report.json` + `analysis_core_summary.json` are the intended persistent surfaces for dropped-pose metrics.
+2. If not, implement an explicit `pose_manifest.tsv` that retains these metrics without re-admitting dropped poses to downstream analysis.
+3. Recheck the same contract again once ProLIF/IFP and clustering are integrated.
+
+---
+
+### P8e — Downstream geometry analysis branch implemented and real-data checked (RESOLVED 2026-05-03)
+
+**Priority:** RESOLVED
+
+**Description:**
+Step 14 is no longer just a stub. `analysis/mdanalysis_metrics.py` now produces the
+planned `pose_geometry.tsv` row contract and has been validated in focused tests plus
+a dedicated real-CIF harness.
+
+Implemented and verified points:
+- `PoseGeometryMetrics.to_row()` and `write_pose_geometry_tsv()` now emit the planned row contract.
+- The module reuses `qc/custom_geometry_checks.check_geometry()` only for Cu / His-brace identification and `his_brace_angle_deg` context.
+- Downstream `Cu_C1_distance` and `Cu_C4_distance` are recalculated against the repositioned Cu used by the oxyl model; they are not copied from hard-QC `min_cu_c1` / `min_cu_c4`.
+- `tests/run_tests_scripts/test_geometry_real_cifs.sh` and `tests/run_tests_scripts/run_geometry_real_cifs.py` now validate the branch on real normalized AF3 CIFs and write `pose_geometry.tsv`.
+- `analysis/analysis_orchestrator.py` and `lpmo-pipeline run` now write `pose_geometry.tsv` from the current production analysis-core slice for `passed` and `flagged` poses.
+- `geometry_debug.pdb` and `geometry_metrics.json` are explicitly test-only debug artifacts for manual inspection and are not intended as production pipeline outputs.
+- The HC1 misplacement seen in the STA4 debug export was fixed by including cross-residue glycosidic neighbors from `structure.connections` / `_struct_conn` during virtual-H placement.
+
+**Remaining action:**
+Extend the current production analysis-core slice forward into ProLIF/IFP, clustering, and RMSD-backed fields while keeping debug PDB export behind test/debug-only entry points.
+
+---
+
+### P8f — Analysis-core production orchestration wired and real-data checked (RESOLVED 2026-05-03)
+
+**Priority:** RESOLVED
+
+**Description:**
+The production `run` entry path is no longer just a placeholder. The current production slice now covers discovery, normalization, hard QC, downstream geometry, and report generation.
+
+Implemented and verified points:
+- `analysis/analysis_orchestrator.py` now provides a real production control path up to downstream geometry.
+- `cli.py` now routes `lpmo-pipeline run` into that analysis-core orchestrator instead of the old placeholder path.
+- `configs/production.analysis_core.example.yaml` now documents the current production config surface.
+- `tests/run_tests_scripts/run_analysis_core_real_cifs.py` and `tests/run_tests_scripts/test_analysis_core_real_cifs.sh` now exercise the real production CLI path on staged real AF3 CIFs.
+- real-data smoke run `analysis_core_real_cifs_613251` (job 613251) staged 3 CIFs and produced `qc_report.json`, `pose_geometry.tsv`, `metrics.csv`, `summary.json`, `report.html`, and `run_manifest.json`.
+- the smoke-run outcome was 1 `pass`, 1 `soft_flag`, 1 `hard_fail`; 2 poses were analyzed downstream.
+- no production `geometry_debug.pdb` files were written in that run.
+
+**Remaining action:**
+Keep extending the same production path forward into ProLIF/IFP, clustering, crystal anchoring, and later analysis stages instead of creating separate side paths.
 
 ---
 

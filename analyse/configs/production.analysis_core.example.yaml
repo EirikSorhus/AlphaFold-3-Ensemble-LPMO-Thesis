@@ -1,0 +1,33 @@
+# Example production config for the current analysis-core slice.
+#
+# Current scope:
+# - discovery from structure_pipeline work/
+# - normalization
+# - hard QC
+# - downstream geometry -> pose_geometry.tsv
+# - metrics.csv / summary.json / report.html
+#
+# Not yet included in this production slice:
+# - ProLIF IFP generation
+# - clustering
+# - crystal anchoring
+
+pipeline_version: "2.1"
+
+production:
+  # Absolute path to the structure_pipeline work/ directory.
+  work_root: "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work"
+
+  # Optional identifier written into the generated artifacts.
+  run_id: "analysis_core_example"
+
+  # Discovery controls.
+  af3_only: true
+  latest_only: true
+
+  # Optional limits for smaller validation runs.
+  max_cases: 3
+  include_targets:
+    - NAG4
+    - STA4
+    - STA6

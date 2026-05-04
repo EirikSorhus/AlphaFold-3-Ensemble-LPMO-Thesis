@@ -1,24 +1,25 @@
-"""
-LPMO Pipeline: Clustering with HDBSCAN
-Responsibility: Cluster poses by IFP similarity, identify binding modes
+"""LPMO Pipeline: AF3-only clustering with HDBSCAN.
 
-Step 8 contract:
-  Input: ifp_matrix.csv (all poses, single protein×ligand×model)
-  Output: clusters.json (cluster assignments + medoids)
-  
-  Procedure:
-    1. Phase 1: HDBSCAN within single run (compress noise)
-    2. Phase 2: HDBSCAN cross-run per protein×ligand (aggregate medoid IFPs)
-  
-  HDBSCAN params LOCKED post-tuning (anti p-hack):
-    - min_cluster_size: determined from tuning
-    - metric: 'jaccard' (for binary IFP)
+Responsibility: cluster one protein-ligand condition at a time from a binary
+ProLIF IFP matrix, then build the raw Stage 6 clustering outputs.
+
+Stage 6 contract:
+  Input: binary IFP matrix for one protein-ligand condition
+  Output: cluster assignments, medoids, and condition summary
+
+Implementation notes:
+  - The governing AF3-only plan removed the old within-model/cross-model split.
+  - Clustering uses precomputed Jaccard distance on binary IFP vectors.
+  - Medoids are chosen by minimum summed Jaccard distance within each cluster.
 """
 
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+import math
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
-import json
-from dataclasses import dataclass, asdict
+from typing import Any
+
 import numpy as np
 
 try:
@@ -27,232 +28,402 @@ except ImportError:
     hdbscan = None
 
 from lpmo_pipeline.utils.logging import StructuredLogger
-from lpmo_pipeline.utils.data_models import ClusterSignature
+
+
+_THRESHOLDS_PATH = Path(__file__).resolve().parents[3] / "configs" / "thresholds.yaml"
+
+
+@dataclass(frozen=True)
+class HDBSCANConfig:
+    """Condition-wise HDBSCAN settings loaded from thresholds.yaml."""
+
+    min_cluster_size: int
+    min_samples: int | None = None
+    metric: str = "jaccard"
+    cluster_selection_epsilon: float = 0.0
+    cluster_selection_method: str = "eom"
+    locked: bool = False
 
 
 @dataclass
 class ClusteringResult:
-    """Outcome of clustering procedure."""
+    """Outcome of one condition-wise clustering procedure."""
+
     n_clusters: int
     n_outliers: int
     outlier_rate: float
-    cluster_sizes: Dict[int, int]  # cluster_id → n_poses
-    cluster_occupancy: Dict[int, float]  # cluster_id → fraction of total
-    outlier_indices: List[int]
-    cluster_labels: np.ndarray  # labels for all poses (-1 for outliers)
+    cluster_sizes: dict[int, int]
+    cluster_occupancy: dict[int, float]
+    outlier_indices: list[int]
+    cluster_labels: np.ndarray
+    medoids: dict[int, int] = field(default_factory=dict)
+    medoid_distance_sums: dict[int, float] = field(default_factory=dict)
 
 
-class HDBANSCANClusterer:
-    """Cluster poses by IFP similarity (binary Jaccard distance)."""
-    
-    def __init__(self, min_cluster_size: int, metric: str = "jaccard", output_dir: Optional[Path] = None):
-        """
-        Args:
-            min_cluster_size: minimum cluster size (locked from tuning)
-            metric: distance metric ('jaccard' for binary IFP)
-            output_dir: for logging
-        """
-        self.min_cluster_size = min_cluster_size
-        self.metric = metric
+@dataclass(frozen=True)
+class ConditionClusterSummary:
+    """Condition-level summary row for Stage 6 outputs."""
+
+    condition_id: str
+    n_qc_pass_poses: int
+    n_ifp_clustered: int
+    n_noise: int
+    noise_fraction: float
+    n_clusters: int
+    top_cluster_occupancy: float
+    cluster_entropy: float
+    occupancy_gini: float
+
+    def to_row(self) -> dict[str, Any]:
+        return {
+            "condition_id": self.condition_id,
+            "n_qc_pass_poses": self.n_qc_pass_poses,
+            "n_ifp_clustered": self.n_ifp_clustered,
+            "n_noise": self.n_noise,
+            "noise_fraction": self.noise_fraction,
+            "n_clusters": self.n_clusters,
+            "top_cluster_occupancy": self.top_cluster_occupancy,
+            "cluster_entropy": self.cluster_entropy,
+            "occupancy_gini": self.occupancy_gini,
+        }
+
+
+def load_hdbscan_config(config_path: Path | None = None) -> HDBSCANConfig:
+    """Load the locked HDBSCAN settings from thresholds.yaml."""
+    import yaml
+
+    path = config_path or _THRESHOLDS_PATH
+    raw_config = yaml.safe_load(path.read_text()) or {}
+    hdbscan_config = raw_config.get("hdbscan") or {}
+    clustering_config = raw_config.get("clustering") or {}
+
+    min_samples_raw = hdbscan_config.get("min_samples", clustering_config.get("min_samples"))
+    min_samples = None if min_samples_raw in {None, "", "null"} else int(min_samples_raw)
+
+    return HDBSCANConfig(
+        min_cluster_size=int(
+            hdbscan_config.get("min_cluster_size", clustering_config.get("min_cluster_size", 3))
+        ),
+        min_samples=min_samples,
+        metric=str(hdbscan_config.get("metric") or clustering_config.get("distance_metric") or "jaccard"),
+        cluster_selection_epsilon=float(hdbscan_config.get("cluster_selection_epsilon", 0.0)),
+        cluster_selection_method=str(hdbscan_config.get("cluster_selection_method", "eom")),
+        locked=bool(hdbscan_config.get("locked", False)),
+    )
+
+
+def build_cluster_assignment_rows(
+    condition_id: str,
+    pose_ids: list[str],
+    labels: np.ndarray,
+    *,
+    distance_matrix: np.ndarray | None = None,
+    medoids: dict[int, int] | None = None,
+) -> list[dict[str, Any]]:
+    """Build the raw cluster_assignments.tsv rows for one condition."""
+    if len(pose_ids) != len(labels):
+        raise ValueError("pose_ids and labels must have the same length")
+
+    rows: list[dict[str, Any]] = []
+    for index, (pose_id, label) in enumerate(zip(pose_ids, labels, strict=True)):
+        cluster_id = int(label)
+        distance_to_representative: float | None = None
+        if (
+            cluster_id != -1
+            and distance_matrix is not None
+            and medoids is not None
+            and cluster_id in medoids
+        ):
+            distance_to_representative = float(distance_matrix[index, medoids[cluster_id]])
+
+        rows.append(
+            {
+                "pose_id": pose_id,
+                "condition_id": condition_id,
+                "cluster_id": cluster_id,
+                "cluster_member_flag": cluster_id != -1,
+                "noise_flag": cluster_id == -1,
+                "distance_to_cluster_representative": distance_to_representative,
+            }
+        )
+    return rows
+
+
+def build_medoid_rows(
+    condition_id: str,
+    pose_ids: list[str],
+    medoids: dict[int, int],
+    medoid_distance_sums: dict[int, float],
+    *,
+    structure_paths: dict[str, str] | None = None,
+) -> list[dict[str, Any]]:
+    """Build the raw medoid_manifest.tsv rows for one condition."""
+    rows: list[dict[str, Any]] = []
+    structure_paths = structure_paths or {}
+    for cluster_id, medoid_index in sorted(medoids.items()):
+        medoid_pose_id = pose_ids[medoid_index]
+        rows.append(
+            {
+                "condition_id": condition_id,
+                "cluster_id": cluster_id,
+                "medoid_pose_id": medoid_pose_id,
+                "medoid_structure_path": structure_paths.get(medoid_pose_id, ""),
+                "medoid_ifp_distance_sum": float(medoid_distance_sums.get(cluster_id, 0.0)),
+            }
+        )
+    return rows
+
+
+def build_condition_cluster_summary(
+    condition_id: str,
+    clustering_result: ClusteringResult,
+    *,
+    n_qc_pass_poses: int,
+) -> ConditionClusterSummary:
+    """Build the Stage 6 condition summary row.
+
+    The cluster occupancy distribution for entropy and Gini is normalized over
+    non-noise cluster members. Noise is reported separately via `n_noise` and
+    `noise_fraction`.
+    """
+    non_noise_sizes = list(clustering_result.cluster_sizes.values())
+    if non_noise_sizes:
+        size_array = np.asarray(non_noise_sizes, dtype=float)
+        probabilities = size_array / np.sum(size_array)
+        top_cluster_occupancy = float(np.max(probabilities))
+        cluster_entropy = float(
+            -sum(probability * math.log2(probability) for probability in probabilities if probability > 0)
+        )
+        occupancy_gini = _gini(size_array)
+    else:
+        top_cluster_occupancy = 0.0
+        cluster_entropy = 0.0
+        occupancy_gini = 0.0
+
+    return ConditionClusterSummary(
+        condition_id=condition_id,
+        n_qc_pass_poses=n_qc_pass_poses,
+        n_ifp_clustered=len(clustering_result.cluster_labels),
+        n_noise=clustering_result.n_outliers,
+        noise_fraction=clustering_result.outlier_rate,
+        n_clusters=clustering_result.n_clusters,
+        top_cluster_occupancy=top_cluster_occupancy,
+        cluster_entropy=cluster_entropy,
+        occupancy_gini=occupancy_gini,
+    )
+
+
+def _gini(values: np.ndarray) -> float:
+    """Compute the Gini coefficient for a positive-valued vector."""
+    if values.size == 0:
+        return 0.0
+    sorted_values = np.sort(values.astype(float))
+    total = float(np.sum(sorted_values))
+    if total == 0.0:
+        return 0.0
+    n_values = sorted_values.size
+    ranks = np.arange(1, n_values + 1, dtype=float)
+    return float((2.0 * np.sum(ranks * sorted_values) / (n_values * total)) - ((n_values + 1) / n_values))
+
+
+class HDBSCANClusterer:
+    """Cluster one condition's IFP matrix using binary Jaccard distance."""
+
+    def __init__(
+        self,
+        min_cluster_size: int | None = None,
+        *,
+        min_samples: int | None = None,
+        metric: str | None = None,
+        cluster_selection_epsilon: float | None = None,
+        cluster_selection_method: str | None = None,
+        output_dir: Path | None = None,
+        config: HDBSCANConfig | None = None,
+    ):
+        resolved = config or load_hdbscan_config()
+        self.config = HDBSCANConfig(
+            min_cluster_size=min_cluster_size or resolved.min_cluster_size,
+            min_samples=min_samples if min_samples is not None else resolved.min_samples,
+            metric=metric or resolved.metric,
+            cluster_selection_epsilon=(
+                cluster_selection_epsilon
+                if cluster_selection_epsilon is not None
+                else resolved.cluster_selection_epsilon
+            ),
+            cluster_selection_method=cluster_selection_method or resolved.cluster_selection_method,
+            locked=resolved.locked,
+        )
         self.output_dir = Path(output_dir) if output_dir else Path(".")
         self.logger = StructuredLogger("clustering", self.output_dir)
-        
+
         if hdbscan is None:
             raise ImportError("HDBSCAN not installed")
-    
-    def cluster(self, ifp_matrix: np.ndarray, pose_ids: List[str]) -> ClusteringResult:
-        """
-        Cluster poses using HDBSCAN.
-        
-        Args:
-            ifp_matrix: shape (n_poses, n_residues × n_interaction_types)
-                        binary (0/1) values
-            pose_ids: list of pose identifiers
-        
-        Returns:
-            ClusteringResult with labels, cluster info, etc.
-        """
-        self.logger.log_step_start("hdbscan_clustering", {
-            "n_poses": ifp_matrix.shape[0],
-            "ifp_dim": ifp_matrix.shape[1],
-            "min_cluster_size": self.min_cluster_size,
-            "metric": self.metric,
-        })
-        
-        # Compute Jaccard distance matrix
-        # For binary vectors: Jaccard(u, v) = 1 - (u·v) / (||u||² + ||v||² - u·v)
-        distance_matrix = self._compute_jaccard_distances(ifp_matrix)
-        
-        # Run HDBSCAN (use precomputed distance + linkage)
-        clusterer = hdbscan.HDBSCAN(
-            min_cluster_size=self.min_cluster_size,
-            min_samples=None,
-            metric='precomputed',
-            cluster_selection_epsilon=0.0,
-            cluster_selection_method='eom',  # excess of mass
+        if self.config.metric != "jaccard":
+            raise ValueError(f"Unsupported clustering metric: {self.config.metric}")
+
+    def cluster(self, ifp_matrix: np.ndarray, pose_ids: list[str]) -> ClusteringResult:
+        """Cluster one condition's binary IFP matrix."""
+        matrix = np.asarray(ifp_matrix, dtype=np.uint8)
+        if matrix.ndim != 2:
+            raise ValueError("ifp_matrix must be a 2D array")
+        if matrix.shape[0] != len(pose_ids):
+            raise ValueError("pose_ids must match the number of IFP rows")
+
+        self.logger.log_step_start(
+            "hdbscan_clustering",
+            {
+                "n_poses": matrix.shape[0],
+                "ifp_dim": matrix.shape[1] if matrix.ndim == 2 else 0,
+                "min_cluster_size": self.config.min_cluster_size,
+                "min_samples": self.config.min_samples,
+                "metric": self.config.metric,
+            },
         )
-        
-        labels = clusterer.fit_predict(distance_matrix)  # -1 for outliers
-        
-        # Aggregate cluster info
-        result = self._aggregate_clusters(labels, pose_ids)
-        
-        # Log results
-        self.logger.log_step_end("hdbscan_clustering", "success", {
-            "n_clusters": result.n_clusters,
-            "n_outliers": result.n_outliers,
-            "outlier_rate": result.outlier_rate,
-        }, 0.0)
-        
+
+        if matrix.shape[0] == 0:
+            result = ClusteringResult(
+                n_clusters=0,
+                n_outliers=0,
+                outlier_rate=0.0,
+                cluster_sizes={},
+                cluster_occupancy={},
+                outlier_indices=[],
+                cluster_labels=np.array([], dtype=int),
+            )
+            self.logger.log_step_end("hdbscan_clustering", "success", {"n_clusters": 0}, 0.0)
+            return result
+
+        distance_matrix = self.compute_jaccard_distances(matrix)
+        labels = self._fit_labels(distance_matrix)
+        medoids, medoid_distance_sums = self.select_medoids(distance_matrix, labels)
+        result = self._aggregate_clusters(
+            labels,
+            medoids=medoids,
+            medoid_distance_sums=medoid_distance_sums,
+        )
+
+        self.logger.log_step_end(
+            "hdbscan_clustering",
+            "success",
+            {
+                "n_clusters": result.n_clusters,
+                "n_outliers": result.n_outliers,
+                "outlier_rate": result.outlier_rate,
+            },
+            0.0,
+        )
         return result
-    
-    def _compute_jaccard_distances(self, ifp_matrix: np.ndarray) -> np.ndarray:
-        """
-        Compute pairwise Jaccard distance for binary IFP vectors.
-        
-        Jaccard distance: 1 - (intersection / union)
-        For binary: 1 - (u·v) / (||u||² + ||v||² - u·v)
-        """
-        n = ifp_matrix.shape[0]
-        distances = np.zeros((n, n))
-        
-        for i in range(n):
-            for j in range(i + 1, n):
-                u = ifp_matrix[i]
-                v = ifp_matrix[j]
-                
-                intersection = np.dot(u, v)
-                union = np.sum((u + v) > 0)  # at least one is 1
-                
-                if union == 0:
-                    jaccard_sim = 1.0  # both empty vectors
-                else:
-                    jaccard_sim = intersection / union
-                
-                jaccard_dist = 1.0 - jaccard_sim
-                distances[i, j] = jaccard_dist
-                distances[j, i] = jaccard_dist
-        
+
+    def compute_jaccard_distances(self, ifp_matrix: np.ndarray) -> np.ndarray:
+        """Compute pairwise Jaccard distances for binary IFP vectors."""
+        matrix = np.asarray(ifp_matrix, dtype=np.uint8)
+        n_rows = matrix.shape[0]
+        distances = np.zeros((n_rows, n_rows), dtype=float)
+
+        for row_index in range(n_rows):
+            for col_index in range(row_index + 1, n_rows):
+                row = matrix[row_index]
+                col = matrix[col_index]
+                intersection = int(np.dot(row, col))
+                union = int(np.sum((row + col) > 0))
+                jaccard_distance = 0.0 if union == 0 else 1.0 - (intersection / union)
+                distances[row_index, col_index] = jaccard_distance
+                distances[col_index, row_index] = jaccard_distance
+
         return distances
-    
-    def _aggregate_clusters(self, labels: np.ndarray, pose_ids: List[str]) -> ClusteringResult:
-        """
-        Aggregate clustering results.
-        """
-        unique_labels = set(labels)
-        n_clusters = len(unique_labels) - (1 if -1 in unique_labels else 0)
-        n_outliers = np.sum(labels == -1)
-        outlier_rate = n_outliers / len(labels) if len(labels) > 0 else 0.0
-        
-        cluster_sizes = {}
-        cluster_occupancy = {}
-        
-        for label in unique_labels:
-            if label == -1:  # outliers
-                continue
-            
-            size = np.sum(labels == label)
-            cluster_sizes[int(label)] = int(size)
-            cluster_occupancy[int(label)] = size / len(labels)
-        
-        outlier_indices = np.where(labels == -1)[0].tolist()
-        
-        result = ClusteringResult(
-            n_clusters=n_clusters,
-            n_outliers=n_outliers,
-            outlier_rate=outlier_rate,
-            cluster_sizes=cluster_sizes,
-            cluster_occupancy=cluster_occupancy,
-            outlier_indices=outlier_indices,
-            cluster_labels=labels,
-        )
-        
-        return result
-    
-    def select_medoids(self, ifp_matrix: np.ndarray, labels: np.ndarray) -> Dict[int, int]:
-        """
-        For each cluster, select the medoid (most central pose).
-        
-        Args:
-            ifp_matrix: shape (n_poses, n_features)
-            labels: cluster labels (-1 for outliers)
-        
-        Returns:
-            {cluster_id: medoid_index}
-        """
-        medoids = {}
-        
-        for label in set(labels):
+
+    def select_medoids(
+        self,
+        distance_matrix: np.ndarray,
+        labels: np.ndarray,
+    ) -> tuple[dict[int, int], dict[int, float]]:
+        """Select exact medoids by minimum summed within-cluster distance."""
+        medoids: dict[int, int] = {}
+        medoid_distance_sums: dict[int, float] = {}
+
+        for label in sorted({int(value) for value in labels.tolist()}):
             if label == -1:
                 continue
-            
+
             cluster_indices = np.where(labels == label)[0]
-            cluster_data = ifp_matrix[cluster_indices]
-            
-            # Medoid = pose closest to cluster center (in Jaccard space)
-            # Simplified: use centroid + find nearest
-            # Real impl: compute all pairwise distances within cluster, find minimum-sum
-            centroid = np.mean(cluster_data, axis=0)
-            
-            # Find pose with minimum euclidean distance to centroid
-            distances_to_centroid = np.linalg.norm(cluster_data - centroid, axis=1)
-            medoid_in_cluster = np.argmin(distances_to_centroid)
-            medoid_global_index = cluster_indices[medoid_in_cluster]
-            
-            medoids[int(label)] = int(medoid_global_index)
-        
-        return medoids
+            cluster_distances = distance_matrix[np.ix_(cluster_indices, cluster_indices)]
+            distance_sums = np.sum(cluster_distances, axis=1)
+            medoid_position = int(np.argmin(distance_sums))
+            medoid_index = int(cluster_indices[medoid_position])
+
+            medoids[label] = medoid_index
+            medoid_distance_sums[label] = float(distance_sums[medoid_position])
+
+        return medoids, medoid_distance_sums
+
+    def _fit_labels(self, distance_matrix: np.ndarray) -> np.ndarray:
+        n_rows = distance_matrix.shape[0]
+
+        if n_rows < self.config.min_cluster_size:
+            return np.full(n_rows, -1, dtype=int)
+
+        if np.all(distance_matrix == 0.0):
+            return np.zeros(n_rows, dtype=int)
+
+        clusterer = hdbscan.HDBSCAN(
+            min_cluster_size=self.config.min_cluster_size,
+            min_samples=self.config.min_samples,
+            metric="precomputed",
+            cluster_selection_epsilon=self.config.cluster_selection_epsilon,
+            cluster_selection_method=self.config.cluster_selection_method,
+        )
+        return clusterer.fit_predict(distance_matrix)
+
+    def _aggregate_clusters(
+        self,
+        labels: np.ndarray,
+        *,
+        medoids: dict[int, int],
+        medoid_distance_sums: dict[int, float],
+    ) -> ClusteringResult:
+        unique_labels = {int(label) for label in labels.tolist()}
+        n_outliers = int(np.sum(labels == -1))
+        total_rows = len(labels)
+        cluster_sizes: dict[int, int] = {}
+        cluster_occupancy: dict[int, float] = {}
+
+        for label in sorted(unique_labels):
+            if label == -1:
+                continue
+            cluster_size = int(np.sum(labels == label))
+            cluster_sizes[label] = cluster_size
+            cluster_occupancy[label] = cluster_size / total_rows if total_rows else 0.0
+
+        return ClusteringResult(
+            n_clusters=len(cluster_sizes),
+            n_outliers=n_outliers,
+            outlier_rate=(n_outliers / total_rows) if total_rows else 0.0,
+            cluster_sizes=cluster_sizes,
+            cluster_occupancy=cluster_occupancy,
+            outlier_indices=np.where(labels == -1)[0].tolist(),
+            cluster_labels=labels,
+            medoids=medoids,
+            medoid_distance_sums=medoid_distance_sums,
+        )
 
 
 class CrossRunClusterer:
-    """Phase 2: Cluster aggregated IFPs across runs (protein×ligand)."""
-    
-    def __init__(self, min_cluster_size: int, output_dir: Optional[Path] = None):
-        """
-        Args:
-            min_cluster_size: minimum cluster size (locked from tuning)
-            output_dir: for logging
-        """
-        self.min_cluster_size = min_cluster_size
-        self.output_dir = Path(output_dir) if output_dir else Path(".")
-        self.logger = StructuredLogger("crossrun_clustering", self.output_dir)
-    
-    def aggregate_medoid_ifps(self, 
-                              phase1_results: List[Tuple[str, ClusteringResult, np.ndarray]],
-                              ) -> np.ndarray:
-        """
-        Aggregate medoid IFPs from phase-1 clustering.
-        
-        Args:
-            phase1_results: list of (run_id, clustering_result, ifp_matrix)
-        
-        Returns:
-            aggregated_ifp_matrix: shape (n_medoids, n_features)
-        """
-        medoid_ifps = []
-        
-        for run_id, clustering_result, ifp_matrix in phase1_results:
-            # Identify medoids for this run
-            for cluster_id, medoid_idx in clustering_result.medoids.items():
-                medoid_ifp = ifp_matrix[medoid_idx]
-                medoid_ifps.append(medoid_ifp)
-        
-        return np.array(medoid_ifps)
-    
-    def cluster_cross_run(self, aggregated_ifps: np.ndarray) -> ClusteringResult:
-        """
-        Cluster aggregated medoid IFPs across all runs.
-        
-        Args:
-            aggregated_ifps: medoid IFP vectors
-        
-        Returns:
-            ClusteringResult for cross-run binding modes
-        """
-        clusterer = HDBANSCANClusterer(
-            min_cluster_size=self.min_cluster_size,
-            output_dir=self.output_dir
+    """Legacy compatibility shim for the retired cross-run clustering design."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        del args, kwargs
+
+    def aggregate_medoid_ifps(self, *args: Any, **kwargs: Any) -> np.ndarray:
+        del args, kwargs
+        raise NotImplementedError(
+            "Cross-run clustering is retired in the AF3-only pipeline; cluster one condition at a time."
         )
-        
-        pose_ids = [f"medoid_{i}" for i in range(len(aggregated_ifps))]
-        return clusterer.cluster(aggregated_ifps, pose_ids)
+
+    def cluster_cross_run(self, *args: Any, **kwargs: Any) -> ClusteringResult:
+        del args, kwargs
+        raise NotImplementedError(
+            "Cross-run clustering is retired in the AF3-only pipeline; cluster one condition at a time."
+        )
+
+
+HDBANSCANClusterer = HDBSCANClusterer

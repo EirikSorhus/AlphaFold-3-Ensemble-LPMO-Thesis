@@ -20,6 +20,15 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
+def _geometry_value(geometry: dict[str, Any], *keys: str) -> Any:
+    """Read the first non-null value from legacy or pose_geometry row keys."""
+    for key in keys:
+        value = geometry.get(key)
+        if value is not None:
+            return value
+    return None
+
 # Column order (must match metrics_csv_schema.json)
 METRICS_COLUMNS = [
     "run_id",
@@ -120,11 +129,11 @@ def merge_pose_record(
         "posebusters_passed": qc_verdict.get("posebusters_passed", True),
         "privateer_passed": qc_verdict.get("privateer_passed", True),
         "geometry_passed": qc_verdict.get("geometry_passed", True),
-        "min_cu_c1": geometry.get("min_cu_c1"),
-        "min_cu_c4": geometry.get("min_cu_c4"),
-        "his_brace_angle_deg": geometry.get("his_brace_angle_deg"),
-        "core_rmsd_vs_reference": geometry.get("core_rmsd_vs_reference"),
-        "pocket_rmsd_vs_crystal": geometry.get("pocket_rmsd_vs_crystal"),
+        "min_cu_c1": _geometry_value(geometry, "min_cu_c1", "Cu_C1_distance"),
+        "min_cu_c4": _geometry_value(geometry, "min_cu_c4", "Cu_C4_distance"),
+        "his_brace_angle_deg": _geometry_value(geometry, "his_brace_angle_deg"),
+        "core_rmsd_vs_reference": _geometry_value(geometry, "core_rmsd_vs_reference"),
+        "pocket_rmsd_vs_crystal": _geometry_value(geometry, "pocket_rmsd_vs_crystal"),
         "ifp_similarity_crystal": crystal_sim,
         "n_ifp_contacts": n_ifp_contacts,
         "activity_class": activity_class,
