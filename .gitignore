@@ -22,3 +22,5 @@ pipe_test/scripts/module_2_new/interpro_cache.json
 **/manifest/
 /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/
 **/temp/
+**/work_core/
+**/work_full_length/
