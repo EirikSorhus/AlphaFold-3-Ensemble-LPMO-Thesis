@@ -181,6 +181,18 @@ def cmd_run(args):
             "geometry_stage_completed",
             result.pose_geometry_tsv_path is not None,
         )
+        manifest_builder.record_gate(
+            "ifp_stage_completed",
+            result.pose_ifp_table_tsv_path is not None,
+        )
+        manifest_builder.record_gate(
+            "clustering_stage_completed",
+            result.condition_cluster_summary_tsv_path is not None,
+        )
+        manifest_builder.record_gate(
+            "crystal_anchoring_stage_completed",
+            result.crystal_anchoring_stage_completed,
+        )
         manifest_builder.write(manifest_path)
 
         if not result.success:
@@ -188,10 +200,28 @@ def cmd_run(args):
             return 1
 
         print("[RUN] Analysis core completed")
+        if result.pose_manifest_tsv_path is not None:
+            print(f"  Pose manifest: {result.pose_manifest_tsv_path}")
+        if result.pose_confidence_tsv_path is not None:
+            print(f"  Pose confidence: {result.pose_confidence_tsv_path}")
+        if result.structure_index_tsv_path is not None:
+            print(f"  Structure index: {result.structure_index_tsv_path}")
+        if result.qc_attrition_tsv_path is not None:
+            print(f"  QC attrition: {result.qc_attrition_tsv_path}")
         if result.qc_report_path is not None:
             print(f"  QC report: {result.qc_report_path}")
         if result.pose_geometry_tsv_path is not None:
             print(f"  Pose geometry: {result.pose_geometry_tsv_path}")
+        if result.pose_ifp_table_tsv_path is not None:
+            print(f"  Pose IFP table: {result.pose_ifp_table_tsv_path}")
+        if result.cluster_assignments_tsv_path is not None:
+            print(f"  Cluster assignments: {result.cluster_assignments_tsv_path}")
+        if result.medoid_manifest_tsv_path is not None:
+            print(f"  Medoid manifest: {result.medoid_manifest_tsv_path}")
+        if result.condition_cluster_summary_tsv_path is not None:
+            print(f"  Condition cluster summary: {result.condition_cluster_summary_tsv_path}")
+        if result.crystal_anchor_tsv_path is not None:
+            print(f"  Crystal anchor table: {result.crystal_anchor_tsv_path}")
         if result.metrics_csv_path is not None:
             print(f"  Metrics CSV: {result.metrics_csv_path}")
         if result.summary_json_path is not None:
@@ -205,6 +235,7 @@ def cmd_run(args):
     except Exception as e:
         print(f"[ERROR] Production run failed: {e}", file=sys.stderr)
         manifest_builder.record_gate("analysis_core_completed", False)
+        manifest_builder.record_gate("crystal_anchoring_stage_completed", False)
         manifest_builder.write(manifest_path)
         return 1
 

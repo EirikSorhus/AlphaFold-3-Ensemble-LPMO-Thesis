@@ -1,0 +1,36 @@
+# Shared runtime paths for the analyse pipeline.
+#
+# Keep all changeable external tool paths and in-repo asset locations here.
+# Scripts should resolve these through lpmo_pipeline.config instead of
+# hardcoding container paths or config/schema filenames locally.
+
+runtime_paths:
+  # Project root used to resolve any relative paths below.
+  project_root: ".."
+
+  external_tools:
+    # Command or absolute path for the container runtime.
+    apptainer_executable: "apptainer"
+
+    # Candidate Privateer containers. First existing path is used.
+    privateer_sif_candidates:
+      - "/cluster/projects/nn1003k/prog/privateer/privateer.sif"
+
+    # Candidate PoseBusters containers. First existing path is used.
+    posebusters_sif_candidates:
+      - "/cluster/projects/nn1003k/prog/posebusters/build/posebusters.sif"
+      - "/cluster/projects/nn1003k/prog/posebusters/posebusters.sif"
+
+  runtime_settings:
+    # Default Privateer execution mode for the installed container build.
+    privateer_default_mode: "ccp4i2"
+
+  pipeline_assets:
+    # Central references to in-repo configs and schemas used across modules.
+    thresholds_config: "configs/thresholds.yaml"
+    prolif_features_config: "configs/prolif_features.yaml"
+    defaults_config: "configs/defaults.yaml"
+    geometry_rules_config: "configs/geometry_rules.yaml"
+    residue_rules_config: "configs/residue_rules.yaml"
+    cv_hierarchy_config: "configs/cv_hierarchy.yaml"
+    qc_report_schema: "schemas/qc_report_schema.json"

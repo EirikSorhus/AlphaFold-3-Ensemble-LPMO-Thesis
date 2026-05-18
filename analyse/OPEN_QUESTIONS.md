@@ -25,8 +25,12 @@ foreslått default-valg slik at arbeidet kan fortsette uten blokkering.
    rapporterings-/soft-flag terskel ved behov.
 
 5. **Kristallstrukturer for anchoring** — Hvilke PDB-koder skal brukes
-   som referanse? Trenger vi ligand-bundet + apo for alle LPMO-familier?
-   *Default: bruk AA9-referanser fra litteraturen (4EIS, 5ACF, etc.).*
+   som referanse på tvers av familier? Dagens operative referansesett kommer
+   fra `input_data/pdb_structure_data.csv` + filer under `crystal_structures/`.
+   Gjenstående spørsmål er om listen skal kurateres/utvides videre per familie,
+   ikke hvordan dagens kode velger referanser.
+   *Default: bruk dagens CSV + `crystal_structures/` som autoritativt
+   referansesett. Eventuell utvidelse skjer som eksplisitt dataoppdatering.*
 
 6. **CBM-varianter (DEL A / DEL B)** — Skal begge CBM-deletions kjøres
    for alle systemer, eller bare for CBM-bærende LPMOer?
@@ -37,8 +41,19 @@ foreslått default-valg slik at arbeidet kan fortsette uten blokkering.
    *Default: hovedpipeline = DP4/DP6/DP8 (9 uavhengige delanalyser).* 
 
 8. **Tanimoto-terskel for crystal anchoring** — Hvilken cutoff for
-   "biologically plausible"? *Default: Tanimoto >= 0.3 (IFP) og
-   pocket-RMSD <= 3.0 A som soft flags, ikke harde gates.*
+   "biologically plausible"? *Default: Tanimoto >= 0.3 (IFP), og dagens kode
+   bruker `pocket_rmsd < 2.5 A` som soft flag; endelig biologisk cutoff må
+   fortsatt signeres eksplisitt.*
+   Status 2026-05-08: dagens integrerte analysis-core smoke-tester fullforer,
+   men den testede crystal-anchoring-kjoringen ender forelopig med
+   `comparison_count = 0`. Det ser ogsa ut som de testede crystal-IFP-ene kan
+   vaere dominert av VdW-interaksjoner. Dette er ikke avklart og ma sjekkes
+   opp eksplisitt senere, ikke tolkes som et biologisk funn na.
+   Status 2026-05-16: standalone real-data-harnessen for `A0A0S2GKZ1` gir nå
+   ikke-tomme sammenligninger mot `5ACI` og `7PXW` og lave pocket-RMSD-er.
+   Det som fortsatt mangler er en integrert produksjonskjøring der en faktisk
+   medoid-backed betingelse med crystal-referanser når crystal-anchoring-steget,
+   samt en eksplisitt vurdering av om crystal-IFP-ene blir for VdW-dominerte.
 
 9. **R-modellvalg for cluster-rader** — Hvilken primarmodell skal brukes
    i R for regioselektivitet (glmnet vs glmer)?
@@ -59,7 +74,7 @@ foreslått default-valg slik at arbeidet kan fortsette uten blokkering.
     - AVKLART: beregnede numeriske metrikker beholdes i output.
     - AVKLART: PoseBusters kjøres via SIF-container (`/cluster/projects/nn1003k/prog/posebusters/`).
     - AVKLART: CIF→PDB konvertering bruker PDBFixer (ikke Biopython), adaptert fra PoseBench.
-    - AVKLART: Crystal anchoring bruker PyMOL `pair_fit` for optimal lokal superposisjon.
+   - AVKLART: dagens operative crystal-anchoring-RMSD bruker lokal gemmi/numpy Kabsch-superposisjon på delte pocket C-alpha-atomer; PyMOL `pair_fit` er ikke operativ backend per i dag.
     - AVKLART: Pipeline har gått fra pseudokode til steg-for-steg implementasjon (2026-03-26).
    - AVKLART (2026-04-21): pre-QC aktiv-sete hard gate er `min_cu_ligand_distance <= 10.0 A`.
     - AVKLART (2026-04-21): PLACER er fjernet fra analysen helt.
@@ -67,12 +82,17 @@ foreslått default-valg slik at arbeidet kan fortsette uten blokkering.
     - AVKLART (2026-04-21): Kanonisk term er "protein" / `protein_id`.
     - AVKLART (2026-04-21): Fem separate pose-tabeller (ingen samlet `pose_table.tsv`).
 
-13. **Substrat-recognition residues for alignment** — Hvordan identifisere
-    surface residues involvert i substratgjenkjenning for PyMOL `pair_fit`?
-    Foretrukket: litteratursøk for kjente LPMO-substrat-bindende residuer.
-    Fallback: alle protein-residuer innen en cutoff (f.eks. 5 Å) fra ligand i predikert struktur.
-    Merk: proximity-basert utvalg kan gi ulike residuer mellom prediksjonsmodeller.
-    *Status: må avklares per LPMO-familie. Litteraturbasert er best men krever manuelt arbeid.*
+13. **Substrat-recognition/pocket-residuer for crystal anchoring** — Skal dagens
+   operative pocket-heuristikk beholdes, eller erstattes/utvides med
+   familie-spesifikke litteraturresiduer?
+   Dagens implementasjon bruker proteinrester innen 5 A fra ligand eller Cu i
+   holo-referanser. For apo-referanser projiseres pocket fra representant/medoid
+   over på crystal-sekvensen med residunavn-normalisering (f.eks. `HIC -> HIS`).
+   Foretrukket videre arbeid: litteratursøk for kjente LPMO-substrat-bindende
+   residuer per familie, og beslutning om disse skal erstatte eller bare annotere
+   dagens proximity-baserte pocket.
+   *Status: dagens heuristic fungerer operativt, men familie-spesifikk
+   litteraturforankring er fortsatt uavklart og krever manuelt arbeid.*
 
 ---
 

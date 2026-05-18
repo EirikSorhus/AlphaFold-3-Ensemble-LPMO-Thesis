@@ -64,6 +64,7 @@ def discover_work_root(
     *,
     af3_only: bool = False,
     latest_only: bool = False,
+    include_targets: Tuple[str, ...] = (),
 ) -> WorkRootManifest:
     """Scan a work/ directory and return a fully-populated manifest.
 
@@ -72,8 +73,10 @@ def discover_work_root(
             (e.g. ``/cluster/.../structure_pipeline/work``).
         af3_only: If True, only discover AF3 predictions (skip RF3).
         latest_only: If True, only discover the run pointed to by the
-            ``latest`` symlink in each model directory.  If the symlink
-            is absent, all runs are included for that model.
+            ``latest`` symlink in each model directory. If the symlink is
+            absent or unusable, the highest numeric run ID is used.
+        include_targets: Optional target-name allowlist. If provided,
+            only matching target directories are traversed.
 
     Returns:
         WorkRootManifest with all discovered targets, models, runs,
@@ -87,12 +90,15 @@ def discover_work_root(
         return manifest
 
     models_filter = frozenset({"af3"}) if af3_only else ALLOWED_MODELS
+    targets_filter = frozenset(include_targets)
 
     for child in sorted(work_root.iterdir()):
         if not child.is_dir():
             continue
         if not TARGET_RE.match(child.name):
             logger.debug("Skipping non-target directory: %s", child.name)
+            continue
+        if targets_filter and child.name not in targets_filter:
             continue
         target_entry = _discover_target(
             child, manifest.errors,
@@ -139,8 +145,9 @@ def _discover_model(
     """Discover runs/ under a model directory.
 
     When *latest_only* is True the ``latest`` symlink in *model_dir* is
-    resolved and only that single run is scanned.  If the symlink does
-    not exist, all numeric run directories are scanned as usual.
+    resolved and only that single run is scanned. If the symlink does
+    not exist or cannot be mapped onto the local runs/ tree, the highest
+    numeric run directory is scanned instead.
     """
     entry = ModelEntry(model=model_dir.name, directory=model_dir)
 
@@ -154,8 +161,9 @@ def _discover_model(
         latest_link = model_dir / "latest"
         if latest_link.is_symlink() or latest_link.is_dir():
             resolved = latest_link.resolve()
-            if resolved.is_dir() and RUN_ID_RE.match(resolved.name):
-                run_entry = _discover_run(resolved, target, errors)
+            candidate_run_dir = _resolve_latest_run_dir(model_dir, resolved)
+            if candidate_run_dir is not None:
+                run_entry = _discover_run(candidate_run_dir, target, errors)
                 entry.runs.append(run_entry)
                 return entry
             else:
@@ -169,6 +177,17 @@ def _discover_model(
                 "No 'latest' symlink in %s — scanning all runs", model_dir,
             )
 
+    if latest_only:
+        numeric_runs = [
+            run_child
+            for run_child in sorted(runs_dir.iterdir())
+            if run_child.is_dir() and RUN_ID_RE.match(run_child.name)
+        ]
+        if numeric_runs:
+            latest_run = max(numeric_runs, key=lambda path: int(path.name))
+            entry.runs.append(_discover_run(latest_run, target, errors))
+        return entry
+
     for run_child in sorted(runs_dir.iterdir()):
         if not run_child.is_dir():
             continue
@@ -179,6 +198,15 @@ def _discover_model(
         entry.runs.append(run_entry)
 
     return entry
+
+
+def _resolve_latest_run_dir(model_dir: Path, resolved: Path) -> Optional[Path]:
+    """Map a latest symlink target onto the local runs/ directory when possible."""
+    if RUN_ID_RE.match(resolved.name):
+        local_candidate = model_dir / "runs" / resolved.name
+        if local_candidate.is_dir():
+            return local_candidate
+    return None
 
 
 def _discover_run(

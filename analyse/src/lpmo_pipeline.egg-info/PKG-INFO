@@ -41,17 +41,42 @@ Performs residue importance analysis and produces summary reports.
 
 Primary governing document: [AF3_LPMO_pipeline_detailed_plan.md](AF3_LPMO_pipeline_detailed_plan.md) (v1.0, primary source from 2026-04-21).
 
-Current implementation status: steps 1-7b are verified. Stages 8-12 are now
-implemented in code and covered by targeted tests in the existing `analyse_env`
-environment. This includes PoseBusters integration, the Privateer SIF runner,
-Cu-geometry checks, and schema-backed QC report generation. Privateer now uses
-`validation_data-privateer` as its parse contract and keeps raw stdout/stderr
-only on failure or when debug output is explicitly enabled. Real-data QC
-verification for stages 8-12 is still pending.
+Current implementation status: steps 1-7b are verified. Stage 8 pre-QC
+active-site proximity is now wired into hard QC, and targeted QC tests pass
+in the existing `analyse_env` environment. Stage 10 Privateer wrapper parsing
+and integration scaffolding are implemented and unit-tested. Stage 12 now has
+schema-backed QC report tests passing on synthetic three-pose batches. Stages
+8-12 hard QC are now also verified on real AF3 data via
+`tests/run_tests_scripts/test_hard_qc_real_cifs.sh` (job 612234). Stage 14
+downstream geometry is implemented, wired into the current production
+analysis-core slice, and verified on real AF3 data via
+`tests/run_tests_scripts/test_analysis_core_real_cifs.sh` (job 613251). Stage 13
+ProLIF/IFP is now verified as a standalone real-data slice via
+`tests/run_tests_scripts/test_prolif_real_cifs.sh` (job 617120); that slice
+preserves ligand monosaccharides as separate residues in the ProLIF feature
+space and writes the expanded nine-interaction count fields. Stage 13b
+`pose_residue_contact_table.tsv` is now wired into the production `run` path
+from the same ligand-resolved ProLIF features, with focused pytest coverage for
+the extractor and orchestrator integration, and is now also verified on real
+AF3 data via `tests/run_tests_scripts/test_residue_contact_real_cifs.sh`
+(job 619027). Stage 14b convergence metrics are now implemented and wired into
+the current production path with focused pytest coverage, and the standalone
+convergence slice is now verified on real AF3 data via
+`tests/run_tests_scripts/test_convergence_real_cifs.sh` (job 619047); integrated
+real-data verification of that production path still remains.
 
 **⚠️ Known open conflict: see [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md) item 11 (geometric planarity thresholds not yet operationalized).**
 
 See [MASTERPLAN.md](MASTERPLAN.md) for full integrated specification.
+
+## Data Availability
+
+Precomputed AF3 structures are fully available under the structure_pipeline at these locations:
+
+- **Domain-only constructs:** `/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work_core`
+- **Full-length constructs:** `/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work_full_length`
+
+These directories contain the organized AF3 prediction artifacts (mmCIF files and confidence metrics) that feed directly into the analysis pipeline. See [Production Config](#production-config) for how to reference these in your configuration.
 
 ## Execution Model
 
@@ -64,23 +89,95 @@ See [MASTERPLAN.md](MASTERPLAN.md) for full integrated specification.
 - Detailed geometric planarity requirements are currently missing and must be specified before final reporting.
 - R is preferred for descriptive/predictive statistics where practical.
 
+## Configuration Policy
+
+- All changeable pipeline values must live in config files under `configs/`, not as duplicated literals in scripts.
+- This includes thresholds, limits, numeric defaults, flags, model/runtime choices, selections, filenames, folder names, absolute paths, external tool paths, schema/config asset locations, and similar operational settings.
+- Shared resolution of runtime paths and bundled config/schema assets happens through `lpmo_pipeline.config`.
+- External tool/container paths and bundled asset paths are centralized in [configs/runtime_paths.yaml](configs/runtime_paths.yaml).
+- Scripts may load a config value once locally inside a module or function for readability/performance, but the source of truth must still be the config files.
+- Stable algorithmic details may remain inline only when they are not realistic user/runtime configuration and moving them would reduce clarity.
+
 ## Quick Start
 
 ```bash
 # Install
 pip install -e ".[dev]"
 
-# Production mode (run full pipeline)
-lpmo-pipeline run --config configs/defaults.yaml --systems-csv systems.csv
+# Production mode (current analysis-core slice: QC + geometry + reports)
+lpmo-pipeline run \
+  --mode production \
+  --config configs/production.analysis_core.example.yaml \
+  --output results/del_a \
+  --del del_a
 
 # Optional post-analysis tuning (comparative reruns)
-lpmo-pipeline tune --config configs/tuning_af3.yaml
+lpmo-pipeline tune \
+  --model AF3 \
+  --config configs/tuning_af3.yaml \
+  --output results/tuning_af3
+
+# Real-data smoke test for the current production entry path
+sbatch tests/run_tests_scripts/test_analysis_core_real_cifs.sh
+
+# Standalone real-data ProLIF validation
+sbatch tests/run_tests_scripts/test_prolif_real_cifs.sh
 
 # EC metadata -> activity labels (R helper script)
 Rscript scripts/ec_activity_mapping.R \
   --input metadata/enzyme_metadata.csv \
   --output results/activity_mapping.tsv
 ```
+
+## Production Config
+
+The current production entry path is the analysis-core slice. It runs discovery,
+normalization, hard QC, downstream geometry, and report generation. It stops
+before ProLIF/IFP generation, clustering, and crystal anchoring.
+
+Verified 2026-05-03 on 3 staged real AF3 CIFs (`analysis_core_real_cifs_613251`):
+1 `pass`, 1 `soft_flag`, 1 `hard_fail`; 2 poses were analyzed downstream, and
+no production `geometry_debug.pdb` files were written.
+
+Use [configs/production.analysis_core.example.yaml](configs/production.analysis_core.example.yaml)
+as the starting point.
+
+**Data input configuration:**
+
+The pipeline discovers AF3-predicted structures from the structure_pipeline work directories.
+Configure which data to use via the `work_roots` keys:
+
+- `work_roots.domain_only`: `/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work_core` — domain-only LPMO constructs
+- `work_roots.full_length`: `/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work_full_length` — full-length LPMO constructs
+
+Select which to run via `construct_type: "domain_only"` or `construct_type: "full_length"` in your config.
+
+**Other configuration keys:**
+
+- `production.run_id`: optional identifier written into the production outputs
+- `production.af3_only`: limit discovery to AF3 runs
+- `production.latest_only`: prefer the `latest` symlink under each target/model
+- `production.max_cases`: optional cap for smaller validation runs
+- `production.include_targets`: optional target whitelist such as `NAG4`, `STA4`, `STA6`
+
+**Notes:**
+
+- The output directory is still controlled by the CLI `--output` argument, not the YAML file.
+- The DEL branch is still controlled by the CLI `--del` argument.
+- Production output must not contain `geometry_debug.pdb`; that file remains test-only.
+- Shared external tool paths and default asset references are controlled separately through [configs/runtime_paths.yaml](configs/runtime_paths.yaml).
+
+## Config Files
+
+- [configs/runtime_paths.yaml](configs/runtime_paths.yaml): shared runtime paths for external tools plus central references to bundled config/schema assets.
+- [configs/production.analysis_core.example.yaml](configs/production.analysis_core.example.yaml): current production run entry config for discovery scope and run selection.
+- [configs/defaults.yaml](configs/defaults.yaml): global defaults such as chain schema, confidence policy, atom-mapping defaults, and target-prefix substrate mapping.
+- [configs/thresholds.yaml](configs/thresholds.yaml): hard/soft QC thresholds, downstream geometry thresholds, convergence settings, and HDBSCAN settings.
+- [configs/geometry_rules.yaml](configs/geometry_rules.yaml): Cu/his-brace identification, virtual oxyl/H placement rules, and geometry output contracts.
+- [configs/prolif_features.yaml](configs/prolif_features.yaml): ProLIF interaction set, cutoffs, selections, feature naming, and residue-contact settings.
+- [configs/residue_rules.yaml](configs/residue_rules.yaml): residue/atom normalization rules, CCD mappings, and region tagging rules.
+- [configs/cv_hierarchy.yaml](configs/cv_hierarchy.yaml): grouped cross-validation hierarchy and stratification settings for later predictive analyses.
+- [configs/tuning_af3.yaml](configs/tuning_af3.yaml), [configs/tuning_boltz2.yaml](configs/tuning_boltz2.yaml), [configs/tuning_rf3.yaml](configs/tuning_rf3.yaml): model-specific tuning grids.
 
 ## Project Structure
 

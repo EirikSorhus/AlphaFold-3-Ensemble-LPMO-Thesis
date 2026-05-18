@@ -17,10 +17,11 @@ INVARIANT — "Ikke-slett regel":
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from lpmo_pipeline.config import load_defaults_config, load_runtime_paths_config
 from lpmo_pipeline.qc.active_site_proximity import check_active_site_proximity
 from lpmo_pipeline.qc.custom_geometry_checks import GeometryResult, check_geometry
 from lpmo_pipeline.qc.gates import GateConfig, load_gate_config_from_yaml
@@ -39,9 +40,15 @@ from lpmo_pipeline.qc.qc_report import (
 
 logger = logging.getLogger(__name__)
 
+_RUNTIME_PATHS = load_runtime_paths_config()
+_DEFAULTS_CONFIG = load_defaults_config()
+_CHAIN_SCHEMA = _DEFAULTS_CONFIG.get("chain_schema") or {}
+DEFAULT_CU_CHAIN = str(_CHAIN_SCHEMA.get("metal") or "E")
+DEFAULT_GLYCAN_CHAINS = tuple(str(chain) for chain in (_CHAIN_SCHEMA.get("glycans") or ["B", "C", "D"]))
+
 
 def _default_qc_config_path() -> Path:
-    return Path(__file__).resolve().parents[3] / "configs" / "thresholds.yaml"
+    return _RUNTIME_PATHS.pipeline_assets.thresholds_config
 
 
 @dataclass
@@ -76,8 +83,8 @@ class HardQCInput:
     protein_path: Path | None = None
     reference_path: Path | None = None
     privateer_cif_path: Path | None = None
-    cu_chain: str = "E"
-    glycan_chains: list[str] | None = None
+    cu_chain: str = DEFAULT_CU_CHAIN
+    glycan_chains: list[str] | None = field(default_factory=lambda: list(DEFAULT_GLYCAN_CHAINS))
 
 
 # ---------------------------------------------------------------------------
@@ -88,17 +95,22 @@ def run_hard_qc(
     run_id: str = "",
     config: GateConfig | None = None,
     config_path: Path | None = None,
+    *,
+    run_posebusters: bool = True,
+    run_privateer: bool = True,
 ) -> QCReport:
     """Run the full hard-QC sequence on a list of poses.
 
     For each pose the following checks are executed:
         1. **Active-site proximity** — pre-QC gate (Stage 8).
-            If this fails, the pose is still fully evaluated so downstream
-            metrics remain available for later threshold tuning.
-        2. **PoseBusters** — chemical/stereochemical validation.
+            If this fails, the pose is dropped from further QC and downstream
+            analysis.
+        2. **Cu-His + substrate geometry** — LPMO-specific active-site check.
+            If this fails, the pose is dropped from further QC and downstream
+            analysis.
+        3. **PoseBusters** — chemical/stereochemical validation.
          If the PoseBusters backend raises an unexpected exception the pose
          is still processed (``pb_result`` set to ``None``).
-        3. **Cu-His + substrate geometry** — LPMO-specific active-site check.
         4. **Privateer** — if ``privateer_cif_path`` is provided.
 
     All numeric metrics are retained regardless of pass/fail status
@@ -107,6 +119,8 @@ def run_hard_qc(
     Args:
         poses: List of :class:`HardQCInput` objects.
         run_id: Identifier for this QC run (used in the report).
+        run_posebusters: Whether to run PoseBusters for QC-eligible poses.
+        run_privateer: Whether to run Privateer for QC-eligible poses.
 
     Returns:
         :class:`QCReport` with per-pose verdicts and aggregate counts.
@@ -128,46 +142,59 @@ def run_hard_qc(
             cu_c_soft_flag_a=gate_config.cu_c_proximity_threshold_a,
         )
 
-        if not proximity_result.passed:
-            logger.info(
-                "Pre-QC hard gate failed for %s; continuing remaining QC to preserve downstream metrics",
-                pose.pose_id,
-            )
-
-        # --- Step 2: PoseBusters ---
-        pb_result: PoseBustersSingleResult | None = None
-        try:
-            pb_result = run_posebusters_single(
-                pdb_path=pose.mol_pred_path,
-                pose_id=pose.pose_id,
-                protein_path=pose.protein_path,
-                reference_path=pose.reference_path,
-            )
-        except Exception:
-            logger.exception(
-                "PoseBusters raised an unexpected error for pose %s; "
-                "continuing without PB result",
-                pose.pose_id,
-            )
-
-        # --- Step 3: Geometry (Cu-His + Cu-substrate) ---
+        # --- Step 2: Geometry (Cu-His + Cu-substrate) ---
         geom_result: GeometryResult | None = None
-        try:
-            geom_result = check_geometry(
-                structure=pose.structure,
-                pose_id=pose.pose_id,
-                cu_chain=pose.cu_chain,
-                glycan_chains=pose.glycan_chains,
-                hard_cu_his_min_a=gate_config.cu_his_dist_min,
-                hard_cu_his_max_a=gate_config.cu_his_dist_max,
-                soft_cu_his_min_a=gate_config.cu_his_soft_min_a,
-                soft_cu_his_max_a=gate_config.cu_his_soft_max_a,
-                cu_c_soft_flag_a=gate_config.cu_c_proximity_threshold_a,
-                his_brace_max_search_a=gate_config.his_brace_max_search_a,
+        if proximity_result.passed:
+            try:
+                geom_result = check_geometry(
+                    structure=pose.structure,
+                    pose_id=pose.pose_id,
+                    cu_chain=pose.cu_chain,
+                    glycan_chains=pose.glycan_chains,
+                    hard_cu_his_min_a=gate_config.cu_his_dist_min,
+                    hard_cu_his_max_a=gate_config.cu_his_dist_max,
+                    soft_cu_his_min_a=gate_config.cu_his_soft_min_a,
+                    soft_cu_his_max_a=gate_config.cu_his_soft_max_a,
+                    cu_c_soft_flag_a=gate_config.cu_c_proximity_threshold_a,
+                    his_brace_max_search_a=gate_config.his_brace_max_search_a,
+                )
+            except Exception:
+                logger.exception(
+                    "Geometry check raised an unexpected error for pose %s",
+                    pose.pose_id,
+                )
+                geom_result = GeometryResult(
+                    pose_id=pose.pose_id,
+                    passed=False,
+                    failure_reasons=["geometry_runner_error"],
+                )
+        else:
+            logger.info(
+                "Pre-QC hard gate failed for %s; skipping geometry, PoseBusters, and Privateer",
+                pose.pose_id,
             )
-        except Exception:
-            logger.exception(
-                "Geometry check raised an unexpected error for pose %s",
+
+        qc_eligible = proximity_result.passed and geom_result is not None and geom_result.passed
+
+        # --- Step 3: PoseBusters ---
+        pb_result: PoseBustersSingleResult | None = None
+        if qc_eligible and run_posebusters:
+            try:
+                pb_result = run_posebusters_single(
+                    pdb_path=pose.mol_pred_path,
+                    pose_id=pose.pose_id,
+                    protein_path=pose.protein_path,
+                    reference_path=pose.reference_path,
+                )
+            except Exception:
+                logger.exception(
+                    "PoseBusters raised an unexpected error for pose %s; "
+                    "continuing without PB result",
+                    pose.pose_id,
+                )
+        elif not qc_eligible:
+            logger.info(
+                "Hard distance QC failed for %s; skipping PoseBusters and Privateer",
                 pose.pose_id,
             )
 
@@ -184,7 +211,11 @@ def run_hard_qc(
     privateer_inputs = [
         PrivateerBatchInput(cif_path=evaluation.pose.privateer_cif_path, pose_id=evaluation.pose.pose_id)
         for evaluation in evaluations
-        if evaluation.pose.privateer_cif_path is not None
+        if run_privateer
+        and evaluation.pose.privateer_cif_path is not None
+        and evaluation.proximity_result.passed
+        and evaluation.geom_result is not None
+        and evaluation.geom_result.passed
     ]
     if privateer_inputs:
         try:

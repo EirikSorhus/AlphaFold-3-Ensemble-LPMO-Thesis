@@ -159,10 +159,40 @@ HETATM 17 O  O5  . BGC C 3 .  ? 12.500 12.500 11.500 1.00 61.00 2   C 1
 #
 """
 
-AF3_NO_CONN_CIF = """\
-data_TEST_NOCONN
+AF3_NO_CONN_CIF = AF3_NORMALIZE_CIF.replace(
+    """loop_
+_struct_conn.conn_type_id
+_struct_conn.id
+_struct_conn.pdbx_ptnr1_PDB_ins_code
+_struct_conn.pdbx_ptnr1_label_alt_id
+_struct_conn.pdbx_ptnr2_PDB_ins_code
+_struct_conn.pdbx_ptnr2_label_alt_id
+_struct_conn.pdbx_role
+_struct_conn.pdbx_value_order
+_struct_conn.ptnr1_auth_asym_id
+_struct_conn.ptnr1_auth_seq_id
+_struct_conn.ptnr1_label_asym_id
+_struct_conn.ptnr1_label_atom_id
+_struct_conn.ptnr1_label_comp_id
+_struct_conn.ptnr1_label_seq_id
+_struct_conn.ptnr1_symmetry
+_struct_conn.ptnr2_auth_asym_id
+_struct_conn.ptnr2_auth_seq_id
+_struct_conn.ptnr2_label_asym_id
+_struct_conn.ptnr2_label_atom_id
+_struct_conn.ptnr2_label_comp_id
+_struct_conn.ptnr2_label_seq_id
+_struct_conn.ptnr2_symmetry
+covale covale1 ? ? ? ? ? ? C 1 C C1 BGC . 1_555 C 2 C O4 BGC . 1_555
 #
-_entry.id TEST_NOCONN
+""",
+    "",
+)
+
+AF3_MISSING_GLYCAN_CIF = """\
+data_TEST_MISSING_GLYCAN
+#
+_entry.id TEST_MISSING_GLYCAN
 #
 loop_
 _chem_comp.id
@@ -229,6 +259,13 @@ def no_conn_cif(tmp_path: Path) -> Path:
 def invalid_glycan_cif(tmp_path: Path) -> Path:
     p = tmp_path / "invalid_glycan.cif"
     p.write_text(AF3_INVALID_GLYCAN_CIF)
+    return p
+
+
+@pytest.fixture
+def missing_glycan_cif(tmp_path: Path) -> Path:
+    p = tmp_path / "missing_glycan.cif"
+    p.write_text(AF3_MISSING_GLYCAN_CIF)
     return p
 
 
@@ -379,6 +416,23 @@ class TestCCDValidation:
         assert report["ccd_validation"]["all_valid"] is False
         assert report["ccd_validation"]["invalid_comp_ids"] == ["CEL6"]
         assert failures[-1]["reason"] == "glykan_not_ccd"
+        assert not (out / "normalized.cif").exists()
+
+    def test_missing_glycan_chain_fails_normalization(
+        self, missing_glycan_cif: Path, tmp_path: Path
+    ) -> None:
+        out = tmp_path / "out"
+        runner = NormalizeMMCIFRunner(missing_glycan_cif, out)
+        ok, path = runner.run()
+        report = json.loads((out / "normalize_report.json").read_text())
+        failures = json.loads((out / "normalize_failures.json").read_text())
+
+        assert ok is False
+        assert path is None
+        assert report["ccd_validation"]["total_glycan_residues"] == 0
+        assert report["ccd_validation"]["all_valid"] is False
+        assert report["ccd_validation"]["failure_reason"] == "missing_glycan_chain"
+        assert failures[-1]["reason"] == "missing_glycan_chain"
         assert not (out / "normalized.cif").exists()
 
 

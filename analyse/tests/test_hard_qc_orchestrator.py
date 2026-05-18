@@ -78,9 +78,6 @@ class TestHardQCOrchestrator:
     @patch("lpmo_pipeline.qc.hard_qc_orchestrator.check_geometry")
     def test_pose_dropped_by_geometry(self, mock_geom, mock_pb) -> None:
         """Cu-His out of range -> status='dropped'."""
-        mock_pb.return_value = PoseBustersSingleResult(
-            pose_id="pose_001", passed=True,
-        )
         mock_geom.return_value = GeometryResult(
             pose_id="pose_001", cu_found=True, cu_his_all_in_range=False, passed=False,
             failure_reasons=["Cu-His distance out of range"],
@@ -88,6 +85,7 @@ class TestHardQCOrchestrator:
         report = run_hard_qc([_make_input()], run_id="test_run")
         assert report.total == 1
         assert report.dropped == 1
+        mock_pb.assert_not_called()
 
     @patch("lpmo_pipeline.qc.hard_qc_orchestrator.run_posebusters_single")
     @patch("lpmo_pipeline.qc.hard_qc_orchestrator.check_geometry")
@@ -307,8 +305,8 @@ qc:
 
     @patch("lpmo_pipeline.qc.hard_qc_orchestrator.run_posebusters_single")
     @patch("lpmo_pipeline.qc.hard_qc_orchestrator.check_geometry")
-    def test_pre_qc_failure_still_runs_remaining_qc(self, mock_geom, mock_pb, _mock_proximity_gate) -> None:
-        """Stage 8 fail should still evaluate remaining QC once, but final status is dropped."""
+    def test_pre_qc_failure_stops_remaining_qc(self, mock_geom, mock_pb, _mock_proximity_gate) -> None:
+        """Stage 8 fail should stop remaining QC, and the pose is dropped."""
         _mock_proximity_gate.return_value = ActiveSiteProximityResult(
             pose_id="pose_001",
             cu_found=True,
@@ -334,8 +332,8 @@ qc:
 
         assert verdict.status == "dropped"
         assert any(r.startswith("active_site_proximity:") for r in verdict.drop_reasons)
-        mock_pb.assert_called_once()
-        mock_geom.assert_called_once()
+        mock_pb.assert_not_called()
+        mock_geom.assert_not_called()
 
     @patch("lpmo_pipeline.qc.hard_qc_orchestrator.run_posebusters_single")
     @patch("lpmo_pipeline.qc.hard_qc_orchestrator.check_geometry")
@@ -351,19 +349,6 @@ qc:
             passed=False,
             failure_reasons=["Ligand too far from active site"],
         )
-        mock_pb.return_value = PoseBustersSingleResult(
-            pose_id="pose_001",
-            passed=True,
-        )
-        mock_geom.return_value = GeometryResult(
-            pose_id="pose_001",
-            cu_found=True,
-            cu_his_all_in_range=True,
-            passed=True,
-            min_cu_c1=5.5,
-            min_cu_c4=6.4,
-        )
-
         report = run_hard_qc([_make_input()], run_id="test_run")
         verdict = report.verdicts[0]
 
@@ -372,7 +357,6 @@ qc:
         assert verdict.metrics["min_cu_c1"] == pytest.approx(12.0)
         assert verdict.metrics["min_cu_c4"] == pytest.approx(9.5)
         assert verdict.metrics["nearest_ligand_atom"] == "B:NAG1:C1"
-        assert verdict.cu_geometry["cu_c1_dist_a"] == pytest.approx(5.5)
-        assert verdict.cu_geometry["cu_c4_dist_a"] == pytest.approx(6.4)
-        mock_pb.assert_called_once()
-        mock_geom.assert_called_once()
+        assert verdict.cu_geometry == {}
+        mock_pb.assert_not_called()
+        mock_geom.assert_not_called()

@@ -27,6 +27,9 @@ This is not a strong-validation pipeline. It is a structured computational inter
 ### 2.1 Locked decisions
 
 * Main structure source: **AF3 only**.
+* **Data availability**: Precomputed AF3 structures fully available at:
+  - Domain-only: `/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work_core`
+  - Full-length: `/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work_full_length`
 * Main pose ensemble per protein–ligand condition: **15 seeds x 5 samples = 75 poses** (AF3 `num_diffusion_samples=5`, runs completed).
 * Main clustering input: **ProLIF binary IFP only**.
 * Main descriptive unit: **cluster**.

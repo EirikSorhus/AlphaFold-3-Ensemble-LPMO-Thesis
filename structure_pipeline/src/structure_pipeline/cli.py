@@ -428,12 +428,12 @@ def run(
         cfg.rf3.n_recycles = rf3_n_recycles
     if rf3_num_steps is not None:
         cfg.rf3.num_steps = rf3_num_steps
-        if af3_num_recycles is not None:
-            cfg.af3.num_recycles = af3_num_recycles
-        if boltz_sampling_steps is not None:
-            cfg.boltz.sampling_steps = boltz_sampling_steps
-        if boltz_use_potentials is not None:
-            cfg.boltz.use_potentials = boltz_use_potentials
+    if af3_num_recycles is not None:
+        cfg.af3.num_recycles = af3_num_recycles
+    if boltz_sampling_steps is not None:
+        cfg.boltz.sampling_steps = boltz_sampling_steps
+    if boltz_use_potentials is not None:
+        cfg.boltz.use_potentials = boltz_use_potentials
 
     # ── Load manifests ─────────────────────────────────────────
     manifest_dir = cfg.outputs.manifest_dir

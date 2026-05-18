@@ -6,8 +6,12 @@ This file follows the active priority stack for implementation decisions:
 1. `AF3_LPMO_pipeline_detailed_plan.md` — **primary and governing source** (updated 2026-04-21)
 2. Latest user comments in the working thread
 3. `MASTERPLAN.md` (this file) and `IMPLEMENTATION_PLAYBOOK.md`
-4. `plan_implementation_spec.txt` — **archived legacy spec** (PLACER steps obsolete; use for historical context only)
-5. `plan_analyse.txt` — **archived legacy reference only** (research questions RQ1-RQ4 and AF3 tuning rationale as background)
+4. Detailed downstream implementation plans:
+   - `c1_c4_predictive_analysis_plan_simplified.yaml` — exploratory C1/C4 regioactivity predictive modeling
+   - `substrate_activity_prediction_plan.yaml` — exploratory substrate activity prediction from AF3 ligand-condition summaries
+   - `cbm_full_length_vs_domain_only_analysis_plan.yaml` — paired full-length vs domain-only CBM analysis
+5. `plan_implementation_spec.txt` — **archived legacy spec** (PLACER steps obsolete; use for historical context only)
+6. `plan_analyse.txt` — **archived legacy reference only** (research questions RQ1-RQ4 and AF3 tuning rationale as background)
 
 **⚠️ CRITICAL: Large changes to order of analyses, which analyses are run, or core pipeline structure must NOT be made by AI without explicit user approval first. Any proposed changes in these areas require user review and confirmation.**
 
@@ -20,6 +24,9 @@ This file follows the active priority stack for implementation decisions:
 ## 1. Scope And Invariants
 
 - Models: AF3 (**RF3/RosettaFold 3 og Boltz-2 er ekskludert fra analyse**)
+- **Data availability**: Precomputed AF3 structures fully available at:
+  - Domain-only: `/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work_core`
+  - Full-length: `/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work_full_length`
 - AF3 fixed parameters (main analysis): `num_recycles=10`, `num_seeds=15`, `num_diffusion_samples=5` (75 poses per protein–ligand condition; runs completed)
 - Operational analyses: 9 independent sub-analyses
   - chitin_DP4, chitin_DP6, chitin_DP8
@@ -33,6 +40,7 @@ This file follows the active priority stack for implementation decisions:
 - IFP clustering uses IFP features only; geometry is linked after clustering.
 - Atom names are not assumed consistent across models; mapping key is (element, CCD, local bond graph, 3D proximity).
 - Chain schema: protein=A, glycans=B..D, metal=E.
+- Normalization must hard-fail if no glycan residues remain after chain remap; protein+metal-only source CIFs are invalid analysis inputs and must not continue downstream as soft warnings.
 - `_chem_comp_bond` must be complete for all `comp_id`, and `_struct_conn` must include glycosidic + Cu coordination links.
 - Preserve all computed numeric metrics; do not drop distance/angle/support fields from output tables.
 - Geometry plausibility thresholds are operationalized and locked in `configs/thresholds.yaml` (`geometry_plausibility.locked = true`, 2026-04-21).
@@ -178,7 +186,7 @@ Implementation order follows `IMPLEMENTATION_PLAYBOOK.md`.
 
 ### Stage 11 - Crystal Sanity-Check (was Step 12)
 - Input: cluster medoids only (not all poses).
-- Alignment: PyMOL `pair_fit` on histidine-brace, Cu-coordinating residues, substrate-recognition residues.
+- Alignment: current operational implementation uses local Kabsch alignment on shared pocket C-alpha atoms; pocket residues come from ligand/Cu proximity in holo references or sequence-projected medoid pockets for apo references.
 - Output: `crystal_anchor_table.tsv`.
 - Crystal mismatch does NOT invalidate a cluster; context and plausibility only.
 
@@ -197,12 +205,16 @@ Implementation order follows `IMPLEMENTATION_PLAYBOOK.md`.
 - Grouped CV at protein level (all clusters from same protein in one fold).
 - Report: balanced accuracy, macro F1, AUROC where applicable.
 - Results are exploratory; do NOT overinterpret as causal biology.
+- Detailed implementation plans:
+  - `c1_c4_predictive_analysis_plan_simplified.yaml` specifies the C1/C4 regioactivity modeling table, labels, compact feature set, nested grouped CV, and binary C1/C4 model outputs.
+  - `substrate_activity_prediction_plan.yaml` specifies the substrate activity modeling table, protein-substrate activity labels, grouped CV, feature aggregation, and reporting for chitin/cellulose/starch prediction.
 
 ### Stage 15 - CBM Paired Analysis (was Step 13)
 - Only proteins with both domain-only and full-length constructs.
 - Paired comparisons within each protein–ligand condition.
 - Output: `cbm_comparison_table.tsv`.
 - Statistics: paired Wilcoxon signed-rank; report effect sizes and direction.
+- Detailed implementation plan: `cbm_full_length_vs_domain_only_analysis_plan.yaml` specifies the matched construct-pair design, CBM/linker region definitions, condition summaries, primary endpoints, paired statistics, and required CBM analysis outputs.
 
 ## 4. Activity Label Mapping From EC
 
@@ -299,7 +311,7 @@ Every run writes `run_manifest.json` including:
 | RQ1 C1/C4 regioselectivity | cluster | Cu-C1/C4, oxyl-H, attack angles, occupancy | cluster_table.tsv, predictive_cluster_table.tsv |
 | RQ2 substrate specificity | cluster | substrate/DP-specific occupancy + IFP signatures | cluster_table.tsv, predictive_cluster_table.tsv |
 | RQ3 CBM effect | paired protein–subanalysis | occupancy shifts, support, CBM proximity | cbm_comparison_table.tsv |
-| RQ4 crystal anchoring | cluster/protein–ligand condition | pocket RMSD (optimized local alignment via PyMOL pair_fit), ligand/proximal RMSD, IFP similarity | crystal_anchor_table.tsv |
+| RQ4 crystal anchoring | cluster/protein–ligand condition | pocket RMSD (current operational implementation: optimized local C-alpha alignment on ligand/Cu-proximal pocket via gemmi/numpy Kabsch), ligand/proximal RMSD, IFP similarity | crystal_anchor_table.tsv |
 
 ## 11. Implementation Status
 
@@ -315,9 +327,11 @@ Adapted patterns from the following MIT-licensed projects (see ATTRIBUTION.md):
 
 ## 13. Alignment Strategy (Crystal Anchoring)
 
-Alignment of predicted structures against crystal references uses PyMOL `pair_fit`:
+Alignment of predicted structures against crystal references currently uses a
+local pocket C-alpha superposition implemented with gemmi/numpy Kabsch:
 
-1. **Alignment atoms**: Histidine-brace Cα/Nε2 + Cu-coordinating residues + substrate-recognition surface residues.
-2. **Substrate-recognition residues**: Identified via literature (preferred) or proximity to ligand in predicted structure (fallback). Document which method was used per system.
-3. **Measurement**: After optimal local superposition, report pocket RMSD, per-residue deviations, and ligand RMSD. Always label results as "optimized local alignment" to distinguish from global alignment.
-4. **Note**: Only AF3 is used; cross-model differences are not applicable.
+1. **Alignment atoms**: Shared protein C-alpha atoms from the selected pocket.
+2. **Pocket residues**: Current operational heuristic is protein residues within 5 A of ligand or Cu in holo references. Apo references can reuse a sequence-projected pocket from the medoid/representative pose, with residue-name normalization for variants such as `HIC -> HIS`.
+3. **Literature refinement**: Family-specific substrate-recognition residues from literature are still preferred if they should replace or refine the current heuristic. Document which method was used per system.
+4. **Measurement**: After optimal local superposition, report pocket RMSD, per-residue deviations, and ligand/proximal RMSD where available. Always label results as optimized local alignment to distinguish from global alignment.
+5. **Note**: Only AF3 is used; cross-model differences are not applicable. PyMOL `pair_fit` parity/hardening remains possible future work, but is not the current operational backend.

@@ -19,6 +19,12 @@ from dataclasses import dataclass
 from typing import Dict, Optional, List
 from pathlib import Path
 
+from lpmo_pipeline.config import load_runtime_paths_config
+
+
+_RUNTIME_PATHS = load_runtime_paths_config()
+_DEFAULT_GATE_CONFIG_PATH = _RUNTIME_PATHS.pipeline_assets.thresholds_config
+
 
 @dataclass
 class GateConfig:
@@ -82,7 +88,7 @@ class QCGateChecker:
     """Evaluate pose against all QC gates."""
     
     def __init__(self, config: Optional[GateConfig] = None):
-        self.config = config or GateConfig()
+        self.config = config or load_gate_config_from_yaml(_DEFAULT_GATE_CONFIG_PATH)
         self.results: List[GateResult] = []
     
     def check_atom_mapping(self, coverage: float) -> GateResult:

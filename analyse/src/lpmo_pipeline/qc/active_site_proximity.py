@@ -18,7 +18,14 @@ from typing import Any
 
 import numpy as np
 
+from lpmo_pipeline.config import load_defaults_config
+
 logger = logging.getLogger(__name__)
+
+_DEFAULTS_CONFIG = load_defaults_config()
+_CHAIN_SCHEMA = _DEFAULTS_CONFIG.get("chain_schema") or {}
+DEFAULT_CU_CHAIN = str(_CHAIN_SCHEMA.get("metal") or "E")
+DEFAULT_GLYCAN_CHAINS = tuple(str(chain) for chain in (_CHAIN_SCHEMA.get("glycans") or ["B", "C", "D"]))
 
 
 ACTIVE_SITE_PROXIMITY_MAX_A: float = 10.0
@@ -55,7 +62,7 @@ class ActiveSiteProximityResult:
 def check_active_site_proximity(
     structure: Any,
     pose_id: str = "",
-    cu_chain: str = "E",
+    cu_chain: str = DEFAULT_CU_CHAIN,
     glycan_chains: list[str] | None = None,
     hard_cutoff_a: float = ACTIVE_SITE_PROXIMITY_MAX_A,
     cu_c_soft_flag_a: float = CU_C_SOFT_FLAG_A,
@@ -74,7 +81,7 @@ def check_active_site_proximity(
         ActiveSiteProximityResult with metrics and pass/fail.
     """
     if glycan_chains is None:
-        glycan_chains = ["B", "C", "D"]
+        glycan_chains = list(DEFAULT_GLYCAN_CHAINS)
 
     result = ActiveSiteProximityResult(pose_id=pose_id)
 

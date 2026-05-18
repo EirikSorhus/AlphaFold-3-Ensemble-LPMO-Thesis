@@ -15,16 +15,16 @@ from lpmo_pipeline.cli import cmd_run
 
 DEFAULT_CIF_PATHS: tuple[Path, ...] = (
     Path(
-        "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work/"
-        "NAG4/af3/latest/Q7SCE9_NAG4/seed-4_sample-1/Q7SCE9_NAG4_seed-4_sample-1_model.cif"
+        "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work_core/"
+        "NAG4/af3/runs/408002/Q7SCE9_NAG4/seed-4_sample-1/Q7SCE9_NAG4_seed-4_sample-1_model.cif"
     ),
     Path(
-        "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work/"
-        "STA6/af3/latest/Q59930_STA6/seed-2_sample-0/Q59930_STA6_seed-2_sample-0_model.cif"
+        "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work_core/"
+        "STA6/af3/runs/408006/Q59930_STA6/seed-9_sample-0/Q59930_STA6_seed-9_sample-0_model.cif"
     ),
     Path(
-        "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work/"
-        "STA4/af3/latest/A0A0S2GKZ1_STA4/seed-2_sample-2/A0A0S2GKZ1_STA4_seed-2_sample-2_model.cif"
+        "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work_core/"
+        "STA4/af3/runs/408005/A0A0S2GKZ1_STA4/seed-9_sample-0/A0A0S2GKZ1_STA4_seed-9_sample-0_model.cif"
     ),
 )
 
@@ -169,7 +169,16 @@ def main() -> int:
         )
 
         qc_report_path = production_output / "qc_report.json"
+        pose_manifest_path = production_output / "pose_manifest.tsv"
+        pose_confidence_path = production_output / "pose_confidence.tsv"
+        structure_index_path = production_output / "structure_index.tsv"
+        qc_attrition_path = production_output / "qc_attrition_table.tsv"
         pose_geometry_path = production_output / "pose_geometry.tsv"
+        pose_ifp_table_path = production_output / "pose_ifp_table.tsv"
+        cluster_assignments_path = production_output / "cluster_assignments.tsv"
+        medoid_manifest_path = production_output / "medoid_manifest.tsv"
+        condition_cluster_summary_path = production_output / "condition_cluster_summary.tsv"
+        crystal_anchor_path = production_output / "crystal_anchor_table.tsv"
         metrics_csv_path = production_output / "metrics.csv"
         summary_json_path = production_output / "summary.json"
         report_html_path = production_output / "report.html"
@@ -185,13 +194,30 @@ def main() -> int:
                 "production_output": str(production_output),
                 "cli_exit_code": exit_code,
                 "qc_report_path": str(qc_report_path),
+                "pose_manifest_tsv": str(pose_manifest_path),
+                "pose_confidence_tsv": str(pose_confidence_path),
+                "structure_index_tsv": str(structure_index_path),
+                "qc_attrition_tsv": str(qc_attrition_path),
                 "pose_geometry_tsv": str(pose_geometry_path),
+                "pose_ifp_table_tsv": str(pose_ifp_table_path),
+                "cluster_assignments_tsv": str(cluster_assignments_path),
+                "medoid_manifest_tsv": str(medoid_manifest_path),
+                "condition_cluster_summary_tsv": str(condition_cluster_summary_path),
+                "crystal_anchor_tsv": str(crystal_anchor_path),
                 "metrics_csv": str(metrics_csv_path),
                 "summary_json": str(summary_json_path),
                 "report_html": str(report_html_path),
                 "manifest_path": str(manifest_path),
                 "analysis_core_summary_path": str(analysis_summary_path),
+                "pose_manifest_rows": _count_table_rows(pose_manifest_path),
+                "pose_confidence_rows": _count_table_rows(pose_confidence_path),
+                "structure_index_rows": _count_table_rows(structure_index_path),
+                "qc_attrition_rows": _count_table_rows(qc_attrition_path),
                 "pose_geometry_rows": _count_table_rows(pose_geometry_path),
+                "pose_ifp_rows": _count_table_rows(pose_ifp_table_path),
+                "cluster_assignment_rows": _count_table_rows(cluster_assignments_path),
+                "condition_cluster_summary_rows": _count_table_rows(condition_cluster_summary_path),
+                "crystal_anchor_rows": _count_table_rows(crystal_anchor_path),
                 "metrics_rows": _count_table_rows(metrics_csv_path),
                 "debug_pdb_paths": debug_pdb_paths,
             }
@@ -212,13 +238,29 @@ def main() -> int:
             return 1
         expected_paths = [
             qc_report_path,
+            pose_manifest_path,
+            pose_confidence_path,
+            structure_index_path,
+            qc_attrition_path,
             pose_geometry_path,
-            metrics_csv_path,
+            crystal_anchor_path,
             summary_json_path,
             report_html_path,
             manifest_path,
             analysis_summary_path,
         ]
+        if summary.get("analysis_core_summary", {}).get("n_analyzed", 0) > 0:
+            expected_paths.extend(
+                [
+                    pose_ifp_table_path,
+                    cluster_assignments_path,
+                    medoid_manifest_path,
+                    condition_cluster_summary_path,
+                    metrics_csv_path,
+                ]
+            )
+        else:
+            expected_paths.append(metrics_csv_path)
         if any(not path.exists() for path in expected_paths):
             return 1
         return 0

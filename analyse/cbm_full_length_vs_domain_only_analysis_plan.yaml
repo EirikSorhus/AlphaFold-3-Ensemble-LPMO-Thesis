@@ -1,0 +1,385 @@
+analysis:
+  name: full_length_vs_domain_only_cbm_paired_analysis
+  version: "1.0"
+  status: side_analysis_descriptive_with_limited_paired_statistics
+  purpose: >
+    Test whether full-length LPMO predictions, including CBM/linker regions, change ligand placement
+    relative to catalytic-domain-only predictions. The analysis focuses on changes in CBM recruitment,
+    active-site IFP/contact patterns, C1/C4 geometry annotations, QC, and clustering stability.
+  main_question: >
+    For the same protein and same ligand condition, does the full-length construct produce different
+    AF3 ligand placement or structural summaries than the domain-only construct?
+  interpretation_scope:
+    - AF3-derived placement changed or did not change between constructs.
+    - CBM/linker contact patterns suggest or do not suggest ligand recruitment.
+    - Geometry annotations shift or do not shift toward C1-like or C4-like compatibility.
+    - Observed changes are computational indicators, not experimental evidence of changed activity or affinity.
+
+design:
+  comparison_type: paired_within_protein_ligand_condition
+  pairing_unit: protein_id x substrate_class x dp
+  pair_members:
+    domain_only: construct_type in ["domain_only", "catalytic_domain"]
+    full_length: construct_type == "full_length"
+  main_row_unit: one matched construct pair per protein_id x substrate_class x dp
+  source_tables:
+    required:
+      - condition_table.tsv
+      - condition_cluster_summary.tsv
+      - cluster_table.tsv
+      - cluster_residue_signature.tsv
+      - protein_condition_residue_scores.tsv
+    optional:
+      - pose_geometry.tsv
+      - pose_residue_contact_table.tsv
+      - medoid_manifest.tsv
+  inclusion_rules:
+    - Include only proteins with both domain-only/catalytic-domain and full-length predictions.
+    - Create pairs only when both constructs exist for the same protein_id, substrate_class, and dp.
+    - Use the same predefined QC, IFP, geometry, clustering, and cluster-inclusion rules for both constructs.
+    - Use condition-level summaries as the paired analysis input.
+    - Use cluster-level and pose-level data only to build the condition-level summaries.
+  stratification_variables:
+    - substrate_class
+    - dp
+    - cbm_type
+    - family_label
+
+region_definitions:
+  required_region_labels_per_residue:
+    - catalytic_domain
+    - cbm_region
+    - linker_region
+    - other
+  rules:
+    - Assign each protein residue to exactly one region label before computing CBM metrics.
+    - For domain-only constructs, all mapped residues are catalytic_domain unless a more specific annotation is available.
+    - For full-length constructs, catalytic_domain, cbm_region, and linker_region must be defined from metadata or sequence/domain annotation.
+    - Use the same catalytic-domain residue mapping between domain-only and full-length constructs before comparing active-site IFP/contact summaries.
+
+condition_summary_building:
+  input_level: clusters_within_each_construct_condition
+  cluster_weight: occupancy
+  main_aggregation: occupancy_weighted_across_non_noise_clusters_that_pass_cluster_inclusion
+  keep_zero_valid_cluster_conditions: true
+  zero_valid_cluster_handling:
+    set_counts:
+      n_clusters: 0
+      top_cluster_occupancy: 0
+      geometry_computable_fraction: 0
+      geometry_plausible_fraction: 0
+      C1_compatible_fraction: 0
+      C4_compatible_fraction: 0
+      cbm_ligand_contact_fraction: 0
+      linker_ligand_contact_fraction: 0
+      bridge_fraction: 0
+    set_missing:
+      - median_geometry_distances
+      - median_attack_angles
+      - active_site_ifp_weighted_vector
+      - catalytic_domain_ifp_jaccard_distance
+    add_flags:
+      - any_valid_cluster
+      - no_valid_cluster_flag
+      - geometry_missing_flag
+      - ifp_missing_flag
+    reason: >
+      Absence of valid clusters may itself indicate a construct-dependent difference in AF3 behavior.
+  outputs:
+    - cbm_construct_condition_summary.tsv
+
+derived_metrics:
+  qc_metrics:
+    qc_pass_fraction: n_qc_pass / n_generated
+    ifp_success_fraction: n_ifp_success / n_qc_pass where n_qc_pass > 0
+    geometry_computable_fraction: n_geometry_computable / n_qc_pass where n_qc_pass > 0
+    geometry_plausible_fraction: n_geometry_plausible / n_qc_pass where n_qc_pass > 0
+
+  cluster_stability_metrics:
+    n_clusters: number of retained non-noise clusters
+    noise_fraction: n_noise / n_ifp_clustered where n_ifp_clustered > 0
+    top_cluster_occupancy: maximum retained cluster occupancy
+    cluster_entropy: Shannon entropy of retained cluster occupancies
+    occupancy_gini: Gini coefficient of retained cluster occupancies
+
+  cbm_recruitment_metrics_full_length:
+    cbm_ligand_contact_fraction: >
+      Occupancy-weighted fraction of retained clusters where the ligand contacts at least one CBM residue.
+    linker_ligand_contact_fraction: >
+      Occupancy-weighted fraction of retained clusters where the ligand contacts at least one linker residue.
+    bridge_fraction: >
+      Occupancy-weighted fraction of retained clusters where the ligand contacts catalytic-domain residue(s)
+      and CBM or linker residue(s) in the same cluster.
+    cbm_recruitment_score: >
+      max(cbm_ligand_contact_fraction, bridge_fraction). Used for descriptive ranking of proteins.
+
+  active_site_contact_change_metrics:
+    active_site_ifp_weighted_vector: >
+      For each construct condition, compute occupancy-weighted frequencies of catalytic-domain IFP features
+      using retained clusters.
+    catalytic_domain_ifp_jaccard_distance: >
+      Jaccard distance between binarized occupancy-weighted catalytic-domain IFP vectors from full-length
+      and domain-only constructs. Binarize each feature as present if weighted frequency >= 0.10.
+    delta_catalytic_surface_contact_fraction: >
+      full_length_catalytic_surface_contact_fraction - domain_only_catalytic_surface_contact_fraction
+    delta_aromatic_contact_fraction: >
+      full_length_aromatic_contact_fraction - domain_only_aromatic_contact_fraction
+    delta_polar_contact_fraction: >
+      full_length_polar_contact_fraction - domain_only_polar_contact_fraction
+
+  geometry_shift_metrics:
+    C1_compatible_fraction: occupancy-weighted fraction of retained clusters annotated as C1-compatible
+    C4_compatible_fraction: occupancy-weighted fraction of retained clusters annotated as C4-compatible
+    C4_minus_C1_geometry_bias: C4_compatible_fraction - C1_compatible_fraction
+    delta_C1_compatible_fraction: full_length_C1_compatible_fraction - domain_only_C1_compatible_fraction
+    delta_C4_compatible_fraction: full_length_C4_compatible_fraction - domain_only_C4_compatible_fraction
+    delta_C4_minus_C1_geometry_bias: >
+      full_length_C4_minus_C1_geometry_bias - domain_only_C4_minus_C1_geometry_bias
+    delta_geometry_plausible_fraction: full_length_geometry_plausible_fraction - domain_only_geometry_plausible_fraction
+
+  qc_and_stability_delta_metrics:
+    delta_qc_pass_fraction: full_length_qc_pass_fraction - domain_only_qc_pass_fraction
+    delta_ifp_success_fraction: full_length_ifp_success_fraction - domain_only_ifp_success_fraction
+    delta_n_clusters: full_length_n_clusters - domain_only_n_clusters
+    delta_noise_fraction: full_length_noise_fraction - domain_only_noise_fraction
+    delta_top_cluster_occupancy: full_length_top_cluster_occupancy - domain_only_top_cluster_occupancy
+    delta_cluster_entropy: full_length_cluster_entropy - domain_only_cluster_entropy
+
+primary_endpoints:
+  description: >
+    Primary endpoints are the only metrics used for formal paired statistical summaries.
+    They directly map to the biological/structural hypothesis.
+  metrics:
+    - name: bridge_fraction
+      construct: full_length_only
+      summary: median, IQR, and number of conditions above predefined recruitment thresholds
+      why: Tests whether AF3 places the ligand between catalytic domain and CBM/linker.
+    - name: catalytic_domain_ifp_jaccard_distance
+      construct: paired_distance
+      summary: median, IQR, bootstrap CI for median
+      why: Tests whether full-length changes the active-site ligand-contact pattern.
+    - name: delta_C4_minus_C1_geometry_bias
+      construct: paired_delta
+      summary: median delta, IQR delta, bootstrap CI, direction count
+      why: >
+        Tests whether full-length shifts geometry annotations toward relatively more C4-like
+        or C1-like placement.
+    - name: delta_qc_pass_fraction
+      construct: paired_delta
+      summary: median delta, IQR delta, bootstrap CI, direction count
+      why: Tests whether full-length changes the fraction of structurally usable AF3 poses.
+    - name: delta_cluster_entropy
+      construct: paired_delta
+      summary: median delta, IQR delta, bootstrap CI, direction count
+      why: Tests whether full-length makes ligand placement more or less multimodal.
+
+secondary_descriptive_endpoints:
+  metrics:
+    - cbm_ligand_contact_fraction
+    - linker_ligand_contact_fraction
+    - cbm_recruitment_score
+    - delta_C1_compatible_fraction
+    - delta_C4_compatible_fraction
+    - delta_geometry_plausible_fraction
+    - delta_ifp_success_fraction
+    - delta_noise_fraction
+    - delta_top_cluster_occupancy
+    - delta_n_clusters
+    - delta_catalytic_surface_contact_fraction
+    - delta_aromatic_contact_fraction
+    - delta_polar_contact_fraction
+  summary:
+    - median
+    - IQR
+    - minimum
+    - maximum
+    - n_pairs
+    - n_positive_delta
+    - n_negative_delta
+    - n_zero_delta
+
+paired_comparison_table:
+  output: cbm_paired_comparison_table.tsv
+  one_row_per: protein_id x substrate_class x dp pair
+  required_columns:
+    - protein_id
+    - family_label
+    - cbm_type
+    - substrate_class
+    - dp
+    - domain_only_condition_id
+    - full_length_condition_id
+    - n_generated_domain_only
+    - n_generated_full_length
+    - n_qc_pass_domain_only
+    - n_qc_pass_full_length
+    - any_valid_cluster_domain_only
+    - any_valid_cluster_full_length
+    - cbm_ligand_contact_fraction_full_length
+    - linker_ligand_contact_fraction_full_length
+    - bridge_fraction_full_length
+    - catalytic_domain_ifp_jaccard_distance
+    - delta_C1_compatible_fraction
+    - delta_C4_compatible_fraction
+    - delta_C4_minus_C1_geometry_bias
+    - delta_qc_pass_fraction
+    - delta_ifp_success_fraction
+    - delta_n_clusters
+    - delta_noise_fraction
+    - delta_top_cluster_occupancy
+    - delta_cluster_entropy
+    - delta_geometry_plausible_fraction
+
+statistics:
+  default_level: paired_condition_level
+  primary_statistic: median_delta_or_median_distance
+  normality_assumption: none
+  very_small_n_definition:
+    very_small_n: n_pairs < 8
+    extremely_small_n: n_pairs < 5
+    small_n: 8 <= n_pairs < 12
+    adequate_for_simple_paired_nonparametric_summary: n_pairs >= 12
+  method_by_sample_size:
+    n_pairs_less_than_5:
+      label: extremely_small_n
+      report:
+        - individual paired values
+        - median if meaningful
+        - direction count
+      statistical_test: none
+      confidence_interval: none
+      interpretation: case-series only
+    n_pairs_5_to_7:
+      label: very_small_n
+      report:
+        - individual paired values
+        - median
+        - IQR
+        - direction count
+      statistical_test: sign_test_optional
+      confidence_interval: bootstrap_CI_optional_and_labelled_unstable
+      interpretation: descriptive with very cautious uncertainty
+    n_pairs_8_to_11:
+      label: small_n
+      report:
+        - median
+        - IQR
+        - direction count
+        - paired_bootstrap_95CI_for_median
+      statistical_test: sign_test_primary_wilcoxon_optional_if_n_nonzero_pairs_at_least_8
+      interpretation: exploratory paired comparison
+    n_pairs_12_or_more:
+      label: adequate_for_simple_nonparametric_paired_summary
+      report:
+        - median
+        - IQR
+        - direction count
+        - paired_bootstrap_95CI_for_median
+        - paired_wilcoxon_signed_rank_p_value
+        - paired_effect_size
+      statistical_test: paired_wilcoxon_signed_rank
+      interpretation: exploratory paired nonparametric analysis
+  paired_bootstrap:
+    resampling_unit: matched_pair_row
+    n_resamples: 10000
+    statistic: median
+    confidence_interval: percentile_95CI
+    random_state: 42
+  wilcoxon_signed_rank:
+    use_for: primary paired delta metrics when n_nonzero_pairs >= 8
+    zero_method: wilcox_or_pratt_defined_before_running
+    alternative: two_sided
+    report:
+      - p_value
+      - median_delta
+      - n_nonzero_pairs
+      - rank_biserial_correlation_or_matched_pairs_effect_size
+  multiple_testing:
+    scope: primary_endpoints_only
+    method: Benjamini-Hochberg FDR
+    report_uncorrected_and_fdr_adjusted_p: true
+    secondary_endpoints: descriptive_no_formal_multiplicity_claim
+
+stratified_reporting:
+  main_strata:
+    - substrate_class
+    - dp
+    - cbm_type
+  for_each_stratum_report:
+    - n_pairs
+    - median_delta_or_median_metric
+    - IQR
+    - n_positive_delta
+    - n_negative_delta
+    - n_zero_delta
+  formal_tests_in_strata:
+    run_only_if_n_pairs_at_least: 12
+    otherwise: descriptive_only
+
+cbm_recruitment_classification:
+  thresholds_to_define_before_analysis:
+    cbm_contact_present_threshold: 0.10
+    bridge_present_threshold: 0.10
+    strong_bridge_threshold: 0.30
+  flags:
+    cbm_contact_flag: cbm_ligand_contact_fraction >= cbm_contact_present_threshold
+    bridge_flag: bridge_fraction >= bridge_present_threshold
+    strong_bridge_flag: bridge_fraction >= strong_bridge_threshold
+    cbm_recruitment_flag: cbm_contact_flag or bridge_flag
+  output_counts:
+    - n_full_length_conditions_with_cbm_contact_flag
+    - n_full_length_conditions_with_bridge_flag
+    - n_full_length_conditions_with_strong_bridge_flag
+
+figures:
+  required:
+    - name: paired_delta_plot_primary_metrics.png
+      description: One point per matched pair, full_length - domain_only for primary delta metrics.
+    - name: domain_only_vs_full_length_paired_lines.png
+      description: Paired line plots for selected metrics with domain-only and full-length values.
+    - name: cbm_bridge_fraction_by_substrate_dp.png
+      description: Full-length bridge fraction summarized by substrate_class and dp.
+    - name: active_site_ifp_change_heatmap.png
+      description: Heatmap of catalytic_domain_ifp_jaccard_distance per protein and ligand condition.
+    - name: geometry_bias_delta_heatmap.png
+      description: Heatmap of delta_C4_minus_C1_geometry_bias per protein and ligand condition.
+  optional_representative_structures:
+    - full_length_medoid_with_ligand_bridging_catalytic_domain_and_cbm
+    - matched_domain_only_medoid_for_same_protein_ligand_condition
+    - example_with_large_active_site_ifp_change
+    - example_with_large_C1_to_C4_geometry_bias_shift
+
+outputs:
+  tables:
+    - cbm_construct_condition_summary.tsv
+    - cbm_paired_comparison_table.tsv
+    - cbm_primary_metric_summary.tsv
+    - cbm_secondary_descriptive_summary.tsv
+    - cbm_stratified_summary_by_substrate.tsv
+    - cbm_stratified_summary_by_dp.tsv
+    - cbm_stratified_summary_by_cbm_type.tsv
+    - cbm_representative_examples.tsv
+  figures:
+    - paired_delta_plot_primary_metrics.png
+    - domain_only_vs_full_length_paired_lines.png
+    - cbm_bridge_fraction_by_substrate_dp.png
+    - active_site_ifp_change_heatmap.png
+    - geometry_bias_delta_heatmap.png
+
+implementation_order:
+  - Define catalytic_domain, cbm_region, and linker_region residue labels for all full-length constructs.
+  - Build construct-level condition summaries separately for domain-only and full-length conditions.
+  - Create matched pairs by protein_id, substrate_class, and dp.
+  - Compute full-length CBM recruitment metrics.
+  - Compute paired active-site IFP/contact distances and paired deltas.
+  - Compute primary endpoint summaries and sample-size category for each metric.
+  - Run bootstrap, sign test, and Wilcoxon procedures according to n_pairs and n_nonzero_pairs rules.
+  - Create stratified descriptive summaries by substrate_class, dp, and cbm_type.
+  - Generate required figures and representative medoid examples.
+  - Write final interpretation using effect sizes, direction, and uncertainty rather than only p-values.
+
+reporting_language:
+  preferred_phrasing:
+    - Full-length AF3 predictions showed increased/decreased/no clear change in [metric] relative to domain-only predictions.
+    - CBM/linker recruitment was observed in [n] of [N] full-length conditions using the predefined bridge/contact threshold.
+    - The observed geometry shift is an AF3-derived annotation and should be interpreted as a possible placement change, not as evidence for changed experimental regioactivity.

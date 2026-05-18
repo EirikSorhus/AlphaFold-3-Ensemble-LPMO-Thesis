@@ -18,6 +18,8 @@ import sys
 
 class StructuredLogger:
     """Wrapper for structured JSON logging."""
+
+    _CONSOLE_HANDLER_ATTR = "_lpmo_structured_console"
     
     def __init__(self, name: str, log_dir: Path):
         """
@@ -32,15 +34,21 @@ class StructuredLogger:
         # Set up dual logging: console + JSON file
         self.logger = logging.getLogger(name)
         self.logger.setLevel(logging.DEBUG)
+        self.logger.propagate = False
         
         # Console handler (INFO+)
-        console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setLevel(logging.INFO)
-        console_formatter = logging.Formatter(
-            '%(asctime)s [%(name)s] %(levelname)s: %(message)s'
-        )
-        console_handler.setFormatter(console_formatter)
-        self.logger.addHandler(console_handler)
+        if not any(
+            getattr(handler, self._CONSOLE_HANDLER_ATTR, False)
+            for handler in self.logger.handlers
+        ):
+            console_handler = logging.StreamHandler(sys.stdout)
+            console_handler.setLevel(logging.INFO)
+            console_formatter = logging.Formatter(
+                '%(asctime)s [%(name)s] %(levelname)s: %(message)s'
+            )
+            console_handler.setFormatter(console_formatter)
+            setattr(console_handler, self._CONSOLE_HANDLER_ATTR, True)
+            self.logger.addHandler(console_handler)
         
         # File handler (JSON)
         self.log_file = self.log_dir / f"{name}.jsonl"

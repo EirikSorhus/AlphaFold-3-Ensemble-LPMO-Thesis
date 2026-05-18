@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from lpmo_pipeline.analysis.clustering_agglomerative import AgglomerativeJaccardClusterer
 from lpmo_pipeline.analysis.clustering_hdbscan import (
     HDBANSCANClusterer,
     HDBSCANClusterer,
@@ -88,6 +89,8 @@ def test_outliers_labeled_minus_one() -> None:
     assert rows[-1]["noise_flag"] is True
     assert rows[-1]["cluster_member_flag"] is False
     assert rows[-1]["distance_to_cluster_representative"] is None
+    assert summary.n_ifp_success == 7
+    assert summary.n_contact_eligible == 0
     assert summary.n_ifp_clustered == 7
     assert summary.n_noise == 1
     assert summary.top_cluster_occupancy == pytest.approx(0.5)
@@ -132,3 +135,86 @@ def test_select_medoids_uses_minimum_summed_jaccard_distance() -> None:
 
     assert medoids == {0: 1}
     assert medoid_distance_sums[0] == pytest.approx((1.0 / 3.0) + (1.0 / 4.0))
+
+
+def test_agglomerative_finds_two_separable_clusters() -> None:
+    matrix = np.array(
+        [
+            [1, 1, 0, 0],
+            [1, 1, 0, 0],
+            [1, 1, 0, 0],
+            [0, 0, 1, 1],
+            [0, 0, 1, 1],
+            [0, 0, 1, 1],
+        ],
+        dtype=np.uint8,
+    )
+    pose_ids = [f"p{i}" for i in range(len(matrix))]
+
+    clusterer = AgglomerativeJaccardClusterer(distance_threshold=0.2, min_cluster_size=2)
+    result = clusterer.cluster(matrix, pose_ids)
+
+    assert result.n_clusters == 2
+    assert result.n_outliers == 0
+    assert sorted(result.cluster_sizes.values()) == [3, 3]
+    assert result.cluster_labels[:3].tolist() == [0, 0, 0]
+    assert result.cluster_labels[3:].tolist() == [1, 1, 1]
+    assert result.medoids == {0: 0, 1: 3}
+
+
+def test_agglomerative_distance_threshold_changes_cluster_membership() -> None:
+    matrix = np.array(
+        [
+            [1, 1, 0, 0],
+            [1, 1, 0, 1],
+            [0, 0, 1, 1],
+        ],
+        dtype=np.uint8,
+    )
+    pose_ids = ["p0", "p1", "p2"]
+
+    permissive = AgglomerativeJaccardClusterer(distance_threshold=0.4, min_cluster_size=2)
+    strict = AgglomerativeJaccardClusterer(distance_threshold=0.2, min_cluster_size=2)
+
+    permissive_result = permissive.cluster(matrix, pose_ids)
+    strict_result = strict.cluster(matrix, pose_ids)
+
+    assert permissive_result.cluster_labels.tolist() == [0, 0, -1]
+    assert permissive_result.n_clusters == 1
+    assert strict_result.cluster_labels.tolist() == [-1, -1, -1]
+    assert strict_result.n_clusters == 0
+
+
+def test_agglomerative_too_few_poses_becomes_noise_after_min_cluster_filter() -> None:
+    matrix = np.array(
+        [
+            [1, 0, 0, 0],
+            [1, 0, 0, 0],
+        ],
+        dtype=np.uint8,
+    )
+
+    clusterer = AgglomerativeJaccardClusterer(distance_threshold=0.1, min_cluster_size=3)
+    result = clusterer.cluster(matrix, ["p0", "p1"])
+
+    assert result.n_clusters == 0
+    assert result.n_outliers == 2
+    assert result.cluster_labels.tolist() == [-1, -1]
+
+
+def test_agglomerative_selects_medoid_by_minimum_summed_distance() -> None:
+    matrix = np.array(
+        [
+            [1, 1, 0, 0],
+            [1, 1, 0, 1],
+            [1, 1, 1, 1],
+        ],
+        dtype=np.uint8,
+    )
+
+    clusterer = AgglomerativeJaccardClusterer(distance_threshold=0.8, min_cluster_size=2)
+    result = clusterer.cluster(matrix, ["p0", "p1", "p2"])
+
+    assert result.n_clusters == 1
+    assert result.medoids == {0: 1}
+    assert result.medoid_distance_sums[0] == pytest.approx((1.0 / 3.0) + (1.0 / 4.0))

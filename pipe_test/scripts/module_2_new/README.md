@@ -9,6 +9,7 @@
 ## Table of Contents
 
 - [Overview](#overview)
+- [Known Faults](#known-faults)
 - [Recent Fixes (v1.1)](#recent-fixes-v11)
 - [Features](#features)
 - [Installation](#installation)
@@ -38,6 +39,10 @@ Module 2 is a comprehensive pipeline for fetching, validating, and annotating pr
 
 **Primary Use Case:** Building structured metadata catalogs for LPMO proteins from various input sources (CAZy exports, FASTA files, semicolon-delimited CSVs, plain ID lists).
 
+---
+## Known Faults
+- The fasta header is called UniProtID and not UniProtIDs for list function
+- EC# values are not made in the the metadata table, but the column name remains. **Important**
 ---
 
 ## Recent Fixes (v1.1)

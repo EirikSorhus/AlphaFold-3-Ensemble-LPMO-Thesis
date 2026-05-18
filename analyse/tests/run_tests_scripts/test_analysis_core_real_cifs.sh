@@ -33,9 +33,9 @@ export XDG_CACHE_HOME="$run_dir/cache"
 mkdir -p "$XDG_CACHE_HOME"
 
 cif_paths=(
-  "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work/NAG4/af3/latest/Q7SCE9_NAG4/seed-4_sample-1/Q7SCE9_NAG4_seed-4_sample-1_model.cif"
-  "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work/STA6/af3/latest/Q59930_STA6/seed-2_sample-0/Q59930_STA6_seed-2_sample-0_model.cif"
-  "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work/STA4/af3/latest/A0A0S2GKZ1_STA4/seed-2_sample-2/A0A0S2GKZ1_STA4_seed-2_sample-2_model.cif"
+    "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work_core/NAG4/af3/runs/408002/Q7SCE9_NAG4/seed-4_sample-1/Q7SCE9_NAG4_seed-4_sample-1_model.cif"
+    "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work_core/STA6/af3/runs/408006/Q59930_STA6/seed-9_sample-0/Q59930_STA6_seed-9_sample-0_model.cif"
+    "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work_core/STA4/af3/runs/408005/A0A0S2GKZ1_STA4/seed-9_sample-0/A0A0S2GKZ1_STA4_seed-9_sample-0_model.cif"
 )
 
 if [[ "$#" -gt 0 ]]; then
@@ -60,7 +60,7 @@ echo "[INFO] Running production analysis-core path on ${#cif_paths[@]} real CIFs
     --del-branch del_a \
     "${cif_paths[@]}"
 
-echo "[INFO] Analysis-core run completed"
+echo "[INFO] Analysis-core + clustering run completed"
 echo "[INFO] Results directory: $run_dir"
 echo "[INFO] Summary: $run_dir/analysis_core_real_cifs_summary.json"
 echo "[INFO] Production output: $run_dir/production_output"

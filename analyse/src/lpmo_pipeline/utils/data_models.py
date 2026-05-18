@@ -28,6 +28,7 @@ class FailureReason(Enum):
     """Catalog of failure modes for logging."""
     ATOM_MAPPING_INCOMPLETE = "atom_mapping_incomplete"
     GLYKAN_NOT_CCD = "glykan_not_ccd"
+    MISSING_GLYCAN_CHAIN = "missing_glycan_chain"
     PLACER_NO_OUTPUT = "placer_no_output"
     POSEBUSTERS_CRITICAL = "posebusters_critical"
     PRIVATEER_ANOMER_FAIL = "privateer_anomer_fail"

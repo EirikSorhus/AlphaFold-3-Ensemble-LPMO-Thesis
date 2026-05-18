@@ -18,11 +18,17 @@ from typing import Any
 import numpy as np
 import yaml
 
+from lpmo_pipeline.config import load_defaults_config, load_runtime_paths_config
 from lpmo_pipeline.qc.custom_geometry_checks import check_geometry
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_GLYCAN_CHAINS = ["B", "C", "D"]
+_RUNTIME_PATHS = load_runtime_paths_config()
+_DEFAULTS_CONFIG = load_defaults_config()
+_CHAIN_SCHEMA = _DEFAULTS_CONFIG.get("chain_schema") or {}
+DEFAULT_PROTEIN_CHAIN = str(_CHAIN_SCHEMA.get("protein") or "A")
+DEFAULT_GLYCAN_CHAINS = tuple(str(chain) for chain in (_CHAIN_SCHEMA.get("glycans") or ["B", "C", "D"]))
+DEFAULT_CU_CHAIN = str(_CHAIN_SCHEMA.get("metal") or "E")
 
 GEOMETRY_STATUS_NOT_COMPUTABLE = "geometry_not_computable"
 GEOMETRY_STATUS_COMPUTABLE_IMPLAUSIBLE = "geometry_computable_implausible"
@@ -185,7 +191,7 @@ class _TargetGeometry:
 
 
 def _default_thresholds_path() -> Path:
-    return Path(__file__).resolve().parents[3] / "configs" / "thresholds.yaml"
+    return _RUNTIME_PATHS.pipeline_assets.thresholds_config
 
 
 @lru_cache(maxsize=4)
@@ -221,9 +227,9 @@ def load_geometry_thresholds(config_path: str | None = None) -> GeometryThreshol
 def compute_pose_metrics(
     pdb_path: Path,
     pose_id: str = "",
-    protein_chain: str = "A",
+    protein_chain: str = DEFAULT_PROTEIN_CHAIN,
     glycan_chains: list[str] | None = None,
-    cu_chain: str = "E",
+    cu_chain: str = DEFAULT_CU_CHAIN,
     reference_pdb: Path | None = None,
     crystal_pdb: Path | None = None,
     core_selection: str = "protein and not (resid 1:5 or name H*)",
@@ -264,9 +270,9 @@ def compute_pose_metrics(
 def compute_pose_metrics_from_structure(
     structure: Any,
     pose_id: str = "",
-    protein_chain: str = "A",
+    protein_chain: str = DEFAULT_PROTEIN_CHAIN,
     glycan_chains: list[str] | None = None,
-    cu_chain: str = "E",
+    cu_chain: str = DEFAULT_CU_CHAIN,
     reference_pdb: Path | None = None,
     crystal_pdb: Path | None = None,
     core_selection: str = "protein and not (resid 1:5 or name H*)",

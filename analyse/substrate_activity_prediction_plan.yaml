@@ -1,0 +1,543 @@
+analysis_plan:
+  name: af3_ligand_activity_prediction
+  version: 1.0
+  status: exploratory_predictive_module
+  scope: protein_ligand_activity_from_AF3_ligand_panel
+
+purpose:
+  objective: >
+    Test whether AF3-derived protein-ligand summaries can distinguish experimentally
+    active ligand classes from inactive ligand classes for the same protein.
+  main_question: >
+    For a given protein and AF3 substrate_class condition, predict whether the
+    protein is experimentally active on that substrate_class.
+  prediction_unit: protein_id__substrate_class__dp
+  reporting_unit: protein_id__substrate_class
+  grouping_unit: protein_id
+
+input_tables:
+  required:
+    protein_metadata:
+      path: metadata/protein_metadata.tsv
+      required_columns:
+        - protein_id
+        - family_label
+        - construct_type
+        - experimental_substrate_label
+        - experimental_regio_label
+        - notes
+    condition_table:
+      path: 09_descriptive/condition_table.tsv
+      required_columns:
+        - condition_id
+        - protein_id
+        - construct_type
+        - substrate_class
+        - dp
+        - n_generated
+        - n_qc_pass
+        - n_ifp_success
+        - n_geometry_computable
+        - n_geometry_plausible
+        - n_clusters
+        - noise_fraction
+        - top_cluster_occupancy
+        - cluster_entropy
+        - occupancy_gini
+    cluster_table:
+      path: 08_cluster_annotation/cluster_table.tsv
+      required_columns:
+        - cluster_id
+        - condition_id
+        - protein_id
+        - construct_type
+        - substrate_class
+        - dp
+        - cluster_size
+        - occupancy
+        - geometry_computable_fraction
+        - geometry_plausible_fraction
+        - geometry_highly_plausible_fraction
+        - iptm_mean
+        - mean_plddt_mean
+    residue_or_patch_summary:
+      path: 09_descriptive/condition_patch_summary.tsv
+      required_columns:
+        - condition_id
+        - aromatic_contact_fraction
+        - polar_contact_fraction
+        - charged_contact_fraction
+        - hydrophobic_contact_fraction
+        - hbond_contact_fraction
+        - loop_contact_fraction
+        - catalytic_surface_contact_fraction
+
+substrate_activity_labels:
+  allowed_substrate_classes:
+    - chitin
+    - cellulose
+    - starch
+  build_activity_matrix:
+    output_table: 10_predictive/modeling_tables/protein_substrate_activity_matrix.tsv
+    row_unit: protein_id
+    output_columns:
+      - protein_id
+      - active_on_chitin
+      - active_on_cellulose
+      - active_on_starch
+      - substrate_activity_pattern
+    rules:
+      chitin_only:
+        active_on_chitin: true
+        active_on_cellulose: false
+        active_on_starch: false
+      cellulose_only:
+        active_on_chitin: false
+        active_on_cellulose: true
+        active_on_starch: false
+      starch_only:
+        active_on_chitin: false
+        active_on_cellulose: false
+        active_on_starch: true
+      chitin_and_cellulose:
+        active_on_chitin: true
+        active_on_cellulose: true
+        active_on_starch: false
+      other_documented_multiactivity:
+        encode_each_experimentally_supported_substrate_as_true: true
+  build_model_target:
+    target_name: active_on_prediction_substrate
+    output_table: 10_predictive/modeling_tables/substrate_activity_condition_modeling_table.tsv
+    rule: >
+      For each protein_id, substrate_class, and dp row, set the target to the
+      activity_matrix value matching the row substrate_class.
+    target_values:
+      active: 1
+      inactive: 0
+
+modeling_table:
+  primary_row_unit: protein_id__substrate_class__dp
+  build_steps:
+    - create_all_expected_rows_for_each_protein_construct_substrate_class_dp
+    - join_condition_table_features_by_condition_id
+    - join_cluster_aggregates_by_condition_id
+    - join_residue_or_patch_summaries_by_condition_id
+    - join_protein_metadata_by_protein_id
+    - join_substrate_activity_matrix_by_protein_id
+    - assign_active_on_prediction_substrate
+    - assign_cv_group_as_protein_id
+    - assign_sample_weight
+  zero_cluster_case:
+    row_creation: keep_expected_condition_row
+    feature_values:
+      any_valid_cluster: false
+      n_clusters: 0
+      total_clustered_occupancy: 0.0
+      top_cluster_occupancy: 0.0
+      cluster_entropy: 0.0
+      occupancy_gini: 0.0
+    missingness_flags:
+      - geometry_features_missing
+      - contact_features_missing
+      - cluster_features_missing
+  nonzero_cluster_case:
+    row_creation: one_condition_row_per_protein_substrate_class_dp
+    feature_values: summarize_all_retained_clusters_within_condition
+    summary_functions:
+      - occupancy_weighted_mean
+      - max
+      - median
+      - iqr
+      - top_cluster_value
+      - count
+      - fraction
+
+cluster_aggregation:
+  retained_cluster_set:
+    source: cluster_table
+    support_rule:
+      minimum_cluster_size: 3
+      minimum_occupancy: 0.05
+      keep_if_either_threshold_is_met: true
+  condition_level_summaries:
+    size_and_occupancy:
+      - n_retained_clusters
+      - total_retained_cluster_occupancy
+      - top_cluster_occupancy
+      - second_cluster_occupancy
+      - occupancy_weighted_cluster_size
+    geometry:
+      - best_geometry_plausible_fraction
+      - occupancy_weighted_geometry_plausible_fraction
+      - occupancy_weighted_geometry_highly_plausible_fraction
+      - max_C1_compatible_fraction
+      - max_C4_compatible_fraction
+      - occupancy_weighted_C1_compatible_fraction
+      - occupancy_weighted_C4_compatible_fraction
+      - C1_minus_C4_compatibility_delta
+    confidence:
+      - occupancy_weighted_iptm_mean
+      - occupancy_weighted_mean_plddt_mean
+      - iptm_iqr_across_clusters
+    contacts:
+      - occupancy_weighted_total_contacts
+      - occupancy_weighted_hbond_contacts
+      - occupancy_weighted_hydrophobic_contacts
+      - occupancy_weighted_aromatic_contacts
+      - occupancy_weighted_polar_contacts
+      - occupancy_weighted_catalytic_surface_contacts
+    stability:
+      - convergence_fraction
+      - median_ligand_rmsd_to_reference
+      - ligand_rmsd_iqr
+
+feature_engineering:
+  numeric_feature_blocks:
+    qc:
+      - n_generated
+      - n_qc_pass
+      - n_ifp_success
+      - n_geometry_computable
+      - n_geometry_plausible
+      - qc_pass_fraction
+      - ifp_success_fraction
+      - geometry_computable_fraction
+      - geometry_plausible_fraction
+    clustering:
+      - n_clusters
+      - n_retained_clusters
+      - noise_fraction
+      - top_cluster_occupancy
+      - second_cluster_occupancy
+      - cluster_entropy
+      - occupancy_gini
+      - total_retained_cluster_occupancy
+    geometry:
+      - occupancy_weighted_geometry_plausible_fraction
+      - occupancy_weighted_geometry_highly_plausible_fraction
+      - occupancy_weighted_C1_compatible_fraction
+      - occupancy_weighted_C4_compatible_fraction
+      - C1_minus_C4_compatibility_delta
+    contacts_and_patches:
+      - occupancy_weighted_total_contacts
+      - occupancy_weighted_hbond_contacts
+      - occupancy_weighted_hydrophobic_contacts
+      - occupancy_weighted_aromatic_contacts
+      - occupancy_weighted_polar_contacts
+      - occupancy_weighted_catalytic_surface_contacts
+      - aromatic_contact_fraction
+      - polar_contact_fraction
+      - charged_contact_fraction
+      - hydrophobic_contact_fraction
+      - hbond_contact_fraction
+      - loop_contact_fraction
+      - catalytic_surface_contact_fraction
+    stability_and_confidence:
+      - convergence_fraction
+      - median_ligand_rmsd_to_reference
+      - ligand_rmsd_iqr
+      - occupancy_weighted_iptm_mean
+      - occupancy_weighted_mean_plddt_mean
+  binary_feature_blocks:
+    availability:
+      - any_valid_cluster
+      - geometry_features_missing
+      - contact_features_missing
+      - cluster_features_missing
+  preprocessing:
+    fit_scope: training_fold_only
+    numeric_imputation: median
+    binary_imputation: constant_zero
+    scaling: standardize_numeric_features
+    low_variance_filter:
+      apply_within_training_fold: true
+      minimum_nonconstant_fraction: 0.02
+    correlation_filter:
+      apply_within_training_fold: true
+      absolute_spearman_threshold: 0.95
+      keep_feature_with_higher_inner_cv_univariate_auc: true
+  context_feature_construction:
+    shared_numeric_features: true
+    substrate_specific_feature_copies:
+      create_by_multiplying_numeric_features_with_one_hot_substrate_class: true
+      substrate_classes:
+        - chitin
+        - cellulose
+        - starch
+    dp_specific_feature_copies:
+      create_by_multiplying_numeric_features_with_one_hot_dp: true
+      dp_values:
+        - DP4
+        - DP6
+        - DP8
+    availability_feature_copies:
+      create_substrate_specific_copies: true
+      create_dp_specific_copies: true
+
+sample_weighting:
+  goal: equal_total_training_weight_per_protein
+  formula_components:
+    protein_weight: 1.0
+    substrate_weight_within_protein: 1.0 / number_of_substrate_classes_attempted_for_protein
+    dp_weight_within_protein_substrate: 1.0 / number_of_dp_rows_for_protein_substrate
+  final_row_weight: protein_weight * substrate_weight_within_protein * dp_weight_within_protein_substrate
+  normalization: scale_weights_to_mean_one_within_training_fold
+
+cross_validation:
+  outer_cv:
+    splitter: stratified_group_k_fold
+    group_column: protein_id
+    preferred_n_splits: 5
+    shuffle: true
+    random_seed: 20260515
+    stratification_targets:
+      - substrate_activity_pattern
+      - active_on_prediction_substrate
+      - substrate_class
+    fallback_splitter: group_k_fold
+  inner_cv:
+    splitter: stratified_group_k_fold
+    group_column: protein_id
+    preferred_n_splits: 3
+    shuffle: true
+    random_seed: 20260516
+    stratification_targets:
+      - substrate_activity_pattern
+      - active_on_prediction_substrate
+      - substrate_class
+    fallback_splitter: group_k_fold
+  fold_integrity_check:
+    checks:
+      - all_rows_from_each_protein_id_are_in_one_fold
+      - all_substrate_classes_for_each_protein_id_are_in_one_fold
+      - all_dp_values_for_each_protein_id_are_in_one_fold
+      - all_cluster_derived_features_for_each_protein_id_are_in_one_fold
+
+models:
+  baseline_model:
+    name: dummy_prevalence_classifier
+    purpose: baseline_reference
+    prediction: training_fold_positive_rate
+  primary_model:
+    name: elastic_net_logistic_regression
+    implementation: sklearn.linear_model.LogisticRegression
+    solver: saga
+    penalty: elasticnet
+    max_iter: 10000
+    class_balance: use_sample_weight_and_balanced_class_weight
+    probability_output: predict_proba
+    hyperparameter_grid:
+      C:
+        - 0.01
+        - 0.03
+        - 0.1
+        - 0.3
+        - 1.0
+        - 3.0
+        - 10.0
+      l1_ratio:
+        - 0.0
+        - 0.25
+        - 0.5
+        - 0.75
+        - 1.0
+    tuning_metric: average_precision
+    tie_breakers:
+      - higher_balanced_accuracy
+      - lower_number_of_nonzero_coefficients
+      - stronger_regularization_lower_C
+  sensitivity_model:
+    name: histogram_gradient_boosting_classifier
+    implementation: sklearn.ensemble.HistGradientBoostingClassifier
+    status: run_when_time_allows
+    probability_output: predict_proba
+    hyperparameter_grid:
+      learning_rate:
+        - 0.02
+        - 0.05
+        - 0.1
+      max_leaf_nodes:
+        - 3
+        - 7
+        - 15
+      l2_regularization:
+        - 0.0
+        - 0.1
+        - 1.0
+      min_samples_leaf:
+        - 10
+        - 20
+        - 40
+    tuning_metric: average_precision
+    tie_breakers:
+      - higher_balanced_accuracy
+      - lower_max_leaf_nodes
+      - higher_min_samples_leaf
+
+threshold_selection:
+  probability_threshold_grid:
+    start: 0.05
+    stop: 0.95
+    step: 0.01
+  selection_data: inner_cv_predictions
+  primary_threshold_metric: balanced_accuracy
+  tie_breakers:
+    - higher_macro_f1
+    - threshold_closest_to_0.50
+  apply_threshold_to: outer_cv_test_predictions
+  store_selected_threshold_per_outer_fold: true
+
+parameter_selection:
+  nested_cv_procedure:
+    - split_outer_training_and_test_groups_by_protein_id
+    - fit_preprocessing_on_outer_training_rows
+    - tune_hyperparameters_inside_inner_grouped_cv
+    - select_hyperparameters_by_inner_cv_tuning_metric
+    - select_probability_threshold_from_inner_cv_predictions
+    - refit_selected_pipeline_on_full_outer_training_rows
+    - predict_probabilities_for_outer_test_rows
+    - aggregate_outer_test_predictions_to_protein_substrate_level
+    - calculate_metrics_for_outer_test_rows_and_aggregated_outputs
+  final_model_for_reporting:
+    fit_scope: all_available_rows
+    hyperparameters: most_frequent_best_outer_cv_setting
+    threshold: median_selected_outer_cv_threshold
+    output_path: 10_predictive/final_models/substrate_activity_elastic_net.joblib
+
+prediction_aggregation:
+  condition_dp_level:
+    prediction_column: probability_active_on_prediction_substrate
+    thresholded_column: predicted_active_on_prediction_substrate
+  protein_substrate_level:
+    group_columns:
+      - protein_id
+      - substrate_class
+    probability_aggregation:
+      primary: mean_probability_across_dp
+      secondary:
+        - max_probability_across_dp
+        - median_probability_across_dp
+    label_aggregation: same_target_value_across_dp
+    thresholded_prediction: apply_selected_threshold_to_primary_probability
+  protein_multilabel_level:
+    group_column: protein_id
+    output_columns:
+      - predicted_active_on_chitin
+      - predicted_active_on_cellulose
+      - predicted_active_on_starch
+      - predicted_substrate_activity_pattern
+    rule: >
+      For each protein, combine the three protein_substrate_level predictions
+      into a multilabel substrate activity pattern.
+
+metrics:
+  row_level_condition_dp:
+    - average_precision
+    - roc_auc
+    - balanced_accuracy
+    - macro_f1
+    - precision
+    - recall
+    - specificity
+    - matthews_correlation_coefficient
+    - brier_score
+  protein_substrate_level:
+    - average_precision
+    - roc_auc
+    - balanced_accuracy
+    - macro_f1
+    - precision
+    - recall
+    - specificity
+    - matthews_correlation_coefficient
+    - brier_score
+  stratified_reports:
+    by_substrate_class:
+      strata:
+        - chitin
+        - cellulose
+        - starch
+      metrics:
+        - average_precision
+        - balanced_accuracy
+        - precision
+        - recall
+        - brier_score
+    by_dp:
+      strata:
+        - DP4
+        - DP6
+        - DP8
+      metrics:
+        - average_precision
+        - balanced_accuracy
+        - precision
+        - recall
+        - brier_score
+    by_family_label:
+      minimum_proteins_per_family_for_reporting: 8
+      metrics:
+        - balanced_accuracy
+        - recall
+        - brier_score
+  starch_specific_reporting:
+    status: descriptive_due_to_small_positive_set
+    expected_positive_proteins_approx: 10
+    outputs:
+      - score_distribution_for_starch_active_vs_starch_inactive
+      - protein_substrate_level_predictions_for_starch_rows
+      - confusion_matrix_with_foldwise_counts
+      - precision_recall_curve_when_fold_support_allows
+
+outputs:
+  modeling_tables:
+    - 10_predictive/modeling_tables/protein_substrate_activity_matrix.tsv
+    - 10_predictive/modeling_tables/substrate_activity_condition_modeling_table.tsv
+    - 10_predictive/modeling_tables/substrate_activity_feature_dictionary.tsv
+  cv_outputs:
+    - 10_predictive/cv_results/outer_cv_condition_dp_predictions.tsv
+    - 10_predictive/cv_results/outer_cv_protein_substrate_predictions.tsv
+    - 10_predictive/cv_results/outer_cv_metrics_overall.tsv
+    - 10_predictive/cv_results/outer_cv_metrics_by_substrate.tsv
+    - 10_predictive/cv_results/outer_cv_metrics_by_dp.tsv
+    - 10_predictive/cv_results/selected_hyperparameters_by_fold.tsv
+    - 10_predictive/cv_results/selected_thresholds_by_fold.tsv
+  model_interpretation:
+    - 10_predictive/model_interpretation/elastic_net_coefficients_by_fold.tsv
+    - 10_predictive/model_interpretation/stability_selected_features.tsv
+    - 10_predictive/model_interpretation/substrate_specific_feature_effects.tsv
+    - 10_predictive/model_interpretation/dp_specific_feature_effects.tsv
+  final_model:
+    - 10_predictive/final_models/substrate_activity_elastic_net.joblib
+    - 10_predictive/final_models/final_preprocessing_pipeline.joblib
+    - 10_predictive/final_models/final_model_metadata.yaml
+  figures:
+    - 10_predictive/figures/pr_curve_overall.png
+    - 10_predictive/figures/calibration_curve_overall.png
+    - 10_predictive/figures/predicted_probability_by_substrate_class.png
+    - 10_predictive/figures/predicted_probability_by_dp.png
+    - 10_predictive/figures/starch_descriptive_score_distribution.png
+
+implementation_order:
+  - build_protein_substrate_activity_matrix
+  - build_condition_level_modeling_table
+  - aggregate_cluster_features_to_condition_level
+  - add_zero_cluster_case_features_and_missingness_flags
+  - create_context_specific_feature_copies
+  - assign_sample_weights
+  - create_grouped_outer_and_inner_cv_splits
+  - run_baseline_model
+  - tune_and_run_primary_elastic_net_model
+  - aggregate_predictions_to_protein_substrate_level
+  - calculate_overall_and_stratified_metrics
+  - run_sensitivity_gradient_boosting_model_when_time_allows
+  - export_tables_figures_and_final_model_metadata
+
+reporting_language:
+  main_claim_template: >
+    This exploratory model tests whether summarized AF3 protein-ligand outputs
+    contain recoverable signal for experimentally active versus inactive ligand
+    classes under protein-grouped cross-validation.
+  starch_claim_template: >
+    Starch-specific results are presented as descriptive evidence because the
+    number of starch-active proteins is small.

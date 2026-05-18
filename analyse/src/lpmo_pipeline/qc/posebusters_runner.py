@@ -24,7 +24,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterator
 
+from lpmo_pipeline.config import load_defaults_config, load_runtime_paths_config
+
 logger = logging.getLogger(__name__)
+
+_RUNTIME_PATHS = load_runtime_paths_config()
+_DEFAULTS_CONFIG = load_defaults_config()
+APPTAINER_EXECUTABLE = _RUNTIME_PATHS.external_tools.apptainer_executable
 
 
 # ---------------------------------------------------------------------------
@@ -82,12 +88,9 @@ _LOADING_COLUMNS: set[str] = {"mol_pred_loaded", "mol_true_loaded", "mol_cond_lo
 # SIF container candidates (first existing path is used).
 # Here, "fallback" means path selection between known equivalent SIF files,
 # not skipping PoseBusters as a QC stage.
-POSEBUSTERS_SIF_CANDIDATES: tuple[Path, ...] = (
-    Path("/cluster/projects/nn1003k/prog/posebusters/build/posebusters.sif"),
-    Path("/cluster/projects/nn1003k/prog/posebusters/posebusters.sif"),
-)
+POSEBUSTERS_SIF_CANDIDATES = _RUNTIME_PATHS.external_tools.posebusters_sif_candidates
 
-_PROTEIN_CHAIN_ID = "A"
+_PROTEIN_CHAIN_ID = str(((_DEFAULTS_CONFIG.get("chain_schema") or {}).get("protein")) or "A")
 
 
 # ---------------------------------------------------------------------------
@@ -143,7 +146,7 @@ def _run_pb_sif(
             return {}
 
         cmd: list[str] = [
-            "apptainer", "exec", str(sif_path),
+            APPTAINER_EXECUTABLE, "exec", str(sif_path),
             "bust", str(mol_pred_path),
         ]
         if mol_cond_path:

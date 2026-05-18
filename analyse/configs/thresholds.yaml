@@ -8,7 +8,7 @@
 # ── Hard gates (failure → drop / skip) ──
 hard_gates:
   atom_mapping_coverage_min: 1.0        # 100 % — no exceptions
-  active_site_proximity_max_a: 10.0     # pre-QC gate before PoseBusters/Privateer
+  active_site_proximity_max_a: 8.0     # pre-QC gate before PoseBusters/Privateer
   privateer_recognized_sugars_min: 1.0  # 100 %
   no_critical_posebusters_errors: true
   cu_his_distance_min_a: 1.5
@@ -82,6 +82,7 @@ cluster_inclusion:
 convergence:
   # Alignment: superimpose all poses by protein Cα atoms before computing ligand RMSD.
   alignment_selection: "protein and name CA"  # MDAnalysis / equivalent selection string
+  ligand_selection: "chainID B C D and not name H*"  # ligand atom selection for RMSD
 
   # Per-pose flag
   convergent_rmsd_max_a: 2.0    # ligand RMSD < threshold → pose flagged as convergent
@@ -151,6 +152,6 @@ clustering:
 
 qc:
   # Mirrors hard_gates names used in checklist language
-  pre_qc_active_site_max_a: 10.0
+  pre_qc_active_site_max_a: 8.0
   cu_his_min_a: 1.8
   cu_his_max_a: 2.6

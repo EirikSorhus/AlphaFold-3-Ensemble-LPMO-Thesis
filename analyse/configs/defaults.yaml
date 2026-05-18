@@ -57,3 +57,13 @@ analysis:
   cu_c_proximity_flag_a: 7.0     # flag Cu-C > 7 Å
   crystal_ifp_similarity_soft: 0.3
   c1_vs_c4_offset_a: 0.5        # C1-like if Cu-C1 < Cu-C4 + offset
+
+# ── Target naming helpers ──
+# Used when production discovery parses ligand ids like NAG4 / STA6.
+target_metadata:
+  substrate_by_prefix:
+    NAG: chitin
+    CEL: cellulose
+    BGC: cellulose
+    STA: amylose
+    GLC: amylose

@@ -73,6 +73,7 @@ class CCDValidationSummary:
     all_valid: bool
     invalid_comp_ids: List[str]
     lookup_results: List[CCDLookupResult]
+    failure_reason: str | None = None
 
 
 @dataclass
@@ -174,32 +175,29 @@ class NormalizeMMCIFRunner:
             self._write_normalize_report(report)
 
             if not ccd_validation.all_valid:
-                self.logger.log_failure(
-                    "glykan_not_ccd",
-                    {
-                        "invalid_comp_ids": ccd_validation.invalid_comp_ids,
-                        "observed_comp_ids": ccd_validation.observed_comp_ids,
-                    },
+                failure_reason = (
+                    FailureReason.MISSING_GLYCAN_CHAIN.value
+                    if ccd_validation.failure_reason == FailureReason.MISSING_GLYCAN_CHAIN.value
+                    else FailureReason.GLYKAN_NOT_CCD.value
                 )
+                failure_payload = {
+                    "total_glycan_residues": ccd_validation.total_glycan_residues,
+                    "invalid_comp_ids": ccd_validation.invalid_comp_ids,
+                    "observed_comp_ids": ccd_validation.observed_comp_ids,
+                }
+                self.logger.log_failure(failure_reason, failure_payload)
                 self.failures.record(
                     "normalize_mmcif",
                     None,
-                    FailureReason.GLYKAN_NOT_CCD.value,
-                    {
-                        "total_glycan_residues": ccd_validation.total_glycan_residues,
-                        "invalid_comp_ids": ccd_validation.invalid_comp_ids,
-                        "observed_comp_ids": ccd_validation.observed_comp_ids,
-                    },
+                    failure_reason,
+                    failure_payload,
                 )
                 self.failures.write()
                 elapsed = (datetime.utcnow() - start).total_seconds()
                 self.logger.log_step_end(
                     "normalize_mmcif",
                     "failure",
-                    {
-                        "invalid_comp_ids": ccd_validation.invalid_comp_ids,
-                        "total_glycan_residues": ccd_validation.total_glycan_residues,
-                    },
+                    failure_payload,
                     elapsed,
                 )
                 self.logger.close()
@@ -444,15 +442,16 @@ class NormalizeMMCIFRunner:
         if not glycan_comp_ids:
             self.logger.log_check(
                 "glycan_ccd_validation",
-                "soft_flag",
-                "No glycan residues found in normalized chains B..D",
+                "hard_fail",
+                "No glycan residues found in normalized chains B..D; normalization cannot proceed",
             )
             return CCDValidationSummary(
                 total_glycan_residues=0,
                 observed_comp_ids=[],
-                all_valid=True,
+                all_valid=False,
                 invalid_comp_ids=[],
                 lookup_results=[],
+                failure_reason=FailureReason.MISSING_GLYCAN_CHAIN.value,
             )
 
         all_valid, results = validate_all_glycan_residues(glycan_comp_ids)
@@ -483,6 +482,7 @@ class NormalizeMMCIFRunner:
             all_valid=all_valid,
             invalid_comp_ids=invalid_comp_ids,
             lookup_results=results,
+            failure_reason=None if all_valid else FailureReason.GLYKAN_NOT_CCD.value,
         )
 
     # -----------------------------------------------------------------------
@@ -641,6 +641,7 @@ class NormalizeMMCIFRunner:
                     "observed_comp_ids": report.ccd_validation.observed_comp_ids,
                     "all_valid": report.ccd_validation.all_valid,
                     "invalid_comp_ids": report.ccd_validation.invalid_comp_ids,
+                    "failure_reason": report.ccd_validation.failure_reason,
                     "results": [
                         {
                             "comp_id": result.comp_id,

@@ -16,8 +16,9 @@ This folder contains a structure-prediction → normalization → refinement →
     - **Source-of-truth for å sende inn/kjøre prediksjonsmodellene**:
       - AF3
       - ~~RF3~~ (ekskludert fra analyse)
-      - ~~Boltz-2~~ (ekskludert fra analyse)
-    - Denne mappen inneholder modell-“runners”/adapters og skal være stedet som faktisk kaller eksterne verktøy.
+      - ~~Boltz-2~~ (ekskludert fra analyse)    - **Data output** (fully available):
+      - `structure_pipeline/work_core` — domain-only construct predictions
+      - `structure_pipeline/work_full_length` — full-length construct predictions    - Denne mappen inneholder modell-“runners”/adapters og skal være stedet som faktisk kaller eksterne verktøy.
   - `analysis/`
     - Analyse-/orkestreringskode og dokumentasjon. **Denne `copilot.md` ligger her.**
     - Koden her skal *ikke* re-implementere modellkall; den skal orkestrere pipeline og bygge jobber/batcher.
@@ -77,6 +78,16 @@ Optional tuning workflows are run as post-analysis sensitivity/comparison.
 1) **Privateer input requires monosaccharides as valid CCD `comp_id`** (e.g. `NAG`, `BGC`, `MAN`) — not only custom oligomer codes.
 2) **Atom names differ across models**; mapping must be **topology + geometry based**, not name-based.
 3) **mmCIF is master format**. PDB/MOL2/SDF are tool-specific derivatives.
+
+---
+
+## Configuration Policy (mandatory)
+
+- All values that can realistically change between runs, systems, environments, or analyses must live in config files under `configs/`.
+- This includes thresholds, limits, numeric defaults, flags, model/runtime choices, filenames, folder names, absolute paths, external tool commands/containers, schema/config asset paths, selection strings, and other operational settings.
+- Analysis code must resolve such values through the shared loader in `lpmo_pipeline.config`; do not duplicate path/threshold literals across scripts.
+- If a value is used repeatedly inside one script or function, load it once locally from config and reuse the local variable.
+- New scripts must follow the same rule. Backward-compatible fallbacks are acceptable only when they are clearly documented and do not replace config as the source of truth.
 
 ---
 
@@ -258,6 +269,7 @@ Organize into:
 - `src/` Python package
 - `scripts/` CLI entrypoints
 - `configs/` YAML/JSON for parameter settings and datasets
+- `lpmo_pipeline.config` as the common path/config resolution mechanism
 - `data/` (optional) small test fixtures only (no large binaries)
 - `reports/` outputs
 - `docs/` pipeline + decisions

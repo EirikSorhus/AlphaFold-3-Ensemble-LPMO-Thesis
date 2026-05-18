@@ -21,16 +21,17 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from lpmo_pipeline.config import load_runtime_paths_config
 from lpmo_pipeline.utils.exceptions import PrivateerCCDError
 
 logger = logging.getLogger(__name__)
 
 
 # Privateer must run from SIF, never from local env/PATH.
-PRIVATEER_SIF_CANDIDATES: tuple[Path, ...] = (
-    Path("/cluster/projects/nn1003k/prog/privateer/privateer.sif"),
-)
-PRIVATEER_DEFAULT_MODE = "ccp4i2"
+_RUNTIME_PATHS = load_runtime_paths_config()
+APPTAINER_EXECUTABLE = _RUNTIME_PATHS.external_tools.apptainer_executable
+PRIVATEER_SIF_CANDIDATES = _RUNTIME_PATHS.external_tools.privateer_sif_candidates
+PRIVATEER_DEFAULT_MODE = _RUNTIME_PATHS.runtime_settings.privateer_default_mode
 
 _CCD_MONOSACCHARIDE_CODES: frozenset[str] = frozenset(
     {
@@ -264,7 +265,7 @@ def get_privateer_version() -> str:
         )
     try:
         proc = subprocess.run(
-            ["apptainer", "run", "--cleanenv", str(sif_path), "--version"],
+            [APPTAINER_EXECUTABLE, "run", "--cleanenv", str(sif_path), "--version"],
             capture_output=True,
             text=True,
             check=False,
@@ -322,7 +323,7 @@ def build_privateer_invocation(
         if mount not in bind_mounts:
             bind_mounts.append(mount)
 
-    command = ["apptainer", "run", "--cleanenv"]
+    command = [APPTAINER_EXECUTABLE, "run", "--cleanenv"]
     for bind in bind_mounts:
         command.extend(["--bind", bind])
     command.extend([str(sif_path), "-pdbin", str(cif_path.resolve())])
@@ -519,7 +520,7 @@ def _run_privateer_cli(cif_path: Path) -> str:
         )
 
     cmd = [
-        "apptainer",
+        APPTAINER_EXECUTABLE,
         "run",
         "--cleanenv",
         str(sif_path),

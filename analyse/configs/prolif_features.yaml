@@ -86,6 +86,26 @@ lock_features_per_batch: true
 # with ifp_generation_status = "zero_contacts".
 min_total_contacts_for_clustering: 1
 
+# ── Contact eligibility for binding-mode clustering ──
+# Poses remain in raw pose-level tables even when they are excluded from formal
+# clustering. The clustering gate is based on non-vdW signal, not on total
+# contact count alone.
+contact_eligibility:
+  main_rule:
+    min_non_vdw_interactions: 2
+    min_non_vdw_contact_residues: 1
+  sensitivity_rules:
+    lenient:
+      min_non_vdw_interactions: 1
+      min_non_vdw_contact_residues: 1
+    strict:
+      min_non_vdw_interactions: 2
+      min_non_vdw_contact_residues: 2
+  classification_labels:
+    null_ifp: "null_ifp"
+    vdw_only: "vdw_only"
+    low_specific_contact: "low_specific_contact"
+
 # ── Residue-level contact extraction ──
 # Settings for pose_residue_contact_table.tsv (plan section 11.5).
 residue_contacts:

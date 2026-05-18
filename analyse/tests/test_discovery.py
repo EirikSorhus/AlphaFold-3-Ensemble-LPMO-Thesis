@@ -259,6 +259,40 @@ class TestDiscoverFull:
         target_names = [t.target for t in m.targets]
         assert "af3_msa" not in target_names
 
+
+class TestLatestOnlyDiscovery:
+    def test_latest_only_uses_latest_symlink_run_id_even_if_symlink_points_elsewhere(self, tmp_path: Path) -> None:
+        root = tmp_path / "work_core"
+        model_dir = root / "STA8" / "af3"
+        runs_dir = model_dir / "runs"
+        ut_old = runs_dir / "336981" / "Q7SCE9_STA8"
+        ut_new = runs_dir / "408007" / "Q7SCE9_STA8"
+        _touch(ut_old / "Q7SCE9_STA8_model.cif")
+        _touch(ut_new / "Q7SCE9_STA8_model.cif")
+
+        external_root = tmp_path / "work"
+        external_latest = external_root / "STA8" / "af3" / "runs" / "408007"
+        external_latest.mkdir(parents=True, exist_ok=True)
+        model_dir.mkdir(parents=True, exist_ok=True)
+        (model_dir / "latest").symlink_to(external_latest)
+
+        manifest = discover_work_root(root, af3_only=True, latest_only=True, include_targets=("STA8",))
+        run_ids = [run.run_id for target in manifest.targets for model in target.models for run in model.runs]
+
+        assert run_ids == ["408007"]
+
+    def test_latest_only_falls_back_to_highest_numeric_run_id_when_latest_link_missing(self, tmp_path: Path) -> None:
+        root = tmp_path / "work"
+        ut_old = root / "STA8" / "af3" / "runs" / "336981" / "Q7SCE9_STA8"
+        ut_new = root / "STA8" / "af3" / "runs" / "408007" / "Q7SCE9_STA8"
+        _touch(ut_old / "Q7SCE9_STA8_model.cif")
+        _touch(ut_new / "Q7SCE9_STA8_model.cif")
+
+        manifest = discover_work_root(root, af3_only=True, latest_only=True, include_targets=("STA8",))
+        run_ids = [run.run_id for target in manifest.targets for model in target.models for run in model.runs]
+
+        assert run_ids == ["408007"]
+
     def test_cel6_af3_uniprots(self, full_work: Path) -> None:
         m = discover_work_root(full_work)
         cel6 = [t for t in m.targets if t.target == "CEL6"][0]
@@ -500,9 +534,10 @@ class TestLatestOnlyFilter:
         for rid in ["100", "200"]:
             ut = root / "CEL6" / "af3" / "runs" / rid / "B6EQJ6_CEL6"
             _touch(ut / "model.cif")
-        m = discover_work_root(root, latest_only=True)
+        m = discover_work_root(root, af3_only=True, latest_only=True)
         runs = m.targets[0].models[0].runs
-        assert len(runs) == 2
+        assert len(runs) == 1
+        assert runs[0].run_id == "200"
 
     def test_combined_af3_only_latest_only(self, work_with_latest: Path) -> None:
         """Both flags together: only AF3, only latest run."""
@@ -519,3 +554,14 @@ class TestLatestOnlyFilter:
         runs = m.targets[0].models[0].runs
         assert len(runs) == 1
         assert runs[0].run_id == "200"
+
+    def test_include_targets_limits_discovery_scope(self, tmp_path: Path) -> None:
+        root = tmp_path / "work"
+        cel6_ut = root / "CEL6" / "af3" / "runs" / "100" / "B6EQJ6_CEL6"
+        nag4_ut = root / "NAG4" / "af3" / "runs" / "200" / "Q7SCE9_NAG4"
+        _touch(cel6_ut / "B6EQJ6_CEL6_model.cif")
+        _touch(nag4_ut / "Q7SCE9_NAG4_model.cif")
+
+        m = discover_work_root(root, include_targets=("NAG4",))
+
+        assert [target.target for target in m.targets] == ["NAG4"]

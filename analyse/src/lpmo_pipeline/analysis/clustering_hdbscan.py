@@ -22,6 +22,9 @@ from typing import Any
 
 import numpy as np
 
+from lpmo_pipeline.config import load_runtime_paths_config
+from lpmo_pipeline.analysis.prolif_ifp import ContactEligibility
+
 try:
     import hdbscan
 except ImportError:
@@ -30,7 +33,8 @@ except ImportError:
 from lpmo_pipeline.utils.logging import StructuredLogger
 
 
-_THRESHOLDS_PATH = Path(__file__).resolve().parents[3] / "configs" / "thresholds.yaml"
+_RUNTIME_PATHS = load_runtime_paths_config()
+_THRESHOLDS_PATH = _RUNTIME_PATHS.pipeline_assets.thresholds_config
 
 
 @dataclass(frozen=True)
@@ -66,6 +70,14 @@ class ConditionClusterSummary:
 
     condition_id: str
     n_qc_pass_poses: int
+    n_ifp_success: int
+    n_contact_eligible: int
+    contact_eligible_fraction: float
+    null_ifp_fraction: float
+    vdw_only_fraction: float
+    low_specific_contact_fraction: float
+    median_n_non_vdw_interactions: float
+    median_n_non_vdw_contact_residues: float
     n_ifp_clustered: int
     n_noise: int
     noise_fraction: float
@@ -78,6 +90,14 @@ class ConditionClusterSummary:
         return {
             "condition_id": self.condition_id,
             "n_qc_pass_poses": self.n_qc_pass_poses,
+            "n_ifp_success": self.n_ifp_success,
+            "n_contact_eligible": self.n_contact_eligible,
+            "contact_eligible_fraction": self.contact_eligible_fraction,
+            "null_ifp_fraction": self.null_ifp_fraction,
+            "vdw_only_fraction": self.vdw_only_fraction,
+            "low_specific_contact_fraction": self.low_specific_contact_fraction,
+            "median_n_non_vdw_interactions": self.median_n_non_vdw_interactions,
+            "median_n_non_vdw_contact_residues": self.median_n_non_vdw_contact_residues,
             "n_ifp_clustered": self.n_ifp_clustered,
             "n_noise": self.n_noise,
             "noise_fraction": self.noise_fraction,
@@ -179,6 +199,8 @@ def build_condition_cluster_summary(
     clustering_result: ClusteringResult,
     *,
     n_qc_pass_poses: int,
+    n_ifp_success: int | None = None,
+    contact_eligibilities: list[ContactEligibility] | None = None,
 ) -> ConditionClusterSummary:
     """Build the Stage 6 condition summary row.
 
@@ -186,6 +208,46 @@ def build_condition_cluster_summary(
     non-noise cluster members. Noise is reported separately via `n_noise` and
     `noise_fraction`.
     """
+    contact_eligibilities = contact_eligibilities or []
+    if n_ifp_success is None:
+        n_ifp_success = len(contact_eligibilities) if contact_eligibilities else len(clustering_result.cluster_labels)
+
+    if contact_eligibilities:
+        n_contact_eligible = sum(1 for eligibility in contact_eligibilities if eligibility.eligible)
+        null_ifp_count = sum(1 for eligibility in contact_eligibilities if eligibility.exclusion_class == "null_ifp")
+        vdw_only_count = sum(1 for eligibility in contact_eligibilities if eligibility.exclusion_class == "vdw_only")
+        low_specific_contact_count = sum(
+            1 for eligibility in contact_eligibilities if eligibility.exclusion_class == "low_specific_contact"
+        )
+        non_vdw_interactions = np.asarray(
+            [eligibility.n_non_vdw_interactions for eligibility in contact_eligibilities],
+            dtype=float,
+        )
+        non_vdw_contact_residues = np.asarray(
+            [eligibility.n_non_vdw_contact_residues for eligibility in contact_eligibilities],
+            dtype=float,
+        )
+        median_n_non_vdw_interactions = float(np.median(non_vdw_interactions))
+        median_n_non_vdw_contact_residues = float(np.median(non_vdw_contact_residues))
+    else:
+        n_contact_eligible = 0
+        null_ifp_count = 0
+        vdw_only_count = 0
+        low_specific_contact_count = 0
+        median_n_non_vdw_interactions = 0.0
+        median_n_non_vdw_contact_residues = 0.0
+
+    if n_ifp_success > 0:
+        contact_eligible_fraction = n_contact_eligible / n_ifp_success
+        null_ifp_fraction = null_ifp_count / n_ifp_success
+        vdw_only_fraction = vdw_only_count / n_ifp_success
+        low_specific_contact_fraction = low_specific_contact_count / n_ifp_success
+    else:
+        contact_eligible_fraction = 0.0
+        null_ifp_fraction = 0.0
+        vdw_only_fraction = 0.0
+        low_specific_contact_fraction = 0.0
+
     non_noise_sizes = list(clustering_result.cluster_sizes.values())
     if non_noise_sizes:
         size_array = np.asarray(non_noise_sizes, dtype=float)
@@ -203,6 +265,14 @@ def build_condition_cluster_summary(
     return ConditionClusterSummary(
         condition_id=condition_id,
         n_qc_pass_poses=n_qc_pass_poses,
+        n_ifp_success=n_ifp_success,
+        n_contact_eligible=n_contact_eligible,
+        contact_eligible_fraction=contact_eligible_fraction,
+        null_ifp_fraction=null_ifp_fraction,
+        vdw_only_fraction=vdw_only_fraction,
+        low_specific_contact_fraction=low_specific_contact_fraction,
+        median_n_non_vdw_interactions=median_n_non_vdw_interactions,
+        median_n_non_vdw_contact_residues=median_n_non_vdw_contact_residues,
         n_ifp_clustered=len(clustering_result.cluster_labels),
         n_noise=clustering_result.n_outliers,
         noise_fraction=clustering_result.outlier_rate,

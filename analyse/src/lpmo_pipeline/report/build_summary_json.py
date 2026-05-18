@@ -135,7 +135,10 @@ def build_summary(
 
     if crystal_reports:
         tanimotos = [
-            c.get("best_tanimoto", 0.0) for c in crystal_reports
+            float(value)
+            for c in crystal_reports
+            for value in [c.get("best_tanimoto")]
+            if value is not None
         ]
         summary["crystal_stats"] = {
             "n_comparisons": len(crystal_reports),

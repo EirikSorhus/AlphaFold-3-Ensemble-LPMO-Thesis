@@ -6,9 +6,85 @@ Purpose: Prioritized open problems with proposed solutions, and a manual-check s
 
 ---
 
+## Data Availability Status
+
+**RESOLVED 2026-05-07**: All precomputed AF3 structures are fully available and ready for analysis.
+
+**Data locations:**
+- **Domain-only constructs:** `/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work_core`
+- **Full-length constructs:** `/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work_full_length`
+
+These directories contain the complete set of AF3 prediction artifacts (mmCIF files and confidence metrics) organized by target, substrate, and construct type. Configure which dataset to analyze via the `work_roots.domain_only` and `work_roots.full_length` keys in your production config.
+
+---
+
+## Detailed Downstream Analysis Plans
+
+The following YAML files have been added as detailed implementation plans for
+downstream analyses that run after the core AF3 structure-analysis pipeline
+produces condition-, cluster-, residue-, and geometry-level outputs:
+
+- `c1_c4_predictive_analysis_plan_simplified.yaml` — detailed exploratory
+  predictive-analysis plan for protein-level C1 and C4 regioactivity. It
+  defines the modeling row unit, required input tables, target labels,
+  repeated ligand-context handling, feature engineering, nested protein-grouped
+  cross-validation, and output interpretation limits.
+- `substrate_activity_prediction_plan.yaml` — detailed exploratory
+  predictive-analysis plan for substrate activity across chitin, cellulose, and
+  starch. It defines protein-substrate activity labels, condition-level
+  modeling rows, cluster aggregation, feature blocks, grouped CV, models, and
+  reporting outputs.
+- `cbm_full_length_vs_domain_only_analysis_plan.yaml` — detailed paired-analysis
+  plan for comparing full-length and domain-only constructs in CBM-containing
+  proteins. It defines matched construct-pair inclusion rules, CBM/linker
+  region requirements, condition summaries, primary paired endpoints,
+  statistics by sample size, stratified reporting, and expected CBM outputs.
+
+These files should be treated as active downstream implementation plans that
+refine `MASTERPLAN.md` Stage 14 and Stage 15. They are not runtime
+configuration files for the current `lpmo-pipeline run` command.
+
+---
+
 ## Part 1 — Prioritized Open Problems
 
 Problems are ordered from highest to lowest priority.
+
+---
+
+### P0 — Missing-glycan normalization false-success path (RESOLVED 2026-05-08)
+
+**Priority:** RESOLVED
+
+**Description:**
+Real-case debugging of `contact_eligibility_real_cifs_646218` showed that the
+problematic STA8 inputs from AF3 run `336981` already arrive without any parsed
+glycan chain/residues in the source CIF (`gemmi.read_structure(...)` sees only
+chains `A` and `B`, not the expected branched chain `C`). By contrast, newer
+STA8 outputs from run `408007` contain the expected branched glycan chain and
+GLC residues.
+
+The bug in normalization was that
+`"No glycan residues found in normalized chains B..D"` was treated as a soft
+flag and normalization returned success. This allowed malformed source CIFs to
+slip into later QC and fail there as downstream `"No ligand atoms found"`
+cases instead of stopping at normalization.
+
+**Implemented fix:**
+1. `normalize_mmcif.py` now hard-fails when no glycan residues remain after chain remap.
+2. `normalize_report.json` now records explicit `failure_reason = "missing_glycan_chain"` for this path.
+3. Regression coverage was added for source CIFs that contain protein + Cu but no glycan chain, while preserving the separate `no _struct_conn` soft-flag test case.
+4. `io/discovery.py` now honors the intended newest AF3 run when `latest_only=True`, even when the `latest` symlink points across `work` / `work_core`; if that symlink is absent or unusable, discovery falls back to the highest numeric run ID instead of scanning all historical runs.
+
+**Verification:**
+- `pytest tests/test_normalize.py -q` → 15 passed (2026-05-08)
+- `pytest tests/test_discovery.py -q` → 80 passed (2026-05-08)
+
+**Audit update 2026-05-08:**
+- A work-root audit across all 9 AF3 targets under `structure_pipeline/work_core` showed the same historical pattern, not just STA8.
+- The earliest `336973`–`336981` runs are systematically ligandless at source level for their respective targets (`CEL4`, `CEL6`, `CEL8`, `NAG4`, `NAG6`, `NAG8`, `STA4`, `STA6`, `STA8`): sampled CIFs contain only chains `A` and `B`, entity types `polymer` + `non-polymer`, and no branched glycan entity/residues.
+- The current latest runs (`407999`–`408007`, plus `406216` for the one-off CEL4 rerun) contain the expected branched glycan metadata and glycan residues.
+- Audit artifact: `tests/tests_results/latest_run_audit_20260508/work_core_af3_run_audit.json`.
 
 ---
 
@@ -88,32 +164,32 @@ IMPLEMENTATION_PLAYBOOK.md step 4: CCD lookup is wired into `normalize_mmcif.py`
 
 ---
 
-### P6 — Crystal reference structures not specified
+### P6 — Crystal reference set needs curation/coverage review
 
-**Priority:** MEDIUM — blocks crystal sanity-check stage (Stage 11). Non-blocking for main pipeline steps 1–10.
+**Priority:** MEDIUM — current reference set exists, but family coverage/curation is still a secondary data task.
 
 **Description:**  
-OPEN_QUESTIONS.md item 5: which PDB codes to use as crystal references is not decided. The plan requires ligand-bound crystals for AA9 at minimum (4EIS, 5ACF mentioned as defaults), but other families and the full reference list are not specified.
+OPEN_QUESTIONS.md item 5 is no longer about missing operational inputs: the current pipeline resolves crystal references from `input_data/pdb_structure_data.csv` plus files under `crystal_structures/`. The remaining work is to review whether that set should be expanded or curated further per family and per holo/apo coverage.
 
 **Proposed solution:**  
-1. For each LPMO family in the dataset, identify available PDB structures with bound oligosaccharide ligands (search PDB with family annotation and filter for saccharide ligands).
-2. Minimum: at least one C1-crystallized and one C4-crystallized structure per family if available.
-3. Document the chosen PDB codes in `metadata/crystal_reference_list.tsv` with columns: `protein_id`, `pdb_code`, `chain`, `has_ligand`, `family`, `regio_label`, `notes`.
-4. Update OPEN_QUESTIONS.md item 5 when the list is finalized and mark P6 in DOCUMENTATION_TODO_AND_MANUAL_CHECKS.md as RESOLVED.
+1. Review the existing `input_data/pdb_structure_data.csv` against the proteins/families currently in scope.
+2. Identify gaps: missing holo coverage, missing apo coverage, or families with only a single unresolved reference type.
+3. If the set is expanded, document the chosen PDB codes in `metadata/crystal_reference_list.tsv` with columns: `protein_id`, `pdb_code`, `chain`, `has_ligand`, `family`, `regio_label`, `notes`.
+4. Update OPEN_QUESTIONS.md item 5 when the coverage review is finished and mark P6 as RESOLVED.
 
 ---
 
-### P7 — Substrate-recognition residues for PyMOL pair_fit not defined per family
+### P7 — Family-specific substrate-recognition/pocket residues not defined per family
 
-**Priority:** MEDIUM — required for optimal crystal anchoring alignment. The fallback (proximity-based) is available but literature-based is preferred.
+**Priority:** MEDIUM — the current heuristic works operationally, but literature-based residue definitions may still improve interpretation.
 
 **Description:**  
-OPEN_QUESTIONS.md item 13: the substrate-recognition surface residues used in PyMOL `pair_fit` alignment must be identified per LPMO family. Literature-based selection is preferred; proximity-based is the fallback.
+OPEN_QUESTIONS.md item 13: the current operational crystal-anchoring pocket uses protein residues within 5 A of ligand or Cu. Apo crystal references can inherit a sequence-projected pocket from the representative/medoid pose, with residue-name normalization for variants such as `HIC -> HIS`. Literature-based residue definitions per family are still preferred if they should replace or refine this heuristic.
 
 **Proposed solution:**  
 1. For each LPMO family in the dataset, perform a literature search to identify known substrate-binding residues.
 2. Document in `metadata/crystal_reference_list.tsv` or a separate `metadata/alignment_residue_definitions.tsv` with columns: `family`, `residue_number`, `residue_name`, `source`, `notes`.
-3. If literature data is unavailable for a family, use proximity cutoff (5 Å from ligand in the predicted structure), and flag this as `source = proximity_fallback` in the metadata.
+3. If literature data is unavailable for a family, keep the current operational fallback: residues within 5 A of ligand or Cu in holo references, and sequence-projected pocket residues for apo references. Flag this as `source = proximity_fallback` in the metadata.
 4. Document which method was used per system in `crystal_anchor_table.tsv` (the `alignment_method` column).
 
 ---
@@ -226,12 +302,26 @@ The current analysis-core production slice has now been checked at the actual QC
 - the passed NAG4 pose remained analyzable as expected
 - `metrics.csv`, `summary.json`, and `report.html` reflected the same pass/flag/drop split
 
-The remaining gap is that dropped-pose numeric metrics currently persist in `qc_report.json` and `analysis_core_summary.json`; there is still no dedicated pose-manifest table surface for later reporting.
+Update 2026-05-08:
+- `hard_qc_orchestrator.py` now short-circuits on hard distance-gate failures: active-site proximity runs first, Cu-His/Cu-substrate geometry runs next, and poses that fail there do not continue to PoseBusters or Privateer.
+- The focused real-CIF contact-eligibility harness now supports disabling PoseBusters and Privateer entirely before the ProLIF/clustering slice when requested.
+
+Update 2026-05-16:
+The production analysis-core path now writes the implemented pose/QC TSV
+surfaces that can be generated before downstream cluster annotation:
+- `pose_manifest.tsv`
+- `pose_confidence.tsv`
+- `structure_index.tsv`
+- `qc_attrition_table.tsv`
+
+Dropped-pose numeric metrics still persist primarily in `qc_report.json` and
+`analysis_core_summary.json`; the new TSVs provide the tabular pose/QC index
+and attrition surface, not a full replacement for the schema-backed QC report.
 
 **Proposed solution:**
-1. Decide whether `qc_report.json` + `analysis_core_summary.json` are the intended persistent surfaces for dropped-pose metrics.
-2. If not, implement an explicit `pose_manifest.tsv` that retains these metrics without re-admitting dropped poses to downstream analysis.
-3. Recheck the same contract again once ProLIF/IFP and clustering are integrated.
+1. Decide whether `qc_report.json` + `analysis_core_summary.json` remain the intended persistent surfaces for dropped-pose numeric metrics.
+2. If a fully tabular dropped-pose metric surface is needed, extend `pose_manifest.tsv` or add a dedicated QC metrics TSV without re-admitting dropped poses to downstream analysis.
+3. Recheck the same contract again after real-data clustering output inspection.
 
 ---
 
@@ -301,11 +391,78 @@ MASTERPLAN.md Stage 6 requires HDBSCAN `min_cluster_size` and `min_samples` to b
 **Description:**  
 OPEN_QUESTIONS.md item 9: primary model is `glmnet` (penalized logistic) with `glmer` (mixed effects) as sensitivity check. This is still a default, not a confirmed decision.
 
+Update 2026-05-16:
+Two detailed predictive implementation plans now exist:
+- `c1_c4_predictive_analysis_plan_simplified.yaml` for C1/C4 regioactivity prediction.
+- `substrate_activity_prediction_plan.yaml` for substrate activity prediction.
+
+These plans specify elastic-net logistic regression, grouped CV by
+`protein_id`, compact condition-level feature sets, and strict exploratory
+interpretation. The remaining decision is whether to keep the originally
+preferred R/glmnet implementation, use the sklearn implementation described in
+the YAML plans, or keep both with one marked as the primary implementation.
+
 **Proposed solution:**  
-1. Confirm the primary model as penalized logistic regression (`glmnet`) with grouped CV at protein level, as specified in MASTERPLAN.md stage 14.
-2. Confirm `glmer` as the sensitivity check.
-3. Update OPEN_QUESTIONS.md item 9 to mark as resolved.
-4. Implement `scripts/ec_activity_mapping.R` first (step 19), then `analysis/predictive_models.py` + R scripts (step 20).
+1. Confirm the primary implementation backend for the YAML predictive plans: R/glmnet, sklearn elastic-net logistic regression, or both with one primary.
+2. Confirm whether `glmer` remains a sensitivity check, or whether the YAML-defined nested grouped CV models replace it for the first implementation.
+3. Update OPEN_QUESTIONS.md item 9 to mark the model/backend choice as resolved.
+4. Implement `scripts/ec_activity_mapping.R` first (step 19), then build the predictive modeling tables and models according to `c1_c4_predictive_analysis_plan_simplified.yaml` and `substrate_activity_prediction_plan.yaml`.
+
+---
+
+### P10b — CBM paired-analysis detailed plan added but not implemented
+
+**Priority:** MEDIUM — needed for Stage 15 CBM side analysis after the core condition/cluster tables exist.
+
+**Description:**
+`cbm_full_length_vs_domain_only_analysis_plan.yaml` has been added as the
+detailed implementation plan for paired comparison of full-length and
+domain-only constructs. It specifies the paired row unit
+`protein_id x substrate_class x dp`, required domain/CBM/linker region labels,
+condition-level summaries, primary endpoints such as `bridge_fraction`,
+`catalytic_domain_ifp_jaccard_distance`, `delta_C4_minus_C1_geometry_bias`,
+`delta_qc_pass_fraction`, and `delta_cluster_entropy`, plus small-n reporting
+rules and expected output tables.
+
+**Proposed solution:**
+1. Ensure upstream outputs needed by the plan exist: `condition_table.tsv`, `cluster_table.tsv`, `cluster_residue_signature.tsv`, `protein_condition_residue_scores.tsv`, and the construct-specific condition summaries.
+2. Define or import residue region annotations for catalytic domain, CBM, linker, and other regions before computing CBM metrics.
+3. Implement `analysis/cbm_comparison.py` and/or related scripts against `cbm_full_length_vs_domain_only_analysis_plan.yaml`.
+4. Validate the paired table on a small set of proteins with both construct types before running the full CBM side analysis.
+
+---
+
+### P10c — Planned downstream TSVs still depend on unimplemented annotation layers
+
+**Priority:** MEDIUM — these are required before descriptive, predictive, residue-importance, and CBM analyses can be run from the production outputs.
+
+**Description:**
+The current analysis-core production path now writes all TSV surfaces that are
+directly supported by implemented stages: pose manifest/confidence/index,
+QC attrition, pose geometry, pose IFP, pose residue contacts, convergence,
+raw clustering, medoids, condition cluster summary, crystal anchor table, and
+metrics. The following planned TSVs are still not implemented because their
+upstream analysis layers are not implemented yet:
+
+- `cluster_table.tsv`
+- `cluster_ifp_signature.tsv`
+- `cluster_residue_signature.tsv`
+- `protein_condition_residue_scores.tsv`
+- `protein_residue_regio_delta.tsv`
+- `family_aligned_residue_table.tsv`
+- `family_residue_enrichment.tsv`
+- `condition_patch_summary.tsv`
+- `protein_patch_summary.tsv`
+- `condition_table.tsv`
+- `protein_summary_table.tsv`
+- predictive modeling tables under `10_predictive/modeling_tables/`
+- CBM paired-analysis outputs such as `cbm_construct_condition_summary.tsv` and `cbm_paired_comparison_table.tsv`
+
+**Proposed solution:**
+1. First inspect real-data clustering outputs for at least two multi-pose conditions before building cluster annotation on top of them.
+2. Implement cluster annotation next: `cluster_table.tsv`, `cluster_ifp_signature.tsv`, and `cluster_residue_signature.tsv`.
+3. Build condition/protein summaries only after the cluster annotation outputs are stable.
+4. Implement residue importance, predictive modeling, and CBM paired analysis after `condition_table.tsv` exists.
 
 ---
 

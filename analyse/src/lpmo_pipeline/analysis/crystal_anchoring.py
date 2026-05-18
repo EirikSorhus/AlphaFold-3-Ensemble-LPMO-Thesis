@@ -1,46 +1,186 @@
 # src/lpmo_pipeline/analysis/crystal_anchoring.py
+"""Crystal reference preparation and comparison for real deposited structures.
+
+This module now covers the first working crystal-anchoring slice:
+    - resolve all crystal references for one protein from input_data/pdb_structure_data.csv
+    - ignore the non-authoritative CSV columns Oligo_Activity and Comment
+    - prepare multichain deposited crystal mmCIFs by selecting the relevant
+        protein copy, the associated carbohydrate ligand, and Cu
+    - fall back from preferred chain A to another protein chain if A is not the
+        ligand-bound copy in a multimeric crystal
+    - compare representative-pose IFPs against crystal IFPs using feature-aligned
+        Tanimoto instead of assuming identical raw bitvector layouts
+    - compute a first working local pocket RMSD via ligand-proximal C-alpha
+        superposition on the representative-pose-vs-crystal slice
+
+PyMOL pair_fit hardening/parity still remains for later follow-up.
 """
-Responsibility: Compare predicted clusters against crystal structures (if available).
-Input:  Predicted cluster IFPs + geometry, crystal complex PDB
-Output: crystal_metrics.json with per-cluster similarity scores
-
-STEP 12 in masterplan.
-RQ4: Model credibility via crystallographic comparison.
-
-Alignment method: PyMOL `pair_fit` for optimal local superposition.
-  - Align on: histidine-brace (Cα/Nε2), Cu-coordinating residues,
-    and substrate-recognition surface residues.
-  - Substrate-recognition residues: literature-based (preferred) or
-    proximity-based fallback (all protein residues within cutoff of ligand).
-  - Always document that RMSD is measured after optimized local alignment.
-
-Metrics:
-  - Tanimoto(cluster_medoid_IFP, crystal_IFP) — interaction fingerprint similarity
-  - Pocket RMSD after optimal local alignment via PyMOL pair_fit
-  - Per-residue deviations for alignment atoms
-
-Adapted patterns from:
-  - PoseBench (MIT): general structure comparison workflow
-  - benchmarking-af3 (MIT): pocket residue identification via proximity cutoff
-  See ATTRIBUTION.md for full credits.
-"""
-from __future__ import annotations
 
 import json
 import logging
+import csv
+import math
+import re
+from difflib import SequenceMatcher
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 import numpy as np
 
-from lpmo_pipeline.analysis.prolif_ifp import compute_ifp_single, compute_tanimoto_similarity
+from lpmo_pipeline.analysis.prolif_ifp import (
+    IFPBatch,
+    IFPResult,
+    compute_ifp_single,
+    compute_tanimoto_similarity,
+    write_ifp_matrix,
+    write_pose_ifp_table,
+)
+from lpmo_pipeline.config import load_defaults_config
+from lpmo_pipeline.io.gemmi_compat import gemmi
+from lpmo_pipeline.io.normalize_mmcif import NormalizeMMCIFRunner
+from lpmo_pipeline.io.protonate_export import protonate_and_export
 
 logger = logging.getLogger(__name__)
+
+_DEFAULTS_CONFIG = load_defaults_config()
+_CHAIN_SCHEMA = _DEFAULTS_CONFIG.get("chain_schema") or {}
+DEFAULT_PROTEIN_CHAIN = str(_CHAIN_SCHEMA.get("protein") or "A")
+DEFAULT_GLYCAN_CHAINS = tuple(str(chain) for chain in (_CHAIN_SCHEMA.get("glycans") or ["B", "C", "D"]))
+DEFAULT_LIGAND_CHAIN = DEFAULT_GLYCAN_CHAINS[0] if DEFAULT_GLYCAN_CHAINS else "B"
+
+_PROJECT_ROOT = Path(__file__).resolve().parents[3]
+DEFAULT_REFERENCE_INDEX_CSV = _PROJECT_ROOT / "input_data" / "pdb_structure_data.csv"
+DEFAULT_CRYSTAL_ROOT = _PROJECT_ROOT / "crystal_structures"
 
 
 CRYSTAL_SIM_MODERATE_THRESHOLD = 0.5  # Empirical; flag below this
 POCKET_RMSD_THRESHOLD = 2.5  # Å
+DEFAULT_LIGAND_DISTANCE_CUTOFF_A = 6.0
+DEFAULT_COPPER_DISTANCE_CUTOFF_A = 4.0
+
+_PROTEIN_RESIDUE_NAMES = frozenset(
+    {
+        "ALA", "ARG", "ASN", "ASP", "CYS", "GLN", "GLU", "GLY", "HIS",
+        "ILE", "LEU", "LYS", "MET", "PHE", "PRO", "SER", "THR", "TRP",
+        "TYR", "VAL", "MSE", "SEC", "HIC", "PYL",
+    }
+)
+_COPPER_MONOMERS = frozenset({"CU", "CU1", "CU2"})
+_NONPOLY_EXCLUDED_MONOMERS = frozenset(
+    {
+        "HOH", "WAT", "DOD", "CL", "NA", "K", "CA", "MG", "ZN", "MN",
+        "SO4", "PO4", "ACT", "FMT", "EOH", "PEG", "GOL", "MPD", "EDO",
+        "MES", "TRS",
+    }
+)
+_PROTEIN_RESIDUE_ALIASES = {
+    "HIC": "HIS",
+    "HID": "HIS",
+    "HIE": "HIS",
+    "HIP": "HIS",
+    "HSD": "HIS",
+    "HSE": "HIS",
+    "HSP": "HIS",
+    "MSE": "MET",
+}
+_NORMALIZED_PROTEIN_RESIDUE_NAMES = frozenset(
+    _PROTEIN_RESIDUE_ALIASES.get(name, name) for name in _PROTEIN_RESIDUE_NAMES
+)
+
+
+@dataclass(frozen=True)
+class CrystalReferenceRecord:
+    """One crystal reference row resolved to an on-disk mmCIF file."""
+
+    family: str
+    protein_id: str
+    pdb_code: str
+    source_cif: Path
+    carbohydrate_ligands: str = ""
+    dp: int | None = None
+    resolution: str = ""
+    preferred_author_chain: str = DEFAULT_PROTEIN_CHAIN
+    expected_ligand: bool = False
+
+
+@dataclass(frozen=True)
+class CrystalReferenceSelection:
+    """Chosen crystal binding-site view for one deposited structure."""
+
+    source_cif: Path
+    preferred_protein_chain: str
+    selected_protein_chain: str
+    ligand_chain_ids: tuple[str, ...] = ()
+    copper_chain_ids: tuple[str, ...] = ()
+    expected_ligand: bool = False
+    preferred_chain_has_ligand: bool = False
+    selected_chain_has_ligand: bool = False
+    used_fallback_protein_chain: bool = False
+    selected_ligand_distance_a: float | None = None
+
+
+@dataclass(frozen=True)
+class PreparedCrystalReference:
+    """Prepared subset/reference artifacts for one crystal structure."""
+
+    record: CrystalReferenceRecord
+    selection: CrystalReferenceSelection
+    subset_cif: Path
+    normalized_cif: Path | None = None
+    complex_pdb: Path | None = None
+    ligand_mol2: Path | None = None
+    ifp_artifact_dir: Path | None = None
+    ifp_result_json: Path | None = None
+    pose_ifp_table_tsv: Path | None = None
+    ifp_matrix_csv: Path | None = None
+    ifp_result: IFPResult | None = None
+    status: str = "prepared"
+    error: str | None = None
+
+
+@dataclass
+class CrystalReferencePoseComparison:
+    """Representative-pose comparison against one crystal reference."""
+
+    pdb_code: str
+    source_cif: str
+    prepared_subset_cif: str = ""
+    selected_protein_chain: str = ""
+    ligand_chain_ids: list[str] = field(default_factory=list)
+    copper_chain_ids: list[str] = field(default_factory=list)
+    preferred_protein_chain: str = DEFAULT_PROTEIN_CHAIN
+    preferred_chain_has_ligand: bool = False
+    used_fallback_protein_chain: bool = False
+    representative_pose_id: str = ""
+    representative_pose_ifp_status: str = ""
+    representative_pose_ifp_result_json: str = ""
+    representative_pose_pose_ifp_table_tsv: str = ""
+    representative_pose_ifp_matrix_csv: str = ""
+    crystal_ifp_status: str = ""
+    crystal_ifp_result_json: str = ""
+    crystal_pose_ifp_table_tsv: str = ""
+    crystal_ifp_matrix_csv: str = ""
+    pocket_residues: list[int] = field(default_factory=list)
+    pocket_rmsd: float | None = None
+    pocket_rmsd_below_threshold: bool = False
+    ifp_tanimoto: float | None = None
+    status: str = "not_compared"
+    error: str | None = None
+
+
+@dataclass
+class CrystalReferenceScreenReport:
+    """All crystal comparisons for one representative pose."""
+
+    protein_id: str
+    representative_pose_id: str
+    representative_pose_cif: str
+    ligand_id: str = ""
+    representative_pose_ifp_result_json: str = ""
+    representative_pose_pose_ifp_table_tsv: str = ""
+    representative_pose_ifp_matrix_csv: str = ""
+    comparisons: list[CrystalReferencePoseComparison] = field(default_factory=list)
 
 
 @dataclass
@@ -68,6 +208,935 @@ class CrystalAnchoringReport:
     best_tanimoto: float = 0.0
 
 
+def _normalize_reference_protein_id(value: str) -> str:
+    tokens = [token.strip() for token in str(value).split() if token.strip()]
+    return "__".join(tokens)
+
+
+def _parse_pdb_code(value: str) -> tuple[str, str | None]:
+    text = str(value).strip()
+    match = re.match(r"^([A-Za-z0-9]{4})(?:\[([^\]]+)\])?$", text)
+    if not match:
+        raise ValueError(f"Malformed PDB field in crystal reference index: {value!r}")
+    return match.group(1).upper(), match.group(2)
+
+
+def _parse_optional_int(value: str) -> int | None:
+    text = str(value).strip()
+    if not text:
+        return None
+    try:
+        return int(text)
+    except ValueError:
+        return None
+
+
+def load_crystal_reference_records(
+    protein_id: str,
+    *,
+    reference_index_csv: Path = DEFAULT_REFERENCE_INDEX_CSV,
+    crystal_root: Path = DEFAULT_CRYSTAL_ROOT,
+) -> list[CrystalReferenceRecord]:
+    """Load every crystal reference row for one protein.
+
+    The CSV is authoritative for protein→PDB membership, while the columns
+    Oligo_Activity and Comment are intentionally ignored.
+    """
+    protein_key = _normalize_reference_protein_id(protein_id)
+    records: list[CrystalReferenceRecord] = []
+
+    with reference_index_csv.open(newline="") as handle:
+        reader = csv.DictReader(handle, delimiter=";")
+        for row in reader:
+            row_protein_id = _normalize_reference_protein_id(row.get("Uniprot_ID", ""))
+            if row_protein_id != protein_key:
+                continue
+
+            pdb_code, chain_hint = _parse_pdb_code(str(row.get("PDB", "") or ""))
+            crystal_dir = crystal_root / protein_key
+            ligand_cif = crystal_dir / f"{pdb_code}_{protein_key}_ligand.cif"
+            apo_cif = crystal_dir / f"{pdb_code}_{protein_key}_no_ligand.cif"
+
+            if ligand_cif.exists():
+                source_cif = ligand_cif
+            elif apo_cif.exists():
+                source_cif = apo_cif
+            else:
+                logger.warning(
+                    "Skipping crystal reference %s for %s because no matching mmCIF exists in %s",
+                    pdb_code,
+                    protein_key,
+                    crystal_dir,
+                )
+                continue
+
+            carbohydrate_ligands = str(row.get("Carbohydrate_Ligands", "") or "").strip()
+            records.append(
+                CrystalReferenceRecord(
+                    family=str(row.get("Family", "") or "").strip(),
+                    protein_id=protein_key,
+                    pdb_code=pdb_code,
+                    source_cif=source_cif.resolve(),
+                    carbohydrate_ligands=carbohydrate_ligands,
+                    dp=_parse_optional_int(str(row.get("DP", "") or "")),
+                    resolution=str(row.get("Resolution", "") or "").strip(),
+                    preferred_author_chain=str(chain_hint or DEFAULT_PROTEIN_CHAIN).strip() or DEFAULT_PROTEIN_CHAIN,
+                    expected_ligand=source_cif.name.endswith("_ligand.cif") or bool(carbohydrate_ligands),
+                )
+            )
+
+    records.sort(key=lambda record: (record.pdb_code, str(record.source_cif)))
+    return records
+
+
+def _unique_nonempty(values: Iterable[str]) -> tuple[str, ...]:
+    ordered: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        text = str(value).strip()
+        if not text or text in {"?", "."} or text in seen:
+            continue
+        seen.add(text)
+        ordered.append(text)
+    return tuple(ordered)
+
+
+def _read_reference_block(source_cif: Path) -> Any:
+    return gemmi.cif.read(str(source_cif)).sole_block()
+
+
+def _find_branch_ligand_chain_ids(block: Any) -> tuple[str, ...]:
+    return _unique_nonempty(block.find_values("_pdbx_branch_scheme.asym_id"))
+
+
+def _resolve_structure_chain_id(
+    candidates: Iterable[Any],
+    available_chain_ids: set[str],
+) -> str | None:
+    normalized_candidates = _unique_nonempty(str(candidate) for candidate in candidates)
+    for chain_id in normalized_candidates:
+        if chain_id in available_chain_ids:
+            return chain_id
+    return normalized_candidates[0] if normalized_candidates else None
+
+
+def _find_branch_ligand_chain_mappings(
+    block: Any,
+    available_chain_ids: set[str],
+) -> dict[str, str]:
+    table = block.find(
+        "_pdbx_branch_scheme.",
+        ["asym_id", "pdb_asym_id", "auth_asym_id"],
+    )
+    if not table:
+        return {}
+
+    chain_mappings: dict[str, str] = {}
+    for source_chain_id, pdb_chain_id, auth_chain_id in table:
+        source_chain_id = str(source_chain_id).strip()
+        if not source_chain_id or source_chain_id in chain_mappings:
+            continue
+        structure_chain_id = _resolve_structure_chain_id(
+            (source_chain_id, auth_chain_id, pdb_chain_id),
+            available_chain_ids,
+        )
+        if structure_chain_id:
+            chain_mappings[source_chain_id] = structure_chain_id
+    return chain_mappings
+
+
+def _find_nonpoly_chain_ids_for_monomers(block: Any, allowed_monomers: set[str]) -> tuple[str, ...]:
+    table = block.find("_pdbx_nonpoly_scheme.", ["asym_id", "mon_id"])
+    if not table:
+        return ()
+    return _unique_nonempty(
+        asym_id
+        for asym_id, mon_id in table
+        if str(mon_id).strip().upper() in allowed_monomers
+    )
+
+
+def _find_nonpoly_carbohydrate_chain_ids(block: Any) -> tuple[str, ...]:
+    table = block.find("_pdbx_nonpoly_scheme.", ["asym_id", "mon_id"])
+    if not table:
+        return ()
+    return _unique_nonempty(
+        asym_id
+        for asym_id, mon_id in table
+        if str(mon_id).strip().upper() not in _NONPOLY_EXCLUDED_MONOMERS
+        and str(mon_id).strip().upper() not in _COPPER_MONOMERS
+    )
+
+
+def _atom_element_name(atom: Any) -> str:
+    element = getattr(atom, "element", None)
+    name = getattr(element, "name", "") if element is not None else ""
+    text = str(name).strip()
+    if text:
+        return text.upper()
+    return str(getattr(atom, "name", "") or "").strip()[:1].upper()
+
+
+def _atom_xyz(atom: Any) -> tuple[float, float, float]:
+    pos = getattr(atom, "pos", None)
+    if pos is not None:
+        return float(pos.x), float(pos.y), float(pos.z)
+    return (
+        float(getattr(atom, "x", 0.0)),
+        float(getattr(atom, "y", 0.0)),
+        float(getattr(atom, "z", 0.0)),
+    )
+
+
+def _atom_b_iso(atom: Any) -> float:
+    return float(getattr(atom, "b_iso", 0.0))
+
+
+def _chain_looks_like_protein(chain: Any) -> bool:
+    protein_like = 0
+    total = 0
+    for residue in chain:
+        total += 1
+        if str(getattr(residue, "name", "") or "").strip().upper() in _PROTEIN_RESIDUE_NAMES:
+            protein_like += 1
+
+    if protein_like >= 20:
+        return True
+    return protein_like >= 3 and protein_like == total
+
+
+def _find_chain(model: Any, chain_id: str) -> Any | None:
+    for chain in model:
+        if str(getattr(chain, "name", "") or "") == chain_id:
+            return chain
+    return None
+
+
+def _iter_heavy_atoms(chain: Any) -> Iterable[Any]:
+    for residue in chain:
+        for atom in residue:
+            if _atom_element_name(atom) == "H":
+                continue
+            yield atom
+
+
+def _min_chain_distance(chain_a: Any, chain_b: Any) -> float | None:
+    atoms_a = list(_iter_heavy_atoms(chain_a))
+    atoms_b = list(_iter_heavy_atoms(chain_b))
+    if not atoms_a or not atoms_b:
+        return None
+
+    best = float("inf")
+    for atom_a in atoms_a:
+        ax, ay, az = _atom_xyz(atom_a)
+        for atom_b in atoms_b:
+            bx, by, bz = _atom_xyz(atom_b)
+            distance = math.dist((ax, ay, az), (bx, by, bz))
+            if distance < best:
+                best = distance
+    return None if not math.isfinite(best) else best
+
+
+def _select_copper_chain_ids(block: Any) -> tuple[str, ...]:
+    return _find_nonpoly_chain_ids_for_monomers(block, set(_COPPER_MONOMERS))
+
+
+def select_crystal_reference_site(
+    source_cif: Path,
+    *,
+    preferred_protein_chain: str = DEFAULT_PROTEIN_CHAIN,
+    expected_ligand: bool | None = None,
+    ligand_distance_cutoff_a: float = DEFAULT_LIGAND_DISTANCE_CUTOFF_A,
+) -> CrystalReferenceSelection:
+    """Pick the protein copy and ligand chains to use from one crystal mmCIF."""
+    structure = gemmi.read_structure(str(source_cif))
+    if len(structure) == 0:
+        raise ValueError(f"Crystal reference has no models: {source_cif}")
+    model = structure[0]
+    block = _read_reference_block(source_cif)
+    available_model_chain_ids = {
+        str(getattr(chain, "name", "") or "")
+        for chain in model
+        if str(getattr(chain, "name", "") or "")
+    }
+
+    protein_chain_ids = tuple(
+        str(getattr(chain, "name", "") or "")
+        for chain in model
+        if _chain_looks_like_protein(chain)
+    )
+    if not protein_chain_ids:
+        raise ValueError(f"No protein-like chains found in crystal reference: {source_cif}")
+
+    ligand_chain_mappings = _find_branch_ligand_chain_mappings(block, available_model_chain_ids)
+    ligand_chain_ids = tuple(ligand_chain_mappings)
+    if not ligand_chain_ids:
+        ligand_chain_ids = _find_nonpoly_carbohydrate_chain_ids(block)
+        ligand_chain_mappings = {chain_id: chain_id for chain_id in ligand_chain_ids}
+    expected_ligand = bool(ligand_chain_ids) if expected_ligand is None else bool(expected_ligand)
+
+    ligand_distances_by_protein: dict[str, list[tuple[str, float]]] = {}
+    for protein_chain_id in protein_chain_ids:
+        protein_chain = _find_chain(model, protein_chain_id)
+        if protein_chain is None:
+            continue
+        distances: list[tuple[str, float]] = []
+        for ligand_chain_id in ligand_chain_ids:
+            ligand_chain = _find_chain(
+                model,
+                ligand_chain_mappings.get(ligand_chain_id, ligand_chain_id),
+            )
+            if ligand_chain is None:
+                continue
+            distance = _min_chain_distance(protein_chain, ligand_chain)
+            if distance is not None:
+                distances.append((ligand_chain_id, distance))
+        ligand_distances_by_protein[protein_chain_id] = distances
+
+    selected_protein_chain = (
+        preferred_protein_chain if preferred_protein_chain in protein_chain_ids else protein_chain_ids[0]
+    )
+    preferred_distances = ligand_distances_by_protein.get(preferred_protein_chain, [])
+    preferred_chain_has_ligand = any(
+        distance <= ligand_distance_cutoff_a for _, distance in preferred_distances
+    )
+
+    if expected_ligand and not preferred_chain_has_ligand:
+        fallback_candidates = [
+            protein_chain_id
+            for protein_chain_id, distances in ligand_distances_by_protein.items()
+            if any(distance <= ligand_distance_cutoff_a for _, distance in distances)
+        ]
+        if fallback_candidates:
+            selected_protein_chain = min(
+                fallback_candidates,
+                key=lambda protein_chain_id: min(
+                    distance
+                    for _, distance in ligand_distances_by_protein[protein_chain_id]
+                    if distance <= ligand_distance_cutoff_a
+                ),
+            )
+
+    selected_distances = ligand_distances_by_protein.get(selected_protein_chain, [])
+    selected_ligand_chain_ids = tuple(
+        ligand_chain_id
+        for ligand_chain_id, distance in selected_distances
+        if distance <= ligand_distance_cutoff_a
+    )
+    selected_ligand_distance_a = min(
+        (
+            distance
+            for _, distance in selected_distances
+            if distance <= ligand_distance_cutoff_a
+        ),
+        default=None,
+    )
+
+    return CrystalReferenceSelection(
+        source_cif=source_cif.resolve(),
+        preferred_protein_chain=preferred_protein_chain,
+        selected_protein_chain=selected_protein_chain,
+        ligand_chain_ids=selected_ligand_chain_ids,
+        copper_chain_ids=_select_copper_chain_ids(block),
+        expected_ligand=expected_ligand,
+        preferred_chain_has_ligand=preferred_chain_has_ligand,
+        selected_chain_has_ligand=bool(selected_ligand_chain_ids),
+        used_fallback_protein_chain=selected_protein_chain != preferred_protein_chain,
+        selected_ligand_distance_a=selected_ligand_distance_a,
+    )
+
+
+def _format_mmcif_value(value: Any) -> str:
+    text = str(value)
+    if text == "":
+        return "?"
+    if any(character.isspace() for character in text) or any(character in text for character in ("'", '"', "#")):
+        return "'{}'".format(text.replace("'", "''"))
+    return text
+
+
+def _write_optional_filtered_loop(
+    lines: list[str],
+    block: Any,
+    prefix: str,
+    columns: list[str],
+    chain_id_column: str,
+    allowed_chain_ids: set[str],
+    *,
+    chain_id_map: dict[str, str] | None = None,
+    remapped_chain_columns: tuple[str, ...] = (),
+) -> None:
+    table = block.find(prefix, columns)
+    if not table:
+        return
+
+    chain_id_index = columns.index(chain_id_column)
+    filtered_rows = [
+        row
+        for row in table
+        if str(row[chain_id_index]).strip() in allowed_chain_ids
+    ]
+    if not filtered_rows:
+        return
+
+    lines.append("loop_")
+    lines.extend([f"{prefix}{column}" for column in columns])
+    for row in filtered_rows:
+        row_values = list(row)
+        if chain_id_map:
+            for column_name in remapped_chain_columns:
+                column_index = columns.index(column_name)
+                source_chain_id = str(row_values[column_index]).strip()
+                row_values[column_index] = chain_id_map.get(source_chain_id, row_values[column_index])
+        lines.append(" ".join(_format_mmcif_value(value) for value in row_values))
+    lines.append("#")
+
+
+def _iter_remapped_chain_ids() -> Iterable[str]:
+    used_defaults: set[str] = set()
+    for chain_id in DEFAULT_GLYCAN_CHAINS:
+        if chain_id and chain_id not in used_defaults:
+            used_defaults.add(chain_id)
+            yield chain_id
+
+    for codepoint in range(ord("A"), ord("Z") + 1):
+        chain_id = chr(codepoint)
+        if chain_id == DEFAULT_PROTEIN_CHAIN or chain_id in used_defaults:
+            continue
+        yield chain_id
+
+
+def _build_selected_chain_id_map(selection: CrystalReferenceSelection) -> dict[str, str]:
+    chain_id_map = {selection.selected_protein_chain: DEFAULT_PROTEIN_CHAIN}
+    used_chain_ids = {DEFAULT_PROTEIN_CHAIN}
+    remapped_chain_ids = _iter_remapped_chain_ids()
+
+    for source_chain_id in (*selection.ligand_chain_ids, *selection.copper_chain_ids):
+        if source_chain_id in chain_id_map:
+            continue
+        mapped_chain_id = next(
+            candidate for candidate in remapped_chain_ids if candidate not in used_chain_ids
+        )
+        chain_id_map[source_chain_id] = mapped_chain_id
+        used_chain_ids.add(mapped_chain_id)
+
+    return chain_id_map
+
+
+def _write_selected_reference_cif(
+    source_cif: Path,
+    selection: CrystalReferenceSelection,
+    output_path: Path,
+) -> Path:
+    """Write a minimal mmCIF for the selected crystal view.
+
+    The writer filters atom_site rows directly from the deposited mmCIF block so
+    Cu and other nonpoly atoms are preserved even when gemmi's Structure view only
+    materializes the protein and branch chains.
+    """
+    block = _read_reference_block(source_cif)
+    chain_id_map = _build_selected_chain_id_map(selection)
+    included_chain_ids = {
+        selection.selected_protein_chain,
+        *selection.ligand_chain_ids,
+        *selection.copper_chain_ids,
+    }
+    atom_columns = [
+        "group_PDB",
+        "id",
+        "type_symbol",
+        "label_atom_id",
+        "label_alt_id",
+        "label_comp_id",
+        "label_asym_id",
+        "label_entity_id",
+        "label_seq_id",
+        "pdbx_PDB_ins_code",
+        "Cartn_x",
+        "Cartn_y",
+        "Cartn_z",
+        "occupancy",
+        "B_iso_or_equiv",
+        "auth_seq_id",
+        "auth_asym_id",
+        "pdbx_PDB_model_num",
+    ]
+    atom_rows = block.find("_atom_site.", atom_columns)
+    if not atom_rows:
+        raise ValueError(f"No _atom_site loop found in crystal reference: {source_cif}")
+
+    filtered_atom_rows = [
+        row
+        for row in atom_rows
+        if str(row[6]).strip() in included_chain_ids
+    ]
+    if not filtered_atom_rows:
+        raise ValueError(
+            f"Selected crystal subset for {source_cif} contained no atom_site rows for chains {sorted(included_chain_ids)}"
+        )
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    lines = [f"data_{output_path.stem}", f"_entry.id {output_path.stem}", "#", "loop_"]
+    lines.extend([f"_atom_site.{column}" for column in atom_columns])
+    for row in filtered_atom_rows:
+        row_values = list(row)
+        row_values[6] = chain_id_map.get(str(row_values[6]).strip(), row_values[6])
+        row_values[16] = chain_id_map.get(str(row_values[16]).strip(), row_values[16])
+        lines.append(" ".join(_format_mmcif_value(value) for value in row_values))
+    lines.append("#")
+
+    _write_optional_filtered_loop(
+        lines,
+        block,
+        "_pdbx_branch_scheme.",
+        [
+            "asym_id",
+            "entity_id",
+            "mon_id",
+            "num",
+            "pdb_asym_id",
+            "pdb_mon_id",
+            "pdb_seq_num",
+            "auth_asym_id",
+            "auth_mon_id",
+            "auth_seq_num",
+            "hetero",
+        ],
+        "asym_id",
+        included_chain_ids,
+        chain_id_map=chain_id_map,
+        remapped_chain_columns=("asym_id", "pdb_asym_id", "auth_asym_id"),
+    )
+    _write_optional_filtered_loop(
+        lines,
+        block,
+        "_pdbx_nonpoly_scheme.",
+        [
+            "asym_id",
+            "entity_id",
+            "mon_id",
+            "ndb_seq_num",
+            "pdb_seq_num",
+            "auth_seq_num",
+            "pdb_mon_id",
+            "auth_mon_id",
+            "pdb_strand_id",
+            "pdb_ins_code",
+        ],
+        "asym_id",
+        included_chain_ids,
+        chain_id_map=chain_id_map,
+        remapped_chain_columns=("asym_id", "pdb_strand_id"),
+    )
+    _write_optional_filtered_loop(
+        lines,
+        block,
+        "_struct_asym.",
+        ["id", "pdbx_blank_PDB_chainid_flag", "pdbx_modified", "entity_id", "details"],
+        "id",
+        included_chain_ids,
+        chain_id_map=chain_id_map,
+        remapped_chain_columns=("id",),
+    )
+
+    output_path.write_text("\n".join(lines) + "\n")
+    return output_path
+
+
+def compute_feature_aligned_tanimoto(
+    feature_names_a: list[str],
+    bitvec_a: list[int],
+    feature_names_b: list[str],
+    bitvec_b: list[int],
+) -> float:
+    """Tanimoto similarity after aligning onto the union feature set."""
+    if len(feature_names_a) != len(bitvec_a):
+        raise ValueError("feature_names_a and bitvec_a must have the same length")
+    if len(feature_names_b) != len(bitvec_b):
+        raise ValueError("feature_names_b and bitvec_b must have the same length")
+
+    union_feature_names = sorted(set(feature_names_a) | set(feature_names_b))
+    feature_map_a = {
+        feature_name: int(value)
+        for feature_name, value in zip(feature_names_a, bitvec_a)
+    }
+    feature_map_b = {
+        feature_name: int(value)
+        for feature_name, value in zip(feature_names_b, bitvec_b)
+    }
+    aligned_a = [feature_map_a.get(feature_name, 0) for feature_name in union_feature_names]
+    aligned_b = [feature_map_b.get(feature_name, 0) for feature_name in union_feature_names]
+    return compute_tanimoto_similarity(aligned_a, aligned_b)
+
+
+def _write_ifp_artifacts(result: IFPResult, output_dir: Path) -> tuple[Path, Path, Path, Path]:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    pose_ifp_table_tsv = output_dir / "pose_ifp_table.tsv"
+    ifp_matrix_csv = output_dir / "ifp_matrix.csv"
+    ifp_result_json = output_dir / "ifp_result.json"
+
+    write_pose_ifp_table([result], pose_ifp_table_tsv)
+    write_ifp_matrix(
+        IFPBatch(
+            results=[result],
+            matrix=[list(result.flat_bitvector)],
+            feature_names=list(result.feature_names),
+        ),
+        ifp_matrix_csv,
+    )
+
+    active_feature_names = [
+        feature_name
+        for feature_name, value in zip(result.feature_names, result.flat_bitvector, strict=True)
+        if int(value)
+    ]
+    data = {
+        "pose_id": result.pose_id,
+        "status": result.status,
+        "error": result.error,
+        "n_residues": result.n_residues,
+        "n_interaction_types": result.n_interaction_types,
+        "residue_names": result.residue_names,
+        "n_total_contacts": result.n_total_contacts,
+        "interaction_counts": result.interaction_counts,
+        "active_feature_names": active_feature_names,
+    }
+    ifp_result_json.write_text(json.dumps(data, indent=2))
+    return output_dir, ifp_result_json, pose_ifp_table_tsv, ifp_matrix_csv
+
+
+def prepare_crystal_reference(
+    record: CrystalReferenceRecord,
+    output_dir: Path,
+    *,
+    ligand_distance_cutoff_a: float = DEFAULT_LIGAND_DISTANCE_CUTOFF_A,
+) -> PreparedCrystalReference:
+    """Prepare one crystal reference through subset, normalization, protonation, and IFP."""
+    selection = select_crystal_reference_site(
+        record.source_cif,
+        preferred_protein_chain=record.preferred_author_chain,
+        expected_ligand=record.expected_ligand,
+        ligand_distance_cutoff_a=ligand_distance_cutoff_a,
+    )
+    reference_dir = output_dir / f"{record.pdb_code}_{record.protein_id}"
+    subset_cif = _write_selected_reference_cif(
+        record.source_cif,
+        selection,
+        reference_dir / "selected_reference.cif",
+    )
+    prepared_input_cif = subset_cif.resolve()
+    if not selection.selected_chain_has_ligand:
+        return PreparedCrystalReference(
+            record=record,
+            selection=selection,
+            subset_cif=subset_cif,
+            normalized_cif=prepared_input_cif,
+            status="prepared_no_ligand",
+        )
+
+    try:
+        protonate_ok, protonation_report = protonate_and_export(prepared_input_cif, reference_dir / "protonated")
+    except Exception as exc:
+        return PreparedCrystalReference(
+            record=record,
+            selection=selection,
+            subset_cif=subset_cif,
+            normalized_cif=prepared_input_cif,
+            status="protonation_failed",
+            error=f"{exc.__class__.__name__}: {exc}",
+        )
+
+    if not protonate_ok or not protonation_report:
+        return PreparedCrystalReference(
+            record=record,
+            selection=selection,
+            subset_cif=subset_cif,
+            normalized_cif=prepared_input_cif,
+            status="protonation_failed",
+            error="Protonation/export failed",
+        )
+
+    complex_pdb = Path(str(protonation_report.get("complex_h_pdb", ""))).resolve()
+    ligand_mol2 = Path(str(protonation_report.get("ligand_mol2", ""))).resolve()
+    if not complex_pdb.exists() or not ligand_mol2.exists():
+        return PreparedCrystalReference(
+            record=record,
+            selection=selection,
+            subset_cif=subset_cif,
+            normalized_cif=prepared_input_cif,
+            complex_pdb=complex_pdb,
+            ligand_mol2=ligand_mol2,
+            status="protonation_artifacts_missing",
+            error="Crystal protonation artifacts were not written",
+        )
+
+    crystal_ifp = compute_ifp_single(
+        complex_pdb=complex_pdb,
+        ligand_mol2=ligand_mol2,
+        pose_id=record.pdb_code,
+        protein_chain=DEFAULT_PROTEIN_CHAIN,
+    )
+    ifp_artifact_dir, ifp_result_json, pose_ifp_table_tsv, ifp_matrix_csv = _write_ifp_artifacts(
+        crystal_ifp,
+        reference_dir / "ifp",
+    )
+    return PreparedCrystalReference(
+        record=record,
+        selection=selection,
+        subset_cif=subset_cif,
+        normalized_cif=prepared_input_cif,
+        complex_pdb=complex_pdb,
+        ligand_mol2=ligand_mol2,
+        ifp_artifact_dir=ifp_artifact_dir,
+        ifp_result_json=ifp_result_json,
+        pose_ifp_table_tsv=pose_ifp_table_tsv,
+        ifp_matrix_csv=ifp_matrix_csv,
+        ifp_result=crystal_ifp,
+        status="prepared" if crystal_ifp.status == "ok" else "ifp_failed",
+        error=crystal_ifp.error,
+    )
+
+
+def _prepare_representative_pose_ifp(
+    representative_pose_cif: Path,
+    output_dir: Path,
+    *,
+    representative_pose_id: str,
+) -> tuple[IFPResult | None, str | None, tuple[Path, Path, Path, Path] | None, Path | None]:
+    try:
+        normalize_ok, normalized_cif = NormalizeMMCIFRunner(representative_pose_cif, output_dir / "normalize").run()
+    except Exception as exc:
+        return None, f"{exc.__class__.__name__}: {exc}", None, None
+
+    if not normalize_ok or normalized_cif is None:
+        return None, "Normalization failed", None, None
+
+    try:
+        protonate_ok, protonation_report = protonate_and_export(Path(normalized_cif), output_dir / "protonated")
+    except Exception as exc:
+        return None, f"{exc.__class__.__name__}: {exc}", None, None
+
+    if not protonate_ok or not protonation_report:
+        return None, "Protonation/export failed", None, None
+
+    complex_pdb = Path(str(protonation_report.get("complex_h_pdb", ""))).resolve()
+    ligand_mol2 = Path(str(protonation_report.get("ligand_mol2", ""))).resolve()
+    if not complex_pdb.exists() or not ligand_mol2.exists():
+        return None, "Representative pose protonation artifacts missing", None, None
+
+    pose_ifp = compute_ifp_single(
+        complex_pdb=complex_pdb,
+        ligand_mol2=ligand_mol2,
+        pose_id=representative_pose_id,
+        protein_chain=DEFAULT_PROTEIN_CHAIN,
+    )
+    ifp_artifacts = _write_ifp_artifacts(pose_ifp, output_dir / "ifp")
+    return pose_ifp, pose_ifp.error, ifp_artifacts, complex_pdb
+
+
+def run_crystal_reference_screen(
+    representative_pose_cif: Path,
+    *,
+    protein_id: str,
+    output_dir: Path,
+    representative_pose_id: str = "",
+    ligand_id: str = "",
+    reference_index_csv: Path = DEFAULT_REFERENCE_INDEX_CSV,
+    crystal_root: Path = DEFAULT_CRYSTAL_ROOT,
+) -> CrystalReferenceScreenReport:
+    """Compare one representative pose against all crystal references for a protein."""
+    representative_pose_path = Path(representative_pose_cif).resolve()
+    representative_pose_id = representative_pose_id or representative_pose_path.stem
+    report = CrystalReferenceScreenReport(
+        protein_id=_normalize_reference_protein_id(protein_id),
+        representative_pose_id=representative_pose_id,
+        representative_pose_cif=str(representative_pose_path),
+        ligand_id=ligand_id,
+    )
+
+    pose_ifp, pose_error, representative_pose_ifp_artifacts, representative_pose_complex_pdb = _prepare_representative_pose_ifp(
+        representative_pose_path,
+        output_dir / "representative_pose",
+        representative_pose_id=representative_pose_id,
+    )
+    if representative_pose_ifp_artifacts is not None:
+        _, ifp_result_json, pose_ifp_table_tsv, ifp_matrix_csv = representative_pose_ifp_artifacts
+        report.representative_pose_ifp_result_json = str(ifp_result_json)
+        report.representative_pose_pose_ifp_table_tsv = str(pose_ifp_table_tsv)
+        report.representative_pose_ifp_matrix_csv = str(ifp_matrix_csv)
+    representative_pose_pocket_residues = []
+    if representative_pose_complex_pdb is not None:
+        representative_pose_pocket_residues = identify_pocket_residues_by_proximity(
+            representative_pose_complex_pdb,
+            ligand_chain=DEFAULT_LIGAND_CHAIN,
+            protein_chain=DEFAULT_PROTEIN_CHAIN,
+        )
+    records = load_crystal_reference_records(
+        report.protein_id,
+        reference_index_csv=reference_index_csv,
+        crystal_root=crystal_root,
+    )
+
+    for record in records:
+        prepared = prepare_crystal_reference(record, output_dir / "references")
+        comparison = CrystalReferencePoseComparison(
+            pdb_code=record.pdb_code,
+            source_cif=str(record.source_cif),
+            prepared_subset_cif=str(prepared.subset_cif),
+            selected_protein_chain=prepared.selection.selected_protein_chain,
+            ligand_chain_ids=list(prepared.selection.ligand_chain_ids),
+            copper_chain_ids=list(prepared.selection.copper_chain_ids),
+            preferred_protein_chain=prepared.selection.preferred_protein_chain,
+            preferred_chain_has_ligand=prepared.selection.preferred_chain_has_ligand,
+            used_fallback_protein_chain=prepared.selection.used_fallback_protein_chain,
+            representative_pose_id=representative_pose_id,
+            representative_pose_ifp_status=pose_ifp.status if pose_ifp is not None else "pose_ifp_failed",
+            representative_pose_ifp_result_json=report.representative_pose_ifp_result_json,
+            representative_pose_pose_ifp_table_tsv=report.representative_pose_pose_ifp_table_tsv,
+            representative_pose_ifp_matrix_csv=report.representative_pose_ifp_matrix_csv,
+            crystal_ifp_status=prepared.ifp_result.status if prepared.ifp_result is not None else prepared.status,
+            crystal_ifp_result_json=str(prepared.ifp_result_json or ""),
+            crystal_pose_ifp_table_tsv=str(prepared.pose_ifp_table_tsv or ""),
+            crystal_ifp_matrix_csv=str(prepared.ifp_matrix_csv or ""),
+            status=prepared.status,
+            error=prepared.error,
+        )
+
+        if representative_pose_complex_pdb is not None:
+            pocket_residue_pairs: list[tuple[int, int]] = []
+            reference_structure_for_pocket = prepared.complex_pdb or prepared.normalized_cif or prepared.subset_cif
+
+            if prepared.complex_pdb is not None:
+                crystal_pocket_residues = identify_pocket_residues_by_proximity(
+                    prepared.complex_pdb,
+                    ligand_chain=DEFAULT_LIGAND_CHAIN,
+                    protein_chain=DEFAULT_PROTEIN_CHAIN,
+                )
+                mapped_pairs = _map_residue_number_pairs_by_sequence(
+                    prepared.complex_pdb,
+                    representative_pose_complex_pdb,
+                    crystal_pocket_residues,
+                    chain_name=DEFAULT_PROTEIN_CHAIN,
+                )
+                pocket_residue_pairs = [
+                    (representative_residue_number, crystal_residue_number)
+                    for crystal_residue_number, representative_residue_number in mapped_pairs
+                ]
+            elif representative_pose_pocket_residues:
+                pocket_residue_pairs = _map_residue_number_pairs_by_sequence(
+                    representative_pose_complex_pdb,
+                    reference_structure_for_pocket,
+                    representative_pose_pocket_residues,
+                    chain_name=DEFAULT_PROTEIN_CHAIN,
+                )
+
+            comparison.pocket_residues = [
+                crystal_residue_number for _, crystal_residue_number in pocket_residue_pairs
+            ]
+            if pocket_residue_pairs:
+                comparison.pocket_rmsd = _compute_pocket_rmsd_from_residue_pairs(
+                    representative_pose_complex_pdb,
+                    reference_structure_for_pocket,
+                    pocket_residue_pairs,
+                    protein_chain=DEFAULT_PROTEIN_CHAIN,
+                )
+                comparison.pocket_rmsd_below_threshold = (
+                    comparison.pocket_rmsd is not None
+                    and comparison.pocket_rmsd < POCKET_RMSD_THRESHOLD
+                )
+
+        if pose_ifp is None:
+            comparison.status = "pose_ifp_failed"
+            comparison.error = pose_error
+        elif pose_ifp.status != "ok":
+            comparison.status = "pose_ifp_failed"
+            comparison.error = pose_ifp.error
+        elif prepared.ifp_result is None or prepared.ifp_result.status != "ok":
+            comparison.status = prepared.status
+            comparison.error = prepared.error or (
+                prepared.ifp_result.error if prepared.ifp_result is not None else None
+            )
+        else:
+            comparison.ifp_tanimoto = compute_feature_aligned_tanimoto(
+                pose_ifp.feature_names,
+                pose_ifp.flat_bitvector,
+                prepared.ifp_result.feature_names,
+                prepared.ifp_result.flat_bitvector,
+            )
+            comparison.status = "ok"
+
+        report.comparisons.append(comparison)
+
+    return report
+
+
+def write_crystal_reference_screen_report(
+    report: CrystalReferenceScreenReport,
+    output_path: Path,
+) -> None:
+    """Write representative-pose-vs-crystal comparisons to JSON."""
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    data = {
+        "protein_id": report.protein_id,
+        "ligand_id": report.ligand_id,
+        "representative_pose_id": report.representative_pose_id,
+        "representative_pose_cif": report.representative_pose_cif,
+        "representative_pose_ifp_result_json": report.representative_pose_ifp_result_json,
+        "representative_pose_pose_ifp_table_tsv": report.representative_pose_pose_ifp_table_tsv,
+        "representative_pose_ifp_matrix_csv": report.representative_pose_ifp_matrix_csv,
+        "comparisons": [
+            {
+                "pdb_code": comparison.pdb_code,
+                "source_cif": comparison.source_cif,
+                "prepared_subset_cif": comparison.prepared_subset_cif,
+                "selected_protein_chain": comparison.selected_protein_chain,
+                "ligand_chain_ids": comparison.ligand_chain_ids,
+                "copper_chain_ids": comparison.copper_chain_ids,
+                "preferred_protein_chain": comparison.preferred_protein_chain,
+                "preferred_chain_has_ligand": comparison.preferred_chain_has_ligand,
+                "used_fallback_protein_chain": comparison.used_fallback_protein_chain,
+                "representative_pose_id": comparison.representative_pose_id,
+                "representative_pose_ifp_status": comparison.representative_pose_ifp_status,
+                "representative_pose_ifp_result_json": comparison.representative_pose_ifp_result_json,
+                "representative_pose_pose_ifp_table_tsv": comparison.representative_pose_pose_ifp_table_tsv,
+                "representative_pose_ifp_matrix_csv": comparison.representative_pose_ifp_matrix_csv,
+                "crystal_ifp_status": comparison.crystal_ifp_status,
+                "crystal_ifp_result_json": comparison.crystal_ifp_result_json,
+                "crystal_pose_ifp_table_tsv": comparison.crystal_pose_ifp_table_tsv,
+                "crystal_ifp_matrix_csv": comparison.crystal_ifp_matrix_csv,
+                "pocket_residues": comparison.pocket_residues,
+                "pocket_rmsd": comparison.pocket_rmsd,
+                "pocket_rmsd_below_threshold": comparison.pocket_rmsd_below_threshold,
+                "ifp_tanimoto": comparison.ifp_tanimoto,
+                "status": comparison.status,
+                "error": comparison.error,
+            }
+            for comparison in report.comparisons
+        ],
+    }
+    output_path.write_text(json.dumps(data, indent=2))
+
+
+def _comparison_tanimoto(
+    pose_feature_names: list[str] | None,
+    pose_bitvec: list[int],
+    crystal_ifp_result: IFPResult,
+) -> float:
+    if pose_feature_names is None:
+        if len(pose_bitvec) != len(crystal_ifp_result.flat_bitvector):
+            raise ValueError(
+                "Crystal-vs-pose IFP comparison requires feature names when the two bitvectors use different layouts"
+            )
+        return compute_tanimoto_similarity(pose_bitvec, crystal_ifp_result.flat_bitvector)
+
+    return compute_feature_aligned_tanimoto(
+        pose_feature_names,
+        pose_bitvec,
+        crystal_ifp_result.feature_names,
+        crystal_ifp_result.flat_bitvector,
+    )
+
+
 def run_crystal_anchoring(
     crystal_pdb: Path,
     crystal_ligand_mol2: Path | None,
@@ -75,7 +1144,7 @@ def run_crystal_anchoring(
     protein_id: str = "",
     ligand_id: str = "",
     pocket_residues: list[int] | None = None,
-    protein_chain: str = "A",
+    protein_chain: str = DEFAULT_PROTEIN_CHAIN,
 ) -> CrystalAnchoringReport:
     """Compare predicted clusters to crystal structure.
 
@@ -103,23 +1172,20 @@ def run_crystal_anchoring(
         crystal_pdb=str(crystal_pdb),
     )
 
-    # --- Case 1: Crystal has ligand → compute IFP similarity ---
     if crystal_ligand_mol2 is not None and crystal_ligand_mol2.exists():
         report.has_crystal_ligand = True
-
-        # Compute crystal IFP
         crystal_ifp_result = compute_ifp_single(
             complex_pdb=crystal_pdb,
             ligand_mol2=crystal_ligand_mol2,
             pose_id="crystal",
             protein_chain=protein_chain,
         )
-        crystal_bitvec = crystal_ifp_result.flat_bitvector
 
-        # Compare each cluster medoid to crystal
         for cdata in cluster_medoid_data:
-            tanimoto = compute_tanimoto_similarity(
-                cdata["medoid_ifp"], crystal_bitvec
+            tanimoto = _comparison_tanimoto(
+                cdata.get("medoid_ifp_feature_names"),
+                cdata["medoid_ifp"],
+                crystal_ifp_result,
             )
             comparison = CrystalComparisonResult(
                 cluster_id=cdata["cluster_id"],
@@ -128,7 +1194,6 @@ def run_crystal_anchoring(
                 ifp_above_threshold=tanimoto >= CRYSTAL_SIM_MODERATE_THRESHOLD,
             )
 
-            # Optional: pocket RMSD
             if pocket_residues:
                 rmsd = _compute_pocket_rmsd(
                     pred_pdb=cdata["medoid_pdb"],
@@ -143,7 +1208,6 @@ def run_crystal_anchoring(
 
             report.comparisons.append(comparison)
     else:
-        # --- Case 2: Apo crystal → pocket RMSD only ---
         report.has_crystal_ligand = False
         if pocket_residues:
             for cdata in cluster_medoid_data:
@@ -163,7 +1227,6 @@ def run_crystal_anchoring(
                 )
                 report.comparisons.append(comparison)
 
-    # Best cluster
     if report.comparisons:
         best = max(report.comparisons, key=lambda c: c.ifp_tanimoto)
         report.best_cluster_id = best.cluster_id
@@ -181,39 +1244,66 @@ def _compute_pocket_rmsd(
     pred_pdb: Path,
     crystal_pdb: Path,
     pocket_residues: list[int],
-    protein_chain: str = "A",
+    protein_chain: str = DEFAULT_PROTEIN_CHAIN,
 ) -> float | None:
-    """Compute pocket RMSD between predicted and crystal structures.
+    """Compute local pocket RMSD after optimal superposition on shared C-alpha atoms.
 
-    Uses PyMOL pair_fit for optimal local superposition on:
-      1. Histidine-brace atoms (Cα, Nε2)
-      2. Cu-coordinating residues
-      3. Substrate-recognition surface residues (from pocket_residues)
-
-    The RMSD is measured AFTER optimized local alignment (not global).
-    This gives better results for local pocket comparison but must be
-    clearly documented as an optimized alignment metric.
-
-    Inspired by benchmarking-af3 pocket residue approach (MIT license),
-    but uses PyMOL pair_fit instead of APoc/Biopython NeighborSearch.
+    This is the first working RMSD slice for crystal anchoring. It aligns the
+    predicted pocket onto the crystal pocket using shared protein C-alpha atoms
+    from `pocket_residues`, then reports the post-alignment RMSD.
     """
-    # TODO: implement with PyMOL pair_fit
-    # from pymol import cmd
-    #
-    # cmd.load(str(crystal_pdb), "crystal")
-    # cmd.load(str(pred_pdb), "predicted")
-    #
-    # # Build selection string for pair_fit atoms (CA of pocket residues)
-    # pocket_sel = " or ".join(f"resi {r}" for r in pocket_residues)
-    # crystal_sel = f"crystal and chain {protein_chain} and ({pocket_sel}) and name CA"
-    # pred_sel = f"predicted and chain {protein_chain} and ({pocket_sel}) and name CA"
-    #
-    # # pair_fit returns RMSD after optimal superposition
-    # rmsd = cmd.pair_fit(pred_sel, crystal_sel)
-    #
-    # cmd.delete("all")
-    # return float(rmsd) if rmsd is not None else None
-    return None  # placeholder — implementation pending
+    residue_numbers = sorted({int(residue_number) for residue_number in pocket_residues})
+    if not residue_numbers:
+        return None
+
+    return _compute_pocket_rmsd_from_residue_pairs(
+        pred_pdb,
+        crystal_pdb,
+        [(residue_number, residue_number) for residue_number in residue_numbers],
+        protein_chain=protein_chain,
+    )
+
+
+def _compute_pocket_rmsd_from_residue_pairs(
+    pred_pdb: Path,
+    crystal_pdb: Path,
+    residue_number_pairs: list[tuple[int, int]],
+    protein_chain: str = DEFAULT_PROTEIN_CHAIN,
+) -> float | None:
+    normalized_pairs = [
+        (int(pred_residue_number), int(crystal_residue_number))
+        for pred_residue_number, crystal_residue_number in residue_number_pairs
+    ]
+    if not normalized_pairs:
+        return None
+
+    pred_positions = _collect_ca_positions(
+        pred_pdb,
+        protein_chain,
+        [pred_residue_number for pred_residue_number, _ in normalized_pairs],
+    )
+    crystal_positions = _collect_ca_positions(
+        crystal_pdb,
+        protein_chain,
+        [crystal_residue_number for _, crystal_residue_number in normalized_pairs],
+    )
+    shared_pairs = [
+        (pred_residue_number, crystal_residue_number)
+        for pred_residue_number, crystal_residue_number in normalized_pairs
+        if pred_residue_number in pred_positions and crystal_residue_number in crystal_positions
+    ]
+    if len(shared_pairs) < 2:
+        return None
+
+    pred_array = np.asarray(
+        [pred_positions[pred_residue_number] for pred_residue_number, _ in shared_pairs],
+        dtype=float,
+    )
+    crystal_array = np.asarray(
+        [crystal_positions[crystal_residue_number] for _, crystal_residue_number in shared_pairs],
+        dtype=float,
+    )
+    return _kabsch_rmsd(crystal_array, pred_array)
 
 
 def write_crystal_anchoring_report(
@@ -248,55 +1338,195 @@ def write_crystal_anchoring_report(
 
 def identify_pocket_residues_by_proximity(
     complex_pdb: Path,
-    ligand_chain: str = "B",
-    protein_chain: str = "A",
+    ligand_chain: str = DEFAULT_LIGAND_CHAIN,
+    protein_chain: str = DEFAULT_PROTEIN_CHAIN,
     cutoff_a: float = 5.0,
 ) -> list[int]:
-    """Identify protein residues near a ligand using spatial proximity.
+    """Identify protein residues near the ligand or Cu by heavy-atom proximity."""
+    structure = gemmi.read_structure(str(complex_pdb))
+    if len(structure) == 0:
+        return []
+    model = structure[0]
+    ligand_atoms = _collect_non_hydrogen_atoms(model, ligand_chain)
+    copper_atoms = _collect_atoms_by_element(model, "CU")
+    focus_atoms = ligand_atoms + copper_atoms
+    if not focus_atoms:
+        return []
 
-    Fallback method when literature-based substrate-recognition residues
-    are not available. Finds all protein residues with any heavy atom
-    within `cutoff_a` Angstrom of any ligand heavy atom.
+    protein_chain_obj = _find_chain(model, protein_chain)
+    if protein_chain_obj is None:
+        return []
 
-    Inspired by benchmarking-af3 `3_find_pocket_residues.py` pocket
-    identification via NeighborSearch (MIT license). Our implementation
-    uses gemmi instead of Biopython.
+    cutoff_sq = float(cutoff_a) ** 2
+    residue_numbers: set[int] = set()
+    for residue in protein_chain_obj:
+        protein_atoms = [atom for atom in residue if not _is_hydrogen(atom)]
+        if not protein_atoms:
+            continue
+        if any(
+            _squared_distance(focus_atom, protein_atom) <= cutoff_sq
+            for focus_atom in focus_atoms
+            for protein_atom in protein_atoms
+        ):
+            residue_numbers.add(int(residue.seqid.num))
+    return sorted(residue_numbers)
 
-    Note: proximity-based selection may give different residue sets for
-    different prediction models (AF3/RF3/Boltz-2) depending on how each
-    model places the ligand. This must be documented in results.
 
-    Args:
-        complex_pdb: Path to PDB file with protein + ligand.
-        ligand_chain: Chain ID for ligand.
-        protein_chain: Chain ID for protein.
-        cutoff_a: Distance cutoff in Angstrom.
+def _find_chain(model: Any, chain_name: str) -> Any | None:
+    for chain in model:
+        if chain.name == chain_name:
+            return chain
+    return None
 
-    Returns:
-        Sorted list of residue sequence numbers within cutoff.
-    """
-    # TODO: implement with gemmi
-    # import gemmi
-    #
-    # st = gemmi.read_structure(str(complex_pdb))
-    # model = st[0]
-    # ns = gemmi.NeighborSearch(model, st.cell, cutoff_a).populate()
-    #
-    # ligand_atoms = []
-    # protein_residues = set()
-    #
-    # for chain in model:
-    #     if chain.name == ligand_chain:
-    #         for res in chain:
-    #             for atom in res:
-    #                 ligand_atoms.append(atom)
-    #
-    # for latom in ligand_atoms:
-    #     marks = ns.find_atoms(latom.pos, '\0', cutoff_a)
-    #     for mark in marks:
-    #         cra = mark.to_cra(model)
-    #         if cra.chain.name == protein_chain:
-    #             protein_residues.add(cra.residue.seqid.num)
-    #
-    # return sorted(protein_residues)
-    return []  # placeholder — implementation pending
+
+def _collect_non_hydrogen_atoms(model: Any, chain_name: str) -> list[Any]:
+    chain = _find_chain(model, chain_name)
+    if chain is None:
+        return []
+    return [atom for residue in chain for atom in residue if not _is_hydrogen(atom)]
+
+
+def _collect_atoms_by_element(model: Any, element_name: str) -> list[Any]:
+    normalized_element_name = str(element_name).strip().upper()
+    return [
+        atom
+        for chain in model
+        for residue in chain
+        for atom in residue
+        if _atom_element_name(atom) == normalized_element_name
+    ]
+
+
+def _atom_position(atom: Any) -> np.ndarray:
+    return np.asarray([atom.pos.x, atom.pos.y, atom.pos.z], dtype=float)
+
+
+def _squared_distance(atom_a: Any, atom_b: Any) -> float:
+    delta = _atom_position(atom_a) - _atom_position(atom_b)
+    return float(np.dot(delta, delta))
+
+
+def _is_hydrogen(atom: Any) -> bool:
+    return str(atom.element.name).strip().upper().startswith("H")
+
+
+def _normalize_protein_residue_name(residue_name: str) -> str:
+    normalized_name = str(residue_name or "").strip().upper()
+    return _PROTEIN_RESIDUE_ALIASES.get(normalized_name, normalized_name)
+
+
+def _collect_protein_residue_identities(
+    structure_path: Path,
+    chain_name: str,
+) -> list[tuple[int, str]]:
+    structure = gemmi.read_structure(str(structure_path))
+    if len(structure) == 0:
+        return []
+    model = structure[0]
+    chain = _find_chain(model, chain_name)
+    if chain is None:
+        return []
+
+    residue_identities: list[tuple[int, str]] = []
+    for residue in chain:
+        normalized_name = _normalize_protein_residue_name(str(getattr(residue, "name", "") or ""))
+        if normalized_name not in _NORMALIZED_PROTEIN_RESIDUE_NAMES:
+            continue
+        residue_identities.append((int(residue.seqid.num), normalized_name))
+    return residue_identities
+
+
+def _map_residue_number_pairs_by_sequence(
+    source_structure_path: Path,
+    target_structure_path: Path,
+    residue_numbers: list[int],
+    *,
+    chain_name: str = DEFAULT_PROTEIN_CHAIN,
+) -> list[tuple[int, int]]:
+    source_residues = _collect_protein_residue_identities(source_structure_path, chain_name)
+    target_residues = _collect_protein_residue_identities(target_structure_path, chain_name)
+    if not source_residues or not target_residues:
+        return []
+
+    source_index_by_residue_number = {
+        residue_number: index for index, (residue_number, _residue_name) in enumerate(source_residues)
+    }
+    requested_source_indices = [
+        source_index_by_residue_number[residue_number]
+        for residue_number in sorted({int(residue_number) for residue_number in residue_numbers})
+        if int(residue_number) in source_index_by_residue_number
+    ]
+    if not requested_source_indices:
+        return []
+
+    source_names = [residue_name for _residue_number, residue_name in source_residues]
+    target_names = [residue_name for _residue_number, residue_name in target_residues]
+    source_to_target_index: dict[int, int] = {}
+
+    if len(source_names) == len(target_names) and source_names == target_names:
+        source_to_target_index = {index: index for index in range(len(source_names))}
+    else:
+        matcher = SequenceMatcher(a=source_names, b=target_names, autojunk=False)
+        for block in matcher.get_matching_blocks():
+            for offset in range(block.size):
+                source_to_target_index[block.a + offset] = block.b + offset
+
+    residue_pairs: list[tuple[int, int]] = []
+    for source_index in requested_source_indices:
+        target_index = source_to_target_index.get(source_index)
+        if target_index is None:
+            continue
+
+        source_residue_number, source_residue_name = source_residues[source_index]
+        target_residue_number, target_residue_name = target_residues[target_index]
+        if source_residue_name != target_residue_name:
+            continue
+        residue_pairs.append((source_residue_number, target_residue_number))
+
+    return residue_pairs
+
+
+def _collect_ca_positions(
+    structure_path: Path,
+    chain_name: str,
+    residue_numbers: list[int],
+) -> dict[int, np.ndarray]:
+    structure = gemmi.read_structure(str(structure_path))
+    if len(structure) == 0:
+        return {}
+    model = structure[0]
+    chain = _find_chain(model, chain_name)
+    if chain is None:
+        return {}
+
+    residue_number_set = {int(residue_number) for residue_number in residue_numbers}
+    positions: dict[int, np.ndarray] = {}
+    for residue in chain:
+        residue_number = int(residue.seqid.num)
+        if residue_number not in residue_number_set:
+            continue
+        for atom in residue:
+            if atom.name.strip() == "CA":
+                positions[residue_number] = _atom_position(atom)
+                break
+    return positions
+
+
+def _kabsch_rmsd(reference_positions: np.ndarray, mobile_positions: np.ndarray) -> float:
+    if reference_positions.shape != mobile_positions.shape:
+        raise ValueError(
+            "Pocket RMSD atom count mismatch: "
+            f"{reference_positions.shape} != {mobile_positions.shape}"
+        )
+
+    reference_centered = reference_positions - reference_positions.mean(axis=0)
+    mobile_centered = mobile_positions - mobile_positions.mean(axis=0)
+    covariance = mobile_centered.T @ reference_centered
+    left, _singular_values, right_t = np.linalg.svd(covariance)
+    rotation = left @ right_t
+    if np.linalg.det(rotation) < 0:
+        left[:, -1] *= -1
+        rotation = left @ right_t
+    aligned_mobile = mobile_centered @ rotation
+    squared = np.sum((aligned_mobile - reference_centered) ** 2, axis=1)
+    return float(np.sqrt(np.mean(squared)))

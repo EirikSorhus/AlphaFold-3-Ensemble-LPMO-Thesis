@@ -20,7 +20,15 @@ from typing import Any
 
 import numpy as np
 
+from lpmo_pipeline.config import load_defaults_config
+
 logger = logging.getLogger(__name__)
+
+_DEFAULTS_CONFIG = load_defaults_config()
+_CHAIN_SCHEMA = _DEFAULTS_CONFIG.get("chain_schema") or {}
+DEFAULT_PROTEIN_CHAIN = str(_CHAIN_SCHEMA.get("protein") or "A")
+DEFAULT_CU_CHAIN = str(_CHAIN_SCHEMA.get("metal") or "E")
+DEFAULT_GLYCAN_CHAINS = tuple(str(chain) for chain in (_CHAIN_SCHEMA.get("glycans") or ["B", "C", "D"]))
 
 
 # ---------------------------------------------------------------------------
@@ -89,7 +97,7 @@ class GeometryResult:
 def check_geometry(
     structure: Any,  # gemmi.Structure or MDAnalysis.Universe
     pose_id: str = "",
-    cu_chain: str = "E",
+    cu_chain: str = DEFAULT_CU_CHAIN,
     glycan_chains: list[str] | None = None,
     hard_cu_his_min_a: float = CU_HIS_MIN,
     hard_cu_his_max_a: float = CU_HIS_MAX,
@@ -110,7 +118,7 @@ def check_geometry(
         GeometryResult with all measurements and pass/fail.
     """
     if glycan_chains is None:
-        glycan_chains = ["B", "C", "D"]
+        glycan_chains = list(DEFAULT_GLYCAN_CHAINS)
 
     result = GeometryResult(pose_id=pose_id)
 
@@ -126,7 +134,10 @@ def check_geometry(
     result.cu_position = tuple(cu_pos.tolist())
 
     # --- Step 2: Cu–His distances (locked brace rules) ---
-    his_residues = _find_his_brace_residues(structure, protein_chain="A")
+    his_residues = _find_his_brace_residues(
+        structure,
+        protein_chain=str(_CHAIN_SCHEMA.get("protein") or "A"),
+    )
     candidate_n_atoms: list[dict[str, Any]] = []
     for his_res in his_residues:
         resnum = his_res.seqid.num
@@ -296,7 +307,7 @@ def _find_cu_atom(structure: Any, chain_name: str) -> Any | None:
     return None
 
 
-def _find_his_brace_residues(structure: Any, protein_chain: str = "A") -> list[Any]:
+def _find_his_brace_residues(structure: Any, protein_chain: str = DEFAULT_PROTEIN_CHAIN) -> list[Any]:
     """Find histidine residues that form the His-brace (Cu-coordinating).
 
     In LPMOs, the His-brace typically consists of:

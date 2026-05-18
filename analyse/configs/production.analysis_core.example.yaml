@@ -11,12 +11,22 @@
 # - ProLIF IFP generation
 # - clustering
 # - crystal anchoring
+#
+# Shared external tool paths and bundled config/schema references are resolved
+# separately through configs/runtime_paths.yaml.
 
 pipeline_version: "2.1"
 
 production:
-  # Absolute path to the structure_pipeline work/ directory.
-  work_root: "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work"
+  # Select which AF3 construct tree to discover from.
+  construct_type: "domain_only"
+
+  # Absolute paths to the future structure_pipeline AF3 output roots.
+  # The loader picks the entry matching construct_type and falls back to
+  # production.work_root only if no keyed path is present.
+  work_roots:
+    domain_only: "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work_core"
+    full_length: "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work_full_length"
 
   # Optional identifier written into the generated artifacts.
   run_id: "analysis_core_example"

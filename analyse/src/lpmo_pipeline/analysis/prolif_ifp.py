@@ -20,9 +20,14 @@ from typing import Any
 
 import numpy as np
 
+from lpmo_pipeline.config import load_defaults_config, load_runtime_paths_config
+
 logger = logging.getLogger(__name__)
 
-_PROLIF_CONFIG_PATH = Path(__file__).resolve().parents[3] / "configs" / "prolif_features.yaml"
+_RUNTIME_PATHS = load_runtime_paths_config()
+_DEFAULTS_CONFIG = load_defaults_config()
+_CHAIN_SCHEMA = _DEFAULTS_CONFIG.get("chain_schema") or {}
+_PROLIF_CONFIG_PATH = _RUNTIME_PATHS.pipeline_assets.prolif_features_config
 _DEFAULT_INTERACTION_TYPES = [
     "HBDonor",
     "HBAcceptor",
@@ -45,7 +50,9 @@ _INTERACTION_COUNT_COLUMNS = [
     ("PiCation", "n_pi_cation"),
     ("VdWContact", "n_vdw_contact"),
 ]
-_DEFAULT_LIGAND_CHAIN = "B"
+DEFAULT_PROTEIN_CHAIN = str(_CHAIN_SCHEMA.get("protein") or "A")
+DEFAULT_GLYCAN_CHAINS = tuple(str(chain) for chain in (_CHAIN_SCHEMA.get("glycans") or ["B", "C", "D"]))
+_DEFAULT_LIGAND_CHAIN = DEFAULT_GLYCAN_CHAINS[0] if DEFAULT_GLYCAN_CHAINS else "B"
 _FEATURE_SEPARATOR = "|"
 
 
@@ -98,12 +105,110 @@ class IFPBatch:
     feature_names: list[str] = field(default_factory=list)
 
 
+@dataclass(frozen=True)
+class ContactEligibilityRule:
+    """Minimum non-vdW signal required for formal binding-mode clustering."""
+
+    min_non_vdw_interactions: int
+    min_non_vdw_contact_residues: int
+
+
+@dataclass(frozen=True)
+class ContactEligibility:
+    """Derived clustering eligibility summary for one per-pose IFP result."""
+
+    pose_id: str
+    eligible: bool
+    exclusion_class: str | None
+    n_total_interactions: int
+    n_vdw_interactions: int
+    n_non_vdw_interactions: int
+    n_non_vdw_contact_residues: int
+
+
 def load_prolif_features_config(config_path: Path | None = None) -> dict[str, Any]:
     """Load the configured ProLIF interaction set and selections."""
     import yaml
 
     path = config_path or _PROLIF_CONFIG_PATH
     return yaml.safe_load(path.read_text()) or {}
+
+
+def load_contact_eligibility_rule(
+    config_path: Path | None = None,
+    *,
+    rule_name: str = "main_rule",
+) -> ContactEligibilityRule:
+    """Load one named contact-eligibility rule from prolif_features.yaml."""
+    config = load_prolif_features_config(config_path)
+    eligibility_config = config.get("contact_eligibility") or {}
+
+    if rule_name == "main_rule":
+        rule_config = eligibility_config.get("main_rule") or {}
+    else:
+        rule_config = ((eligibility_config.get("sensitivity_rules") or {}).get(rule_name) or {})
+
+    return ContactEligibilityRule(
+        min_non_vdw_interactions=int(rule_config.get("min_non_vdw_interactions", 2)),
+        min_non_vdw_contact_residues=int(rule_config.get("min_non_vdw_contact_residues", 1)),
+    )
+
+
+def parse_ifp_feature_name(feature_name: str) -> tuple[str, str, str]:
+    """Split a flattened IFP feature label into ligand, protein, and interaction."""
+    parts = feature_name.split(_FEATURE_SEPARATOR)
+    if len(parts) != 3:
+        raise ValueError(f"Malformed IFP feature name: {feature_name}")
+    ligand_residue, protein_residue, interaction_name = parts
+    return ligand_residue, protein_residue, interaction_name
+
+
+def evaluate_contact_eligibility(
+    result: IFPResult,
+    rule: ContactEligibilityRule,
+    *,
+    vdw_interaction_name: str = "VdWContact",
+) -> ContactEligibility:
+    """Classify whether a pose has enough specific non-vdW signal for clustering."""
+    n_vdw_interactions = int(result.interaction_counts.get(vdw_interaction_name, 0))
+    n_non_vdw_interactions = int(result.n_total_contacts) - n_vdw_interactions
+
+    non_vdw_contact_residues: set[str] = set()
+    for feature_name, value in zip(result.feature_names, result.flat_bitvector, strict=True):
+        if not int(value):
+            continue
+        _, protein_residue, interaction_name = parse_ifp_feature_name(feature_name)
+        if interaction_name == vdw_interaction_name:
+            continue
+        non_vdw_contact_residues.add(protein_residue)
+
+    n_non_vdw_contact_residues = len(non_vdw_contact_residues)
+
+    if result.n_total_contacts == 0:
+        exclusion_class = "null_ifp"
+        eligible = False
+    elif n_non_vdw_interactions == 0 and n_vdw_interactions > 0:
+        exclusion_class = "vdw_only"
+        eligible = False
+    elif (
+        n_non_vdw_interactions < rule.min_non_vdw_interactions
+        or n_non_vdw_contact_residues < rule.min_non_vdw_contact_residues
+    ):
+        exclusion_class = "low_specific_contact"
+        eligible = False
+    else:
+        exclusion_class = None
+        eligible = True
+
+    return ContactEligibility(
+        pose_id=result.pose_id,
+        eligible=eligible,
+        exclusion_class=exclusion_class,
+        n_total_interactions=int(result.n_total_contacts),
+        n_vdw_interactions=n_vdw_interactions,
+        n_non_vdw_interactions=n_non_vdw_interactions,
+        n_non_vdw_contact_residues=n_non_vdw_contact_residues,
+    )
 
 
 def _resolve_interaction_types(
@@ -315,7 +420,7 @@ def compute_ifp_single(
     complex_pdb: Path,
     ligand_mol2: Path,
     pose_id: str = "",
-    protein_chain: str = "A",
+    protein_chain: str = DEFAULT_PROTEIN_CHAIN,
     interaction_types: list[str] | None = None,
     config_path: Path | None = None,
 ) -> IFPResult:
@@ -403,7 +508,7 @@ def compute_ifp_batch(
     protein_id: str = "",
     ligand_id: str = "",
     model: str = "",
-    protein_chain: str = "A",
+    protein_chain: str = DEFAULT_PROTEIN_CHAIN,
 ) -> IFPBatch:
     """Compute IFP for all poses in a protein×ligand×model combination.
 

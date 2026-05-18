@@ -7,7 +7,11 @@ import pandas as pd
 import pytest
 
 from lpmo_pipeline.analysis import prolif_ifp
-from lpmo_pipeline.analysis.prolif_ifp import IFPResult, compute_tanimoto_similarity
+from lpmo_pipeline.analysis.prolif_ifp import (
+    ContactEligibilityRule,
+    IFPResult,
+    compute_tanimoto_similarity,
+)
 
 
 def test_compute_ifp_single_missing_inputs_returns_status() -> None:
@@ -173,3 +177,97 @@ def test_write_pose_ifp_table_emits_expected_columns(tmp_path: Path) -> None:
     assert rows[0]["ifp_vector"] == "[1, 0]"
     assert rows[0]["ifp_feature_names"] == "[\"NAG4.B|GLU26.A|HBDonor\", \"NAG4.B|GLU26.A|HBAcceptor\"]"
     assert rows[0]["n_vdw_contact"] == "2"
+
+
+def test_load_contact_eligibility_rule_defaults_to_main_rule() -> None:
+    rule = prolif_ifp.load_contact_eligibility_rule()
+
+    assert rule.min_non_vdw_interactions == 2
+    assert rule.min_non_vdw_contact_residues == 1
+
+
+def test_evaluate_contact_eligibility_marks_null_ifp() -> None:
+    result = IFPResult(
+        pose_id="pose-null",
+        status="zero_contacts",
+        feature_names=[],
+        flat_bitvector=[],
+        n_total_contacts=0,
+        interaction_counts={"VdWContact": 0},
+    )
+
+    eligibility = prolif_ifp.evaluate_contact_eligibility(
+        result,
+        ContactEligibilityRule(min_non_vdw_interactions=2, min_non_vdw_contact_residues=1),
+    )
+
+    assert eligibility.eligible is False
+    assert eligibility.exclusion_class == "null_ifp"
+    assert eligibility.n_non_vdw_interactions == 0
+
+
+def test_evaluate_contact_eligibility_marks_vdw_only() -> None:
+    result = IFPResult(
+        pose_id="pose-vdw",
+        status="ok",
+        feature_names=["NAG1.B|ASN10.A|VdWContact"],
+        flat_bitvector=[1],
+        n_total_contacts=1,
+        interaction_counts={"VdWContact": 1},
+    )
+
+    eligibility = prolif_ifp.evaluate_contact_eligibility(
+        result,
+        ContactEligibilityRule(min_non_vdw_interactions=2, min_non_vdw_contact_residues=1),
+    )
+
+    assert eligibility.eligible is False
+    assert eligibility.exclusion_class == "vdw_only"
+    assert eligibility.n_vdw_interactions == 1
+    assert eligibility.n_non_vdw_contact_residues == 0
+
+
+def test_evaluate_contact_eligibility_marks_low_specific_contact() -> None:
+    result = IFPResult(
+        pose_id="pose-low-specific",
+        status="ok",
+        feature_names=["NAG1.B|ASN10.A|HBDonor"],
+        flat_bitvector=[1],
+        n_total_contacts=1,
+        interaction_counts={"HBDonor": 1, "VdWContact": 0},
+    )
+
+    eligibility = prolif_ifp.evaluate_contact_eligibility(
+        result,
+        ContactEligibilityRule(min_non_vdw_interactions=2, min_non_vdw_contact_residues=1),
+    )
+
+    assert eligibility.eligible is False
+    assert eligibility.exclusion_class == "low_specific_contact"
+    assert eligibility.n_non_vdw_interactions == 1
+    assert eligibility.n_non_vdw_contact_residues == 1
+
+
+def test_evaluate_contact_eligibility_accepts_two_non_vdw_interactions() -> None:
+    result = IFPResult(
+        pose_id="pose-eligible",
+        status="ok",
+        feature_names=[
+            "NAG1.B|ASN10.A|HBDonor",
+            "NAG1.B|ASN10.A|HBAcceptor",
+            "NAG1.B|ASN10.A|VdWContact",
+        ],
+        flat_bitvector=[1, 1, 1],
+        n_total_contacts=3,
+        interaction_counts={"HBDonor": 1, "HBAcceptor": 1, "VdWContact": 1},
+    )
+
+    eligibility = prolif_ifp.evaluate_contact_eligibility(
+        result,
+        ContactEligibilityRule(min_non_vdw_interactions=2, min_non_vdw_contact_residues=1),
+    )
+
+    assert eligibility.eligible is True
+    assert eligibility.exclusion_class is None
+    assert eligibility.n_non_vdw_interactions == 2
+    assert eligibility.n_non_vdw_contact_residues == 1

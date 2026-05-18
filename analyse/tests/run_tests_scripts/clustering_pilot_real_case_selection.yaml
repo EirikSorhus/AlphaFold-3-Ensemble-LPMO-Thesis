@@ -1,0 +1,26 @@
+# Concrete real-case selections already codified elsewhere in this repo:
+# - Q7SCE9 / NAG4 from the real-case smoke harness
+# - Q59930 / STA6 from the standard three-case real-CIF harness
+# - A0A0S2GKZ1 / STA4 from the standard three-case real-CIF harness
+
+work_root: /cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work_core
+construct_type: domain_only
+af3_only: true
+latest_only: true
+run_posebusters: false
+run_privateer: false
+
+clustering_pilot:
+  label: real_case_selected_proteins
+  minimum_clusterable_n: 10
+  agglomerative_linkage: average
+  agglomerative_distance_threshold: 0.5
+  agglomerative_min_cluster_size: 10
+
+selections:
+  - target: NAG4
+    protein_id: Q7SCE9
+  - target: STA6
+    protein_id: Q59930
+  - target: STA4
+    protein_id: A0A0S2GKZ1

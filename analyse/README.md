@@ -26,13 +26,45 @@ analysis-core slice, and verified on real AF3 data via
 ProLIF/IFP is now verified as a standalone real-data slice via
 `tests/run_tests_scripts/test_prolif_real_cifs.sh` (job 617120); that slice
 preserves ligand monosaccharides as separate residues in the ProLIF feature
-space and writes the expanded nine-interaction count fields. The current
-production `run` path still stops before ProLIF/IFP generation,
-clustering, and crystal anchoring.
+space and writes the expanded nine-interaction count fields. Stage 13b
+`pose_residue_contact_table.tsv` is now wired into the production `run` path
+from the same ligand-resolved ProLIF features, with focused pytest coverage for
+the extractor and orchestrator integration, and is now also verified on real
+AF3 data via `tests/run_tests_scripts/test_residue_contact_real_cifs.sh`
+(job 619027). Stage 14b convergence metrics are now implemented and wired into
+the current production path with focused pytest coverage, and the standalone
+convergence slice is now verified on real AF3 data via
+`tests/run_tests_scripts/test_convergence_real_cifs.sh` (job 619047); integrated
+real-data verification of that production path still remains.
+Crystal anchoring is now also verified as a standalone real-data slice via
+`tests/run_tests_scripts/test_crystal_anchoring_real_cifs.sh`; that slice
+resolves crystal references from `input_data/pdb_structure_data.csv`, verifies
+both `5ACI` and `7PXW` for `A0A0S2GKZ1`, prepares crystal subsets, and writes
+compact `ifp_result.json` summaries plus detailed `pose_ifp_table.tsv` and
+`ifp_matrix.csv` artifacts for the representative pose and each prepared
+crystal reference. Current pocket RMSD uses a local gemmi/numpy Kabsch
+alignment on shared pocket C-alpha atoms, with the pocket defined as protein
+residues within 5 A of ligand or Cu. Apo crystal references can reuse a
+sequence-projected pocket from the representative/medoid pose, with
+residue-name normalization for variants such as `HIC -> HIS`. The same
+crystal-anchoring slice is now also wired into `run_analysis_core`, writes an
+explicit `crystal_anchoring_stage_completed` gate in `run_manifest.json`, and
+has passed focused pytest plus production smoke validation. Remaining gap: a
+production real-data run that reaches non-empty medoid-vs-crystal comparisons
+in the integrated path still needs to be exercised explicitly.
 
 **⚠️ Known open conflict: see [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md) item 11 (geometric planarity thresholds not yet operationalized).**
 
 See [MASTERPLAN.md](MASTERPLAN.md) for full integrated specification.
+
+## Data Availability
+
+Precomputed AF3 structures are fully available under the structure_pipeline at these locations:
+
+- **Domain-only constructs:** `/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work_core`
+- **Full-length constructs:** `/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work_full_length`
+
+These directories contain the organized AF3 prediction artifacts (mmCIF files and confidence metrics) that feed directly into the analysis pipeline. See [Production Config](#production-config) for how to reference these in your configuration.
 
 ## Execution Model
 
@@ -45,13 +77,36 @@ See [MASTERPLAN.md](MASTERPLAN.md) for full integrated specification.
 - Detailed geometric planarity requirements are currently missing and must be specified before final reporting.
 - R is preferred for descriptive/predictive statistics where practical.
 
+## Downstream Analysis Plans
+
+Three detailed YAML implementation plans now define the intended downstream
+statistical analyses after the core AF3 structure-analysis outputs have been
+generated:
+
+- [c1_c4_predictive_analysis_plan_simplified.yaml](c1_c4_predictive_analysis_plan_simplified.yaml): exploratory C1/C4 regioactivity predictive analysis using protein-grouped modeling on condition-level AF3 summaries.
+- [substrate_activity_prediction_plan.yaml](substrate_activity_prediction_plan.yaml): exploratory substrate activity prediction across chitin, cellulose, and starch ligand contexts.
+- [cbm_full_length_vs_domain_only_analysis_plan.yaml](cbm_full_length_vs_domain_only_analysis_plan.yaml): paired full-length vs domain-only CBM analysis for proteins with both construct types.
+
+These files are implementation plans, not runtime configuration for
+`lpmo-pipeline run`. They refine the Stage 14 predictive-analysis and Stage 15
+CBM paired-analysis specifications in [MASTERPLAN.md](MASTERPLAN.md).
+
+## Configuration Policy
+
+- All changeable pipeline values must live in config files under `configs/`, not as duplicated literals in scripts.
+- This includes thresholds, limits, numeric defaults, flags, model/runtime choices, selections, filenames, folder names, absolute paths, external tool paths, schema/config asset locations, and similar operational settings.
+- Shared resolution of runtime paths and bundled config/schema assets happens through `lpmo_pipeline.config`.
+- External tool/container paths and bundled asset paths are centralized in [configs/runtime_paths.yaml](configs/runtime_paths.yaml).
+- Scripts may load a config value once locally inside a module or function for readability/performance, but the source of truth must still be the config files.
+- Stable algorithmic details may remain inline only when they are not realistic user/runtime configuration and moving them would reduce clarity.
+
 ## Quick Start
 
 ```bash
 # Install
 pip install -e ".[dev]"
 
-# Production mode (current analysis-core slice: QC + geometry + reports)
+# Production mode (current analysis-core slice: QC + geometry + ProLIF + clustering + crystal anchoring + reports)
 lpmo-pipeline run \
   --mode production \
   --config configs/production.analysis_core.example.yaml \
@@ -70,6 +125,9 @@ sbatch tests/run_tests_scripts/test_analysis_core_real_cifs.sh
 # Standalone real-data ProLIF validation
 sbatch tests/run_tests_scripts/test_prolif_real_cifs.sh
 
+# Standalone real-data crystal anchoring validation
+sbatch tests/run_tests_scripts/test_crystal_anchoring_real_cifs.sh
+
 # EC metadata -> activity labels (R helper script)
 Rscript scripts/ec_activity_mapping.R \
   --input metadata/enzyme_metadata.csv \
@@ -79,8 +137,14 @@ Rscript scripts/ec_activity_mapping.R \
 ## Production Config
 
 The current production entry path is the analysis-core slice. It runs discovery,
-normalization, hard QC, downstream geometry, and report generation. It stops
-before ProLIF/IFP generation, clustering, and crystal anchoring.
+normalization, hard QC, downstream geometry, ProLIF/IFP, residue-contact
+extraction, convergence metrics, condition-wise clustering, crystal anchoring,
+and report generation. It now writes the implemented pose/QC TSV surfaces
+(`pose_manifest.tsv`, `pose_confidence.tsv`, `structure_index.tsv`,
+`qc_attrition_table.tsv`) plus raw clustering/convergence/IFP tables and
+`crystal_anchor_table.tsv`. The crystal-anchoring stage gate in this production
+path is smoke-validated, but a real-data production run that reaches actual
+medoid-vs-crystal comparisons still remains.
 
 Verified 2026-05-03 on 3 staged real AF3 CIFs (`analysis_core_real_cifs_613251`):
 1 `pass`, 1 `soft_flag`, 1 `hard_fail`; 2 poses were analyzed downstream, and
@@ -89,20 +153,43 @@ no production `geometry_debug.pdb` files were written.
 Use [configs/production.analysis_core.example.yaml](configs/production.analysis_core.example.yaml)
 as the starting point.
 
-Current keys:
+**Data input configuration:**
 
-- `production.work_root`: absolute path to the `structure_pipeline/work` directory
+The pipeline discovers AF3-predicted structures from the structure_pipeline work directories.
+Configure which data to use via the `work_roots` keys:
+
+- `work_roots.domain_only`: `/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work_core` — domain-only LPMO constructs
+- `work_roots.full_length`: `/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work_full_length` — full-length LPMO constructs
+
+Select which to run via `construct_type: "domain_only"` or `construct_type: "full_length"` in your config.
+
+**Other configuration keys:**
+
 - `production.run_id`: optional identifier written into the production outputs
 - `production.af3_only`: limit discovery to AF3 runs
 - `production.latest_only`: prefer the `latest` symlink under each target/model
 - `production.max_cases`: optional cap for smaller validation runs
 - `production.include_targets`: optional target whitelist such as `NAG4`, `STA4`, `STA6`
 
-Notes:
+**Notes:**
 
 - The output directory is still controlled by the CLI `--output` argument, not the YAML file.
 - The DEL branch is still controlled by the CLI `--del` argument.
 - Production output must not contain `geometry_debug.pdb`; that file remains test-only.
+- Standalone crystal-anchoring harnesses may auto-select a best-ranked AF3 pose for test coverage; the production path still prefers the top-cluster medoid and only falls back to the first IFP-success pose if no medoid exists.
+- Shared external tool paths and default asset references are controlled separately through [configs/runtime_paths.yaml](configs/runtime_paths.yaml).
+
+## Config Files
+
+- [configs/runtime_paths.yaml](configs/runtime_paths.yaml): shared runtime paths for external tools plus central references to bundled config/schema assets.
+- [configs/production.analysis_core.example.yaml](configs/production.analysis_core.example.yaml): current production run entry config for discovery scope and run selection.
+- [configs/defaults.yaml](configs/defaults.yaml): global defaults such as chain schema, confidence policy, atom-mapping defaults, and target-prefix substrate mapping.
+- [configs/thresholds.yaml](configs/thresholds.yaml): hard/soft QC thresholds, downstream geometry thresholds, convergence settings, and HDBSCAN settings.
+- [configs/geometry_rules.yaml](configs/geometry_rules.yaml): Cu/his-brace identification, virtual oxyl/H placement rules, and geometry output contracts.
+- [configs/prolif_features.yaml](configs/prolif_features.yaml): ProLIF interaction set, cutoffs, selections, feature naming, and residue-contact settings.
+- [configs/residue_rules.yaml](configs/residue_rules.yaml): residue/atom normalization rules, CCD mappings, and region tagging rules.
+- [configs/cv_hierarchy.yaml](configs/cv_hierarchy.yaml): grouped cross-validation hierarchy and stratification settings for later predictive analyses.
+- [configs/tuning_af3.yaml](configs/tuning_af3.yaml), [configs/tuning_boltz2.yaml](configs/tuning_boltz2.yaml), [configs/tuning_rf3.yaml](configs/tuning_rf3.yaml): model-specific tuning grids.
 
 ## Project Structure
 
@@ -155,6 +242,9 @@ See [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md) for unresolved decisions.
 | [MASTERPLAN.md](MASTERPLAN.md) | Integrated secondary plan — stage summaries, failure policy, RQ→output mapping, EC label mapping |
 | [IMPLEMENTATION_PLAYBOOK.md](IMPLEMENTATION_PLAYBOOK.md) | Step-by-step implementation guide with status tracking and stop-points |
 | [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md) | Open decisions, resolved conflicts, and avklaringer |
+| [c1_c4_predictive_analysis_plan_simplified.yaml](c1_c4_predictive_analysis_plan_simplified.yaml) | Detailed implementation plan for exploratory C1/C4 regioactivity predictive modeling |
+| [substrate_activity_prediction_plan.yaml](substrate_activity_prediction_plan.yaml) | Detailed implementation plan for exploratory substrate activity prediction |
+| [cbm_full_length_vs_domain_only_analysis_plan.yaml](cbm_full_length_vs_domain_only_analysis_plan.yaml) | Detailed implementation plan for paired full-length vs domain-only CBM analysis |
 | [copilot.md](copilot.md) | AI assistant (Copilot) guide — hard rules, architectural policy, AI decision boundaries |
 | [ATTRIBUTION.md](ATTRIBUTION.md) | Third-party code attribution |
 | [DOCUMENTATION_TODO_AND_MANUAL_CHECKS.md](DOCUMENTATION_TODO_AND_MANUAL_CHECKS.md) | Prioritized open problems and manual verification steps |

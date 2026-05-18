@@ -15,6 +15,7 @@
 #   seeds               = 1-15
 #   num_diffusion_samples = 5
 #   num_recycles        = 10
+#   oligo_definitions   = config/oligo_definitions.yaml
 #
 # Usage:
 #   sbatch bin/run_af3_all.sh [options]
@@ -40,6 +41,7 @@ set -euo pipefail
 AF3_SEEDS=15
 AF3_NUM_DIFFUSION_SAMPLES=5
 AF3_NUM_RECYCLES=10
+DEFAULT_OLIGO_DEFINITIONS="config/oligo_definitions.yaml"
 
 # ── Project setup ──────────────────────────────────────────────────────────
 PROJECT_DIR="/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline"
@@ -68,6 +70,8 @@ mkdir -p logs
 # ── Parse flags that must go to BOTH manifest and run ──────────────────────
 MANIFEST_EXTRA=()
 RUN_EXTRA=()
+ACTIVE_OLIGO_DEFINITIONS="$DEFAULT_OLIGO_DEFINITIONS"
+HAS_OLIGO_DEFINITIONS=false
 i=1
 while [[ $i -le $# ]]; do
 	case "${!i}" in
@@ -79,16 +83,28 @@ while [[ $i -le $# ]]; do
 			fi
 			;;
 		--oligo-definitions)
+			HAS_OLIGO_DEFINITIONS=true
 			# Only passed to 'run', not 'manifest'
 			RUN_EXTRA+=("${!i}")
 			((i++))
 			if [[ $i -le $# ]]; then
+				ACTIVE_OLIGO_DEFINITIONS="${!i}"
 				RUN_EXTRA+=("${!i}")
 			fi
 			;;
 	esac
 	((i++))
 done
+
+if ! $HAS_OLIGO_DEFINITIONS; then
+	if [[ ! -f "$DEFAULT_OLIGO_DEFINITIONS" ]]; then
+		echo "ERROR: Default oligo definitions file not found: $DEFAULT_OLIGO_DEFINITIONS" >&2
+		exit 1
+	fi
+	RUN_EXTRA+=("--oligo-definitions" "$DEFAULT_OLIGO_DEFINITIONS")
+fi
+
+echo "oligo_definitions:     ${ACTIVE_OLIGO_DEFINITIONS}"
 
 # Step 1: Generate/update manifests
 echo "Step 1: Generating manifests..."
