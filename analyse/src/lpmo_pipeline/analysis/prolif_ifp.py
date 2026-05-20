@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -503,12 +504,23 @@ def compute_ifp_single(
     return result
 
 
+def _compute_ifp_batch_item(args: tuple[dict[str, Path], str]) -> IFPResult:
+    pd, protein_chain = args
+    return compute_ifp_single(
+        complex_pdb=pd["complex_pdb"],
+        ligand_mol2=pd["ligand_mol2"],
+        pose_id=pd["pose_id"],
+        protein_chain=protein_chain,
+    )
+
+
 def compute_ifp_batch(
     pose_data: list[dict[str, Path]],
     protein_id: str = "",
     ligand_id: str = "",
     model: str = "",
     protein_chain: str = DEFAULT_PROTEIN_CHAIN,
+    max_workers: int | None = None,
 ) -> IFPBatch:
     """Compute IFP for all poses in a protein×ligand×model combination.
 
@@ -522,15 +534,17 @@ def compute_ifp_batch(
     Returns:
         IFPBatch with aligned matrix ready for clustering.
     """
-    results: list[IFPResult] = []
-    for pd in pose_data:
-        r = compute_ifp_single(
-            complex_pdb=pd["complex_pdb"],
-            ligand_mol2=pd["ligand_mol2"],
-            pose_id=pd["pose_id"],
-            protein_chain=protein_chain,
-        )
-        results.append(r)
+    worker_count = max(1, int(max_workers or 1))
+    if worker_count <= 1 or len(pose_data) <= 1:
+        results = [_compute_ifp_batch_item((pd, protein_chain)) for pd in pose_data]
+    else:
+        with ProcessPoolExecutor(max_workers=min(worker_count, len(pose_data))) as executor:
+            results = list(
+                executor.map(
+                    _compute_ifp_batch_item,
+                    [(pd, protein_chain) for pd in pose_data],
+                )
+            )
 
     # Align all fingerprints to the same feature set
     all_feature_names: list[str] = []

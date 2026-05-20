@@ -637,6 +637,7 @@ def build_execute_command(
     run_dir: Path,
     manifest_path: Path,
     del_branch: str,
+    n_jobs: int = 1,
 ) -> str:
     """Build the exact command needed to execute the prepared pilot run."""
     parts = [
@@ -649,6 +650,8 @@ def build_execute_command(
         "--del-branch",
         shlex.quote(del_branch),
         "--execute",
+        "--n-jobs",
+        shlex.quote(str(max(1, int(n_jobs)))),
     ]
     return " ".join(parts)
 
@@ -662,6 +665,7 @@ def prepare_real_case_pilot_run(
     python_executable: Path,
     script_path: Path,
     force_steps: Collection[str] = (),
+    n_jobs: int = 1,
 ) -> dict[str, Any]:
     """Prepare a real-case clustering pilot run with resumable checkpoints."""
     checkpoints_dir = run_dir / "tmp" / "clustering_pilot_real_case"
@@ -727,6 +731,27 @@ def prepare_real_case_pilot_run(
     ready_to_run = bool(manifest.selections) and not discovery_payload.get("missing_selections") and bool(
         discovery_payload.get("n_pose_inputs", 0)
     )
+    discovery_summary = {
+        "work_root": discovery_payload.get("work_root"),
+        "construct_type": discovery_payload.get("construct_type"),
+        "latest_only": discovery_payload.get("latest_only"),
+        "n_selected_pairs": discovery_payload.get("n_selected_pairs", 0),
+        "n_pose_inputs": discovery_payload.get("n_pose_inputs", 0),
+        "n_selection_entries": len(discovery_payload.get("selection_entries", [])),
+        "n_target_discovery_summaries": len(discovery_payload.get("target_discovery_summaries", [])),
+        "n_missing_selections": len(discovery_payload.get("missing_selections", [])),
+        "n_discovery_errors": len(discovery_payload.get("discovery_errors", [])),
+        "selection_entries": discovery_payload.get("selection_entries", []),
+        "missing_selections": discovery_payload.get("missing_selections", []),
+        "discovery_errors": discovery_payload.get("discovery_errors", []),
+    }
+    staging_summary = {
+        "staged_work_root": staging_payload.get("staged_work_root"),
+        "n_staged_poses": staging_payload.get("n_staged_poses", 0),
+        "n_latest_links": len(staging_payload.get("latest_links", [])),
+        "n_missing_confidence_json": len(staging_payload.get("missing_confidence_json", [])),
+        "missing_confidence_json": staging_payload.get("missing_confidence_json", []),
+    }
 
     return {
         "run_id": run_id,
@@ -746,8 +771,10 @@ def prepare_real_case_pilot_run(
         "n_selected_pairs": len(manifest.selections),
         "selected_pairs": manifest_snapshot["selections"],
         "n_discovered_poses": discovery_payload.get("n_pose_inputs", 0),
-        "discovery": discovery_payload,
-        "staging": staging_payload,
+        "discovery": discovery_summary,
+        "discovery_summary": discovery_summary,
+        "staging": staging_summary,
+        "staging_summary": staging_summary,
         "config_path": str(config_path),
         "production_output": str(run_dir / "production_output"),
         "ready_to_run": ready_to_run,
@@ -757,6 +784,7 @@ def prepare_real_case_pilot_run(
             run_dir=run_dir,
             manifest_path=manifest_path,
             del_branch=del_branch,
+            n_jobs=n_jobs,
         ),
     }
 

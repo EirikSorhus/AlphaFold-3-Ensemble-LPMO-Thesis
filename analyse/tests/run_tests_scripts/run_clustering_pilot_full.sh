@@ -19,6 +19,7 @@ DEFAULT_RUN_ROOT="$REPO_ROOT/tests/tests_results/clustering_pilot_full"
 RUN_ROOT="$DEFAULT_RUN_ROOT"
 PREPARE_ONLY=false
 FORCE_STEPS=()
+N_JOBS="${SLURM_CPUS_PER_TASK:-1}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -32,6 +33,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --force-step)
       FORCE_STEPS+=("$2")
+      shift 2
+      ;;
+    --n-jobs)
+      N_JOBS="$2"
       shift 2
       ;;
     *)
@@ -114,6 +119,7 @@ run_prepare_step() {
   "$PYTHON_BIN" "$SCRIPT_DIR/run_clustering_pilot_real_case.py" \
     --run-dir "$run_dir" \
     --selection-manifest "$manifest_path" \
+    --n-jobs "$N_JOBS" \
     "${FORCE_ARGS[@]}" >"$log_path" 2>&1
   exit_code=$?
   set -e
@@ -180,6 +186,7 @@ if [[ "$PREPARE_ONLY" == false ]]; then
     --run-dir "$DOMAIN_RUN_DIR" \
     --selection-manifest "$DOMAIN_MANIFEST" \
     --execute \
+    --n-jobs "$N_JOBS" \
     "${FORCE_ARGS[@]}"
   snapshot_summary "$DOMAIN_RUN_DIR/clustering_pilot_real_case_summary.json" 03_domain_execute_summary.json
 fi
@@ -200,11 +207,12 @@ if [[ "$FULL_COUNT" -gt 0 ]]; then
     }
     run_step \
       05_full_length_execute \
-      "$PYTHON_BIN" "$SCRIPT_DIR/run_clustering_pilot_real_case.py" \
-      --run-dir "$FULL_RUN_DIR" \
-      --selection-manifest "$FULL_MANIFEST" \
-      --execute \
-      "${FORCE_ARGS[@]}"
+    "$PYTHON_BIN" "$SCRIPT_DIR/run_clustering_pilot_real_case.py" \
+    --run-dir "$FULL_RUN_DIR" \
+    --selection-manifest "$FULL_MANIFEST" \
+    --execute \
+    --n-jobs "$N_JOBS" \
+    "${FORCE_ARGS[@]}"
     snapshot_summary "$FULL_RUN_DIR/clustering_pilot_real_case_summary.json" 05_full_length_execute_summary.json
   fi
 fi

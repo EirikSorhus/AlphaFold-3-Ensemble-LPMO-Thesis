@@ -197,6 +197,7 @@ class QCReport:
 
     run_id: str = ""
     verdicts: list[PoseQCVerdict] = field(default_factory=list)
+    timing_events: list[dict[str, Any]] = field(default_factory=list)
     total: int = 0
     passed: int = 0
     flagged: int = 0
@@ -206,11 +207,13 @@ class QCReport:
 def build_qc_report(
     run_id: str,
     verdicts: list[PoseQCVerdict],
+    timing_events: list[dict[str, Any]] | None = None,
 ) -> QCReport:
     """Build aggregated QC report."""
     return QCReport(
         run_id=run_id,
         verdicts=verdicts,
+        timing_events=list(timing_events or []),
         total=len(verdicts),
         passed=sum(1 for v in verdicts if v.status == "passed"),
         flagged=sum(1 for v in verdicts if v.status == "flagged"),

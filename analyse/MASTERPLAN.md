@@ -7,6 +7,7 @@ This file follows the active priority stack for implementation decisions:
 2. Latest user comments in the working thread
 3. `MASTERPLAN.md` (this file) and `IMPLEMENTATION_PLAYBOOK.md`
 4. Detailed downstream implementation plans:
+   - `clustering_pilot_plan.yaml` — active plan for choosing IFP clustering method before full analysis
    - `c1_c4_predictive_analysis_plan_simplified.yaml` — exploratory C1/C4 regioactivity predictive modeling
    - `substrate_activity_prediction_plan.yaml` — exploratory substrate activity prediction from AF3 ligand-condition summaries
    - `cbm_full_length_vs_domain_only_analysis_plan.yaml` — paired full-length vs domain-only CBM analysis
@@ -38,11 +39,14 @@ This file follows the active priority stack for implementation decisions:
 - Main analyses must not aggregate cluster rows to one enzyme row.
 - Enzyme-level summaries are secondary sensitivity analyses only.
 - IFP clustering uses IFP features only; geometry is linked after clustering.
+- Primary IFP clustering method is pending the active pilot in `clustering_pilot_plan.yaml`; HDBSCAN is no longer treated as the locked default.
 - Atom names are not assumed consistent across models; mapping key is (element, CCD, local bond graph, 3D proximity).
 - Chain schema: protein=A, glycans=B..D, metal=E.
 - Normalization must hard-fail if no glycan residues remain after chain remap; protein+metal-only source CIFs are invalid analysis inputs and must not continue downstream as soft warnings.
+- Routine successful normalization should keep one compact audit report (`normalize_report.json`). Per-pose atom-map/rename debug files are reserved for incomplete mapping or validation failure to avoid unnecessary output volume.
 - `_chem_comp_bond` must be complete for all `comp_id`, and `_struct_conn` must include glycosidic + Cu coordination links.
 - Preserve all computed numeric metrics; do not drop distance/angle/support fields from output tables.
+- Independent per-pose stages may run with bounded workers from `n_jobs`. The clustering pilot now has a Slurm-array wrapper that splits domain-only and full-length selections into independent protein-level shards, so the pilot can use multiple jobs/nodes instead of one long 24 h allocation. Future production-scale runs can extend this pattern to stage-specific resource profiles when needed.
 - Geometry plausibility thresholds are operationalized and locked in `configs/thresholds.yaml` (`geometry_plausibility.locked = true`, 2026-04-21).
 - Statistical/descriptive analysis should prefer R where possible (Python wrappers can orchestrate).
 
@@ -128,7 +132,8 @@ Implementation order follows `IMPLEMENTATION_PLAYBOOK.md`.
 ### Stage 3 - IFP Generation (was Step 4 / Branch A)
 - Use AF3 structures as-is. Do NOT reposition Cu. Do NOT add virtual oxyl/H.
 - Generate binary ProLIF vectors with fixed interaction types per sub-analysis.
-- Current validated standalone default uses all 9 interactions in `configs/prolif_features.yaml`: `HBDonor`, `HBAcceptor`, `Hydrophobic`, `PiStacking`, `Anionic`, `Cationic`, `CationPi`, `PiCation`, `VdWContact`. Any later pruning for sparsity must be a locked config decision per sub-analysis.
+- Current validated standalone audit set uses all 9 interactions in `configs/prolif_features.yaml`: `HBDonor`, `HBAcceptor`, `Hydrophobic`, `PiStacking`, `Anionic`, `Cationic`, `CationPi`, `PiCation`, `VdWContact`.
+- Main clustering features are selected after the pilot feature audit. Default main-clustering includes are Hbond donor, Hbond acceptor, and aromatic/stacking; hydrophobic and cation-pi are conditional; van der Waals/close-contact features are descriptive only by default.
 - Ligand handling must keep each monosaccharide as a separate ligand residue in the feature space. Current flattened feature naming contract: `ligand_residue|protein_residue|interaction`.
 - `pose_ifp_table.tsv` is currently validated on real data as a standalone slice; `pose_residue_contact_table.tsv` remains planned and should reuse the same ligand-resolved residue labels.
 
@@ -148,11 +153,18 @@ Implementation order follows `IMPLEMENTATION_PLAYBOOK.md`.
 - Per condition: `convergence_fraction`, `median_ligand_rmsd`, `iqr_ligand_rmsd`.
 
 ### Stage 6 - Clustering (was Step 6)
-- Input: QC-passing poses with successful IFP generation only.
+- Input: QC-passing poses with successful IFP generation and enough non-vdW contact signal.
 - One clustering per protein–ligand condition (AF3-only simplification).
-- HDBSCAN with Jaccard distance on binary IFP vectors.
-- Parameters stored in `configs/thresholds.yaml`; locked after tuning.
-- Noise cluster reported separately; not excluded from raw output.
+- Method is not locked yet. The active pilot compares agglomerative Jaccard clustering
+  and HDBSCAN Jaccard on contact-eligible binary ProLIF IFPs.
+- Contact eligibility is applied after IFP; main pilot rule is
+  `min_non_vdw_interactions >= 2` and `min_non_vdw_contact_residues >= 1`,
+  with lenient/strict sensitivity rules.
+- Conditions with `n_contact_eligible < 10` are reported as
+  `insufficient_clusterable_signal` rather than formally clustered.
+- The pilot must select one global primary method and fixed parameters before
+  the full analysis; do not choose method separately per condition.
+- Noise/low-support groups are reported separately and retained in raw output.
 - Minimum cluster occupancy for main summaries: `>= 0.05` (confirmed; see `thresholds.yaml: cluster_inclusion.min_occupancy`).
 - Output: `cluster_assignments.tsv`, `medoid_manifest.tsv`, `condition_cluster_summary.tsv`.
 
@@ -160,9 +172,14 @@ Implementation order follows `IMPLEMENTATION_PLAYBOOK.md`.
 - Attach geometry/QC/support features to each cluster (median/IQR summaries).
 - Assign cluster type: `C1_compatible`, `C4_compatible`, `mixed_compatible`, `non_plausible`, `uncertain`.
 - Thresholds for cluster type stored in `configs/thresholds.yaml`.
-- Build `cluster_ifp_signature.tsv` and `cluster_residue_signature.tsv`.
+- Build `cluster_ifp_signature.tsv`, `cluster_residue_signature.tsv`, and
+  `cluster_signatures.json` from existing Stage 6 cluster membership and
+  medoids; do not re-cluster or re-select medoids during annotation.
 
 ### Stage 8 - Residue Importance Analysis (new in v1.0)
+- Consumes Stage 7 cluster annotation outputs (`cluster_residue_signature.tsv`,
+  `cluster_ifp_signature.tsv`, `cluster_signatures.json`) rather than
+  recomputing residue/cluster membership from raw Stage 6 tables.
 - **Within-protein**: occupancy-weighted residue contact scores per protein–condition.
   - `residue_contact_score = sum(cluster_occupancy × residue_contact_frequency_in_cluster)`
   - Output: `protein_condition_residue_scores.tsv`
@@ -170,7 +187,7 @@ Implementation order follows `IMPLEMENTATION_PLAYBOOK.md`.
   - Output: `protein_residue_regio_delta.tsv`
 - **Within-family** (optional): align proteins within family, map residues to alignment columns.
   - Output: `family_aligned_residue_table.tsv`, `family_residue_enrichment.tsv`
-- **Cross-dataset patch-level**: aromatic/polar/charged contact density, loop contact fraction, distance shells from Cu.
+- **Cross-dataset patch-level**: aromatic/polar/charged/hydrogen-bond contact density and region flags where explicitly annotated.
   - Output: `condition_patch_summary.tsv`, `protein_patch_summary.tsv`
 - **Important**: raw residue numbers are NOT directly comparable across unrelated proteins. Split into within-protein, within-family, and property-level analyses.
 
@@ -284,14 +301,14 @@ Tuning is optional and runs after baseline analysis as a comparative/sensitivity
 
 | Event | Hard? | Action | Keep numeric metrics? |
 |---|---|---|---|
-| atom_mapping < 100% | YES | skip | yes, store coverage + reason |
+| atom_mapping < 100% | YES | skip | yes, store coverage + reason; write atom-map/rename debug artifacts |
 | pre-QC ligand too far from active site | YES | drop before PB/Privateer | yes, store distances |
 | glycan not CCD-valid for Privateer prep | YES | skip/drop | yes |
 | critical PoseBusters error | YES | drop pose | yes |
 | severe Privateer fail | YES | drop pose | yes |
 | Cu-His outside 1.9-2.6 A (selected brace N only: His1:N, His1:ND1, third non-His1 histidine N) | YES | drop pose | yes |
 | soft PB warning | NO | keep + flag | yes |
-| HDBSCAN outlier | NO | keep with outlier label | yes |
+| clustering noise / low-support group | NO | keep with method-specific label | yes |
 | low crystal similarity | NO | keep + flag | yes |
 
 ## 9. Reproducibility
@@ -299,7 +316,8 @@ Tuning is optional and runs after baseline analysis as a comparative/sensitivity
 Every run writes `run_manifest.json` including:
 
 - pipeline_version, timestamp, git_commit, config_hash
-- tool_versions (Gemmi, PoseBusters, Privateer, MDAnalysis, ProLIF, HDBSCAN, R)
+- tool_versions (Gemmi, PoseBusters, Privateer, MDAnalysis, ProLIF, selected clustering backend, R)
+- worker/resource settings such as `n_jobs` where they affect runtime behavior
 - seeds and input checksums (SHA-256)
 - gate outcomes including pre-QC active-site proximity
 - references to prediction artifacts reused by analysis

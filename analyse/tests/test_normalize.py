@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from lpmo_pipeline.io.gemmi_compat import gemmi
+from lpmo_pipeline.io.gemmi_compat import gemmi, remap_cif_block_values
 from lpmo_pipeline.io.normalize_mmcif import NormalizeMMCIFRunner
 
 
@@ -324,6 +324,42 @@ class TestChainRemapping:
         assert set(block.find_values("_pdbx_branch_scheme.auth_asym_id")) == {"B"}
         assert set(block.find_values("_pdbx_branch_scheme.pdb_asym_id")) == {"B"}
 
+    def test_remap_cif_block_values_remaps_multiple_columns_in_one_loop(
+        self, tmp_path: Path
+    ) -> None:
+        cif_path = tmp_path / "multi_column_remap.cif"
+        cif_path.write_text(
+            """\
+data_test
+#
+_struct_asym.id C
+#
+loop_
+_atom_site.id
+_atom_site.label_asym_id
+_atom_site.auth_asym_id
+1 C C
+2 B B
+3 A A
+#
+"""
+        )
+        block = gemmi.cif.read(str(cif_path)).sole_block()
+
+        remap_cif_block_values(
+            block,
+            {"C": "B", "B": "E"},
+            [
+                "_struct_asym.id",
+                "_atom_site.label_asym_id",
+                "_atom_site.auth_asym_id",
+            ],
+        )
+
+        assert list(block.find_values("_struct_asym.id")) == ["B"]
+        assert list(block.find_values("_atom_site.label_asym_id")) == ["B", "E", "A"]
+        assert list(block.find_values("_atom_site.auth_asym_id")) == ["B", "E", "A"]
+
 
 # ---------------------------------------------------------------------------
 # Atom mapping
@@ -344,15 +380,12 @@ class TestAtomMapping:
         # 10 protein + 1 Cu + 6 BGC = 17
         assert report["atom_mapping"]["total_atoms"] == 17
 
-    def test_atom_map_tsv_written(self, af3_cif: Path, tmp_path: Path) -> None:
+    def test_atom_map_tsv_not_written_for_routine_identity_mapping(self, af3_cif: Path, tmp_path: Path) -> None:
         out = tmp_path / "out"
         runner = NormalizeMMCIFRunner(af3_cif, out)
         runner.run()
-        tsv = out / "atom_map.tsv"
-        assert tsv.exists()
-        lines = tsv.read_text().strip().split("\n")
-        assert lines[0].startswith("old_atom_name")  # header
-        assert len(lines) == 18  # header + 17 atoms
+        assert not (out / "atom_map.tsv").exists()
+        assert not (out / "rename_log.json").exists()
 
 
 # ---------------------------------------------------------------------------
@@ -417,6 +450,8 @@ class TestCCDValidation:
         assert report["ccd_validation"]["invalid_comp_ids"] == ["CEL6"]
         assert failures[-1]["reason"] == "glykan_not_ccd"
         assert not (out / "normalized.cif").exists()
+        assert (out / "atom_map.tsv").exists()
+        assert (out / "rename_log.json").exists()
 
     def test_missing_glycan_chain_fails_normalization(
         self, missing_glycan_cif: Path, tmp_path: Path
@@ -445,15 +480,7 @@ class TestNormalizeArtifacts:
         runner = NormalizeMMCIFRunner(af3_cif, out)
         runner.run()
         assert (out / "normalized.cif").exists()
-        assert (out / "atom_map.tsv").exists()
-        assert (out / "rename_log.json").exists()
+        assert not (out / "atom_map.tsv").exists()
+        assert not (out / "rename_log.json").exists()
         assert (out / "normalize_report.json").exists()
         assert (out / "normalize_failures.json").exists()
-
-    def test_rename_log_json(self, af3_cif: Path, tmp_path: Path) -> None:
-        out = tmp_path / "out"
-        runner = NormalizeMMCIFRunner(af3_cif, out)
-        runner.run()
-        log = json.loads((out / "rename_log.json").read_text())
-        assert log["mapping_coverage"] == 1.0
-        assert log["reason"] == "af3_identity_mapping"

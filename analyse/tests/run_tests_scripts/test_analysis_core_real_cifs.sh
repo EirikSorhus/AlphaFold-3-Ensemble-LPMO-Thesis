@@ -49,8 +49,8 @@ for cif_path in "${cif_paths[@]}"; do
     fi
 done
 
-echo "[INFO] Running focused production analysis-core tests"
-pytest tests/test_analysis_orchestrator.py tests/test_cli_run.py -q
+echo "[INFO] Running focused production analysis-core tests; cluster-dependent checks use tests/fixtures/clustering_stage_outputs"
+pytest tests/test_cluster_signatures.py tests/test_residue_importance.py tests/test_analysis_orchestrator.py tests/test_cli_run.py -q
 
 echo "[INFO] Running production analysis-core path on ${#cif_paths[@]} real CIFs"
 /cluster/work/projects/nn1003k/eirik/conda/analyse_env/bin/python \

@@ -88,6 +88,35 @@ cases instead of stopping at normalization.
 
 ---
 
+### P0a — Clustering-pilot runtime and summary/artifact volume (RESOLVED 2026-05-19)
+
+**Priority:** RESOLVED for the current production path and clustering-pilot Slurm orchestration.
+
+**Description:**
+The full clustering pilot timed out before reaching the method-comparison stage because per-pose preparation and QC/IFP work were mostly serialized, despite Slurm cores being requested. The wrapper also wrote several large, near-duplicate JSON summaries/checkpoints, and normalization wrote atom-mapping debug files for every successful pose.
+
+**Implemented fix:**
+1. `lpmo-pipeline run`, the real-case pilot runner, and `run_clustering_pilot_full.sh` now pass `n_jobs` into the production pipeline. The wrapper defaults to `SLURM_CPUS_PER_TASK`.
+2. Independent per-pose preparation now uses process workers; hard QC/Privateer dispatch and ProLIF batch work use bounded worker pools.
+3. Routine successful normalization writes only `normalize_report.json`; `atom_map.tsv` and `rename_log.json` are emitted only for incomplete atom mapping or CCD-validation failure.
+4. Pilot prepare summaries are compacted so the main summary stores counts/sample records instead of duplicating full discovery/staging payloads. Detailed checkpoint files remain the place for deep debugging.
+5. `gemmi_compat.py` now groups CIF remap work by loop, so each affected mmCIF loop is rewritten once even when several tags in that loop need chain remapping.
+6. `submit_clustering_pilot_staged.sh` is now the primary full-pilot launcher. It builds selection manifests locally, splits them into protein-level shard manifests, submits domain-only and full-length Slurm arrays, and collects one compact aggregate shard summary after the arrays finish.
+
+**Why:**
+This reduces wall time by using the cores already requested, lowers metadata/file-system overhead, and makes pilot output easier to inspect after long Slurm runs.
+
+**Verification:**
+- Focused pytest slice covering normalization, orchestration, CLI, hard QC, Privateer, ProLIF, and pilot runner: 57 passed (2026-05-19).
+- Small real-pose timing probe on 4 poses, not the full pilot: `n_jobs=1` took 56.23 s; `n_jobs=2` took 28.94 s. This is about 1.9x for this tiny prepare-heavy probe, but full-run scaling is not expected to be perfectly linear.
+- After the CIF remap optimization, a 2-pose Slurm check on the first two domain-only poses reduced normalization from 37.48 s total to 15.30 s total. This was a targeted sanity check, not a new full timing campaign.
+- Static wrapper checks passed for the Slurm-array launcher (`bash -n` and `git diff --check`). No full pilot was submitted during implementation.
+
+**Remaining action:**
+Use the staged Slurm-array launcher for the next full pilot. Separate resource profiles for later non-pilot production stages can still be added if the full analysis outgrows the current shard-level execution model.
+
+---
+
 ### P1 — Geometry plausibility thresholds — RESOLVED 2026-04-21
 
 **Priority:** RESOLVED
@@ -116,6 +145,8 @@ Verified 2026-04-22 via `test_mapping_contracts.sh` on real AF3 data (A0A0A1ED04
 - No unmapped atoms in structure.
 - Round-trip rename validation (forward→reverse) passed successfully.
 - `atom_map.tsv` and `rename_log.json` generated with correct schemas.
+
+**Update 2026-05-19:** The mapping modules can still generate these files, but routine successful normalization no longer writes `atom_map.tsv` and `rename_log.json` for every pose. They are kept as debug/failure artifacts only, because the normal audit signal is already captured in `normalize_report.json` and per-pose mapping files created excessive output.
 
 ---
 
@@ -204,7 +235,7 @@ Privateer is now integrated via SIF instead of host PATH installation. The resol
 Implemented and verified points:
 - `qc/privateer_runner.py` builds bind-aware SIF invocations and parses `validation_data-privateer`.
 - `get_privateer_version()` queries the SIF with `-list`, and `utils/manifest.py` now records that version instead of calling `privateer -V` on the host.
-- hard QC uses the runner through `hard_qc_orchestrator.py`, including batched Privateer dispatch for eligible poses.
+- hard QC uses the runner through `hard_qc_orchestrator.py`, including batched Privateer dispatch for eligible poses; this dispatch now respects the production worker count.
 - successful runs now keep `validation_data-privateer` by default; raw stdout/stderr are retained only on failure or when `debug_output=True`.
 - targeted pytest coverage passes for the runner, dry-run path, QC gates, QC report, manifest path, and hard-QC orchestration.
 
@@ -440,29 +471,29 @@ rules and expected output tables.
 The current analysis-core production path now writes all TSV surfaces that are
 directly supported by implemented stages: pose manifest/confidence/index,
 QC attrition, pose geometry, pose IFP, pose residue contacts, convergence,
-raw clustering, medoids, condition cluster summary, crystal anchor table, and
-metrics. The following planned TSVs are still not implemented because their
-upstream analysis layers are not implemented yet:
+raw clustering, medoids, condition cluster summary, cluster IFP/residue
+signatures, residue-importance tables, crystal anchor table, and metrics.
+For short smoke runs with observed contacts but zero retained non-noise
+clusters, the Stage 16b residue tables now emit explicit zero-valued residue
+rows instead of remaining header-only. Cluster-dependent Stage 16b tests use
+`tests/fixtures/clustering_stage_outputs/`, a small deterministic Stage 16
+output fixture, instead of depending on the short one-pose real-data smoke to
+produce meaningful clusters. The following planned TSVs are still not
+implemented because their upstream analysis layers are not implemented yet:
 
 - `cluster_table.tsv`
-- `cluster_ifp_signature.tsv`
-- `cluster_residue_signature.tsv`
-- `protein_condition_residue_scores.tsv`
-- `protein_residue_regio_delta.tsv`
 - `family_aligned_residue_table.tsv`
 - `family_residue_enrichment.tsv`
-- `condition_patch_summary.tsv`
-- `protein_patch_summary.tsv`
 - `condition_table.tsv`
 - `protein_summary_table.tsv`
 - predictive modeling tables under `10_predictive/modeling_tables/`
 - CBM paired-analysis outputs such as `cbm_construct_condition_summary.tsv` and `cbm_paired_comparison_table.tsv`
 
 **Proposed solution:**
-1. First inspect real-data clustering outputs for at least two multi-pose conditions before building cluster annotation on top of them.
-2. Implement cluster annotation next: `cluster_table.tsv`, `cluster_ifp_signature.tsv`, and `cluster_residue_signature.tsv`.
-3. Build condition/protein summaries only after the cluster annotation outputs are stable.
-4. Implement residue importance, predictive modeling, and CBM paired analysis after `condition_table.tsv` exists.
+1. Promote pilot clustering outputs for at least one multi-pose real-data condition with retained clusters into a reusable fixture or smoke input, then validate non-zero cluster signatures and non-zero Stage 16b residue weights against it.
+2. Implement `cluster_table.tsv` plus the later `condition_table.tsv` / `protein_summary_table.tsv` summary layers on top of the now-stable cluster-signature and residue-importance outputs.
+3. Implement family-aligned residue enrichment only after the within-protein residue outputs are validated on clustered real data.
+4. Implement predictive modeling and CBM paired analysis after `condition_table.tsv` exists.
 
 ---
 

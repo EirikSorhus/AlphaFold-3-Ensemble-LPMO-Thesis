@@ -131,6 +131,10 @@ class NormalizeMMCIFRunner:
             mapping_result = self._cross_model_atom_mapping(structure)
 
             if mapping_result.mapping_coverage < 1.0:
+                self._write_atom_mapping_debug_artifacts(
+                    mapping_result,
+                    reason="atom_mapping_incomplete",
+                )
                 self.logger.log_failure(
                     "atom_mapping_incomplete",
                     {
@@ -170,11 +174,10 @@ class NormalizeMMCIFRunner:
                 n_residues_with_confidence=n_conf,
             )
 
-            # Write atom mapping log before any downstream gating return.
-            self._write_atom_mapping_log(mapping_result)
             self._write_normalize_report(report)
 
             if not ccd_validation.all_valid:
+                self._write_atom_mapping_debug_artifacts(mapping_result, reason="ccd_validation_failed")
                 failure_reason = (
                     FailureReason.MISSING_GLYCAN_CHAIN.value
                     if ccd_validation.failure_reason == FailureReason.MISSING_GLYCAN_CHAIN.value
@@ -336,7 +339,11 @@ class NormalizeMMCIFRunner:
 
         Updates chain.name and residue subchain labels for all models.
         """
-        remap = {m.original_id: m.normalized_id for m in mappings}
+        remap = {
+            m.original_id: m.normalized_id
+            for m in mappings
+            if m.original_id != m.normalized_id
+        }
 
         # Rename chains in all models
         for model in structure:
@@ -349,30 +356,31 @@ class NormalizeMMCIFRunner:
                             residue.subchain = new_name
                     chain.name = new_name
 
-        remap_cif_block_values(
-            block,
-            remap,
-            [
-                "_struct_asym.id",
-                "_ma_qa_metric_local.label_asym_id",
-                "_atom_site.label_asym_id",
-                "_atom_site.auth_asym_id",
-                "_pdbx_branch_scheme.asym_id",
-                "_pdbx_branch_scheme.auth_asym_id",
-                "_pdbx_branch_scheme.pdb_asym_id",
-                "_pdbx_nonpoly_scheme.asym_id",
-                "_pdbx_nonpoly_scheme.pdb_strand_id",
-                "_struct_conn.ptnr1_auth_asym_id",
-                "_struct_conn.ptnr1_label_asym_id",
-                "_struct_conn.ptnr2_auth_asym_id",
-                "_struct_conn.ptnr2_label_asym_id",
-            ],
-        )
+        if remap:
+            remap_cif_block_values(
+                block,
+                remap,
+                [
+                    "_struct_asym.id",
+                    "_ma_qa_metric_local.label_asym_id",
+                    "_atom_site.label_asym_id",
+                    "_atom_site.auth_asym_id",
+                    "_pdbx_branch_scheme.asym_id",
+                    "_pdbx_branch_scheme.auth_asym_id",
+                    "_pdbx_branch_scheme.pdb_asym_id",
+                    "_pdbx_nonpoly_scheme.asym_id",
+                    "_pdbx_nonpoly_scheme.pdb_strand_id",
+                    "_struct_conn.ptnr1_auth_asym_id",
+                    "_struct_conn.ptnr1_label_asym_id",
+                    "_struct_conn.ptnr2_auth_asym_id",
+                    "_struct_conn.ptnr2_label_asym_id",
+                ],
+            )
 
         self.logger.log_check(
             "apply_chain_mapping",
             "pass",
-            f"Remapped chains: {remap}",
+            f"Remapped chains: {remap or 'none'}",
         )
 
     # -----------------------------------------------------------------------
@@ -591,8 +599,13 @@ class NormalizeMMCIFRunner:
     # -----------------------------------------------------------------------
     # Artifact writing
     # -----------------------------------------------------------------------
-    def _write_atom_mapping_log(self, result: AtomMappingResult) -> None:
-        """Write detailed atom mapping log (TSV + JSON)."""
+    def _write_atom_mapping_debug_artifacts(
+        self,
+        result: AtomMappingResult,
+        *,
+        reason: str,
+    ) -> None:
+        """Write detailed atom mapping artifacts only for non-routine cases."""
         tsv_path = self.output_dir / "atom_map.tsv"
         with open(tsv_path, "w") as f:
             f.write("old_atom_name\tnew_atom_name\telement\tresidue_ccd\tconfidence\treason\n")
@@ -612,6 +625,7 @@ class NormalizeMMCIFRunner:
                 "mapping_coverage": result.mapping_coverage,
                 "unmapped_atoms": result.unmapped_atoms,
                 "reason": result.reason,
+                "debug_artifact_reason": reason,
             }
             json.dump(log_dict, f, indent=2)
 

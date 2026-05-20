@@ -174,7 +174,12 @@ def cmd_run(args):
     manifest_path = args.output / "run_manifest.json"
 
     try:
-        result = run_analysis_core(config=config, output_dir=args.output, del_variant=args.del_branch)
+        result = run_analysis_core(
+            config=config,
+            output_dir=args.output,
+            del_variant=args.del_branch,
+            n_jobs=args.n_jobs,
+        )
         manifest_builder.record_gate("analysis_core_completed", result.success)
         manifest_builder.record_gate("hard_qc_completed", result.qc_report_path is not None)
         manifest_builder.record_gate(
@@ -188,6 +193,10 @@ def cmd_run(args):
         manifest_builder.record_gate(
             "clustering_stage_completed",
             result.condition_cluster_summary_tsv_path is not None,
+        )
+        manifest_builder.record_gate(
+            "cluster_annotation_stage_completed",
+            result.cluster_annotation_stage_completed,
         )
         manifest_builder.record_gate(
             "crystal_anchoring_stage_completed",
@@ -220,6 +229,12 @@ def cmd_run(args):
             print(f"  Medoid manifest: {result.medoid_manifest_tsv_path}")
         if result.condition_cluster_summary_tsv_path is not None:
             print(f"  Condition cluster summary: {result.condition_cluster_summary_tsv_path}")
+        if result.cluster_ifp_signature_tsv_path is not None:
+            print(f"  Cluster IFP signature: {result.cluster_ifp_signature_tsv_path}")
+        if result.cluster_residue_signature_tsv_path is not None:
+            print(f"  Cluster residue signature: {result.cluster_residue_signature_tsv_path}")
+        if result.cluster_signatures_json_path is not None:
+            print(f"  Cluster signatures JSON: {result.cluster_signatures_json_path}")
         if result.crystal_anchor_tsv_path is not None:
             print(f"  Crystal anchor table: {result.crystal_anchor_tsv_path}")
         if result.metrics_csv_path is not None:

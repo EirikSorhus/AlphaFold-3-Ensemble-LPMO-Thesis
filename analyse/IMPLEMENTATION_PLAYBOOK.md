@@ -39,20 +39,20 @@ Konfigurasjonsregel (gjeldende):
 |------|-------|--------|
 | 1 | `io/discovery.py` | ✅ Ferdig. Verifisert med 9 targets, 156K samples, af3_only + latest_only filter |
 | 2 | `io/mmcif_ingest.py` | ✅ Ferdig. Verifisert på ekte AF3-CIF (CEL6, NAG6, STA8) |
-| 3 | `io/normalize_mmcif.py` | ✅ Ferdig. Chain mapping A→A, C→B, B→E. Verifisert på alle 3 substrattyper |
+| 3 | `io/normalize_mmcif.py` | ✅ Ferdig. Chain mapping A→A, C→B, B→E. Verifisert på alle 3 substrattyper. Per 2026-05-19 filtreres identitetsremap bort, og `atom_map.tsv`/`rename_log.json` skrives bare ved uventet mapping/valideringsfeil for å redusere I/O. |
 | 4 | `io/ccd_lookup.py` | ✅ Verifisert via test_io_contracts.sh. CCD-gate + rapportering fungerer på ekte AF3-data |
 | 5–6 | `mapping/` | ✅ Verifisert via test_mapping_contracts.sh. Coverage=100%, round-trip rename validert |
 | 7 | `io/protonate_export.py` | ✅ Verifisert 2026-04-23. PDBFixer/OpenMM primær-backend, ingen stille kopi-fallback. Name-based glycan-linking (C1→O4 for NAG/BGC/GLC) før protonering, og eksplisitt CONECT rewrite for komplett ligand-konnektivitet i `complex_H.pdb`. Verifisert via sbatch (572928, 572982, 572996, 573050). |
 | 7b | `io/cif_to_pdb.py` | ✅ Verifisert 2026-04-23. PDBFixer-backend er primær (AF3-riktig), gemmi fallback med `backend_fallback_reason`. Verifisert via test_protonation_contracts.sh (backend=pdbfixer). |
 | 8 | `qc/active_site_proximity.py` | ⚠️ Integrert og real-data-verifisert i hard-QC/analysis-core (2026-05-03), men endelig pose-manifestflate for metrikker fra droppede poser er fortsatt uavklart |
-| 9–12 | `qc/` (PoseBusters, Privateer, Cu-His, QC report) | ✅ Reell 3-pose hard-QC-kjøring er verifisert 2026-05-03 via `tests/run_tests_scripts/test_hard_qc_real_cifs.sh` (jobb 612234, run `hard_qc_real_cifs_612234`). PoseBusters auto-splitter kombinerte AF3 protein+glykan-input til ligand+protein og kjører i `dock`-modus. Resultat: 1 pass, 1 soft_flag, 1 hard_fail; eneste gjenstående PB-hardfail er `minimum_distance_to_protein`, og samme STA4-case har fortsatt en reell Privateer anomer-feil. |
-| 13 | `analysis/prolif_ifp.py` + `pose_ifp_table.tsv` | ⚠️ Standalone slice verifisert på ekte data 2026-05-04 via `test_prolif_real_cifs.sh` (jobb 617120), og koblet inn i analysis-core produksjonsstien 2026-05-04 med focused pytest; ny real-data verifikasjon av den integrerte stien gjenstår |
+| 9–12 | `qc/` (PoseBusters, Privateer, Cu-His, QC report) | ✅ Reell 3-pose hard-QC-kjøring er verifisert 2026-05-03 via `tests/run_tests_scripts/test_hard_qc_real_cifs.sh` (jobb 612234, run `hard_qc_real_cifs_612234`). PoseBusters auto-splitter kombinerte AF3 protein+glykan-input til ligand+protein og kjører i `dock`-modus. Per 2026-05-19 kan per-pose hard QC og Privateer-dispatch bruke `max_workers` fra `n_jobs`. Resultat: 1 pass, 1 soft_flag, 1 hard_fail; eneste gjenstående PB-hardfail er `minimum_distance_to_protein`, og samme STA4-case har fortsatt en reell Privateer anomer-feil. |
+| 13 | `analysis/prolif_ifp.py` + `pose_ifp_table.tsv` | ⚠️ Standalone slice verifisert på ekte data 2026-05-04 via `test_prolif_real_cifs.sh` (jobb 617120), og koblet inn i analysis-core produksjonsstien 2026-05-04 med focused pytest. Per 2026-05-19 støtter batchen `max_workers` via `n_jobs`; ny real-data verifikasjon av den integrerte stien gjenstår |
 | 13b | `analysis/residue_contact_extraction.py` + `pose_residue_contact_table.tsv` | ✅ Verifisert på ekte data 2026-05-04 via `test_residue_contact_real_cifs.sh` (jobb 619027); downstream bruk gjenstår |
 | 14 | `analysis/mdanalysis_metrics.py` | ⚠️ Implementert, koblet inn i analysis-core produksjonssti, og verifisert på ekte data; RMSD-felter og videre geometry-hardening gjenstår |
 | 14b | `analysis/convergence_metrics.py` | ⚠️ Standalone slice verifisert på ekte data 2026-05-04 via `test_convergence_real_cifs.sh` (jobb 619047), og koblet inn i analysis-core produksjonssti med focused pytest; ny integrert real-data verifikasjon gjenstår |
 | 15 | `analysis/clustering_hdbscan.py` | ⚠️ Refaktorert 2026-05-04 til AF3-only condition-wise HDBSCAN med eksakte Jaccard-medoider, koblet inn i analysis-core produksjonsstien samme dag, og verifisert med focused pytest. Focused clustering unit tests ble kjørt på nytt 2026-05-16; real-data clustering-output inspeksjon gjenstår før senere analysebygging |
-| 16 | `analysis/cluster_signatures.py` | ⚠️ Kode finnes, ikke verifisert på ekte data |
-| 16b | `analysis/residue_importance.py` | ❌ Ikke startet (ny i v1.0) |
+| 16 | `analysis/cluster_signatures.py` | ✅ Koblet inn i analysis-core produksjonsstien og verifisert 2026-05-18 med focused pytest + real-data sbatch smoke (jobb 1105024). Produksjonsstien skriver `cluster_ifp_signature.tsv`, `cluster_residue_signature.tsv`, `cluster_signatures.json` og `cluster_annotation_stage_completed`. |
+| 16b | `analysis/residue_importance.py` | ✅ Koblet inn i analysis-core produksjonsstien og verifisert 2026-05-18 med focused pytest + real-data sbatch smoke (jobb 1105024). 16b konsumerer Stage 16-signaturene, skriver eksplisitte nullrader ved observerte kontakter uten retained clusters, og bruker ikke loop-fraksjon. |
 | 17 | `placer/run_placer.py` | ❌ FJERNET — PLACER er fjernet fra analysen (beslutning 2026-04-21) |
 | 18–25 | Analyse, aktivitetsmapping, modeller, rapportering | ⚠️ Delvis påbegynt. `report/` + `cli.py` analysis-core produksjonssti skriver nå også ProLIF-, Stage 6-clustering-, crystal-anchoring- og implementerte pose/QC TSV-artefakter (`pose_manifest.tsv`, `pose_confidence.tsv`, `structure_index.tsv`, `qc_attrition_table.tsv`, `crystal_anchor_table.tsv`). En integrert real-data kjøring som faktisk gir medoid-vs-crystal-sammenligninger og senere analyser gjenstår fortsatt. |
 
@@ -76,12 +76,14 @@ Konfigurasjonsregel (gjeldende):
 
 3. ✅ **`io/normalize_mmcif.py`** — Chain-rename (A/B-D/E), confidence-ekstraksjon.
    ⛔ STOPP: Verifiser `normalized.cif` med `gemmi validate`.
+   Status 2026-05-19: identitetsremaps filtreres bort, CIF-remap hoppes over når ingen reell remap trengs, og rutinemessig vellykket normalisering skriver ikke lenger `atom_map.tsv`/`rename_log.json`. De filene beholdes som debug/failure-artefakter ved ufullstendig atom-mapping eller CCD-valideringsfeil.
 
 4. ✅ **`io/ccd_lookup.py`** — CCD-cache + monosakkarid-validering.
     Status 2026-04-22: Verifisert via test_io_contracts.sh på ekte AF3-data. Hard fail ved ugyldig glykan-CCD fungerer korrekt.
 
 5. ✅ **`mapping/cross_model_atom_mapping.py`** — 3-tier atom-matching.
    Status 2026-04-22: Verifisert via test_mapping_contracts.sh. Coverage=100%, atom_map.tsv generert korrekt.
+   Status 2026-05-19: mapping-kontrakten er uendret, men per-pose `atom_map.tsv` er ikke lenger normal produksjonsoutput fra vellykket normalisering.
 
 6. ✅ **`mapping/rename_atoms.py`** — Last og anvend atom_map.
    Status 2026-04-22: Verifisert via test_mapping_contracts.sh. Round-trip rename (forward/reverse) validert.
@@ -133,6 +135,7 @@ Konfigurasjonsregel (gjeldende):
 
 10. **`qc/privateer_runner.py`** — Privateer-wrapper + 100%-recog gate.
     Status 2026-04-30: wrapperen kjøres via SIF definert i `configs/runtime_paths.yaml` med `apptainer run --cleanenv` og eksplisitte bind mounts. Avklart parse-kilde er `validation_data-privateer` fra `-mode ccp4i2`, ikke JSON stdout. Dry-run, batch-kjøring, SIF-basert versjonsdeteksjon, og filtrert artefakt-retensjon er implementert. Targeted pytest passer i `analyse_env`. Verifikasjon i full QC på ekte poser gjenstår.
+    Status 2026-05-19: `run_privateer_batch` kan kjøre flere eligible poser parallelt via `max_workers`, koblet til production `n_jobs`. Oppstartskost for selve SIF-kjøringen betales fortsatt per Privateer-prosess.
     Test: `pytest tests/test_qc_gates.py::TestPrivateerGate`.
 
 11. **`qc/custom_geometry_checks.py`** — Cu-His 1.9–2.6 Å gate.
@@ -166,6 +169,8 @@ Konfigurasjonsregel (gjeldende):
         `analysis/analysis_orchestrator.py` / `lpmo-pipeline run` for alle QC-pass/
         flagged poser. Produksjonsstien skriver `pose_ifp_table.tsv` og per-condition
         `ifp_matrix.csv`, og focused pytest dekker integrasjonen.
+        Status 2026-05-19: `compute_ifp_batch` støtter `max_workers` via production
+        `n_jobs`, slik at uavhengige poser kan beregnes i parallelle prosesser.
         Gjenstår:
         - kjøre den integrerte stien på ekte data og inspisere outputene
         - oppdatere downstream signatur/parsing til det nye feature-navneskjemaet
@@ -256,9 +261,23 @@ Konfigurasjonsregel (gjeldende):
 
 16. **`analysis/cluster_signatures.py`** — clusterannotering med median/IQR.
     Krav: geometri brukes som annotering etter clustering, ikke som clusterinput.
-    Output: `cluster_ifp_signature.tsv`, `cluster_residue_signature.tsv`.
+    Output: `cluster_ifp_signature.tsv`, `cluster_residue_signature.tsv`, `cluster_signatures.json`.
     Cluster type-etiketter: C1_compatible, C4_compatible, mixed_compatible, non_plausible, uncertain.
     Terskler defineres i `configs/thresholds.yaml` og låses før full analyse.
+    Status 2026-05-18: Stage 7-tabellbyggeren aggregerer eksisterende
+    Stage 6-clustermedlemskap og medoids uten å endre clustering, parser
+    ligand-residue-oppløste IFP-features (`ligand_residue|protein_residue|interaction`),
+    beregner per-cluster IFP-/residue-contact-frekvenser og lagrer
+    median/IQR-geometri i `cluster_signatures.json`. Koblet inn i
+    `analysis/analysis_orchestrator.py` og CLI-manifestet som
+    `cluster_annotation_stage_completed`.
+    Verifisering:
+    `/cluster/work/projects/nn1003k/eirik/conda/analyse_env/bin/python -m pytest tests/test_cluster_signatures.py tests/test_residue_importance.py tests/test_analysis_orchestrator.py tests/test_cli_run.py -q`
+    (10 passed), og `tests/run_tests_scripts/test_analysis_core_real_cifs.sh`
+    via sbatch jobb 1105024. Real-data smoken skrev Stage 7-artefaktene og
+    manifest-gaten; det korte 3-CIF utvalget hadde ingen faktiske clusters
+    (1 analysert pose, ikke contact-eligible), så signaturtabellene var
+    kontraktmessig tomme med headers.
 
 16b. **`analysis/residue_importance.py`** — Residueimportansanalyse (ny i v1.0).
     Steg 1 (within-protein): occupancy-weighted residue contact score per protein × betingelse.
@@ -268,9 +287,31 @@ Konfigurasjonsregel (gjeldende):
       Output: `protein_residue_regio_delta.tsv`
     Steg 3 (valgfritt, within-family): kartlegg residuer til alignmentkolonner per familie.
       Output: `family_aligned_residue_table.tsv`, `family_residue_enrichment.tsv`
-    Steg 4 (cross-dataset, patch): aromatisk/polær/ladet kontakttetthet, loop-fraksjon, Cu-distanseskall.
+    Steg 4 (cross-dataset, patch): aromatisk/polær/ladet/hydrogenbinding-kontakttetthet og eksplisitte regionflagg der de finnes.
       Output: `condition_patch_summary.tsv`, `protein_patch_summary.tsv`
-    ⛔ STOPP: Verifiser at residue-score er konsistent med cluster_residue_signature.tsv.
+        Status 2026-05-18: Stage 16b konsumerer nå Stage 16-outputene
+        `cluster_residue_signature.tsv`, `cluster_ifp_signature.tsv` og
+        `cluster_signatures.json` som kontrakt, i stedet for å rekonstruere
+        cluster-/residuegrunnlaget fra rå Stage 6-output. Modulen bygger alle fire
+        tabellene, er koblet inn i `analysis/analysis_orchestrator.py`, og
+        ekskluderer noise/outlier-clusters fordi Stage 16-signaturene bare skrives
+        for retained non-noise clusters. For betingelser med observerte kontaktrester
+        men ingen retained clusters skrives eksplisitte nullrader i residue-tabellene
+        i stedet for kun header, slik at no-valid-cluster-tilfeller blir synlige
+        downstream. Loop-fraksjon er fjernet; patch-summary bruker nå residueklasse-,
+        hydrogenbinding- og eksplisitte regionflagg fra Stage 16-overflatene.
+        Cluster-avhengige tester bruker den deterministiske fixture-mappen
+        `tests/fixtures/clustering_stage_outputs/`, slik at ikke videre
+        clusterlogikk testes på en én-pose smoke.
+        Verifisering:
+        `/cluster/work/projects/nn1003k/eirik/conda/analyse_env/bin/python -m pytest tests/test_cluster_signatures.py tests/test_residue_importance.py tests/test_analysis_orchestrator.py tests/test_cli_run.py -q`
+        (10 passed), og `tests/run_tests_scripts/test_analysis_core_real_cifs.sh`
+        via sbatch jobb 1105024. Real-data smoken skrev alle Stage 16/16b-artefakter;
+        den hadde ingen faktiske clusters (`cluster_signatures.clusters=[]`), men
+        skrev 6 eksplisitte nullrader i både `protein_condition_residue_scores.tsv`
+        og `protein_residue_regio_delta.tsv` fra observerte kontakter.
+        ⛔ Gjenstår: verifiser ikke-null, cluster-vektede residue-scorer på en
+        multi-pose real-data-betingelse med faktiske retained clusters.
 
 17. ~~**`placer/run_placer.py`**~~ — **FJERNET. PLACER er fjernet fra analysen helt (beslutning 2026-04-21).** Steg 17 er avviklet. Se statusoversikt.
 
@@ -283,6 +324,7 @@ Konfigurasjonsregel (gjeldende):
 
 19. **`scripts/ec_activity_mapping.R`** — metadata EC# → aktivitet/substrat/regio.
     Krav: implementer eksplisitte regler for 1.14.99.53/54/55/56 og 1.14.99.- med AA17-spesialtilfelle.
+    Trenger ikke å være R, kan også være python-kode
 
 20. **`analysis/predictive_models.py` + R scripts** — cluster-baserte modeller.
     Krav: grouped CV på enzymnivå, cluster-rader beholdes, avhengighet modelleres.
@@ -350,6 +392,19 @@ Konfigurasjonsregel (gjeldende):
     `qc_attrition_table.tsv` og `crystal_anchor_table.tsv`. Focused tester for
     orchestrator/CLI og clustering passer, men real-data inspeksjon av
     clustering-output gjenstår før `cluster_table.tsv` og senere analyser bygges.
+    Status 2026-05-19: `lpmo-pipeline run`, real-case pilot-runneren og
+    `run_clustering_pilot_full.sh` sender nå `n_jobs` inn i produksjonsstien.
+    Prepare, hard QC/Privateer og ProLIF kan dermed bruke flere workers; pilotens
+    prepare-oppsummeringer er samtidig komprimert for å unngå mange store,
+    nesten like summary-filer. En 4-pose timingprobe viste 56.23 s med `n_jobs=1`
+    og 28.94 s med `n_jobs=2`.
+    Status 2026-05-19 (senere): normaliseringens CIF-remap er optimalisert i
+    `io/gemmi_compat.py` ved å gruppere tag-remapping per mmCIF-loop. En 2-pose
+    Slurm-sanitysjekk reduserte normalisering for de samme to domain-only-posene
+    fra 37.48 s til 15.30 s totalt. Full pilot skal nå startes med
+    `tests/run_tests_scripts/submit_clustering_pilot_staged.sh`, som lager
+    protein-level shard-manifester og submitter domain-only/full-length som
+    Slurm-arrays over flere jobber/noder. Legacy-wrapperen beholdes som fallback.
     ⛔ STOPP: Full end-to-end hovedanalyse gjenstår etter slik real-data verifikasjon av den utvidede produksjonsstien og senere analyser.
 
 24. **`tuning/` (valgfritt etteranalyse)** — implementer sweep_runner + tune_orchestrator.

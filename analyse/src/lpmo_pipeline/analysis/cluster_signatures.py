@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import logging
 import csv
+from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -389,53 +390,57 @@ def _residue_frequency_rows(
     residue_contact_rows: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
     member_set = set(members)
-    counts_by_key: dict[tuple[str, str, str, str, str, str], dict[str, Any]] = {}
-    n_rows_by_key: dict[tuple[str, str, str, str, str, str], int] = {}
+    active_pose_ids_by_key: dict[tuple[str, str, str, str], set[str]] = defaultdict(set)
+    labels_by_key: dict[tuple[str, str, str, str], dict[str, set[str] | bool]] = {}
 
     for row in residue_contact_rows:
-        if str(row.get("pose_id", "")) not in member_set:
+        pose_id = str(row.get("pose_id", ""))
+        if pose_id not in member_set:
             continue
         key = (
             str(row.get("residue_chain", "")),
             str(row.get("residue_number", "")),
             str(row.get("residue_name", "")),
-            str(row.get("interaction_type", "")),
-            str(row.get("ligand_residue_label", "")),
             str(row.get("condition_id", "")),
         )
-        entry = counts_by_key.setdefault(
+        entry = labels_by_key.setdefault(
             key,
             {
-                "n_poses_with_contact": 0,
+                "interaction_types": set(),
+                "ligand_residue_labels": set(),
                 "is_catalytic_surface_region": False,
                 "is_cbm_region": False,
                 "is_linker_region": False,
             },
         )
-        entry["n_poses_with_contact"] += int(row.get("contact_present") or 0)
+        if int(row.get("contact_present") or 0):
+            active_pose_ids_by_key[key].add(pose_id)
+            interaction_type = str(row.get("interaction_type", ""))
+            ligand_residue_label = str(row.get("ligand_residue_label", ""))
+            if interaction_type:
+                entry["interaction_types"].add(interaction_type)
+            if ligand_residue_label:
+                entry["ligand_residue_labels"].add(ligand_residue_label)
         entry["is_catalytic_surface_region"] = entry["is_catalytic_surface_region"] or _as_bool(
             row.get("is_catalytic_surface_region")
         )
         entry["is_cbm_region"] = entry["is_cbm_region"] or _as_bool(row.get("is_cbm_region"))
         entry["is_linker_region"] = entry["is_linker_region"] or _as_bool(row.get("is_linker_region"))
-        n_rows_by_key[key] = n_rows_by_key.get(key, 0) + 1
 
     rows: list[dict[str, Any]] = []
-    for key, entry in sorted(counts_by_key.items()):
-        residue_chain, residue_number, residue_name, interaction_type, ligand_residue, _condition_id = key
-        denominator = n_rows_by_key[key]
+    for key, entry in sorted(labels_by_key.items()):
+        residue_chain, residue_number, residue_name, _condition_id = key
+        active_pose_ids = active_pose_ids_by_key.get(key, set())
         rows.append(
             {
                 **cluster_summary,
                 "residue_chain": residue_chain,
                 "residue_number": residue_number,
                 "residue_name": residue_name,
-                "interaction_type": interaction_type,
-                "ligand_residue_label": ligand_residue,
-                "n_poses_with_contact": entry["n_poses_with_contact"],
-                "contact_frequency": (
-                    entry["n_poses_with_contact"] / denominator if denominator else 0.0
-                ),
+                "interaction_type": ",".join(sorted(entry["interaction_types"])) or "none",
+                "ligand_residue_label": ",".join(sorted(entry["ligand_residue_labels"])) or "none",
+                "n_poses_with_contact": len(active_pose_ids),
+                "contact_frequency": len(active_pose_ids) / len(member_set) if member_set else 0.0,
                 "is_catalytic_surface_region": entry["is_catalytic_surface_region"],
                 "is_cbm_region": entry["is_cbm_region"],
                 "is_linker_region": entry["is_linker_region"],

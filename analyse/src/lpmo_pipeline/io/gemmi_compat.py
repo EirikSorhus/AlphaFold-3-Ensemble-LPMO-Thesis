@@ -34,10 +34,7 @@ def gemmi_version() -> str:
 
 
 def remap_cif_block_values(block: Any, remap: dict[str, str], tags: list[str]) -> None:
-    if hasattr(block, "remap_values"):
-        for tag in tags:
-            block.remap_values(tag, remap)
-        return
+    loop_groups: dict[int, dict[str, Any]] = {}
 
     for tag in tags:
         pair = block.find_pair(tag)
@@ -52,25 +49,47 @@ def remap_cif_block_values(block: Any, remap: dict[str, str], tags: list[str]) -
             continue
 
         loop = column.get_loop()
+        loop_key = id(loop)
         tags_in_loop = list(loop.tags)
         if tag not in tags_in_loop:
             continue
+        loop_group = loop_groups.setdefault(
+            loop_key,
+            {
+                "loop": loop,
+                "tags": tags_in_loop,
+                "column_indexes": set(),
+            },
+        )
+        loop_group["column_indexes"].add(tags_in_loop.index(tag))
 
-        column_index = tags_in_loop.index(tag)
-        width = loop.width()
+    for loop_group in loop_groups.values():
+        loop = loop_group["loop"]
+        column_indexes = sorted(loop_group["column_indexes"])
+        if not column_indexes:
+            continue
+
+        width = int(loop.width())
+        length = int(loop.length())
         columns: list[list[str]] = []
         for current_column_index in range(width):
             current_column: list[str] = []
-            for row_index in range(loop.length()):
+            for row_index in range(length):
                 offset = row_index * width + current_column_index
                 current_column.append(str(loop.values[offset]))
             columns.append(current_column)
 
-        columns[column_index] = [
-            str(remap.get(str(value).strip(), value))
-            for value in columns[column_index]
-        ]
-        loop.set_all_values(columns)
+        changed = False
+        for column_index in column_indexes:
+            column = columns[column_index]
+            for row_index, value in enumerate(column):
+                new_value = str(remap.get(str(value).strip(), value))
+                if new_value != value:
+                    column[row_index] = new_value
+                    changed = True
+
+        if changed:
+            loop.set_all_values(columns)
 
 
 if _REAL_GEMMI is not None:

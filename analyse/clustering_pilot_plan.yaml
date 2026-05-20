@@ -1,0 +1,432 @@
+clustering_pilot:
+  version: "1.0"
+  purpose: >
+    Predefinere en pilot-test som avgjør om hovedanalysen skal bruke
+    agglomerative clustering eller HDBSCAN for condition-wise clustering
+    av binære ProLIF interaction fingerprints.
+  rationale: >
+    Datasettet har små per-condition poseantall, forventet ulik QC-pass-rate
+    mellom riktige og feil/inaktive ligander, mulig støy og potensielt sparse
+    IFP-er. Metodevalg skal derfor bestemmes empirisk i en pilot, ikke ved å
+    automatisk godta HDBSCAN som default.
+
+  scope:
+    clustering_level: "protein_ligand_condition"
+    clustering_input: "binary_ProLIF_IFP"
+    clustering_excludes_geometry: true
+    geometry_usage: "post_clustering_annotation_and_stability_check"
+    pose_unit_warning: >
+      Poses er tekniske sampling-enheter og skal ikke tolkes som uavhengige
+      biologiske replikater.
+    main_outputs_after_pilot:
+      - selected_primary_clustering_method
+      - fixed_clustering_parameters
+      - fixed_contact_eligibility_rules
+      - fixed_ifp_feature_set_for_clustering
+      - predefined_sensitivity_analyses
+
+  pilot_selection:
+    strategy: "stratified_subset"
+    target_n_conditions: "20-30"
+    minimum_n_proteins: 5
+    why: >
+      Piloten skal være stor nok til å teste støy, sparsitet og metodefølsomhet,
+      men liten nok til å kjøres før full analyse. Utvalget må inkludere både
+      enkle og vanskelige cases.
+    required_strata:
+      expected_correct_ligand_conditions:
+        minimum_conditions: 6
+        why: "Tester om metoden finner stabile binding modes der signal forventes."
+      expected_wrong_or_inactive_ligand_conditions:
+        minimum_conditions: 6
+        why: "Tester om metoden håndterer få interaksjoner og mulig støy uten å lage kunstige modes."
+      substrate_classes:
+        include_if_available:
+          - chitin
+          - cellulose
+          - starch
+        why: "Unngår at metodevalget bare optimaliseres for én substrattype."
+      ligand_lengths:
+        include_dp:
+          - DP4
+          - DP8
+        optional_include_dp:
+          - DP6
+        why: "Kort og lang ligand kan gi forskjellig kontaktmengde og forskjellig risiko for tilfeldige kontakter."
+      qc_pass_rate_range:
+        include:
+          - high_qc_pass_conditions
+          - intermediate_qc_pass_conditions
+          - low_qc_pass_conditions
+        why: "Metoden må fungere også der QC attrition er skjev."
+      cbm_or_full_length_cases:
+        include_if_available: true
+        minimum_conditions: 2
+        why: "Full-length/CBM kan gi alternative kontaktflater og mer heterogene IFP-er."
+
+  preprocessing_before_clustering:
+    hard_qc:
+      apply_before_ifp: true
+      tightened_hard_qc_expected: true
+      examples:
+        - "severe_PoseBusters_fail"
+        - "severe_Privateer_fail"
+        - "ligand_missing_or_broken"
+        - "Cu_missing"
+        - "protein_ligand_structure_unparsable"
+        - "atom_or_residue_mapping_failure"
+        - "ligand_far_from_relevant_binding_region"
+      why: >
+        Strukturelt ugyldige poser skal ikke gå inn i IFP eller clustering.
+        Kontaktmangel alene bør derimot helst rapporteres separat, ikke alltid
+        behandles som hard QC-fail.
+
+    ifp_success_required: true
+
+    contact_eligibility:
+      apply_after_ifp: true
+      used_for: "deciding_which_poses_enter_binding_mode_clustering"
+      main_rule:
+        min_non_vdw_interactions: 2
+        min_non_vdw_contact_residues: 1
+      sensitivity_rules:
+        lenient:
+          min_non_vdw_interactions: 1
+          min_non_vdw_contact_residues: 1
+        strict:
+          min_non_vdw_interactions: 2
+          min_non_vdw_contact_residues: 2
+      classify_excluded_poses_as:
+        null_ifp: "n_total_interactions == 0"
+        vdw_only: "n_non_vdw_interactions == 0 and n_vdw_interactions > 0"
+        low_specific_contact: "does_not_pass_contact_eligibility"
+      why: >
+        vdW/nærkontakter kan oppstå bare fordi liganden er i nærheten. Binding
+        modes bør derfor defineres av mer spesifikke residue–interaction–ligand-unit
+        mønstre. Ekskluderte poser skal fortsatt rapporteres i condition-summary.
+
+    minimum_clusterable_n:
+      main_threshold: 10
+      action_if_below_threshold: "do_not_perform_formal_clustering"
+      report_label: "insufficient_clusterable_signal"
+      why: >
+        Ved svært få clusterbare poser blir clusterantall og noise-estimat mer
+        metodeartefakt enn informativt signal.
+
+  ifp_feature_audit:
+    run_before_model_comparison: true
+    feature_identity:
+      definition: "protein_residue_id + interaction_type + ligand_unit_id"
+      examples:
+        - "A:Trp123__hbond_acceptor__ligand_unit_3"
+        - "A:Tyr45__stacking__ligand_unit_2"
+      why: >
+        Clustering skal baseres på spesifikke residue/interaksjon/ligand-unit
+        mønstre, ikke bare total kontaktmengde.
+
+    interaction_types_initially_measured:
+      for_audit_and_descriptive_tables:
+        - hbond_donor
+        - hbond_acceptor
+        - hydrophobic
+        - aromatic_or_stacking
+        - cation_pi
+        - vdw_or_close_contact
+      why: >
+        Et bredere audit-sett gjør det mulig å se hvilke interaksjonstyper som
+        faktisk er stabile nok til clustering, uten å miste informasjon fra
+        råtabellene.
+
+    interaction_types_allowed_for_main_clustering:
+      default_include:
+        - hbond_donor
+        - hbond_acceptor
+        - aromatic_or_stacking
+      conditional_include:
+        hydrophobic:
+          include_if: >
+            Feature audit viser at hydrophobic-kontakter er residue- og
+            ligand-unit-spesifikke, ikke bare generelle nærhetskontakter.
+        cation_pi:
+          include_if: >
+            Forekommer i nok conditions og ikke bare som enkeltstående sjeldne
+            hendelser.
+      default_exclude:
+        - vdw_or_close_contact
+      why: >
+        vdW/nærkontakter er nyttige som deskriptiv kontaktmengde, men bør ikke
+        definere binding modes. Vanlige polare kontakter skal derimot ikke
+        fjernes bare fordi de er vanlige.
+
+    prevalence_summary:
+      compute_per_interaction_type:
+        - n_eligible_poses_with_type
+        - pose_prevalence
+        - n_conditions_with_type
+        - condition_prevalence
+        - median_count_per_pose_when_present
+      compute_per_feature:
+        - pose_prevalence
+        - condition_prevalence
+        - within_condition_max_prevalence
+        - within_condition_variance
+      why: >
+        Skiller mellom robuste interaksjonstyper, ekstremt sjeldne features og
+        features som er så generelle at de ikke hjelper clustering.
+
+    rare_feature_rule:
+      applies_to: "individual_features_for_main_clustering_only"
+      remove_from_main_clustering_if:
+        pose_prevalence_lt: 0.01
+        condition_prevalence_lt_n_conditions: 2
+      keep_in_raw_contact_tables: true
+      why: >
+        Ekstremt sjeldne features kan øke Jaccard-støy. De beholdes likevel i
+        råtabeller slik at potensielt interessante enkeltkontakter kan inspiseres.
+
+    uninformative_feature_check:
+      replaces_previous_ubiquitous_feature_filter: true
+      do_not_automatically_remove_ubiquitous_polar_features: true
+      flag_as_potentially_uninformative_if:
+        - "feature_is_vdw_or_close_contact"
+        - "pose_prevalence_gt_0.90_and_within_condition_variance_near_zero"
+        - "feature_tracks_ligand_presence_but_not_binding_mode"
+      retain_even_if_common_if:
+        - "feature_is_polar_or_aromatic"
+        - "feature_is_residue_specific"
+        - "feature_is_ligand_unit_specific"
+        - "feature_varies_between_candidate_modes_or_conditions"
+      why: >
+        En vanlig polar kontakt til en bestemt ligand-unit kan være biologisk
+        og strukturelt meningsfull. Problemet er ikke høy prevalens alene, men
+        lav informasjonsverdi for å skille binding modes.
+
+  clustering_models_to_compare:
+    agglomerative_jaccard:
+      enabled: true
+      metric: "jaccard"
+      linkage_main: "average"
+      linkage_sensitivity:
+        - "complete"
+      distance_cutoffs:
+        strict: 0.35
+        main: 0.45
+        lenient: 0.55
+      minimum_main_cluster_size: 3
+      low_support_cluster_label: "low_support_cluster"
+      why: >
+        Agglomerative clustering er deterministisk, tolkbar og egnet for små
+        per-condition datasett. Den er god hvis kontaktfilteret fjerner mesteparten
+        av støyen.
+
+    hdbscan_jaccard:
+      enabled: true
+      metric: "precomputed_jaccard"
+      min_cluster_size_values:
+        - 3
+        - 4
+      min_samples_values:
+        - 1
+        - 2
+      cluster_selection_method: "eom"
+      run_only_on_contact_eligible_poses: true
+      why: >
+        HDBSCAN testes fordi den kan identifisere tette kontaktmønstre og merke
+        diffuse poser som noise. Dette er nyttig hvis piloten viser reell støy
+        blant poser som likevel har ikke-vdW-kontakter.
+
+    pam_k_medoids_optional:
+      enabled: true
+      use_as: "secondary_medoid_stability_check"
+      k_source: "number_of_main_clusters_from_selected_agglomerative_solution"
+      metric: "jaccard"
+      why: >
+        PAM brukes ikke til å velge hovedmodell, men kan teste om representative
+        poser/medoids er stabile gitt et valgt clusterantall.
+
+  evaluation_metrics:
+    per_condition_basic:
+      - n_qc_pass
+      - n_ifp_success
+      - n_contact_eligible
+      - contact_eligible_fraction
+      - null_ifp_fraction
+      - vdw_only_fraction
+      - low_specific_contact_fraction
+      - median_n_non_vdw_interactions
+      - median_n_non_vdw_contact_residues
+
+    per_method_per_parameter_set:
+      - n_clusters
+      - top_cluster_occupancy
+      - cluster_entropy
+      - occupancy_gini
+      - noise_fraction_for_hdbscan
+      - low_support_pose_fraction_for_agglomerative
+      - median_within_cluster_jaccard_distance
+      - median_between_cluster_jaccard_distance
+      - seed_mixing_score
+      - medoid_stability_if_applicable
+      - geometry_annotation_stability_posthoc
+
+    seed_mixing_score:
+      definition: >
+        For hver cluster, beregn hvor jevnt cluster-medlemmer fordeles over seeds.
+        Flag clusters som nesten bare kommer fra én seed.
+      flag_if_single_seed_fraction_gt: 0.70
+      why: >
+        En binding mode som bare oppstår fra én seed kan være samplingartefakt.
+
+    geometry_annotation_stability_posthoc:
+      use_geometry_to_define_clusters: false
+      compare_across_methods:
+        - c1_compatible_fraction
+        - c4_compatible_fraction
+        - non_plausible_fraction
+        - geometry_computable_fraction
+      why: >
+        Geometri skal ikke bestemme clusterne, men hvis biologisk annotering
+        endres kraftig mellom clusteringmetoder, er clusterfortolkningen sensitiv.
+
+  bootstrap_stability:
+    enabled: true
+    n_repeats: 100
+    subsample_fraction: 0.80
+    skip_if_n_contact_eligible_lt: 10
+    metrics:
+      - adjusted_rand_index
+      - top_cluster_occupancy_sd
+      - n_clusters_sd
+      - top_cluster_medoid_recovery_fraction
+    stable_if:
+      bootstrap_ari_gte: 0.60
+      top_cluster_occupancy_sd_lte: 0.15
+      n_clusters_sd_lte: 1.0
+    why: >
+      Små datasett kan gi tilsynelatende klare clusters som ikke er stabile ved
+      små endringer i poseutvalget. Bootstrap/subsampling gir en praktisk test
+      av robusthet.
+
+  model_selection:
+    choose_one_global_primary_method: true
+    do_not_choose_method_separately_per_condition: true
+    why: >
+      Én global hovedmetode gjør condition-sammenligninger mer ryddige. Conditions
+      kan likevel flagges som utilstrekkelige eller metodefølsomme.
+
+    selection_rules:
+      prefer_agglomerative_if:
+        conditions:
+          - ">= 70% of pilot conditions pass contact eligibility with n_contact_eligible >= 10"
+          - "agglomerative top_cluster_occupancy stable across cutoffs"
+          - "n_clusters changes by no more than 1 main cluster across main/strict/lenient cutoffs"
+          - "bootstrap stability acceptable in most pilot conditions"
+          - "HDBSCAN gives similar dominant modes or no clear improvement"
+        interpretation: >
+          Bruk agglomerative som hovedmetode når kontaktfilteret fjerner mesteparten
+          av støyen og hierarkiske clusters er stabile og tolkbare.
+
+      prefer_hdbscan_if:
+        conditions:
+          - "substantial residual noise remains after contact eligibility filtering"
+          - "HDBSCAN identifies stable dense clusters across min_cluster_size/min_samples"
+          - "HDBSCAN has better bootstrap stability than agglomerative"
+          - "HDBSCAN noise_fraction is not extremely parameter-sensitive"
+          - "agglomerative produces many low-support or seed-specific clusters"
+        interpretation: >
+          Bruk HDBSCAN som hovedmetode hvis det finnes tydelige tette IFP-modes,
+          men også en betydelig diffus rest som agglomerative ellers tvinger inn
+          i kunstige clusters.
+
+      prefer_coarse_contact_grouping_if:
+        conditions:
+          - "both agglomerative and HDBSCAN unstable"
+          - "many pilot conditions have n_contact_eligible < 10"
+          - "cluster assignments strongly parameter-sensitive"
+        interpretation: >
+          Ikke overtolk binding modes. Rapporter heller kontaktprofiler, dominant
+          residues, ligand-unit contact patterns og lav-/høy-kontaktklasser.
+
+    default_if_methods_are_similar:
+      primary_method: "agglomerative_jaccard"
+      sensitivity_method: "hdbscan_jaccard"
+      why: >
+        Hvis metodene gir samme kvalitative bilde, er agglomerative enklere å
+        forklare og mer transparent som hovedmetode.
+
+  required_sensitivity_analyses_after_pilot:
+    if_primary_agglomerative:
+      - name: "distance_cutoff_sensitivity"
+        compare_cutoffs:
+          - 0.35
+          - 0.45
+          - 0.55
+        report:
+          - n_clusters
+          - top_cluster_occupancy
+          - cluster_entropy
+          - geometry_annotation_stability
+      - name: "hdbscan_sensitivity"
+        compare_to_primary: true
+        report:
+          - shared_top_mode_fraction
+          - hdbscan_noise_fraction
+          - agreement_in_main_cluster_annotation
+
+    if_primary_hdbscan:
+      - name: "min_samples_min_cluster_size_sensitivity"
+        report:
+          - n_clusters
+          - noise_fraction
+          - top_cluster_occupancy
+          - geometry_annotation_stability
+      - name: "agglomerative_sensitivity"
+        compare_to_primary: true
+        report:
+          - whether_dense_hdbscan_clusters_are_recovered
+          - whether_agglomerative_over_splits_or_forces_noise_into_clusters
+
+    always_run:
+      - name: "contact_eligibility_sensitivity"
+        compare_rules:
+          - "n_non_vdw_interactions >= 1"
+          - "n_non_vdw_interactions >= 2"
+          - "n_non_vdw_interactions >= 2 and n_non_vdw_contact_residues >= 2"
+        report:
+          - n_contact_eligible
+          - n_clusters
+          - top_cluster_occupancy
+          - low_specific_contact_fraction
+          - geometry_annotation_stability
+        why: >
+          Konklusjoner om feil/inaktive ligander må ikke avhenge sterkt av én
+          vilkårlig kontaktterskel.
+
+  pilot_outputs:
+    tables:
+      - "pilot_condition_qc_contact_summary.tsv"
+      - "pilot_ifp_interaction_type_prevalence.tsv"
+      - "pilot_ifp_feature_prevalence.tsv"
+      - "pilot_clustering_grid_results.tsv"
+      - "pilot_bootstrap_stability.tsv"
+      - "pilot_model_selection_decision.tsv"
+    figures:
+      - "contact_eligible_fraction_by_condition.png"
+      - "interaction_type_prevalence_heatmap.png"
+      - "cluster_count_by_method_and_parameter.png"
+      - "top_cluster_occupancy_by_method.png"
+      - "noise_or_low_support_fraction_by_method.png"
+      - "bootstrap_stability_by_method.png"
+    decision_record:
+      file: "clustering_method_decision.md"
+      must_include:
+        - selected_primary_method
+        - selected_parameters
+        - excluded_interaction_types_for_clustering
+        - retained_interaction_types_for_descriptive_tables
+        - contact_eligibility_rule
+        - conditions_where_clustering_is_not_interpretable
+        - planned_sensitivity_analyses
+      why: >
+        Metodevalget skal være dokumentert før full analyse, slik at senere
+        resultater ikke formes av etterpåklokskap.

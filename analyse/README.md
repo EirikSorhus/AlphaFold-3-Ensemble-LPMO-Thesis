@@ -8,10 +8,11 @@ from AlphaFold 3 only (RosettaFold 3 / RF3 og Boltz-2 er ekskludert fra analyse)
 This pipeline takes predicted structures (mmCIF), normalizes them,
 runs quality control (PoseBusters, Privateer, custom Cu-geometry),
 generates interaction fingerprints (ProLIF) and residue-level contact tables,
-and clusters binding modes (HDBSCAN).
+and clusters binding modes through the shared production clustering interface
+(agglomerative Jaccard and HDBSCAN pilot paths; primary method pending pilot decision).
 Performs residue importance analysis and produces summary reports.
 
-Primary governing document: [AF3_LPMO_pipeline_detailed_plan.md](AF3_LPMO_pipeline_detailed_plan.md) (v1.0, primary source from 2026-04-21).
+Primary governing document: [AF3_LPMO_pipeline_detailed_plan.md](AF3_LPMO_pipeline_detailed_plan.md) (v1.1, primary source; clustering method selection now governed by [clustering_pilot_plan.yaml](clustering_pilot_plan.yaml)).
 
 Current implementation status: steps 1-7b are verified. Stage 8 pre-QC
 active-site proximity is now wired into hard QC, and targeted QC tests pass
@@ -53,6 +54,15 @@ has passed focused pytest plus production smoke validation. Remaining gap: a
 production real-data run that reaches non-empty medoid-vs-crystal comparisons
 in the integrated path still needs to be exercised explicitly.
 
+Stage 16b residue importance is implemented and wired into the production
+analysis-core path against the Stage 16 signature contract
+(`cluster_residue_signature.tsv`, `cluster_ifp_signature.tsv`,
+`cluster_signatures.json`). Conditions with observed contact residues but no
+retained non-noise clusters emit explicit zero-valued residue rows instead of
+header-only Stage 16b residue tables. Loop fraction is not part of the current
+contract; patch summaries use residue class, hydrogen-bond contacts, and
+explicit region flags where present.
+
 **⚠️ Known open conflict: see [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md) item 11 (geometric planarity thresholds not yet operationalized).**
 
 See [MASTERPLAN.md](MASTERPLAN.md) for full integrated specification.
@@ -73,16 +83,20 @@ These directories contain the organized AF3 prediction artifacts (mmCIF files an
 - Main analyses are run first; parameter tuning is optional and done after baseline analysis.
 - Main analysis is cluster-primary (not enzyme-aggregated) for descriptive and predictive modeling.
 - Operative sub-analyses are substrate x DP combinations for DP4, DP6, DP8.
+- Primary IFP clustering method is not locked until the active pilot has selected one global method and parameter set.
 - A pre-QC active-site proximity gate runs before PoseBusters and Privateer.
+- Production `--n-jobs` is now used for independent per-pose prepare work, hard-QC/Privateer dispatch, and ProLIF batch work. The full clustering-pilot wrapper defaults it from `SLURM_CPUS_PER_TASK` so requested cores are actually used.
+- Routine normalization keeps `normalize_report.json` as the normal audit surface. `atom_map.tsv` and `rename_log.json` are now debug/failure artifacts only, because writing them for every successful pose produced heavy I/O without adding useful signal.
 - Detailed geometric planarity requirements are currently missing and must be specified before final reporting.
 - R is preferred for descriptive/predictive statistics where practical.
 
-## Downstream Analysis Plans
+## Method And Downstream Plans
 
-Three detailed YAML implementation plans now define the intended downstream
-statistical analyses after the core AF3 structure-analysis outputs have been
-generated:
+One YAML plan defines the active clustering-method pilot, and three downstream
+YAML plans define the intended statistical analyses after the core AF3
+structure-analysis outputs have been generated:
 
+- [clustering_pilot_plan.yaml](clustering_pilot_plan.yaml): active pilot plan for selecting one global IFP clustering method before full analysis.
 - [c1_c4_predictive_analysis_plan_simplified.yaml](c1_c4_predictive_analysis_plan_simplified.yaml): exploratory C1/C4 regioactivity predictive analysis using protein-grouped modeling on condition-level AF3 summaries.
 - [substrate_activity_prediction_plan.yaml](substrate_activity_prediction_plan.yaml): exploratory substrate activity prediction across chitin, cellulose, and starch ligand contexts.
 - [cbm_full_length_vs_domain_only_analysis_plan.yaml](cbm_full_length_vs_domain_only_analysis_plan.yaml): paired full-length vs domain-only CBM analysis for proteins with both construct types.
@@ -111,7 +125,8 @@ lpmo-pipeline run \
   --mode production \
   --config configs/production.analysis_core.example.yaml \
   --output results/del_a \
-  --del del_a
+  --del del_a \
+  --n-jobs 4
 
 # Optional post-analysis tuning (comparative reruns)
 lpmo-pipeline tune \
@@ -170,11 +185,13 @@ Select which to run via `construct_type: "domain_only"` or `construct_type: "ful
 - `production.latest_only`: prefer the `latest` symlink under each target/model
 - `production.max_cases`: optional cap for smaller validation runs
 - `production.include_targets`: optional target whitelist such as `NAG4`, `STA4`, `STA6`
+- `production.n_jobs`: optional YAML fallback for parallel workers; the CLI `--n-jobs` value takes precedence.
 
 **Notes:**
 
 - The output directory is still controlled by the CLI `--output` argument, not the YAML file.
 - The DEL branch is still controlled by the CLI `--del` argument.
+- `--n-jobs` controls parallel workers for independent pose preparation, hard QC/Privateer dispatch, and ProLIF batch computation. Scaling is useful but not expected to be perfectly linear because process startup, container startup, filesystem I/O, and unequal per-pose runtime still contribute fixed overhead.
 - Production output must not contain `geometry_debug.pdb`; that file remains test-only.
 - Standalone crystal-anchoring harnesses may auto-select a best-ranked AF3 pose for test coverage; the production path still prefers the top-cluster medoid and only falls back to the first IFP-success pose if no medoid exists.
 - Shared external tool paths and default asset references are controlled separately through [configs/runtime_paths.yaml](configs/runtime_paths.yaml).
@@ -184,7 +201,8 @@ Select which to run via `construct_type: "domain_only"` or `construct_type: "ful
 - [configs/runtime_paths.yaml](configs/runtime_paths.yaml): shared runtime paths for external tools plus central references to bundled config/schema assets.
 - [configs/production.analysis_core.example.yaml](configs/production.analysis_core.example.yaml): current production run entry config for discovery scope and run selection.
 - [configs/defaults.yaml](configs/defaults.yaml): global defaults such as chain schema, confidence policy, atom-mapping defaults, and target-prefix substrate mapping.
-- [configs/thresholds.yaml](configs/thresholds.yaml): hard/soft QC thresholds, downstream geometry thresholds, convergence settings, and HDBSCAN settings.
+- [configs/thresholds.yaml](configs/thresholds.yaml): hard/soft QC thresholds, downstream geometry thresholds, convergence settings, and clustering inclusion settings.
+- [clustering_pilot_plan.yaml](clustering_pilot_plan.yaml): method-selection plan for contact eligibility, IFP feature audit, agglomerative/HDBSCAN comparison, bootstrap stability, and final clustering decision record.
 - [configs/geometry_rules.yaml](configs/geometry_rules.yaml): Cu/his-brace identification, virtual oxyl/H placement rules, and geometry output contracts.
 - [configs/prolif_features.yaml](configs/prolif_features.yaml): ProLIF interaction set, cutoffs, selections, feature naming, and residue-contact settings.
 - [configs/residue_rules.yaml](configs/residue_rules.yaml): residue/atom normalization rules, CCD mappings, and region tagging rules.
@@ -201,7 +219,7 @@ src/lpmo_pipeline/
   mapping/     – Cross-model atom mapping and renaming
   qc/          – PoseBusters, Privateer, Cu-geometry, QC report
                 and pre-QC active-site proximity gate
-  analysis/    – MDAnalysis metrics, ProLIF IFP, HDBSCAN clustering,
+  analysis/    – MDAnalysis metrics, ProLIF IFP, clustering pilot/HDBSCAN/agglomerative paths,
                  cluster signatures, crystal anchoring, CBM analysis,
                  activity mapping, predictive models
   tuning/      – Parameter grid, sweep runner, orchestrator, summary
@@ -219,7 +237,7 @@ scripts/       – Helper scripts (including R-based EC activity mapping)
 - **Chain convention**: protein=A, glycans=B-D, metal=E
 - **Cu-His distance**: 1.9–2.6 Å hard gate evaluated on selected coordinating nitrogens only (`His1:N`, `His1:ND1`, and one non-His1 histidine N; `His1:NE2` excluded)
 - **Cluster rows are primary** for main descriptive and predictive analyses
-- **HDBSCAN params fixed per analysis run** (no in-run p-hacking)
+- **Clustering method pending pilot decision**: `clustering_pilot_plan.yaml` compares agglomerative Jaccard and HDBSCAN on contact-eligible IFPs, then locks one global primary method and parameters before full analysis.
 
 ## Implementation Order
 

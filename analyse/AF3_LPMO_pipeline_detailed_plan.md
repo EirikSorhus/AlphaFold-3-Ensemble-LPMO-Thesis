@@ -1,8 +1,12 @@
 # AF3-LPMO Analysis Pipeline: Detailed Practical Plan
 
-Version: 1.0  
-Status: Recommended main-analysis design  
+Version: 1.1
+Status: Recommended main-analysis design; clustering method pending pilot decision
 Scope: AF3-only pipeline for LPMO–oligosaccharide complexes with pose-level QC, IFP-based clustering, geometry annotation, residue-level interpretation, and limited exploratory prediction.
+
+Clustering update: `clustering_pilot_plan.yaml` is now the governing plan for choosing the primary IFP clustering method before the full analysis run.
+
+Runtime update 2026-05-19: production execution now passes `n_jobs` into independent per-pose preparation, hard-QC/Privateer dispatch, and ProLIF batch work. Routine successful normalization keeps only `normalize_report.json`; atom-map/rename debug files are written only for unexpected mapping or validation failures. CIF loop remapping in normalization now rewrites each affected mmCIF loop once instead of once per tag, which removes the previous dominant `gemmi_compat.py` bottleneck. The full clustering pilot should be launched through the staged Slurm-array wrapper, which splits domain-only and full-length selections into independent protein-level shards and runs them across multiple jobs/nodes. The legacy single-job wrapper is retained only as a stable fallback.
 
 \---
 
@@ -32,6 +36,7 @@ This is not a strong-validation pipeline. It is a structured computational inter
   - Full-length: `/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work_full_length`
 * Main pose ensemble per protein–ligand condition: **15 seeds x 5 samples = 75 poses** (AF3 `num_diffusion_samples=5`, runs completed).
 * Main clustering input: **ProLIF binary IFP only**.
+* Primary clustering method: **not locked yet**. A stratified pilot compares agglomerative Jaccard clustering and HDBSCAN on contact-eligible IFPs; one global primary method and parameter set must be selected before full analysis.
 * Main descriptive unit: **cluster**.
 * Main biological repeated-measures unit: **protein**.
 * Main inferential caution: **poses and seeds are not independent biological replicates**.
@@ -43,6 +48,22 @@ This is not a strong-validation pipeline. It is a structured computational inter
 
 * Crystal comparison is a sanity-check, not a primary validation criterion.
 * Predictive modeling is exploratory and should remain small and simple.
+
+### 2.3 Current clustering decision state
+
+The pipeline previously treated HDBSCAN on binary IFPs as the recommended default. That is now superseded by `clustering_pilot_plan.yaml`.
+
+Current rule:
+
+* run the clustering pilot on a stratified subset before the full analysis
+* target 20-30 protein-ligand conditions across at least 5 proteins
+* include expected correct-ligand conditions, expected wrong/inactive-ligand conditions, substrate classes where available, DP4/DP8 at minimum, high/intermediate/low QC-pass-rate conditions, and CBM/full-length cases where available
+* compare agglomerative Jaccard clustering and HDBSCAN using the same contact-eligible IFP input
+* choose one global primary method for all conditions, not a separate method per condition
+* lock the primary method, parameters, contact-eligibility rule, and IFP feature set in a decision record before full analysis
+* if both formal clustering methods are unstable or most pilot conditions lack enough contact-eligible poses, fall back to coarse contact-profile reporting rather than overinterpreting binding-mode clusters
+
+Until the pilot result is reviewed, any text below that mentions cluster summaries should be read as conditional on a condition having sufficient clusterable signal.
 
 \---
 
@@ -376,11 +397,14 @@ A pose is excluded before IFP if any of the following applies:
 
 * severe PoseBusters fail
 * severe Privateer fail
-* ligand missing / broken / unparsable / long distance from Cu
+* ligand missing / broken / unparsable
 * Cu missing
 * protein–ligand structure cannot be parsed consistently
 * atom naming prevents residue or ligand mapping
+* ligand is far from the relevant binding region
 * structure file corrupt or incomplete
+
+Contact-poor poses are not automatically hard QC failures. Null IFP, van der Waals-only contact, and low-specific-contact cases are classified after IFP/contact eligibility so that condition-level summaries can distinguish structural failure from lack of binding-mode signal.
 
 ### 10.3 Soft QC flags
 
@@ -452,7 +476,7 @@ For each pose:
 * generate binary IFP over a fixed set of interaction types
 * preserve each monosaccharide as a separate ligand residue in the feature space
 
-Current validated default interaction types (matching `configs/prolif_features.yaml`):
+The broad audit interaction set, matching the current `configs/prolif_features.yaml` validation surface, includes:
 
 * Hbond donor
 * Hbond acceptor
@@ -464,13 +488,35 @@ Current validated default interaction types (matching `configs/prolif_features.y
 * pi-cation
 * van der Waals contact
 
-This broad default is useful for early validation and inspection, but avoid
-creating many fragile interaction classes that explode sparsity. The final set
-of interaction types to keep can be decided later after reviewing the real-data
-behavior. Keep the interaction set locked within one sub-analysis. If later
-sparsity review motivates pruning, do it as a config change before the full run
-and rerun the entire sub-analysis; do not mix feature spaces within the same
-batch.
+This broad set is retained for audit and descriptive tables. The pilot-defined
+main clustering feature set is narrower unless the feature audit justifies
+additional interaction types:
+
+* default include for main clustering: Hbond donor, Hbond acceptor, aromatic / stacking
+* conditional include: hydrophobic if it is residue- and ligand-unit-specific; cation-pi if it occurs in enough conditions to be informative
+* default exclude for main clustering: van der Waals / close-contact features
+
+Feature identity for clustering is:
+
+```text
+protein_residue_id + interaction_type + ligand_unit_id
+```
+
+The current flattened implementation represents the same concept as
+`ligand_residue|protein_residue|interaction`. The important invariant is that
+monosaccharide/ligand-unit identity is preserved. Clustering must not be based
+only on total contact counts.
+
+The pilot feature audit must compute prevalence by interaction type and by
+individual feature before model comparison. Extremely rare features are removed
+from the main clustering matrix only if both conditions hold:
+
+* pose prevalence < 0.01
+* feature is present in fewer than 2 pilot conditions
+
+Rare features remain in raw contact/IFP tables. Common polar or aromatic
+features are not removed just because they are common; they are removed only if
+they are uninformative for binding-mode separation.
 
 ### 11.4 Per-pose outputs
 
@@ -743,7 +789,8 @@ Purpose:
 
 Per condition:
 
-* all QC-passing poses with successful IFP generation
+* all hard-QC-passing poses with successful IFP generation
+* contact-eligible poses only for formal binding-mode clustering
 
 ### 14.2 AF3-only simplification
 
@@ -752,20 +799,119 @@ Because the main pipeline is AF3-only:
 * remove within-model vs cross-model clustering separation
 * perform **one clustering per protein–ligand condition**
 
-### 14.3 Clustering method
+### 14.3 Contact eligibility before formal clustering
 
-Recommended default:
+Contact eligibility is applied after IFP generation and decides which poses enter binding-mode clustering. It is not a replacement for hard QC.
 
-* HDBSCAN on binary IFP vectors
-* Jaccard distance
+Main rule for the pilot:
 
-Store parameters in config:
+* `min_non_vdw_interactions >= 2`
+* `min_non_vdw_contact_residues >= 1`
 
-* `min\_cluster\_size`
-* `min\_samples`
-* `distance\_metric`
+Sensitivity rules:
 
-### 14.4 Output fields
+* lenient: `min_non_vdw_interactions >= 1` and `min_non_vdw_contact_residues >= 1`
+* strict: `min_non_vdw_interactions >= 2` and `min_non_vdw_contact_residues >= 2`
+
+Excluded poses must still be reported in condition summaries with explicit labels:
+
+* `null_ifp`: no interactions
+* `vdw_only`: van der Waals / close contacts only
+* `low_specific_contact`: non-vdW signal below the contact-eligibility threshold
+
+Formal clustering is skipped when `n_contact_eligible < 10`; report the condition as `insufficient_clusterable_signal`. This protects against interpreting cluster counts and noise estimates as meaningful when the input set is too small.
+
+### 14.4 Clustering method pilot
+
+The primary clustering method is not selected yet. The pilot compares:
+
+**Agglomerative Jaccard**
+
+* metric: Jaccard distance on binary IFP vectors
+* main linkage: average
+* sensitivity linkage: complete
+* distance cutoffs: 0.35, 0.45, 0.55
+* minimum main cluster size: 3
+* smaller groups are labelled `low_support_cluster` for reporting rather than silently dropped
+
+**HDBSCAN Jaccard**
+
+* metric: precomputed Jaccard distance
+* `min_cluster_size`: 3 and 4
+* `min_samples`: 1 and 2
+* cluster selection method: `eom`
+* run only on contact-eligible poses
+
+Optional secondary check:
+
+* PAM / k-medoids may be used only as a medoid-stability check, not as the primary model-selection method.
+
+### 14.5 Pilot evaluation metrics
+
+Per condition, report at least:
+
+* `n_qc_pass`
+* `n_ifp_success`
+* `n_contact_eligible`
+* `contact_eligible_fraction`
+* `null_ifp_fraction`
+* `vdw_only_fraction`
+* `low_specific_contact_fraction`
+* `median_n_non_vdw_interactions`
+* `median_n_non_vdw_contact_residues`
+
+Per method and parameter set, report at least:
+
+* `n_clusters`
+* `top_cluster_occupancy`
+* `cluster_entropy`
+* `occupancy_gini`
+* `noise_fraction` for HDBSCAN
+* `low_support_pose_fraction` for agglomerative clustering
+* median within-cluster Jaccard distance
+* median between-cluster Jaccard distance
+* seed-mixing score
+* bootstrap stability metrics where available
+* post-hoc geometry annotation stability
+
+Seed-mixing flags clusters where one seed contributes > 70% of members. Geometry is evaluated only after clustering; if C1/C4/non-plausible annotations change strongly between clustering methods, the biological interpretation is method-sensitive.
+
+Bootstrap/subsampling stability is part of the pilot when `n_contact_eligible >= 10`:
+
+* 100 repeats
+* 80% subsampling
+* stable if bootstrap ARI >= 0.60, top-cluster occupancy SD <= 0.15, and cluster-count SD <= 1.0
+
+### 14.6 Method selection rule
+
+Select one global primary method for the full analysis. Do not choose agglomerative for some conditions and HDBSCAN for others.
+
+Prefer agglomerative Jaccard if:
+
+* >= 70% of pilot conditions have `n_contact_eligible >= 10`
+* top-cluster occupancy and cluster count are stable across cutoffs
+* bootstrap stability is acceptable in most pilot conditions
+* HDBSCAN gives similar dominant modes or no clear improvement
+
+Prefer HDBSCAN if:
+
+* substantial residual noise remains after contact eligibility filtering
+* dense clusters are stable across `min_cluster_size` / `min_samples`
+* bootstrap stability is better than agglomerative clustering
+* noise fraction is not extremely parameter-sensitive
+* agglomerative clustering produces many low-support or seed-specific clusters
+
+Prefer coarse contact-profile reporting if:
+
+* both formal methods are unstable
+* many pilot conditions have `n_contact_eligible < 10`
+* cluster assignments are strongly parameter-sensitive
+
+If agglomerative and HDBSCAN give the same qualitative picture, use agglomerative Jaccard as the default primary method and keep HDBSCAN as a sensitivity analysis because agglomerative clustering is simpler and more transparent for small per-condition pose sets.
+
+The selected method, parameters, retained/excluded interaction types, contact-eligibility rule, non-interpretable conditions, and required sensitivity analyses must be recorded in `clustering_method_decision.md` before the full analysis.
+
+### 14.7 Output fields
 
 `cluster\_assignments.tsv`:
 
@@ -773,12 +919,14 @@ Store parameters in config:
 * `condition\_id`
 * `cluster\_id`
 * `cluster\_member\_flag`
-* `noise\_flag`
+* `noise\_flag` for HDBSCAN outputs
+* `low_support_cluster_flag` for agglomerative outputs
+* `contact_eligibility_status`
 * `distance\_to\_cluster\_representative` if available
 
-### 14.5 Medoid selection
+### 14.8 Medoid selection
 
-For each non-noise cluster, choose one medoid pose in IFP space.
+For each retained cluster, choose one medoid pose in IFP space.
 
 Medoid uses:
 
@@ -789,11 +937,12 @@ Medoid uses:
 
 Medoid does **not** define cluster statistics by itself.
 
-### 14.6 Cluster inclusion rules
+### 14.9 Cluster inclusion rules
 
-Recommended main analysis cluster set:
+Recommended main analysis cluster set after method selection:
 
-* exclude HDBSCAN noise as its own category from cluster-based inference, but still report noise fraction
+* exclude HDBSCAN noise from cluster-based inference, but report noise fraction
+* exclude agglomerative low-support clusters from main cluster summaries, but report low-support fraction
 * retain clusters with at least a small minimum support, for example:
 
   * `cluster\_size >= 3`, or
@@ -804,7 +953,7 @@ Important:
 * this threshold must be fixed in advance
 * small clusters should still be retained in raw outputs even if excluded from main summaries
 
-### 14.7 Outputs after clustering
+### 14.10 Outputs after clustering
 
 #### `medoid\_manifest.tsv`
 
@@ -818,9 +967,14 @@ Important:
 Per condition:
 
 * `n\_qc\_pass\_poses`
+* `n\_ifp\_success`
+* `n\_contact\_eligible`
+* `contact_eligible_fraction`
 * `n\_ifp\_clustered`
-* `n\_noise`
-* `noise\_fraction`
+* `n\_noise` where applicable
+* `noise\_fraction` where applicable
+* `n_low_support` where applicable
+* `low_support_fraction` where applicable
 * `n\_clusters`
 * `top\_cluster\_occupancy`
 * `cluster\_entropy`
@@ -1062,7 +1216,9 @@ Required columns:
 * cluster metrics:
 
   * `n\_clusters`
-  * `noise\_fraction`
+  * `noise\_fraction` where applicable
+  * `low_support_fraction` where applicable
+  * `insufficient_clusterable_signal_flag`
   * `top\_cluster\_occupancy`
   * `cluster\_entropy`
   * `occupancy\_gini`
@@ -1503,4 +1659,3 @@ This pipeline should not support strong claims that:
 * high ipTM proves correct ligand pose
 * virtual oxyl geometry proves mechanism
 * pose count equals independent sample size
-

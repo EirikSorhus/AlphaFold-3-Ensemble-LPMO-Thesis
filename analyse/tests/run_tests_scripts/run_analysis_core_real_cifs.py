@@ -178,6 +178,13 @@ def main() -> int:
         cluster_assignments_path = production_output / "cluster_assignments.tsv"
         medoid_manifest_path = production_output / "medoid_manifest.tsv"
         condition_cluster_summary_path = production_output / "condition_cluster_summary.tsv"
+        cluster_ifp_signature_path = production_output / "cluster_ifp_signature.tsv"
+        cluster_residue_signature_path = production_output / "cluster_residue_signature.tsv"
+        cluster_signatures_json_path = production_output / "cluster_signatures.json"
+        protein_condition_residue_scores_path = production_output / "protein_condition_residue_scores.tsv"
+        protein_residue_regio_delta_path = production_output / "protein_residue_regio_delta.tsv"
+        condition_patch_summary_path = production_output / "condition_patch_summary.tsv"
+        protein_patch_summary_path = production_output / "protein_patch_summary.tsv"
         crystal_anchor_path = production_output / "crystal_anchor_table.tsv"
         metrics_csv_path = production_output / "metrics.csv"
         summary_json_path = production_output / "summary.json"
@@ -203,6 +210,13 @@ def main() -> int:
                 "cluster_assignments_tsv": str(cluster_assignments_path),
                 "medoid_manifest_tsv": str(medoid_manifest_path),
                 "condition_cluster_summary_tsv": str(condition_cluster_summary_path),
+                "cluster_ifp_signature_tsv": str(cluster_ifp_signature_path),
+                "cluster_residue_signature_tsv": str(cluster_residue_signature_path),
+                "cluster_signatures_json": str(cluster_signatures_json_path),
+                "protein_condition_residue_scores_tsv": str(protein_condition_residue_scores_path),
+                "protein_residue_regio_delta_tsv": str(protein_residue_regio_delta_path),
+                "condition_patch_summary_tsv": str(condition_patch_summary_path),
+                "protein_patch_summary_tsv": str(protein_patch_summary_path),
                 "crystal_anchor_tsv": str(crystal_anchor_path),
                 "metrics_csv": str(metrics_csv_path),
                 "summary_json": str(summary_json_path),
@@ -216,7 +230,14 @@ def main() -> int:
                 "pose_geometry_rows": _count_table_rows(pose_geometry_path),
                 "pose_ifp_rows": _count_table_rows(pose_ifp_table_path),
                 "cluster_assignment_rows": _count_table_rows(cluster_assignments_path),
+                "medoid_manifest_rows": _count_table_rows(medoid_manifest_path),
                 "condition_cluster_summary_rows": _count_table_rows(condition_cluster_summary_path),
+                "cluster_ifp_signature_rows": _count_table_rows(cluster_ifp_signature_path),
+                "cluster_residue_signature_rows": _count_table_rows(cluster_residue_signature_path),
+                "protein_condition_residue_scores_rows": _count_table_rows(protein_condition_residue_scores_path),
+                "protein_residue_regio_delta_rows": _count_table_rows(protein_residue_regio_delta_path),
+                "condition_patch_summary_rows": _count_table_rows(condition_patch_summary_path),
+                "protein_patch_summary_rows": _count_table_rows(protein_patch_summary_path),
                 "crystal_anchor_rows": _count_table_rows(crystal_anchor_path),
                 "metrics_rows": _count_table_rows(metrics_csv_path),
                 "debug_pdb_paths": debug_pdb_paths,
@@ -227,6 +248,8 @@ def main() -> int:
             summary["analysis_core_summary"] = json.loads(analysis_summary_path.read_text())
         if manifest_path.exists():
             summary["manifest"] = json.loads(manifest_path.read_text())
+        if cluster_signatures_json_path.exists():
+            summary["cluster_signatures"] = json.loads(cluster_signatures_json_path.read_text())
 
         summary_path = run_dir / "analysis_core_real_cifs_summary.json"
         summary_path.write_text(json.dumps(summary, indent=2))
@@ -256,12 +279,39 @@ def main() -> int:
                     cluster_assignments_path,
                     medoid_manifest_path,
                     condition_cluster_summary_path,
+                    cluster_ifp_signature_path,
+                    cluster_residue_signature_path,
+                    cluster_signatures_json_path,
+                    protein_condition_residue_scores_path,
+                    protein_residue_regio_delta_path,
+                    condition_patch_summary_path,
+                    protein_patch_summary_path,
                     metrics_csv_path,
                 ]
             )
         else:
             expected_paths.append(metrics_csv_path)
         if any(not path.exists() for path in expected_paths):
+            return 1
+        if summary.get("analysis_core_summary", {}).get("n_analyzed", 0) > 0:
+            if (
+                summary.get("manifest", {})
+                .get("gates_passed", {})
+                .get("cluster_annotation_stage_completed")
+                is not True
+            ):
+                return 1
+            if summary.get("analysis_core_summary", {}).get("cluster_annotation_stage_completed") is not True:
+                return 1
+        n_clusters = len(summary.get("cluster_signatures", {}).get("clusters", []))
+        if n_clusters > 0 and (
+            summary["cluster_ifp_signature_rows"] == 0
+            or summary["cluster_residue_signature_rows"] == 0
+            or summary["protein_condition_residue_scores_rows"] == 0
+            or summary["protein_residue_regio_delta_rows"] == 0
+            or summary["condition_patch_summary_rows"] == 0
+            or summary["protein_patch_summary_rows"] == 0
+        ):
             return 1
         return 0
     except Exception as exc:

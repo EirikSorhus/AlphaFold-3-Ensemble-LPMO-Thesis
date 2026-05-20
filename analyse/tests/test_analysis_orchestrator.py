@@ -4,12 +4,15 @@ import csv
 import json
 from pathlib import Path
 
+import numpy as np
+
 from lpmo_pipeline.analysis.analysis_orchestrator import (
     ProductionRunOptions,
     _discover_pose_inputs,
     load_production_options,
     run_analysis_core,
 )
+from lpmo_pipeline.analysis.clustering_hdbscan import ClusteringResult
 from lpmo_pipeline.analysis.crystal_anchoring import (
     CrystalReferencePoseComparison,
     CrystalReferenceScreenReport,
@@ -220,9 +223,13 @@ def test_run_analysis_core_writes_qc_geometry_and_reports(tmp_path, monkeypatch)
         *,
         run_posebusters: bool = True,
         run_privateer: bool = True,
+        max_workers: int | None = None,
+        collect_timing_events: bool = False,
     ):
         hard_qc_kwargs["run_posebusters"] = run_posebusters
         hard_qc_kwargs["run_privateer"] = run_privateer
+        hard_qc_kwargs["max_workers"] = max_workers
+        hard_qc_kwargs["collect_timing_events"] = collect_timing_events
         verdicts = []
         for pose in poses:
             if pose.pose_id.endswith("sample-0_model"):
@@ -276,8 +283,9 @@ def test_run_analysis_core_writes_qc_geometry_and_reports(tmp_path, monkeypatch)
         ligand_id: str = "",
         model: str = "",
         protein_chain: str = "A",
+        max_workers: int | None = None,
     ) -> IFPBatch:
-        del protein_chain
+        del protein_chain, max_workers
         results = []
         matrix = []
         for pose_entry in pose_data:
@@ -293,13 +301,13 @@ def test_run_analysis_core_writes_qc_geometry_and_reports(tmp_path, monkeypatch)
                         "NAG1.B|ASN10.A|HBDonor",
                         "NAG1.B|ASN10.A|HBAcceptor",
                     ],
-                    fingerprint=[[1, 0]],
-                    flat_bitvector=[1, 0],
-                    n_total_contacts=1,
-                    interaction_counts={"HBDonor": 1, "HBAcceptor": 0},
+                    fingerprint=[[1, 1]],
+                    flat_bitvector=[1, 1],
+                    n_total_contacts=2,
+                    interaction_counts={"HBDonor": 1, "HBAcceptor": 1},
                 )
             )
-            matrix.append([1, 0])
+            matrix.append([1, 1])
         return IFPBatch(
             protein_id=protein_id,
             ligand_id=ligand_id,
@@ -308,6 +316,36 @@ def test_run_analysis_core_writes_qc_geometry_and_reports(tmp_path, monkeypatch)
             matrix=matrix,
             feature_names=["NAG1.B|ASN10.A|HBDonor", "NAG1.B|ASN10.A|HBAcceptor"],
         )
+
+    class _FakeClusterer:
+        def __init__(self, output_dir: Path | None = None):
+            del output_dir
+            self.config = type(
+                "FakeClusterConfig",
+                (),
+                {
+                    "min_cluster_size": 1,
+                    "min_samples": None,
+                    "cluster_selection_method": "eom",
+                },
+            )()
+
+        def cluster(self, ifp_matrix, pose_ids):
+            del ifp_matrix, pose_ids
+            return ClusteringResult(
+                n_clusters=1,
+                n_outliers=0,
+                outlier_rate=0.0,
+                cluster_sizes={0: 1},
+                cluster_occupancy={0: 1.0},
+                outlier_indices=[],
+                cluster_labels=np.asarray([0], dtype=int),
+                medoids={0: 0},
+                medoid_distance_sums={0: 0.0},
+            )
+
+        def compute_jaccard_distances(self, ifp_matrix):
+            return np.zeros((len(ifp_matrix), len(ifp_matrix)), dtype=float)
 
     def _fake_compute_condition_convergence(pose_inputs, *, config=None):
         del pose_inputs, config
@@ -364,6 +402,10 @@ def test_run_analysis_core_writes_qc_geometry_and_reports(tmp_path, monkeypatch)
     monkeypatch.setattr(
         "lpmo_pipeline.analysis.analysis_orchestrator.compute_condition_convergence",
         _fake_compute_condition_convergence,
+    )
+    monkeypatch.setattr(
+        "lpmo_pipeline.analysis.analysis_orchestrator.HDBSCANClusterer",
+        _FakeClusterer,
     )
     monkeypatch.setattr(
         "lpmo_pipeline.analysis.analysis_orchestrator.validate",
@@ -431,7 +473,12 @@ def test_run_analysis_core_writes_qc_geometry_and_reports(tmp_path, monkeypatch)
     assert result.crystal_anchoring_stage_completed is True
     assert result.n_crystal_anchoring_conditions == 1
     assert result.n_crystal_anchoring_errors == 0
-    assert hard_qc_kwargs == {"run_posebusters": False, "run_privateer": False}
+    assert hard_qc_kwargs == {
+        "run_posebusters": False,
+        "run_privateer": False,
+        "max_workers": 1,
+        "collect_timing_events": False,
+    }
     assert geometry_calls == ["Q7SCE9_NAG4_seed-1_sample-0_model"]
 
     assert result.qc_report_path is not None and result.qc_report_path.exists()
@@ -447,6 +494,14 @@ def test_run_analysis_core_writes_qc_geometry_and_reports(tmp_path, monkeypatch)
     assert result.cluster_assignments_tsv_path is not None and result.cluster_assignments_tsv_path.exists()
     assert result.medoid_manifest_tsv_path is not None and result.medoid_manifest_tsv_path.exists()
     assert result.condition_cluster_summary_tsv_path is not None and result.condition_cluster_summary_tsv_path.exists()
+    assert result.cluster_ifp_signature_tsv_path is not None and result.cluster_ifp_signature_tsv_path.exists()
+    assert result.cluster_residue_signature_tsv_path is not None and result.cluster_residue_signature_tsv_path.exists()
+    assert result.cluster_signatures_json_path is not None and result.cluster_signatures_json_path.exists()
+    assert result.cluster_annotation_stage_completed is True
+    assert result.protein_condition_residue_scores_tsv_path is not None and result.protein_condition_residue_scores_tsv_path.exists()
+    assert result.protein_residue_regio_delta_tsv_path is not None and result.protein_residue_regio_delta_tsv_path.exists()
+    assert result.condition_patch_summary_tsv_path is not None and result.condition_patch_summary_tsv_path.exists()
+    assert result.protein_patch_summary_tsv_path is not None and result.protein_patch_summary_tsv_path.exists()
     assert result.crystal_anchor_tsv_path is not None and result.crystal_anchor_tsv_path.exists()
     assert result.metrics_csv_path is not None and result.metrics_csv_path.exists()
     assert result.summary_json_path is not None and result.summary_json_path.exists()
@@ -507,8 +562,8 @@ def test_run_analysis_core_writes_qc_geometry_and_reports(tmp_path, monkeypatch)
     assert metrics_rows[0]["pose_id"] == "Q7SCE9_NAG4_seed-1_sample-0_model"
     assert metrics_rows[0]["pocket_rmsd_vs_crystal"] == "1.5"
     assert metrics_rows[0]["ifp_similarity_crystal"] == "0.25"
-    assert metrics_rows[0]["n_ifp_contacts"] == "1"
-    assert metrics_rows[0]["cluster_id"] == "-1"
+    assert metrics_rows[0]["n_ifp_contacts"] == "2"
+    assert metrics_rows[0]["cluster_id"] == "0"
 
     pose_ifp_lines = result.pose_ifp_table_tsv_path.read_text().splitlines()
     assert len(pose_ifp_lines) == 2
@@ -553,11 +608,14 @@ def test_run_analysis_core_writes_qc_geometry_and_reports(tmp_path, monkeypatch)
 
     with open(result.cluster_assignments_tsv_path, newline="") as handle:
         cluster_rows = list(csv.DictReader(handle, delimiter="\t"))
-    assert cluster_rows == []
+    assert len(cluster_rows) == 1
+    assert cluster_rows[0]["pose_id"] == "Q7SCE9_NAG4_seed-1_sample-0_model"
+    assert cluster_rows[0]["cluster_id"] == "0"
 
     with open(result.medoid_manifest_tsv_path, newline="") as handle:
         medoid_rows = list(csv.DictReader(handle, delimiter="\t"))
-    assert medoid_rows == []
+    assert len(medoid_rows) == 1
+    assert medoid_rows[0]["medoid_pose_id"] == "Q7SCE9_NAG4_seed-1_sample-0_model"
 
     with open(result.condition_cluster_summary_tsv_path, newline="") as handle:
         condition_rows = list(csv.DictReader(handle, delimiter="\t"))
@@ -565,11 +623,120 @@ def test_run_analysis_core_writes_qc_geometry_and_reports(tmp_path, monkeypatch)
     assert condition_rows[0]["condition_id"] == "Q7SCE9__domain_only__chitin_DP4"
     assert condition_rows[0]["n_qc_pass_poses"] == "1"
     assert condition_rows[0]["n_ifp_success"] == "1"
-    assert condition_rows[0]["n_contact_eligible"] == "0"
-    assert condition_rows[0]["contact_eligible_fraction"] == "0.0"
-    assert condition_rows[0]["low_specific_contact_fraction"] == "1.0"
-    assert condition_rows[0]["n_ifp_clustered"] == "0"
+    assert condition_rows[0]["n_contact_eligible"] == "1"
+    assert condition_rows[0]["contact_eligible_fraction"] == "1.0"
+    assert condition_rows[0]["low_specific_contact_fraction"] == "0.0"
+    assert condition_rows[0]["n_ifp_clustered"] == "1"
     assert condition_rows[0]["n_noise"] == "0"
+
+    with open(result.cluster_ifp_signature_tsv_path, newline="") as handle:
+        cluster_ifp_rows = list(csv.DictReader(handle, delimiter="\t"))
+    assert len(cluster_ifp_rows) == 2
+    assert cluster_ifp_rows[0]["condition_id"] == "Q7SCE9__domain_only__chitin_DP4"
+    assert {row["feature_name"] for row in cluster_ifp_rows} == {
+        "NAG1.B|ASN10.A|HBDonor",
+        "NAG1.B|ASN10.A|HBAcceptor",
+    }
+
+    with open(result.cluster_residue_signature_tsv_path, newline="") as handle:
+        cluster_residue_rows = list(csv.DictReader(handle, delimiter="\t"))
+    assert len(cluster_residue_rows) == 1
+    assert cluster_residue_rows[0]["residue_chain"] == "A"
+    assert cluster_residue_rows[0]["residue_number"] == "10"
+    assert cluster_residue_rows[0]["interaction_type"] == "HBAcceptor,HBDonor"
+    assert cluster_residue_rows[0]["contact_frequency"] == "1.0"
+
+    with open(result.protein_condition_residue_scores_tsv_path, newline="") as handle:
+        protein_condition_residue_rows = list(csv.DictReader(handle, delimiter="\t"))
+    assert protein_condition_residue_rows == [
+        {
+            "protein_id": "Q7SCE9",
+            "condition_id": "Q7SCE9__domain_only__chitin_DP4",
+            "construct_type": "domain_only",
+            "substrate_class": "chitin",
+            "dp": "4",
+            "residue_chain": "A",
+            "residue_number": "10",
+            "residue_name": "ASN",
+            "residue_label": "ASN10.A",
+            "residue_contact_score": "1.0",
+            "c1_weighted_residue_score": "1.0",
+            "c4_weighted_residue_score": "1.0",
+            "c1_minus_c4_weighted_delta": "0.0",
+            "cluster_support_count": "1",
+            "total_cluster_occupancy_with_contact": "1.0",
+            "max_cluster_residue_frequency": "1.0",
+            "is_catalytic_surface_region": "False",
+            "is_cbm_region": "False",
+            "is_linker_region": "False",
+        }
+    ]
+
+    with open(result.protein_residue_regio_delta_tsv_path, newline="") as handle:
+        protein_regio_rows = list(csv.DictReader(handle, delimiter="\t"))
+    assert protein_regio_rows == [
+        {
+            "protein_id": "Q7SCE9",
+            "residue_chain": "A",
+            "residue_number": "10",
+            "residue_name": "ASN",
+            "residue_label": "ASN10.A",
+            "n_conditions_with_valid_clusters": "1",
+            "n_conditions_with_contact": "1",
+            "mean_c1_weighted_residue_score": "1.0",
+            "mean_c4_weighted_residue_score": "1.0",
+            "c1_minus_c4_weighted_delta": "0.0",
+            "is_catalytic_surface_region": "False",
+            "is_cbm_region": "False",
+            "is_linker_region": "False",
+        }
+    ]
+
+    with open(result.condition_patch_summary_tsv_path, newline="") as handle:
+        condition_patch_rows = list(csv.DictReader(handle, delimiter="\t"))
+    assert condition_patch_rows == [
+        {
+            "protein_id": "Q7SCE9",
+            "condition_id": "Q7SCE9__domain_only__chitin_DP4",
+            "construct_type": "domain_only",
+            "substrate_class": "chitin",
+            "dp": "4",
+            "any_valid_cluster": "True",
+            "n_clusters_considered": "1",
+            "total_nonnoise_cluster_occupancy": "1.0",
+            "weighted_contact_feature_mass": "2.0",
+            "aromatic_contact_fraction": "0.0",
+            "polar_contact_fraction": "1.0",
+            "charged_contact_fraction": "0.0",
+            "hydrophobic_contact_fraction": "0.0",
+            "hbond_contact_fraction": "1.0",
+            "catalytic_surface_contact_fraction": "0.0",
+            "cbm_contact_fraction": "0.0",
+            "linker_contact_fraction": "0.0",
+        }
+    ]
+
+    with open(result.protein_patch_summary_tsv_path, newline="") as handle:
+        protein_patch_rows = list(csv.DictReader(handle, delimiter="\t"))
+    assert protein_patch_rows == [
+        {
+            "protein_id": "Q7SCE9",
+            "n_conditions_total": "1",
+            "n_conditions_with_valid_clusters": "1",
+            "mean_aromatic_contact_fraction": "0.0",
+            "mean_polar_contact_fraction": "1.0",
+            "mean_charged_contact_fraction": "0.0",
+            "mean_hydrophobic_contact_fraction": "0.0",
+            "mean_hbond_contact_fraction": "1.0",
+            "mean_catalytic_surface_contact_fraction": "0.0",
+            "mean_cbm_contact_fraction": "0.0",
+            "mean_linker_contact_fraction": "0.0",
+        }
+    ]
+
+    cluster_signatures = json.loads(result.cluster_signatures_json_path.read_text())
+    assert cluster_signatures["clusters"][0]["cluster_id"] == 0
+    assert cluster_signatures["clusters"][0]["medoid_pose_id"] == "Q7SCE9_NAG4_seed-1_sample-0_model"
 
     with open(result.crystal_anchor_tsv_path, newline="") as handle:
         crystal_anchor_rows = list(csv.DictReader(handle, delimiter="\t"))
@@ -600,10 +767,18 @@ def test_run_analysis_core_writes_qc_geometry_and_reports(tmp_path, monkeypatch)
     assert analysis_summary["pose_residue_contact_tsv"].endswith("pose_residue_contact_table.tsv")
     assert analysis_summary["pose_convergence_tsv"].endswith("pose_convergence.tsv")
     assert analysis_summary["condition_convergence_summary_tsv"].endswith("condition_convergence_summary.tsv")
+    assert analysis_summary["cluster_ifp_signature_tsv"].endswith("cluster_ifp_signature.tsv")
+    assert analysis_summary["cluster_residue_signature_tsv"].endswith("cluster_residue_signature.tsv")
+    assert analysis_summary["cluster_signatures_json"].endswith("cluster_signatures.json")
+    assert analysis_summary["cluster_annotation_stage_completed"] is True
+    assert analysis_summary["protein_condition_residue_scores_tsv"].endswith("protein_condition_residue_scores.tsv")
+    assert analysis_summary["protein_residue_regio_delta_tsv"].endswith("protein_residue_regio_delta.tsv")
+    assert analysis_summary["condition_patch_summary_tsv"].endswith("condition_patch_summary.tsv")
+    assert analysis_summary["protein_patch_summary_tsv"].endswith("protein_patch_summary.tsv")
     assert analysis_summary["clustering_pilot"]["label"] == "test-pilot"
-    assert analysis_summary["clustering_pilot"]["selected_main_feature_count"] == 0
+    assert analysis_summary["clustering_pilot"]["selected_main_feature_count"] == 2
     assert analysis_summary["clustering_pilot"]["n_conditions"] == 1
-    assert analysis_summary["clustering_pilot"]["n_conditions_with_contact_eligible_signal"] == 0
+    assert analysis_summary["clustering_pilot"]["n_conditions_with_contact_eligible_signal"] == 1
     assert analysis_summary["clustering_pilot"]["n_conditions_formal_clustering_allowed"] == 0
     assert analysis_summary["clustering_pilot"]["n_conditions_insufficient_clusterable_signal"] == 1
     assert Path(analysis_summary["clustering_pilot"]["pilot_ifp_interaction_type_prevalence_tsv"]).exists()
@@ -647,6 +822,6 @@ def test_run_analysis_core_writes_qc_geometry_and_reports(tmp_path, monkeypatch)
     assert analyzed_case["crystal_anchoring_report_path"].endswith("crystal_reference_screen.json")
     assert analyzed_case["crystal_anchoring_best_tanimoto"] == 0.25
     assert analyzed_case["crystal_anchoring_best_pocket_rmsd"] == 1.5
-    assert analyzed_case["contact_eligible"] is False
-    assert analyzed_case["contact_exclusion_class"] == "low_specific_contact"
-    assert analyzed_case["n_non_vdw_interactions"] == 1
+    assert analyzed_case["contact_eligible"] is True
+    assert analyzed_case["contact_exclusion_class"] is None
+    assert analyzed_case["n_non_vdw_interactions"] == 2

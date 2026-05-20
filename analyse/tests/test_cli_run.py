@@ -15,10 +15,16 @@ def test_cmd_run_calls_analysis_core_and_writes_manifest(tmp_path, monkeypatch) 
 
     called = {}
 
-    def _fake_run_analysis_core(config, output_dir: Path, del_variant: str) -> AnalysisCoreResult:
+    def _fake_run_analysis_core(
+        config,
+        output_dir: Path,
+        del_variant: str,
+        n_jobs: int | None = None,
+    ) -> AnalysisCoreResult:
         called["config"] = config
         called["output_dir"] = output_dir
         called["del_variant"] = del_variant
+        called["n_jobs"] = n_jobs
         output_dir.mkdir(parents=True, exist_ok=True)
 
         qc_report = output_dir / "qc_report.json"
@@ -31,6 +37,9 @@ def test_cmd_run_calls_analysis_core_and_writes_manifest(tmp_path, monkeypatch) 
         cluster_assignments = output_dir / "cluster_assignments.tsv"
         medoid_manifest = output_dir / "medoid_manifest.tsv"
         condition_cluster_summary = output_dir / "condition_cluster_summary.tsv"
+        cluster_ifp_signature = output_dir / "cluster_ifp_signature.tsv"
+        cluster_residue_signature = output_dir / "cluster_residue_signature.tsv"
+        cluster_signatures_json = output_dir / "cluster_signatures.json"
         crystal_anchor = output_dir / "crystal_anchor_table.tsv"
         metrics_csv = output_dir / "metrics.csv"
         summary_json = output_dir / "summary.json"
@@ -47,6 +56,9 @@ def test_cmd_run_calls_analysis_core_and_writes_manifest(tmp_path, monkeypatch) 
             cluster_assignments,
             medoid_manifest,
             condition_cluster_summary,
+            cluster_ifp_signature,
+            cluster_residue_signature,
+            cluster_signatures_json,
             crystal_anchor,
             metrics_csv,
             summary_json,
@@ -69,6 +81,10 @@ def test_cmd_run_calls_analysis_core_and_writes_manifest(tmp_path, monkeypatch) 
             cluster_assignments_tsv_path=cluster_assignments,
             medoid_manifest_tsv_path=medoid_manifest,
             condition_cluster_summary_tsv_path=condition_cluster_summary,
+            cluster_ifp_signature_tsv_path=cluster_ifp_signature,
+            cluster_residue_signature_tsv_path=cluster_residue_signature,
+            cluster_signatures_json_path=cluster_signatures_json,
+            cluster_annotation_stage_completed=True,
             crystal_anchor_tsv_path=crystal_anchor,
             metrics_csv_path=metrics_csv,
             summary_json_path=summary_json,
@@ -89,7 +105,7 @@ def test_cmd_run_calls_analysis_core_and_writes_manifest(tmp_path, monkeypatch) 
         config=config_path,
         output=output_dir,
         del_branch="del_a",
-        n_jobs=1,
+        n_jobs=3,
     )
 
     exit_code = cmd_run(args)
@@ -97,6 +113,7 @@ def test_cmd_run_calls_analysis_core_and_writes_manifest(tmp_path, monkeypatch) 
     assert exit_code == 0
     assert called["del_variant"] == "del_a"
     assert called["output_dir"] == output_dir
+    assert called["n_jobs"] == 3
     manifest = json.loads((output_dir / "run_manifest.json").read_text())
     assert manifest["gates_passed"]["production_pipeline_started"] is True
     assert manifest["gates_passed"]["analysis_core_completed"] is True
@@ -104,4 +121,5 @@ def test_cmd_run_calls_analysis_core_and_writes_manifest(tmp_path, monkeypatch) 
     assert manifest["gates_passed"]["geometry_stage_completed"] is True
     assert manifest["gates_passed"]["ifp_stage_completed"] is True
     assert manifest["gates_passed"]["clustering_stage_completed"] is True
+    assert manifest["gates_passed"]["cluster_annotation_stage_completed"] is True
     assert manifest["gates_passed"]["crystal_anchoring_stage_completed"] is True

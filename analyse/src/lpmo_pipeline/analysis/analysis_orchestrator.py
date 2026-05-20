@@ -11,6 +11,8 @@ import logging
 import re
 import traceback
 import csv
+from time import perf_counter
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -71,6 +73,13 @@ from lpmo_pipeline.analysis.residue_contact_extraction import (
     build_pose_residue_contact_rows,
     write_pose_residue_contact_table,
 )
+from lpmo_pipeline.analysis.residue_importance import (
+    compute_residue_importance_outputs,
+    write_condition_patch_summary,
+    write_protein_condition_residue_scores,
+    write_protein_patch_summary,
+    write_protein_residue_regio_delta,
+)
 from lpmo_pipeline.analysis.crystal_anchoring import (
     run_crystal_reference_screen,
     write_crystal_reference_screen_report,
@@ -126,6 +135,8 @@ class ProductionRunOptions:
     run_posebusters: bool = True
     run_privateer: bool = True
     clustering_pilot: "ClusteringPilotOptions | None" = None
+    n_jobs: int = 1
+    collect_timing_events: bool = False
 
 
 @dataclass(frozen=True)
@@ -199,6 +210,10 @@ class AnalysisCoreResult:
     cluster_residue_signature_tsv_path: Path | None = None
     cluster_signatures_json_path: Path | None = None
     cluster_annotation_stage_completed: bool = False
+    protein_condition_residue_scores_tsv_path: Path | None = None
+    protein_residue_regio_delta_tsv_path: Path | None = None
+    condition_patch_summary_tsv_path: Path | None = None
+    protein_patch_summary_tsv_path: Path | None = None
     crystal_anchor_tsv_path: Path | None = None
     n_cluster_conditions: int = 0
     crystal_anchoring_stage_completed: bool = False
@@ -342,6 +357,7 @@ def load_production_options(
     config: dict[str, Any],
     output_dir: Path,
     del_variant: str,
+    n_jobs: int | None = None,
 ) -> ProductionRunOptions:
     production = config.get("production") or {}
     construct_type = str(production.get("construct_type") or "domain_only")
@@ -365,6 +381,7 @@ def load_production_options(
     include_proteins = tuple(str(value) for value in production.get("include_proteins", ()))
     run_posebusters = bool(production.get("run_posebusters", True))
     run_privateer = bool(production.get("run_privateer", True))
+    production_n_jobs = int(production.get("n_jobs", 1) or 1)
     clustering_pilot_config = production.get("clustering_pilot") or {}
     clustering_pilot: ClusteringPilotOptions | None = None
     if bool(clustering_pilot_config.get("enabled", False)):
@@ -431,6 +448,8 @@ def load_production_options(
         run_posebusters=run_posebusters,
         run_privateer=run_privateer,
         clustering_pilot=clustering_pilot,
+        n_jobs=max(1, int(n_jobs if n_jobs is not None else production_n_jobs)),
+        collect_timing_events=bool(production.get("collect_timing_events", False)),
     )
 
 
@@ -935,6 +954,101 @@ def _prepare_pose_case(
         return case, None
 
 
+def _prepare_pose_case_worker(args: tuple[int, PoseInputRecord, Path]) -> tuple[int, dict[str, Any], dict[str, str] | None]:
+    index, pose, output_dir = args
+    case, prepared = _prepare_pose_case(pose, index=index, output_dir=output_dir)
+    if prepared is None:
+        return index, case, None
+    return (
+        index,
+        case,
+        {
+            "case_dir": str(prepared.case_dir),
+            "normalized_cif": str(prepared.normalized_cif),
+            "posebusters_pdb": str(prepared.posebusters_pdb),
+            "privateer_input_cif": str(prepared.privateer_input_cif),
+        },
+    )
+
+
+def _rebuild_prepared_pose(
+    pose: PoseInputRecord,
+    payload: dict[str, str],
+) -> PreparedPose:
+    normalized_cif = Path(payload["normalized_cif"]).resolve()
+    return PreparedPose(
+        pose=pose,
+        case_dir=Path(payload["case_dir"]).resolve(),
+        normalized_cif=normalized_cif,
+        posebusters_pdb=Path(payload["posebusters_pdb"]).resolve(),
+        privateer_input_cif=Path(payload["privateer_input_cif"]).resolve(),
+        structure=gemmi.read_structure(str(normalized_cif)),
+    )
+
+
+def _prepare_pose_cases(
+    pose_inputs: list[PoseInputRecord],
+    *,
+    output_dir: Path,
+    n_jobs: int,
+) -> tuple[list[dict[str, Any]], list[PreparedPose]]:
+    if n_jobs <= 1 or len(pose_inputs) <= 1:
+        cases: list[dict[str, Any]] = []
+        prepared_poses: list[PreparedPose] = []
+        for index, pose in enumerate(pose_inputs, start=1):
+            case, prepared_pose = _prepare_pose_case(pose, index=index, output_dir=output_dir)
+            cases.append(case)
+            if prepared_pose is not None:
+                prepared_poses.append(prepared_pose)
+        return cases, prepared_poses
+
+    indexed_poses = list(enumerate(pose_inputs, start=1))
+    cases_by_index: dict[int, dict[str, Any]] = {}
+    prepared_payloads_by_index: dict[int, dict[str, str]] = {}
+    max_workers = min(max(1, n_jobs), len(indexed_poses))
+
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(_prepare_pose_case_worker, (index, pose, output_dir)): (index, pose)
+            for index, pose in indexed_poses
+        }
+        for future in as_completed(futures):
+            index, pose = futures[future]
+            try:
+                result_index, case, prepared_payload = future.result()
+            except Exception as exc:
+                case_dir = output_dir / "cases" / f"{index:04d}_{_slug(pose.pose_id)}"
+                case = {
+                    "index": index,
+                    "pose_id": pose.pose_id,
+                    "protein_id": pose.protein_id,
+                    "ligand_id": pose.ligand_id,
+                    "model": pose.model,
+                    "source_run_id": pose.source_run_id,
+                    "discovered_run_id": pose.discovered_run_id,
+                    "seed": pose.seed,
+                    "sample": pose.sample,
+                    "cif_path": str(pose.cif_path),
+                    "case_dir": str(case_dir),
+                    "status": "prep_error",
+                    "error": f"{exc.__class__.__name__}: {exc}",
+                    "traceback": traceback.format_exc(),
+                }
+                result_index = index
+                prepared_payload = None
+            cases_by_index[result_index] = case
+            if prepared_payload is not None:
+                prepared_payloads_by_index[result_index] = prepared_payload
+
+    cases = [cases_by_index[index] for index, _pose in indexed_poses]
+    prepared_poses = [
+        _rebuild_prepared_pose(pose, prepared_payloads_by_index[index])
+        for index, pose in indexed_poses
+        if index in prepared_payloads_by_index
+    ]
+    return cases, prepared_poses
+
+
 def _hard_qc_input(prepared_pose: PreparedPose) -> HardQCInput:
     return HardQCInput(
         pose_id=prepared_pose.pose.pose_id,
@@ -1248,11 +1362,45 @@ def run_analysis_core(
     config: dict[str, Any],
     output_dir: Path,
     del_variant: str,
+    n_jobs: int | None = None,
 ) -> AnalysisCoreResult:
-    options = load_production_options(config, output_dir, del_variant)
+    run_start = perf_counter()
+    timing_events: list[dict[str, Any]] = []
+
+    def _record_timing(
+        *,
+        step: str,
+        start: float,
+        pose_id: str = "",
+        condition_id: str = "",
+        status: str = "ok",
+        detail: str = "",
+    ) -> None:
+        if not options.collect_timing_events:
+            return
+        timing_events.append(
+            {
+                "step": step,
+                "pose_id": pose_id,
+                "condition_id": condition_id,
+                "worker_count": options.n_jobs,
+                "wall_time_s": round(perf_counter() - start, 6),
+                "status": status,
+                "detail": detail,
+            }
+        )
+
+    options = load_production_options(config, output_dir, del_variant, n_jobs=n_jobs)
     options.output_dir.mkdir(parents=True, exist_ok=True)
 
+    discovery_start = perf_counter()
     discovery_errors, pose_inputs, discovery_summary = _discover_pose_inputs(options)
+    _record_timing(
+        step="analysis.discovery",
+        start=discovery_start,
+        status="ok" if not discovery_errors else "error",
+        detail=f"n_discovered={len(pose_inputs)};n_errors={len(discovery_errors)}",
+    )
     analysis_summary: dict[str, Any] = {
         "run_id": options.run_id,
         "output_dir": str(options.output_dir),
@@ -1265,6 +1413,8 @@ def run_analysis_core(
         "include_proteins": list(options.include_proteins),
         "run_posebusters": options.run_posebusters,
         "run_privateer": options.run_privateer,
+        "n_jobs": options.n_jobs,
+        "collect_timing_events": options.collect_timing_events,
         "discovery_summary": discovery_summary,
         "discovery_errors": discovery_errors,
         "n_discovered": len(pose_inputs),
@@ -1277,14 +1427,22 @@ def run_analysis_core(
             "output_dirname": options.clustering_pilot.output_dirname,
         }
 
-    prepared_poses: list[PreparedPose] = []
-    case_by_pose_id: dict[str, dict[str, Any]] = {}
-    for index, pose in enumerate(pose_inputs, start=1):
-        case, prepared_pose = _prepare_pose_case(pose, index=index, output_dir=options.output_dir)
-        analysis_summary["cases"].append(case)
-        case_by_pose_id[pose.pose_id] = case
-        if prepared_pose is not None:
-            prepared_poses.append(prepared_pose)
+    prepare_start = perf_counter()
+    cases, prepared_poses = _prepare_pose_cases(
+        pose_inputs,
+        output_dir=options.output_dir,
+        n_jobs=options.n_jobs,
+    )
+    _record_timing(
+        step="analysis.prepare_cases",
+        start=prepare_start,
+        status="ok" if prepared_poses else "error",
+        detail=f"n_inputs={len(pose_inputs)};n_prepared={len(prepared_poses)}",
+    )
+    analysis_summary["cases"].extend(cases)
+    case_by_pose_id: dict[str, dict[str, Any]] = {
+        str(case["pose_id"]): case for case in cases
+    }
 
     prepared_pose_by_id = {
         prepared_pose.pose.pose_id: prepared_pose
@@ -1314,6 +1472,10 @@ def run_analysis_core(
     cluster_residue_signature_tsv_path: Path | None = None
     cluster_signatures_json_path: Path | None = None
     cluster_annotation_stage_completed = False
+    protein_condition_residue_scores_tsv_path: Path | None = None
+    protein_residue_regio_delta_tsv_path: Path | None = None
+    condition_patch_summary_tsv_path: Path | None = None
+    protein_patch_summary_tsv_path: Path | None = None
     crystal_anchor_tsv_path: Path | None = None
     metrics_csv_path: Path | None = None
     summary_json_path: Path | None = None
@@ -1326,12 +1488,29 @@ def run_analysis_core(
 
     if prepared_poses:
         qc_report_path = options.output_dir / "qc_report.json"
+        hard_qc_start = perf_counter()
         report = run_hard_qc(
             [_hard_qc_input(prepared_pose) for prepared_pose in prepared_poses],
             run_id=options.run_id,
             run_posebusters=options.run_posebusters,
             run_privateer=options.run_privateer,
+            max_workers=options.n_jobs,
+            collect_timing_events=options.collect_timing_events,
         )
+        _record_timing(
+            step="analysis.hard_qc",
+            start=hard_qc_start,
+            status="ok",
+            detail=f"n_poses={len(prepared_poses)}",
+        )
+        if options.collect_timing_events:
+            timing_events.extend(
+                {
+                    **event,
+                    "worker_count": event.get("worker_count", options.n_jobs),
+                }
+                for event in report.timing_events
+            )
         write_qc_report(report, qc_report_path)
 
         qc_report_payload = json.loads(qc_report_path.read_text())
@@ -1355,6 +1534,7 @@ def run_analysis_core(
         summary_geometry_rows: list[dict[str, Any]] = []
         metrics_record_by_pose_id: dict[str, dict[str, Any]] = {}
         all_ifp_results: list[IFPResult] = []
+        residue_contact_rows: list[dict[str, Any]] = []
         contact_eligibility_by_condition: dict[str, list[ContactEligibility]] = {}
         ifp_pose_inputs_by_condition: dict[str, list[dict[str, Any]]] = {}
         n_qc_pass_by_condition: dict[str, int] = {}
@@ -1376,6 +1556,7 @@ def run_analysis_core(
             metrics: PoseGeometryMetrics | None = None
             if verdict.get("status") != "dropped":
                 n_qc_pass_by_condition[condition_id] = n_qc_pass_by_condition.get(condition_id, 0) + 1
+                geometry_start = perf_counter()
                 try:
                     metrics = compute_pose_metrics_from_structure(
                         structure=prepared_pose.structure,
@@ -1389,15 +1570,39 @@ def run_analysis_core(
                     case["analysis_status"] = "analyzed"
                     case["geometry_row"] = geometry_row
                     n_analyzed += 1
+                    _record_timing(
+                        step="analysis.geometry_metrics",
+                        start=geometry_start,
+                        pose_id=pose.pose_id,
+                        condition_id=condition_id,
+                        status="ok",
+                    )
                 except Exception as exc:
                     case["analysis_status"] = "analysis_error"
                     case["analysis_error"] = f"{exc.__class__.__name__}: {exc}"
                     case["analysis_traceback"] = traceback.format_exc()
+                    _record_timing(
+                        step="analysis.geometry_metrics",
+                        start=geometry_start,
+                        pose_id=pose.pose_id,
+                        condition_id=condition_id,
+                        status="error",
+                        detail=f"{exc.__class__.__name__}: {exc}",
+                    )
 
                 protonation_dir = prepared_pose.case_dir / "protonated"
+                protonation_start = perf_counter()
                 protonate_ok, protonation_report = protonate_and_export(
                     prepared_pose.normalized_cif,
                     protonation_dir,
+                )
+                _record_timing(
+                    step="analysis.protonation_export",
+                    start=protonation_start,
+                    pose_id=pose.pose_id,
+                    condition_id=condition_id,
+                    status="ok" if protonate_ok else "failed",
+                    detail=";".join((protonation_report or {}).get("blockers", []) or []),
                 )
                 case["protonate_ok"] = bool(protonate_ok)
                 case["protonation_report_path"] = str(protonation_dir / "protonation_report.json")
@@ -1428,6 +1633,29 @@ def run_analysis_core(
                     case["ifp_error"] = failed_ifp.error
             else:
                 case["analysis_status"] = "skipped_dropped"
+                if options.collect_timing_events:
+                    timing_events.append(
+                        {
+                            "step": "analysis.geometry_metrics",
+                            "pose_id": pose.pose_id,
+                            "condition_id": condition_id,
+                            "worker_count": options.n_jobs,
+                            "wall_time_s": 0.0,
+                            "status": "skipped",
+                            "detail": "qc_dropped",
+                        }
+                    )
+                    timing_events.append(
+                        {
+                            "step": "analysis.protonation_export",
+                            "pose_id": pose.pose_id,
+                            "condition_id": condition_id,
+                            "worker_count": options.n_jobs,
+                            "wall_time_s": 0.0,
+                            "status": "skipped",
+                            "detail": "qc_dropped",
+                        }
+                    )
 
             summary_geometry_rows.append(_summary_geometry_row(pose, metrics))
             substrate_type, dp = _parse_target_metadata(pose.ligand_id)
@@ -1465,6 +1693,7 @@ def run_analysis_core(
             condition_pose_inputs = ifp_pose_inputs_by_condition.get(condition_id, [])
             clustering_result = _empty_clustering_result()
             if condition_pose_inputs:
+                convergence_start = perf_counter()
                 convergence_metrics, convergence_summary = compute_condition_convergence(
                     [
                         ConvergencePoseInput(
@@ -1477,6 +1706,13 @@ def run_analysis_core(
                         for entry in condition_pose_inputs
                     ]
                 )
+                _record_timing(
+                    step="analysis.convergence",
+                    start=convergence_start,
+                    condition_id=condition_id,
+                    status="ok",
+                    detail=f"n_poses={len(condition_pose_inputs)}",
+                )
                 pose_convergence_metrics.extend(convergence_metrics)
                 condition_convergence_summaries.append(convergence_summary)
                 for metric in convergence_metrics:
@@ -1485,6 +1721,7 @@ def run_analysis_core(
                     case_by_pose_id[metric.pose_id]["convergence_reference_pose_id"] = metric.reference_pose_id
 
                 first_input = condition_pose_inputs[0]
+                ifp_start = perf_counter()
                 batch = compute_ifp_batch(
                     [
                         {
@@ -1497,6 +1734,14 @@ def run_analysis_core(
                     protein_id=str(first_input["protein_id"]),
                     ligand_id=str(first_input["ligand_id"]),
                     model=str(first_input["model"]),
+                    max_workers=options.n_jobs,
+                )
+                _record_timing(
+                    step="analysis.prolif_ifp_batch",
+                    start=ifp_start,
+                    condition_id=condition_id,
+                    status="ok",
+                    detail=f"n_poses={len(condition_pose_inputs)}",
                 )
                 all_ifp_results.extend(batch.results)
 
@@ -1551,6 +1796,7 @@ def run_analysis_core(
                         )
                     )
                 if clusterable_indices:
+                    clustering_start = perf_counter()
                     cluster_matrix = np.asarray([batch.matrix[index] for index in clusterable_indices], dtype=np.uint8)
                     cluster_pose_ids = [batch.results[index].pose_id for index in clusterable_indices]
                     clustering_result = clusterer.cluster(cluster_matrix, cluster_pose_ids)
@@ -1579,6 +1825,26 @@ def run_analysis_core(
                     for pose_id, label in zip(cluster_pose_ids, clustering_result.cluster_labels, strict=True):
                         metrics_record_by_pose_id[pose_id]["cluster_id"] = int(label)
                         case_by_pose_id[pose_id]["cluster_id"] = int(label)
+                    _record_timing(
+                        step="analysis.production_clustering",
+                        start=clustering_start,
+                        condition_id=condition_id,
+                        status="ok",
+                        detail=f"n_clusterable={len(clusterable_indices)}",
+                    )
+                else:
+                    if options.collect_timing_events:
+                        timing_events.append(
+                            {
+                                "step": "analysis.production_clustering",
+                                "pose_id": "",
+                                "condition_id": condition_id,
+                                "worker_count": options.n_jobs,
+                                "wall_time_s": 0.0,
+                                "status": "skipped",
+                                "detail": "no_clusterable_poses",
+                            }
+                        )
 
                 representative_pose_id = _choose_crystal_representative_pose_id(
                     batch,
@@ -1590,12 +1856,21 @@ def run_analysis_core(
                     crystal_output_dir = options.output_dir / "crystal_anchoring" / _slug(condition_id)
                     crystal_report_path = crystal_output_dir / "crystal_reference_screen.json"
                     try:
+                        crystal_start = perf_counter()
                         crystal_report = run_crystal_reference_screen(
                             representative_pose.pose.cif_path,
                             protein_id=representative_pose.pose.protein_id,
                             ligand_id=representative_pose.pose.ligand_id,
                             representative_pose_id=representative_pose.pose.pose_id,
                             output_dir=crystal_output_dir,
+                        )
+                        _record_timing(
+                            step="analysis.crystal_anchoring",
+                            start=crystal_start,
+                            pose_id=representative_pose.pose.pose_id,
+                            condition_id=condition_id,
+                            status="ok",
+                            detail=f"n_comparisons={len(crystal_report.comparisons)}",
                         )
                         write_crystal_reference_screen_report(crystal_report, crystal_report_path)
                         best_tanimoto = max(
@@ -1663,6 +1938,15 @@ def run_analysis_core(
                                 }
                             )
                     except Exception as exc:
+                        if "crystal_start" in locals():
+                            _record_timing(
+                                step="analysis.crystal_anchoring",
+                                start=crystal_start,
+                                pose_id=representative_pose.pose.pose_id,
+                                condition_id=condition_id,
+                                status="error",
+                                detail=f"{exc.__class__.__name__}: {exc}",
+                            )
                         error_entry = {
                             "condition_id": condition_id,
                             "protein_id": representative_pose.pose.protein_id,
@@ -1714,12 +1998,19 @@ def run_analysis_core(
             )
 
         if options.clustering_pilot is not None and pilot_conditions:
+            pilot_outputs_start = perf_counter()
             analysis_summary["clustering_pilot"].update(
                 _write_clustering_pilot_outputs(
                     options.clustering_pilot,
                     options.output_dir,
                     pilot_conditions,
                 )
+            )
+            _record_timing(
+                step="analysis.clustering_pilot_outputs",
+                start=pilot_outputs_start,
+                status="ok",
+                detail=f"n_conditions={len(pilot_conditions)}",
             )
 
         if all_ifp_results:
@@ -1820,6 +2111,7 @@ def run_analysis_core(
                 }
                 for prepared_pose in prepared_poses
             }
+            cluster_annotation_start = perf_counter()
             cluster_signature_tables = build_cluster_signature_tables(
                 cluster_assignment_rows=cluster_assignment_rows,
                 medoid_rows=medoid_rows,
@@ -1847,6 +2139,67 @@ def run_analysis_core(
                 cluster_signatures_json_path,
             )
             cluster_annotation_stage_completed = True
+            _record_timing(
+                step="analysis.cluster_annotation",
+                start=cluster_annotation_start,
+                status="ok",
+                detail=f"n_cluster_summaries={len(cluster_signature_tables.cluster_summaries)}",
+            )
+
+            condition_metadata_by_id: dict[str, dict[str, Any]] = {}
+            for prepared_pose in prepared_poses:
+                pose_id = prepared_pose.pose.pose_id
+                case = case_by_pose_id.get(pose_id, {})
+                condition_id = str(case.get("condition_id", ""))
+                if not condition_id or condition_id in condition_metadata_by_id:
+                    continue
+                substrate_class, dp = _parse_target_metadata(prepared_pose.pose.ligand_id)
+                condition_metadata_by_id[condition_id] = {
+                    "protein_id": prepared_pose.pose.protein_id,
+                    "construct_type": options.construct_type,
+                    "substrate_class": str(case.get("substrate_class", "")) or substrate_class,
+                    "dp": dp,
+                }
+
+            residue_importance_start = perf_counter()
+            residue_importance_outputs = compute_residue_importance_outputs(
+                cluster_signature_tables.residue_signature_rows,
+                cluster_signature_tables.cluster_summaries,
+                cluster_ifp_signature_rows=cluster_signature_tables.ifp_signature_rows,
+                observed_residue_contact_rows=residue_contact_rows,
+                condition_metadata_by_id=condition_metadata_by_id,
+            )
+            protein_condition_residue_scores_tsv_path = (
+                options.output_dir / "protein_condition_residue_scores.tsv"
+            )
+            write_protein_condition_residue_scores(
+                residue_importance_outputs.protein_condition_residue_scores,
+                protein_condition_residue_scores_tsv_path,
+            )
+            protein_residue_regio_delta_tsv_path = options.output_dir / "protein_residue_regio_delta.tsv"
+            write_protein_residue_regio_delta(
+                residue_importance_outputs.protein_residue_regio_delta,
+                protein_residue_regio_delta_tsv_path,
+            )
+            condition_patch_summary_tsv_path = options.output_dir / "condition_patch_summary.tsv"
+            write_condition_patch_summary(
+                residue_importance_outputs.condition_patch_summary,
+                condition_patch_summary_tsv_path,
+            )
+            protein_patch_summary_tsv_path = options.output_dir / "protein_patch_summary.tsv"
+            write_protein_patch_summary(
+                residue_importance_outputs.protein_patch_summary,
+                protein_patch_summary_tsv_path,
+            )
+            _record_timing(
+                step="analysis.residue_importance",
+                start=residue_importance_start,
+                status="ok",
+                detail=(
+                    "n_residue_rows="
+                    f"{len(residue_importance_outputs.protein_condition_residue_scores)}"
+                ),
+            )
 
         n_crystal_anchoring_conditions = len(crystal_report_entries) + len(crystal_report_errors)
         n_crystal_anchoring_errors = len(crystal_report_errors)
@@ -1854,6 +2207,7 @@ def run_analysis_core(
             n_crystal_anchoring_conditions > 0 and n_crystal_anchoring_errors == 0
         )
 
+        output_write_start = perf_counter()
         crystal_anchor_tsv_path = options.output_dir / "crystal_anchor_table.tsv"
         _write_tsv_rows(
             crystal_anchor_tsv_path,
@@ -1902,6 +2256,11 @@ def run_analysis_core(
 
         report_html_path = options.output_dir / "report.html"
         build_report_html(summary_json, metrics_csv_path, report_html_path)
+        _record_timing(
+            step="analysis.report_outputs",
+            start=output_write_start,
+            status="ok",
+        )
 
         analysis_summary.update(
             {
@@ -1917,6 +2276,10 @@ def run_analysis_core(
                 "cluster_residue_signature_tsv": str(cluster_residue_signature_tsv_path) if cluster_residue_signature_tsv_path else None,
                 "cluster_signatures_json": str(cluster_signatures_json_path) if cluster_signatures_json_path else None,
                 "cluster_annotation_stage_completed": cluster_annotation_stage_completed,
+                "protein_condition_residue_scores_tsv": str(protein_condition_residue_scores_tsv_path) if protein_condition_residue_scores_tsv_path else None,
+                "protein_residue_regio_delta_tsv": str(protein_residue_regio_delta_tsv_path) if protein_residue_regio_delta_tsv_path else None,
+                "condition_patch_summary_tsv": str(condition_patch_summary_tsv_path) if condition_patch_summary_tsv_path else None,
+                "protein_patch_summary_tsv": str(protein_patch_summary_tsv_path) if protein_patch_summary_tsv_path else None,
                 "crystal_anchor_tsv": str(crystal_anchor_tsv_path),
                 "crystal_anchoring_reports": crystal_report_entries,
                 "crystal_anchoring_errors": crystal_report_errors,
@@ -1970,6 +2333,9 @@ def run_analysis_core(
         }
     )
 
+    if options.collect_timing_events:
+        analysis_summary["timing_events"] = timing_events
+    analysis_summary["total_wall_time_s"] = round(perf_counter() - run_start, 6)
     summary_path.write_text(json.dumps(analysis_summary, indent=2))
     success = bool(prepared_poses)
     return AnalysisCoreResult(
@@ -2000,6 +2366,10 @@ def run_analysis_core(
         cluster_residue_signature_tsv_path=cluster_residue_signature_tsv_path,
         cluster_signatures_json_path=cluster_signatures_json_path,
         cluster_annotation_stage_completed=cluster_annotation_stage_completed,
+        protein_condition_residue_scores_tsv_path=protein_condition_residue_scores_tsv_path,
+        protein_residue_regio_delta_tsv_path=protein_residue_regio_delta_tsv_path,
+        condition_patch_summary_tsv_path=condition_patch_summary_tsv_path,
+        protein_patch_summary_tsv_path=protein_patch_summary_tsv_path,
         crystal_anchor_tsv_path=crystal_anchor_tsv_path,
         n_cluster_conditions=n_cluster_conditions,
         crystal_anchoring_stage_completed=crystal_anchoring_stage_completed,

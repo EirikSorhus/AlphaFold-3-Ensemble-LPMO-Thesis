@@ -20,7 +20,9 @@ confidence:
 atom_mapping:
   key: ["element", "residue_ccd", "local_bond_graph", "3D_proximity"]
   proximity_threshold_a: 0.5     # max Å deviation for 3D match
-  outputs: ["atom_map.tsv", "rename_log.json"]
+  routine_output: "normalize_report.json"
+  debug_outputs: ["atom_map.tsv", "rename_log.json"]
+  write_debug_outputs_on: ["atom_mapping_incomplete", "ccd_validation_failed"]
 
 # ── Connectivity requirements ──
 connectivity:

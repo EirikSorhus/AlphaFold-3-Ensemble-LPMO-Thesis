@@ -17,6 +17,8 @@ INVARIANT — "Ikke-slett regel":
 from __future__ import annotations
 
 import logging
+from time import perf_counter
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -57,6 +59,7 @@ class _PoseEvaluation:
     proximity_result: Any
     pb_result: PoseBustersSingleResult | None
     geom_result: GeometryResult | None
+    timing_events: list[dict[str, Any]] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -98,6 +101,8 @@ def run_hard_qc(
     *,
     run_posebusters: bool = True,
     run_privateer: bool = True,
+    max_workers: int | None = None,
+    collect_timing_events: bool = False,
 ) -> QCReport:
     """Run the full hard-QC sequence on a list of poses.
 
@@ -127,12 +132,37 @@ def run_hard_qc(
     """
     gate_config = config or load_gate_config_from_yaml(config_path or _default_qc_config_path())
     verdicts: list[PoseQCVerdict] = []
-    evaluations: list[_PoseEvaluation] = []
+    worker_count = max(1, int(max_workers or 1))
+    total_start = perf_counter()
 
-    for pose in poses:
+    def _timing_event(
+        *,
+        step: str,
+        start: float,
+        pose_id: str = "",
+        status: str = "ok",
+        detail: str = "",
+    ) -> dict[str, Any]:
+        return {
+            "step": step,
+            "pose_id": pose_id,
+            "condition_id": "",
+            "worker_count": worker_count,
+            "wall_time_s": round(perf_counter() - start, 6),
+            "status": status,
+            "detail": detail,
+        }
+
+    def _evaluate_pose(pose: HardQCInput) -> _PoseEvaluation:
         logger.info("Hard QC: processing pose %s", pose.pose_id)
+        pose_timing_events: list[dict[str, Any]] = []
+
+        def _append_pose_timing(event: dict[str, Any]) -> None:
+            if collect_timing_events:
+                pose_timing_events.append(event)
 
         # --- Step 1: Active-site proximity pre-QC ---
+        proximity_start = perf_counter()
         proximity_result = check_active_site_proximity(
             structure=pose.structure,
             pose_id=pose.pose_id,
@@ -141,10 +171,20 @@ def run_hard_qc(
             hard_cutoff_a=gate_config.active_site_proximity_max_a,
             cu_c_soft_flag_a=gate_config.cu_c_proximity_threshold_a,
         )
+        _append_pose_timing(
+            _timing_event(
+                step="hard_qc.active_site_proximity",
+                start=proximity_start,
+                pose_id=pose.pose_id,
+                status="passed" if proximity_result.passed else "failed",
+                detail=";".join(proximity_result.failure_reasons or []),
+            )
+        )
 
         # --- Step 2: Geometry (Cu-His + Cu-substrate) ---
         geom_result: GeometryResult | None = None
         if proximity_result.passed:
+            geometry_start = perf_counter()
             try:
                 geom_result = check_geometry(
                     structure=pose.structure,
@@ -158,6 +198,15 @@ def run_hard_qc(
                     cu_c_soft_flag_a=gate_config.cu_c_proximity_threshold_a,
                     his_brace_max_search_a=gate_config.his_brace_max_search_a,
                 )
+                _append_pose_timing(
+                    _timing_event(
+                        step="hard_qc.geometry",
+                        start=geometry_start,
+                        pose_id=pose.pose_id,
+                        status="passed" if geom_result.passed else "failed",
+                        detail=";".join(geom_result.failure_reasons or []),
+                    )
+                )
             except Exception:
                 logger.exception(
                     "Geometry check raised an unexpected error for pose %s",
@@ -168,10 +217,30 @@ def run_hard_qc(
                     passed=False,
                     failure_reasons=["geometry_runner_error"],
                 )
+                _append_pose_timing(
+                    _timing_event(
+                        step="hard_qc.geometry",
+                        start=geometry_start,
+                        pose_id=pose.pose_id,
+                        status="error",
+                        detail="geometry_runner_error",
+                    )
+                )
         else:
             logger.info(
                 "Pre-QC hard gate failed for %s; skipping geometry, PoseBusters, and Privateer",
                 pose.pose_id,
+            )
+            _append_pose_timing(
+                {
+                    "step": "hard_qc.geometry",
+                    "pose_id": pose.pose_id,
+                    "condition_id": "",
+                    "worker_count": worker_count,
+                    "wall_time_s": 0.0,
+                    "status": "skipped",
+                    "detail": "active_site_proximity_failed",
+                }
             )
 
         qc_eligible = proximity_result.passed and geom_result is not None and geom_result.passed
@@ -179,6 +248,7 @@ def run_hard_qc(
         # --- Step 3: PoseBusters ---
         pb_result: PoseBustersSingleResult | None = None
         if qc_eligible and run_posebusters:
+            posebusters_start = perf_counter()
             try:
                 pb_result = run_posebusters_single(
                     pdb_path=pose.mol_pred_path,
@@ -186,26 +256,77 @@ def run_hard_qc(
                     protein_path=pose.protein_path,
                     reference_path=pose.reference_path,
                 )
+                _append_pose_timing(
+                    _timing_event(
+                        step="hard_qc.posebusters",
+                        start=posebusters_start,
+                        pose_id=pose.pose_id,
+                        status="passed" if pb_result.passed else "failed",
+                        detail=";".join(pb_result.critical_errors or []),
+                    )
+                )
             except Exception:
                 logger.exception(
                     "PoseBusters raised an unexpected error for pose %s; "
                     "continuing without PB result",
                     pose.pose_id,
                 )
+                _append_pose_timing(
+                    _timing_event(
+                        step="hard_qc.posebusters",
+                        start=posebusters_start,
+                        pose_id=pose.pose_id,
+                        status="error",
+                        detail="posebusters_runner_error",
+                    )
+                )
         elif not qc_eligible:
             logger.info(
                 "Hard distance QC failed for %s; skipping PoseBusters and Privateer",
                 pose.pose_id,
             )
-
-        evaluations.append(
-            _PoseEvaluation(
-                pose=pose,
-                proximity_result=proximity_result,
-                pb_result=pb_result,
-                geom_result=geom_result,
+            _append_pose_timing(
+                {
+                    "step": "hard_qc.posebusters",
+                    "pose_id": pose.pose_id,
+                    "condition_id": "",
+                    "worker_count": worker_count,
+                    "wall_time_s": 0.0,
+                    "status": "skipped",
+                    "detail": "hard_distance_qc_failed",
+                }
             )
+        else:
+            _append_pose_timing(
+                {
+                    "step": "hard_qc.posebusters",
+                    "pose_id": pose.pose_id,
+                    "condition_id": "",
+                    "worker_count": worker_count,
+                    "wall_time_s": 0.0,
+                    "status": "disabled",
+                    "detail": "run_posebusters_false",
+                }
+            )
+
+        return _PoseEvaluation(
+            pose=pose,
+            proximity_result=proximity_result,
+            pb_result=pb_result,
+            geom_result=geom_result,
+            timing_events=pose_timing_events,
         )
+
+    if worker_count <= 1 or len(poses) <= 1:
+        evaluations = [_evaluate_pose(pose) for pose in poses]
+    else:
+        with ThreadPoolExecutor(max_workers=min(worker_count, len(poses))) as executor:
+            evaluations = list(executor.map(_evaluate_pose, poses))
+
+    timing_events: list[dict[str, Any]] = []
+    if collect_timing_events:
+        for evaluation in evaluations:
+            timing_events.extend(evaluation.timing_events)
 
     privateer_results: dict[str, PrivateerResult] = {}
     privateer_inputs = [
@@ -218,12 +339,44 @@ def run_hard_qc(
         and evaluation.geom_result.passed
     ]
     if privateer_inputs:
+        privateer_start = perf_counter()
         try:
-            for result in run_privateer_batch(privateer_inputs):
+            for result in run_privateer_batch(privateer_inputs, max_workers=worker_count):
                 privateer_results[result.pose_id] = result
+            if collect_timing_events:
+                timing_events.append(
+                    _timing_event(
+                        step="hard_qc.privateer_batch",
+                        start=privateer_start,
+                        status="ok",
+                        detail=f"n_inputs={len(privateer_inputs)}",
+                    )
+                )
         except Exception:
             logger.exception(
                 "Privateer batch raised an unexpected error; continuing without Privateer results"
+            )
+            if collect_timing_events:
+                timing_events.append(
+                    _timing_event(
+                        step="hard_qc.privateer_batch",
+                        start=privateer_start,
+                        status="error",
+                        detail=f"n_inputs={len(privateer_inputs)}",
+                    )
+                )
+    else:
+        if collect_timing_events:
+            timing_events.append(
+                {
+                    "step": "hard_qc.privateer_batch",
+                    "pose_id": "",
+                    "condition_id": "",
+                    "worker_count": worker_count,
+                    "wall_time_s": 0.0,
+                    "status": "skipped" if run_privateer else "disabled",
+                    "detail": "n_inputs=0",
+                }
             )
 
     for evaluation in evaluations:
@@ -243,7 +396,16 @@ def run_hard_qc(
             verdict.drop_reasons or "none",
         )
 
-    report = build_qc_report(run_id=run_id, verdicts=verdicts)
+    if collect_timing_events:
+        timing_events.append(
+            _timing_event(
+                step="hard_qc.total",
+                start=total_start,
+                status="ok",
+                detail=f"n_poses={len(poses)}",
+            )
+        )
+    report = build_qc_report(run_id=run_id, verdicts=verdicts, timing_events=timing_events)
     logger.info(
         "Hard QC complete: %d total, %d passed, %d flagged, %d dropped",
         report.total,

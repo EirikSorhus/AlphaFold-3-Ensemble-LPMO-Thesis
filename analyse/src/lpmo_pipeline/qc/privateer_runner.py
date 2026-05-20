@@ -17,6 +17,7 @@ import os
 import re
 import shutil
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -222,18 +223,19 @@ def run_privateer_batch(
     max_workers: int | None = None,
 ) -> list[PrivateerResult]:
     """Run Privateer on a batch of prepared CIF inputs."""
-    _ = max_workers
-    results: list[PrivateerResult] = []
-    for item in inputs:
-        results.append(
-            run_privateer(
-                item.cif_path,
-                pose_id=item.pose_id,
-                output_dir=item.output_dir or _default_privateer_output_dir(item.cif_path, item.pose_id),
-                dry_run=item.dry_run,
-            )
+    def _run_one(item: PrivateerBatchInput) -> PrivateerResult:
+        return run_privateer(
+            item.cif_path,
+            pose_id=item.pose_id,
+            output_dir=item.output_dir or _default_privateer_output_dir(item.cif_path, item.pose_id),
+            dry_run=item.dry_run,
         )
-    return results
+
+    worker_count = max(1, int(max_workers or 1))
+    if worker_count <= 1 or len(inputs) <= 1:
+        return [_run_one(item) for item in inputs]
+    with ThreadPoolExecutor(max_workers=min(worker_count, len(inputs))) as executor:
+        return list(executor.map(_run_one, inputs))
 
 
 def prepare_privateer_input(input_cif: Path, output_cif: Path | None = None) -> Path:

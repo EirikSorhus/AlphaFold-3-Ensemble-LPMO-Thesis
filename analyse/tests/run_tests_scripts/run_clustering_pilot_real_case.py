@@ -48,6 +48,12 @@ def _parse_args() -> argparse.Namespace:
         help="Actually run the production pipeline. By default only prepare checkpoints and config.",
     )
     parser.add_argument(
+        "--n-jobs",
+        type=int,
+        default=1,
+        help="Number of parallel workers for production execution.",
+    )
+    parser.add_argument(
         "--force-step",
         action="append",
         default=[],
@@ -70,6 +76,7 @@ def main() -> int:
         "selection_manifest_path": str(manifest_path),
         "run_id": run_id,
         "execute": bool(args.execute),
+        "n_jobs": max(1, int(args.n_jobs)),
     }
 
     try:
@@ -85,6 +92,7 @@ def main() -> int:
             ),
             script_path=Path(__file__).resolve(),
             force_steps=args.force_step,
+            n_jobs=max(1, int(args.n_jobs)),
         )
         summary.update(prepared)
 
@@ -111,7 +119,7 @@ def main() -> int:
                         config=Path(str(prepared["config_path"])),
                         output=production_output,
                         del_branch=args.del_branch,
-                        n_jobs=1,
+                        n_jobs=max(1, int(args.n_jobs)),
                     )
                 )
                 summary["cli_exit_code"] = exit_code
