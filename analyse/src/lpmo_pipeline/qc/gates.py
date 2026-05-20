@@ -69,6 +69,8 @@ class GateConfig:
                 "bond_lengths",
                 "bond_angles",
                 "tetrahedral_chirality",
+                "protein-ligand_maximum_distance",
+                "minimum_distance_to_protein",
                 "volume_overlap_with_protein",
             ]
 

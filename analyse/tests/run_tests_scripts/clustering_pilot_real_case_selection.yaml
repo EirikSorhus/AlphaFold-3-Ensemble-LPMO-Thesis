@@ -14,8 +14,8 @@ clustering_pilot:
   label: real_case_selected_proteins
   minimum_clusterable_n: 10
   agglomerative_linkage: average
-  agglomerative_distance_threshold: 0.5
-  agglomerative_min_cluster_size: 10
+  agglomerative_distance_threshold: 0.55
+  agglomerative_min_cluster_size: 3
 
 selections:
   - target: NAG4

@@ -260,6 +260,43 @@ def test_compute_feature_aligned_tanimoto_aligns_union_feature_space() -> None:
     assert tanimoto == pytest.approx(1.0 / 3.0)
 
 
+def test_crystal_ifp_contact_eligibility_uses_non_vdw_rule() -> None:
+    vdw_only = crystal_anchoring.IFPResult(
+        pose_id="crystal_vdw",
+        status="ok",
+        n_residues=1,
+        n_interaction_types=1,
+        residue_names=["BGC1|ASN10"],
+        interaction_types=["VdWContact"],
+        feature_names=["BGC1|ASN10|VdWContact"],
+        fingerprint=[[1]],
+        flat_bitvector=[1],
+        n_total_contacts=1,
+        interaction_counts={"VdWContact": 1},
+    )
+    eligible = crystal_anchoring.IFPResult(
+        pose_id="crystal_specific",
+        status="ok",
+        n_residues=1,
+        n_interaction_types=2,
+        residue_names=["BGC1|ASN10"],
+        interaction_types=["HBDonor", "HBAcceptor"],
+        feature_names=["BGC1|ASN10|HBDonor", "BGC1|ASN10|HBAcceptor"],
+        fingerprint=[[1, 1]],
+        flat_bitvector=[1, 1],
+        n_total_contacts=2,
+        interaction_counts={"HBDonor": 1, "HBAcceptor": 1},
+    )
+
+    vdw_eligibility = crystal_anchoring._contact_eligibility_for_ifp(vdw_only)
+    specific_eligibility = crystal_anchoring._contact_eligibility_for_ifp(eligible)
+
+    assert vdw_eligibility.eligible is False
+    assert vdw_eligibility.exclusion_class == "vdw_only"
+    assert specific_eligibility.eligible is True
+    assert specific_eligibility.exclusion_class is None
+
+
 def test_select_crystal_reference_site_falls_back_when_chain_a_is_not_ligand_bound(tmp_path: Path) -> None:
     cif_path = tmp_path / "fallback_reference.cif"
     _write_fallback_reference_cif(cif_path)
@@ -470,7 +507,11 @@ def test_real_pocket_rmsd_for_best_ranked_a0a0s2gkz1_cel4_pose(tmp_path: Path) -
     comparison = _comparison_by_pdb(report, "7PXW")
 
     assert ranking_score == pytest.approx(0.87, abs=1e-6)
-    assert comparison.status == "ok"
+    assert comparison.status == "crystal_ifp_not_contact_eligible"
+    assert comparison.crystal_ifp_contact_eligible is False
+    assert comparison.crystal_ifp_exclusion_class in {"vdw_only", "low_specific_contact"}
+    assert comparison.ifp_tanimoto is None
+    assert comparison.ifp_comparison_eligible is False
     assert comparison.pocket_residues
     assert 1 in comparison.pocket_residues
     assert comparison.pocket_rmsd is not None

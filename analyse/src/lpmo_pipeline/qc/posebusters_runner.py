@@ -7,6 +7,16 @@ Input:  AF3 PoseBusters PDB export. Combined protein+glycan exports are
     contract instead of treating the whole complex as a standalone ligand.
 Output: PoseBustersResult with per-test pass/fail + error types
 
+Current runtime contract:
+        - combined AF3 exports are auto-split into ligand-only ``mol_pred`` and
+            protein ``mol_cond`` inputs, then PoseBusters runs in built-in ``dock``
+            mode
+        - the pipeline does not override PoseBusters dock thresholds
+        - in the installed PoseBusters build, the intermolecular-distance module
+            uses ``max_distance=5.0`` and ``search_distance=6.0``
+        - ``protein-ligand_maximum_distance`` is the far-away check, while
+            ``minimum_distance_to_protein`` is the renamed ``no_clashes`` result
+
 GATE: no_critical_posebusters_errors = true  (hard-fail → drop pose)
 SOFT: minor warnings → keep pose, mark flag
 """
@@ -70,6 +80,8 @@ CRITICAL_ERROR_TYPES: set[str] = {
     "bond_lengths",
     "bond_angles",
     "tetrahedral_chirality",
+    "protein-ligand_maximum_distance",
+    "minimum_distance_to_protein",
     "volume_overlap_with_protein",
 }
 

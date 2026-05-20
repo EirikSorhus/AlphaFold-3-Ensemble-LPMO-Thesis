@@ -18,11 +18,11 @@ from lpmo_pipeline.analysis.clustering_hdbscan import (
 def test_config_from_yaml() -> None:
     config = load_hdbscan_config()
 
-    assert config.min_cluster_size == 10
+    assert config.min_cluster_size == 3
     assert config.min_samples is None
     assert config.metric == "jaccard"
     assert config.cluster_selection_method == "eom"
-    assert config.locked is False
+    assert config.locked is True
 
 
 def test_production_clusterer_uses_loaded_config_without_mutation() -> None:

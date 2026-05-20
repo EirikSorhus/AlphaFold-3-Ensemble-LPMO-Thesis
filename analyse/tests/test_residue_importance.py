@@ -15,9 +15,6 @@ from lpmo_pipeline.analysis.residue_importance import (
 )
 
 
-FIXTURE_DIR = Path(__file__).parent / "fixtures" / "clustering_stage_outputs"
-
-
 def _read_tsv(path: Path) -> list[dict[str, str]]:
     with path.open(newline="") as handle:
         return list(csv.DictReader(handle, delimiter="\t"))
@@ -25,9 +22,110 @@ def _read_tsv(path: Path) -> list[dict[str, str]]:
 
 def test_compute_residue_importance_outputs_consumes_stage16_signatures() -> None:
     outputs = compute_residue_importance_outputs(
-        _read_tsv(FIXTURE_DIR / "cluster_residue_signature.tsv"),
-        json.loads((FIXTURE_DIR / "cluster_signatures.json").read_text()),
-        cluster_ifp_signature_rows=_read_tsv(FIXTURE_DIR / "cluster_ifp_signature.tsv"),
+        [
+            {
+                "condition_id": "Q7SCE9__domain_only__chitin_DP4",
+                "cluster_id": 0,
+                "protein_id": "Q7SCE9",
+                "ligand_id": "NAG4",
+                "cluster_type": "C1_compatible",
+                "n_poses": 2,
+                "occupancy": 2 / 3,
+                "medoid_pose_id": "pose-1",
+                "residue_chain": "A",
+                "residue_number": 10,
+                "residue_name": "ASN",
+                "interaction_type": "HBDonor",
+                "ligand_residue_label": "NAG1.B",
+                "n_poses_with_contact": 2,
+                "contact_frequency": 1.0,
+                "is_catalytic_surface_region": False,
+                "is_cbm_region": False,
+                "is_linker_region": False,
+            },
+            {
+                "condition_id": "Q7SCE9__domain_only__chitin_DP4",
+                "cluster_id": 1,
+                "protein_id": "Q7SCE9",
+                "ligand_id": "NAG4",
+                "cluster_type": "C4_compatible",
+                "n_poses": 1,
+                "occupancy": 1 / 3,
+                "medoid_pose_id": "pose-3",
+                "residue_chain": "A",
+                "residue_number": 20,
+                "residue_name": "TYR",
+                "interaction_type": "PiStacking",
+                "ligand_residue_label": "NAG2.B",
+                "n_poses_with_contact": 1,
+                "contact_frequency": 1.0,
+                "is_catalytic_surface_region": False,
+                "is_cbm_region": False,
+                "is_linker_region": False,
+            },
+        ],
+        [
+            {
+                "condition_id": "Q7SCE9__domain_only__chitin_DP4",
+                "cluster_id": 0,
+                "protein_id": "Q7SCE9",
+                "ligand_id": "NAG4",
+                "cluster_type": "C1_compatible",
+                "n_poses": 2,
+                "occupancy": 2 / 3,
+                "medoid_pose_id": "pose-1",
+                "member_pose_ids": ["pose-1", "pose-2"],
+                "c1_plausible_fraction": 0.5,
+                "c4_plausible_fraction": 0.0,
+            },
+            {
+                "condition_id": "Q7SCE9__domain_only__chitin_DP4",
+                "cluster_id": 1,
+                "protein_id": "Q7SCE9",
+                "ligand_id": "NAG4",
+                "cluster_type": "C4_compatible",
+                "n_poses": 1,
+                "occupancy": 1 / 3,
+                "medoid_pose_id": "pose-3",
+                "member_pose_ids": ["pose-3"],
+                "c1_plausible_fraction": 0.0,
+                "c4_plausible_fraction": 1.0,
+            },
+        ],
+        cluster_ifp_signature_rows=[
+            {
+                "condition_id": "Q7SCE9__domain_only__chitin_DP4",
+                "cluster_id": 0,
+                "protein_id": "Q7SCE9",
+                "ligand_id": "NAG4",
+                "cluster_type": "C1_compatible",
+                "n_poses": 2,
+                "occupancy": 2 / 3,
+                "medoid_pose_id": "pose-1",
+                "feature_name": "NAG1.B|ASN10.A|HBDonor",
+                "ligand_residue_label": "NAG1.B",
+                "protein_residue_label": "ASN10.A",
+                "interaction_type": "HBDonor",
+                "n_poses_with_contact": 2,
+                "contact_frequency": 1.0,
+            },
+            {
+                "condition_id": "Q7SCE9__domain_only__chitin_DP4",
+                "cluster_id": 1,
+                "protein_id": "Q7SCE9",
+                "ligand_id": "NAG4",
+                "cluster_type": "C4_compatible",
+                "n_poses": 1,
+                "occupancy": 1 / 3,
+                "medoid_pose_id": "pose-3",
+                "feature_name": "NAG2.B|TYR20.A|PiStacking",
+                "ligand_residue_label": "NAG2.B",
+                "protein_residue_label": "TYR20.A",
+                "interaction_type": "PiStacking",
+                "n_poses_with_contact": 1,
+                "contact_frequency": 1.0,
+            },
+        ],
         condition_metadata_by_id={
             "Q7SCE9__domain_only__chitin_DP6": {
                 "protein_id": "Q7SCE9",

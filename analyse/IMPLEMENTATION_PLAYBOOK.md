@@ -45,16 +45,16 @@ Konfigurasjonsregel (gjeldende):
 | 7 | `io/protonate_export.py` | ✅ Verifisert 2026-04-23. PDBFixer/OpenMM primær-backend, ingen stille kopi-fallback. Name-based glycan-linking (C1→O4 for NAG/BGC/GLC) før protonering, og eksplisitt CONECT rewrite for komplett ligand-konnektivitet i `complex_H.pdb`. Verifisert via sbatch (572928, 572982, 572996, 573050). |
 | 7b | `io/cif_to_pdb.py` | ✅ Verifisert 2026-04-23. PDBFixer-backend er primær (AF3-riktig), gemmi fallback med `backend_fallback_reason`. Verifisert via test_protonation_contracts.sh (backend=pdbfixer). |
 | 8 | `qc/active_site_proximity.py` | ⚠️ Integrert og real-data-verifisert i hard-QC/analysis-core (2026-05-03), men endelig pose-manifestflate for metrikker fra droppede poser er fortsatt uavklart |
-| 9–12 | `qc/` (PoseBusters, Privateer, Cu-His, QC report) | ✅ Reell 3-pose hard-QC-kjøring er verifisert 2026-05-03 via `tests/run_tests_scripts/test_hard_qc_real_cifs.sh` (jobb 612234, run `hard_qc_real_cifs_612234`). PoseBusters auto-splitter kombinerte AF3 protein+glykan-input til ligand+protein og kjører i `dock`-modus. Per 2026-05-19 kan per-pose hard QC og Privateer-dispatch bruke `max_workers` fra `n_jobs`. Resultat: 1 pass, 1 soft_flag, 1 hard_fail; eneste gjenstående PB-hardfail er `minimum_distance_to_protein`, og samme STA4-case har fortsatt en reell Privateer anomer-feil. |
+| 9–12 | `qc/` (PoseBusters, Privateer, Cu-His, QC report) | ✅ Reell 3-pose hard-QC-kjøring er verifisert 2026-05-03 via `tests/run_tests_scripts/test_hard_qc_real_cifs.sh` (jobb 612234, run `hard_qc_real_cifs_612234`). PoseBusters auto-splitter kombinerte AF3 protein+glykan-input til ligand+protein og kjører i `dock`-modus med bibliotekets standard `intermolecular_distance`-terskler (`max_distance=5.0 Å`, `search_distance=6.0 Å`). Per 2026-05-19 kan per-pose hard QC og Privateer-dispatch bruke `max_workers` fra `n_jobs`. Resultat: 1 pass, 1 soft_flag, 1 hard_fail; eneste gjenstående PB-hardfail er `minimum_distance_to_protein` (PoseBusters' renamed `no_clashes`-resultat), og samme STA4-case har fortsatt en reell Privateer anomer-feil. |
 | 13 | `analysis/prolif_ifp.py` + `pose_ifp_table.tsv` | ⚠️ Standalone slice verifisert på ekte data 2026-05-04 via `test_prolif_real_cifs.sh` (jobb 617120), og koblet inn i analysis-core produksjonsstien 2026-05-04 med focused pytest. Per 2026-05-19 støtter batchen `max_workers` via `n_jobs`; ny real-data verifikasjon av den integrerte stien gjenstår |
 | 13b | `analysis/residue_contact_extraction.py` + `pose_residue_contact_table.tsv` | ✅ Verifisert på ekte data 2026-05-04 via `test_residue_contact_real_cifs.sh` (jobb 619027); downstream bruk gjenstår |
 | 14 | `analysis/mdanalysis_metrics.py` | ⚠️ Implementert, koblet inn i analysis-core produksjonssti, og verifisert på ekte data; RMSD-felter og videre geometry-hardening gjenstår |
 | 14b | `analysis/convergence_metrics.py` | ⚠️ Standalone slice verifisert på ekte data 2026-05-04 via `test_convergence_real_cifs.sh` (jobb 619047), og koblet inn i analysis-core produksjonssti med focused pytest; ny integrert real-data verifikasjon gjenstår |
-| 15 | `analysis/clustering_hdbscan.py` | ⚠️ Refaktorert 2026-05-04 til AF3-only condition-wise HDBSCAN med eksakte Jaccard-medoider, koblet inn i analysis-core produksjonsstien samme dag, og verifisert med focused pytest. Focused clustering unit tests ble kjørt på nytt 2026-05-16; real-data clustering-output inspeksjon gjenstår før senere analysebygging |
+| 15 | `analysis/clustering_agglomerative.py` (`clustering_hdbscan.py` beholdt som sensitivitet) | ⚠️ Primær Stage 6-metode er låst 2026-05-20 til condition-wise agglomerative Jaccard med `linkage=average`, `distance_threshold=0.55` og `min_cluster_size=3`. HDBSCAN `min_cluster_size=3`, `min_samples=null` beholdes som sensitivitet. Focused clustering unit tests ble kjørt på nytt 2026-05-16; real-data clustering-output inspeksjon gjenstår før senere analysebygging |
 | 16 | `analysis/cluster_signatures.py` | ✅ Koblet inn i analysis-core produksjonsstien og verifisert 2026-05-18 med focused pytest + real-data sbatch smoke (jobb 1105024). Produksjonsstien skriver `cluster_ifp_signature.tsv`, `cluster_residue_signature.tsv`, `cluster_signatures.json` og `cluster_annotation_stage_completed`. |
 | 16b | `analysis/residue_importance.py` | ✅ Koblet inn i analysis-core produksjonsstien og verifisert 2026-05-18 med focused pytest + real-data sbatch smoke (jobb 1105024). 16b konsumerer Stage 16-signaturene, skriver eksplisitte nullrader ved observerte kontakter uten retained clusters, og bruker ikke loop-fraksjon. |
 | 17 | `placer/run_placer.py` | ❌ FJERNET — PLACER er fjernet fra analysen (beslutning 2026-04-21) |
-| 18–25 | Analyse, aktivitetsmapping, modeller, rapportering | ⚠️ Delvis påbegynt. `report/` + `cli.py` analysis-core produksjonssti skriver nå også ProLIF-, Stage 6-clustering-, crystal-anchoring- og implementerte pose/QC TSV-artefakter (`pose_manifest.tsv`, `pose_confidence.tsv`, `structure_index.tsv`, `qc_attrition_table.tsv`, `crystal_anchor_table.tsv`). En integrert real-data kjøring som faktisk gir medoid-vs-crystal-sammenligninger og senere analyser gjenstår fortsatt. |
+| 18–25 | Analyse, aktivitetsmapping, modeller, rapportering | ⚠️ Delvis påbegynt. `report/` + `cli.py` analysis-core produksjonssti skriver nå også ProLIF-, Stage 6-clustering-, cluster-signature/residue-importance-, crystal-anchoring- og implementerte pose/QC TSV-artefakter (`pose_manifest.tsv`, `pose_confidence.tsv`, `structure_index.tsv`, `qc_attrition_table.tsv`, `crystal_anchor_table.tsv`, `crystal_geometry_table.tsv`, `crystal_ifp_diagnostic_summary.tsv`). En bred integrert real-data kjøring som faktisk gir medoid-vs-crystal-sammenligninger og senere analyser gjenstår fortsatt. |
 
 ---
 
@@ -130,7 +130,8 @@ Konfigurasjonsregel (gjeldende):
     `hard_qc_real_cifs_612234` kjørte `dock`-modus for alle 3 caser. De tidligere
     falske real-case hard-failene `all_atoms_connected` og
     `internal_steric_clash` er borte; eneste gjenstående PB-hardfail på ekte data
-    er `minimum_distance_to_protein` i STA4-caset.
+    er `minimum_distance_to_protein` i STA4-caset. Dette er PoseBusters'
+    renamed `no_clashes`-resultat, ikke `protein-ligand_maximum_distance`-testen.
    Test: `pytest tests/test_qc_gates.py::TestPoseBustersGate`.
 
 10. **`qc/privateer_runner.py`** — Privateer-wrapper + 100%-recog gate.
@@ -224,8 +225,9 @@ Konfigurasjonsregel (gjeldende):
 14b. **`analysis/convergence_metrics.py`** — Konvergensmetrikker per betingelse (ny i v1.0).
     Per pose: `ligand_rmsd_to_reference`, `convergent_flag` (RMSD < 2.0 Å anbefalt).
     Per betingelse: `convergence_fraction`, `median_ligand_rmsd`, `iqr_ligand_rmsd`.
-    Referansepose: bruk QC-passing seed-1 pose under pre-clustering; oppdater til
-    top-occupancy cluster medoid etter clustering for endelig rapportering.
+    Referansepose: bruk QC-passing seed-1 pose under pre-clustering; cluster-medoider
+    brukes senere som representative strukturer for crystal anchoring, men
+    konvergensmodulen er fortsatt deskriptiv og filtrerer ikke poser.
     Status 2026-05-04: modul implementert med protein-CA-alignering + ligand-heavy-atom RMSD,
     seed-1-først referansevalg, og TSV-outputene `pose_convergence.tsv` og
     `condition_convergence_summary.tsv`. Koblet inn i
@@ -243,17 +245,17 @@ Konfigurasjonsregel (gjeldende):
     - kjøre den integrerte stien på ekte data og inspisere konvergensoutputene
     - avklare/implementere endelig medoid-basert referanseoppdatering etter clustering for sluttrapportering
 
-15. **`analysis/clustering_hdbscan.py`** — HDBSCAN med Jaccard-metrikk på IFP-only.
-    Kjør innen-modell clustering per (enzym, substrat, DP).
-    Status 2026-05-04: modul refaktorert mot gjeldende AF3-only plan slik at den
-    klynger én protein-ligand-betingelse om gangen, laster HDBSCAN-parametre fra
-    `configs/thresholds.yaml`, handterer degenerert identisk IFP-matrise som én
-    cluster i stedet for falsk all-noise, returnerer all-noise når antall poser er
-    lavere enn `min_cluster_size`, og velger medoid med minimum summert Jaccard-avstand
-    innen cluster. Nye hjelpefunksjoner bygger rå-rader for `cluster_assignments.tsv`,
-    `medoid_manifest.tsv` og `condition_cluster_summary.tsv`. Senere samme dag ble
-    modulen koblet inn i `analysis/analysis_orchestrator.py`, som nå grupperer QC-pass/
-    flagged poser per condition og skriver Stage 6-råoutput i produksjonsstien.
+15. **`analysis/clustering_agglomerative.py`** — agglomerative Jaccard som primær Stage 6-metode.
+    Kjør innen-modell clustering per protein-ligand-betingelse.
+    Status 2026-05-20: clustering-piloten og parameter-sensitivitetskjøringen valgte
+    agglomerative Jaccard som global primærmetode for full analyse med
+    `linkage=average`, `distance_threshold=0.55` og `min_cluster_size=3`.
+    Produksjonsstien i `analysis/analysis_orchestrator.py` er nå låst til denne
+    metoden. `analysis/clustering_hdbscan.py` beholdes som sensitivitet med
+    `min_cluster_size=3`, `min_samples=null` og `cluster_selection_method=eom`.
+    Begge metodene bruker binær Jaccard og eksakte medoids med minimum summert
+    within-cluster Jaccard-avstand. Nye hjelpefunksjoner bygger rå-rader for
+    `cluster_assignments.tsv`, `medoid_manifest.tsv` og `condition_cluster_summary.tsv`.
     Focused pytest passer, og `tests/run_tests_scripts/run_analysis_core_real_cifs.py`
     er utvidet til å samle de nye artefaktene; selve real-data kjøringen gjenstår.
     Test: `pytest tests/test_clustering.py`.
@@ -350,7 +352,8 @@ Konfigurasjonsregel (gjeldende):
         - multikjede-krystaller subsett-es til valgt proteinkjede, tilhørende
             ligand og Cu, med fallback når foretrukket kjede A ikke er holo
         - standalone-harnessen kan auto-velge en best-rangert AF3-pose for denne
-            real-data-valideringen; produksjonsstien bruker fortsatt medoid først
+            real-data-valideringen; produksjonsstien sammenligner alle beholdte
+            cluster-medoider
         - representative pose og hver crystal reference skriver nå ProLIF-artifakter
             under `crystal_anchoring_output/.../ifp/`
         - `ifp_result.json` er bevisst kort og inneholder bare pose/status,
@@ -364,8 +367,18 @@ Konfigurasjonsregel (gjeldende):
             sekvensremapping, ekte holo-case og ekte apo-case
         - samme slice er nå også koblet inn i `analysis/analysis_orchestrator.py`
             som sekundær per-condition-analyse med focused pytest; produksjonsstien
-            velger cluster-medoid når den finnes, ellers første IFP-success-pose som
-            deterministisk fallback-representant
+            sammenligner alle beholdte cluster-medoider, og betingelser uten
+            beholdte clusters kan bruke top-level AF3 model CIF som fallback bare
+            hvis fallbacken passerer hard QC
+        - crystal-IFP må passere samme non-vdW contact-eligibility-regel som
+            pose-clustering før `ifp_tanimoto` regnes som sammenlignbar; VdW-only,
+            zero-contact og low-specific-contact crystal-IFP-er beholder RMSD og
+            geometry-output, men merkes som IFP-non-comparable
+        - ligandbundne crystal references får nå C1/C4-geometri i
+            `crystal_geometry_table.tsv`, og nøkkelfeltene joines inn i
+            `crystal_anchor_table.tsv`; `crystal_ifp_diagnostic_summary.tsv`
+            oppsummerer IFP-eksklusjoner per unique crystal reference og per
+            medoid/fallback-sammenligning
         - analysis-core skriver eksplisitt `crystal_anchoring_stage_completed`
             i `analysis_core_summary.json` og `run_manifest.json`, og denne stage-gaten
             er smoke-validert på ekte data
@@ -374,7 +387,8 @@ Konfigurasjonsregel (gjeldende):
             ikke-tomme medoid-vs-crystal-sammenligninger
         - avklare om dagens gemmi/numpy Kabsch-backend er tilstrekkelig som endelig
             operativ løsning eller om PyMOL-paritet skal implementeres senere
-        - sjekke eksplisitt om crystal-IFP-ene i praksis blir for VdW-dominerte,
+        - bruke `crystal_ifp_diagnostic_summary.tsv` fra en bredere medoid-kjøring
+            til å kvantifisere hvor ofte crystal-IFP-ene blir for VdW-dominerte,
             og spikre endelige soft-thresholds for plausibilitet
     ⛔ STOPP: Verifiser cluster_signatures/predictive_cluster_table mot skjema.
 
@@ -389,7 +403,8 @@ Konfigurasjonsregel (gjeldende):
     Status 2026-05-16 (senere): production analysis-core skriver nå også de
     implementerte tabellflatene som trengs før cluster-annotering:
     `pose_manifest.tsv`, `pose_confidence.tsv`, `structure_index.tsv`,
-    `qc_attrition_table.tsv` og `crystal_anchor_table.tsv`. Focused tester for
+    `qc_attrition_table.tsv`, `crystal_anchor_table.tsv`,
+    `crystal_geometry_table.tsv` og `crystal_ifp_diagnostic_summary.tsv`. Focused tester for
     orchestrator/CLI og clustering passer, men real-data inspeksjon av
     clustering-output gjenstår før `cluster_table.tsv` og senere analyser bygges.
     Status 2026-05-19: `lpmo-pipeline run`, real-case pilot-runneren og

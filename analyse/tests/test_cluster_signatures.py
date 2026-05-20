@@ -8,6 +8,7 @@ import pytest
 
 from lpmo_pipeline.analysis.cluster_signatures import (
     build_cluster_signature_tables,
+    write_cluster_table_tsv,
     write_cluster_ifp_signature_table,
     write_cluster_residue_signature_table,
     write_cluster_signature_summary_json,
@@ -184,10 +185,30 @@ def test_build_cluster_signature_tables_aggregates_cluster_features_and_geometry
 
 
 def test_cluster_signature_writers_emit_contract_files(tmp_path: Path) -> None:
+    cluster_table_path = tmp_path / "cluster_table.tsv"
     ifp_path = tmp_path / "cluster_ifp_signature.tsv"
     residue_path = tmp_path / "cluster_residue_signature.tsv"
     json_path = tmp_path / "cluster_signatures.json"
 
+    write_cluster_table_tsv(
+        [
+            {
+                "condition_id": "condition",
+                "cluster_id": 0,
+                "protein_id": "P1",
+                "ligand_id": "NAG4",
+                "cluster_type": "C1_compatible",
+                "n_poses": 2,
+                "occupancy": 1.0,
+                "medoid_pose_id": "pose_a",
+                "c1_plausible_fraction": 1.0,
+                "c4_plausible_fraction": 0.0,
+                "Cu_C1_distance_median": 3.0,
+                "Cu_C1_distance_iqr": 1.0,
+            }
+        ],
+        cluster_table_path,
+    )
     write_cluster_ifp_signature_table(
         [
             {
@@ -212,8 +233,12 @@ def test_cluster_signature_writers_emit_contract_files(tmp_path: Path) -> None:
     write_cluster_residue_signature_table([], residue_path)
     write_cluster_signature_summary_json([{"cluster_id": 0}], json_path)
 
+    with open(cluster_table_path, newline="") as handle:
+        cluster_rows = list(csv.DictReader(handle, delimiter="\t"))
     with open(ifp_path, newline="") as handle:
         rows = list(csv.DictReader(handle, delimiter="\t"))
+    assert cluster_rows[0]["cluster_type"] == "C1_compatible"
+    assert cluster_rows[0]["Cu_C1_distance_median"] == "3.0"
     assert rows[0]["feature_name"] == "NAG1.B|ASN10.A|HBDonor"
     assert residue_path.read_text().splitlines()[0].startswith("condition_id\tcluster_id")
     assert json.loads(json_path.read_text()) == {"clusters": [{"cluster_id": 0}]}

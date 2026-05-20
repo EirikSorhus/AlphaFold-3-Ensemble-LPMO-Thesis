@@ -141,6 +141,8 @@ def main() -> int:
         fallback_count = 0
         ok_count = 0
         ifp_scored_count = 0
+        crystal_ifp_contact_eligible_count = 0
+        pocket_rmsd_count = 0
         prepared_subset_paths: list[str] = []
         pdb_codes: list[str] = []
         comparison_ifp_artifacts: list[dict[str, str]] = []
@@ -152,6 +154,10 @@ def main() -> int:
                 ok_count += 1
             if comparison.ifp_tanimoto is not None:
                 ifp_scored_count += 1
+            if comparison.crystal_ifp_contact_eligible:
+                crystal_ifp_contact_eligible_count += 1
+            if comparison.pocket_rmsd is not None:
+                pocket_rmsd_count += 1
             prepared_subset_paths.append(comparison.prepared_subset_cif)
             pdb_codes.append(comparison.pdb_code)
             comparison_ifp_artifacts.append(
@@ -170,6 +176,8 @@ def main() -> int:
                 "comparison_status_counts": comparison_status_counts,
                 "ok_count": ok_count,
                 "ifp_scored_count": ifp_scored_count,
+                "crystal_ifp_contact_eligible_count": crystal_ifp_contact_eligible_count,
+                "pocket_rmsd_count": pocket_rmsd_count,
                 "fallback_count": fallback_count,
                 "pdb_codes": pdb_codes,
                 "prepared_subset_paths": prepared_subset_paths,
@@ -189,9 +197,9 @@ def main() -> int:
             return 1
         if expected_codes and set(pdb_codes) != expected_codes:
             return 1
-        if ok_count != len(report.comparisons):
+        if any(comparison.status in {"pose_ifp_failed", "protonation_failed", "ifp_failed"} for comparison in report.comparisons):
             return 1
-        if ifp_scored_count != len(report.comparisons):
+        if pocket_rmsd_count == 0:
             return 1
         if any(not Path(path).exists() for path in prepared_subset_paths):
             return 1

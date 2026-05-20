@@ -29,12 +29,20 @@ from typing import Any, Iterable
 import numpy as np
 
 from lpmo_pipeline.analysis.prolif_ifp import (
+    ContactEligibility,
     IFPBatch,
     IFPResult,
     compute_ifp_single,
     compute_tanimoto_similarity,
+    evaluate_contact_eligibility,
+    load_contact_eligibility_rule,
     write_ifp_matrix,
     write_pose_ifp_table,
+)
+from lpmo_pipeline.analysis.mdanalysis_metrics import (
+    POSE_GEOMETRY_COLUMNS,
+    PoseGeometryMetrics,
+    compute_pose_metrics,
 )
 from lpmo_pipeline.config import load_defaults_config
 from lpmo_pipeline.io.gemmi_compat import gemmi
@@ -48,6 +56,7 @@ _CHAIN_SCHEMA = _DEFAULTS_CONFIG.get("chain_schema") or {}
 DEFAULT_PROTEIN_CHAIN = str(_CHAIN_SCHEMA.get("protein") or "A")
 DEFAULT_GLYCAN_CHAINS = tuple(str(chain) for chain in (_CHAIN_SCHEMA.get("glycans") or ["B", "C", "D"]))
 DEFAULT_LIGAND_CHAIN = DEFAULT_GLYCAN_CHAINS[0] if DEFAULT_GLYCAN_CHAINS else "B"
+DEFAULT_CU_CHAIN = str(_CHAIN_SCHEMA.get("metal") or "E")
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_REFERENCE_INDEX_CSV = _PROJECT_ROOT / "input_data" / "pdb_structure_data.csv"
@@ -135,6 +144,8 @@ class PreparedCrystalReference:
     pose_ifp_table_tsv: Path | None = None
     ifp_matrix_csv: Path | None = None
     ifp_result: IFPResult | None = None
+    ifp_contact_eligibility: ContactEligibility | None = None
+    geometry_metrics: PoseGeometryMetrics | None = None
     status: str = "prepared"
     error: str | None = None
 
@@ -161,12 +172,36 @@ class CrystalReferencePoseComparison:
     crystal_ifp_result_json: str = ""
     crystal_pose_ifp_table_tsv: str = ""
     crystal_ifp_matrix_csv: str = ""
+    crystal_ifp_contact_eligible: bool = False
+    crystal_ifp_exclusion_class: str = ""
+    crystal_n_vdw_interactions: int = 0
+    crystal_n_non_vdw_interactions: int = 0
+    crystal_n_non_vdw_contact_residues: int = 0
+    ifp_comparison_eligible: bool = False
+    crystal_geometry: dict[str, Any] = field(default_factory=dict)
     pocket_residues: list[int] = field(default_factory=list)
     pocket_rmsd: float | None = None
     pocket_rmsd_below_threshold: bool = False
     ifp_tanimoto: float | None = None
     status: str = "not_compared"
     error: str | None = None
+
+
+CRYSTAL_GEOMETRY_COLUMNS = [
+    "protein_id",
+    "pdb_code",
+    "source_cif",
+    "prepared_subset_cif",
+    "selected_protein_chain",
+    "ligand_chain_ids",
+    "copper_chain_ids",
+    "geometry_status",
+    *[
+        column
+        for column in POSE_GEOMETRY_COLUMNS
+        if column not in {"pose_id", "model", "protein_id", "ligand_id"}
+    ],
+]
 
 
 @dataclass
@@ -805,6 +840,84 @@ def _write_ifp_artifacts(result: IFPResult, output_dir: Path) -> tuple[Path, Pat
     return output_dir, ifp_result_json, pose_ifp_table_tsv, ifp_matrix_csv
 
 
+def _contact_eligibility_for_ifp(result: IFPResult) -> ContactEligibility:
+    return evaluate_contact_eligibility(result, load_contact_eligibility_rule())
+
+
+def _compute_crystal_geometry_metrics(
+    prepared: PreparedCrystalReference,
+) -> PoseGeometryMetrics | None:
+    if prepared.complex_pdb is None:
+        return None
+
+    chain_id_map = _build_selected_chain_id_map(prepared.selection)
+    remapped_copper_chains = [
+        chain_id_map[source_chain_id]
+        for source_chain_id in prepared.selection.copper_chain_ids
+        if source_chain_id in chain_id_map
+    ]
+    remapped_ligand_chains = [
+        chain_id_map[source_chain_id]
+        for source_chain_id in prepared.selection.ligand_chain_ids
+        if source_chain_id in chain_id_map
+    ]
+    cu_chain = remapped_copper_chains[0] if remapped_copper_chains else DEFAULT_CU_CHAIN
+    glycan_chains = remapped_ligand_chains or [DEFAULT_LIGAND_CHAIN]
+
+    return compute_pose_metrics(
+        prepared.complex_pdb,
+        pose_id=prepared.record.pdb_code,
+        protein_chain=DEFAULT_PROTEIN_CHAIN,
+        glycan_chains=glycan_chains,
+        cu_chain=cu_chain,
+        model="crystal",
+        protein_id=prepared.record.protein_id,
+        ligand_id=prepared.record.carbohydrate_ligands or prepared.record.pdb_code,
+    )
+
+
+def _crystal_geometry_payload(metrics: PoseGeometryMetrics | None) -> dict[str, Any]:
+    if metrics is None:
+        return {}
+    return metrics.to_row()
+
+
+def crystal_geometry_row(prepared: PreparedCrystalReference) -> dict[str, Any]:
+    metrics = prepared.geometry_metrics
+    geometry_status = (
+        "computed"
+        if metrics is not None
+        else ("no_ligand_reference" if prepared.status == "prepared_no_ligand" else prepared.status)
+    )
+    row = {
+        "protein_id": prepared.record.protein_id,
+        "pdb_code": prepared.record.pdb_code,
+        "source_cif": str(prepared.record.source_cif),
+        "prepared_subset_cif": str(prepared.subset_cif),
+        "selected_protein_chain": prepared.selection.selected_protein_chain,
+        "ligand_chain_ids": json.dumps(list(prepared.selection.ligand_chain_ids)),
+        "copper_chain_ids": json.dumps(list(prepared.selection.copper_chain_ids)),
+        "geometry_status": geometry_status,
+    }
+    if metrics is None:
+        row.update({column: "" for column in POSE_GEOMETRY_COLUMNS})
+    else:
+        row.update(metrics.to_row())
+    return row
+
+
+def write_crystal_geometry_table(
+    rows: list[dict[str, Any]],
+    output_path: Path,
+) -> None:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("w", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=CRYSTAL_GEOMETRY_COLUMNS, delimiter="\t")
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({column: row.get(column, "") for column in CRYSTAL_GEOMETRY_COLUMNS})
+
+
 def prepare_crystal_reference(
     record: CrystalReferenceRecord,
     output_dir: Path,
@@ -876,6 +989,30 @@ def prepare_crystal_reference(
         pose_id=record.pdb_code,
         protein_chain=DEFAULT_PROTEIN_CHAIN,
     )
+    crystal_eligibility = (
+        _contact_eligibility_for_ifp(crystal_ifp)
+        if crystal_ifp.status in {"ok", "zero_contacts"}
+        else None
+    )
+    try:
+        geometry_metrics = _compute_crystal_geometry_metrics(
+            PreparedCrystalReference(
+                record=record,
+                selection=selection,
+                subset_cif=subset_cif,
+                normalized_cif=prepared_input_cif,
+                complex_pdb=complex_pdb,
+                ligand_mol2=ligand_mol2,
+            )
+        )
+    except Exception as exc:
+        logger.warning(
+            "Crystal geometry failed for %s: %s: %s",
+            record.pdb_code,
+            exc.__class__.__name__,
+            exc,
+        )
+        geometry_metrics = None
     ifp_artifact_dir, ifp_result_json, pose_ifp_table_tsv, ifp_matrix_csv = _write_ifp_artifacts(
         crystal_ifp,
         reference_dir / "ifp",
@@ -892,6 +1029,8 @@ def prepare_crystal_reference(
         pose_ifp_table_tsv=pose_ifp_table_tsv,
         ifp_matrix_csv=ifp_matrix_csv,
         ifp_result=crystal_ifp,
+        ifp_contact_eligibility=crystal_eligibility,
+        geometry_metrics=geometry_metrics,
         status="prepared" if crystal_ifp.status == "ok" else "ifp_failed",
         error=crystal_ifp.error,
     )
@@ -998,6 +1137,32 @@ def run_crystal_reference_screen(
             crystal_ifp_result_json=str(prepared.ifp_result_json or ""),
             crystal_pose_ifp_table_tsv=str(prepared.pose_ifp_table_tsv or ""),
             crystal_ifp_matrix_csv=str(prepared.ifp_matrix_csv or ""),
+            crystal_ifp_contact_eligible=(
+                bool(prepared.ifp_contact_eligibility.eligible)
+                if prepared.ifp_contact_eligibility is not None
+                else False
+            ),
+            crystal_ifp_exclusion_class=(
+                str(prepared.ifp_contact_eligibility.exclusion_class or "")
+                if prepared.ifp_contact_eligibility is not None
+                else ("no_ligand_reference" if prepared.status == "prepared_no_ligand" else "")
+            ),
+            crystal_n_vdw_interactions=(
+                int(prepared.ifp_contact_eligibility.n_vdw_interactions)
+                if prepared.ifp_contact_eligibility is not None
+                else 0
+            ),
+            crystal_n_non_vdw_interactions=(
+                int(prepared.ifp_contact_eligibility.n_non_vdw_interactions)
+                if prepared.ifp_contact_eligibility is not None
+                else 0
+            ),
+            crystal_n_non_vdw_contact_residues=(
+                int(prepared.ifp_contact_eligibility.n_non_vdw_contact_residues)
+                if prepared.ifp_contact_eligibility is not None
+                else 0
+            ),
+            crystal_geometry=_crystal_geometry_payload(prepared.geometry_metrics),
             status=prepared.status,
             error=prepared.error,
         )
@@ -1056,6 +1221,9 @@ def run_crystal_reference_screen(
             comparison.error = prepared.error or (
                 prepared.ifp_result.error if prepared.ifp_result is not None else None
             )
+        elif not comparison.crystal_ifp_contact_eligible:
+            comparison.status = "crystal_ifp_not_contact_eligible"
+            comparison.error = comparison.crystal_ifp_exclusion_class or "crystal_ifp_not_contact_eligible"
         else:
             comparison.ifp_tanimoto = compute_feature_aligned_tanimoto(
                 pose_ifp.feature_names,
@@ -1063,6 +1231,7 @@ def run_crystal_reference_screen(
                 prepared.ifp_result.feature_names,
                 prepared.ifp_result.flat_bitvector,
             )
+            comparison.ifp_comparison_eligible = True
             comparison.status = "ok"
 
         report.comparisons.append(comparison)
@@ -1104,6 +1273,13 @@ def write_crystal_reference_screen_report(
                 "crystal_ifp_result_json": comparison.crystal_ifp_result_json,
                 "crystal_pose_ifp_table_tsv": comparison.crystal_pose_ifp_table_tsv,
                 "crystal_ifp_matrix_csv": comparison.crystal_ifp_matrix_csv,
+                "crystal_ifp_contact_eligible": comparison.crystal_ifp_contact_eligible,
+                "crystal_ifp_exclusion_class": comparison.crystal_ifp_exclusion_class,
+                "crystal_n_vdw_interactions": comparison.crystal_n_vdw_interactions,
+                "crystal_n_non_vdw_interactions": comparison.crystal_n_non_vdw_interactions,
+                "crystal_n_non_vdw_contact_residues": comparison.crystal_n_non_vdw_contact_residues,
+                "ifp_comparison_eligible": comparison.ifp_comparison_eligible,
+                "crystal_geometry": comparison.crystal_geometry,
                 "pocket_residues": comparison.pocket_residues,
                 "pocket_rmsd": comparison.pocket_rmsd,
                 "pocket_rmsd_below_threshold": comparison.pocket_rmsd_below_threshold,

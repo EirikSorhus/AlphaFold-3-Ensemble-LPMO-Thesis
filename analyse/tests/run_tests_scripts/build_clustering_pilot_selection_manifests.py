@@ -45,8 +45,8 @@ def main() -> int:
     shared_clustering_pilot = {
         "minimum_clusterable_n": 10,
         "agglomerative_linkage": "average",
-        "agglomerative_distance_threshold": 0.5,
-        "agglomerative_min_cluster_size": 10,
+        "agglomerative_distance_threshold": 0.55,
+        "agglomerative_min_cluster_size": 3,
     }
     domain_manifest = build_selection_manifest_from_overview(
         overview_rows,

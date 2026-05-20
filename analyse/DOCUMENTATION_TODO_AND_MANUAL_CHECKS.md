@@ -384,10 +384,10 @@ Extend the current production analysis-core slice forward into ProLIF/IFP, clust
 **Priority:** RESOLVED
 
 **Description:**
-The production `run` entry path is no longer just a placeholder. The current production slice now covers discovery, normalization, hard QC, downstream geometry, and report generation.
+The production `run` entry path is no longer just a placeholder. The current production slice now covers discovery, normalization, hard QC, downstream geometry, ProLIF/IFP, residue contacts, convergence, condition-wise clustering, cluster signatures, residue importance, crystal anchoring, and report generation.
 
 Implemented and verified points:
-- `analysis/analysis_orchestrator.py` now provides a real production control path up to downstream geometry.
+- `analysis/analysis_orchestrator.py` now provides a real production control path through the implemented analysis-core stages.
 - `cli.py` now routes `lpmo-pipeline run` into that analysis-core orchestrator instead of the old placeholder path.
 - `configs/production.analysis_core.example.yaml` now documents the current production config surface.
 - `tests/run_tests_scripts/run_analysis_core_real_cifs.py` and `tests/run_tests_scripts/test_analysis_core_real_cifs.sh` now exercise the real production CLI path on staged real AF3 CIFs.
@@ -396,22 +396,33 @@ Implemented and verified points:
 - no production `geometry_debug.pdb` files were written in that run.
 
 **Remaining action:**
-Keep extending the same production path forward into ProLIF/IFP, clustering, crystal anchoring, and later analysis stages instead of creating separate side paths.
+Keep extending the same production path into the higher-level descriptive, predictive, CBM, and final report-table layers instead of creating separate side paths.
 
 ---
 
-### P9 — HDBSCAN parameters not locked in thresholds.yaml
+### P9 — Clustering primary method locked from pilot
 
-**Priority:** MEDIUM — parameters must be locked before the full analysis run to prevent in-run parameter searching (anti p-hacking rule from MASTERPLAN.md stage 6).
+**Status:** RESOLVED 2026-05-20 for method selection and production Stage 6 wiring.
 
 **Description:**  
-MASTERPLAN.md Stage 6 requires HDBSCAN `min_cluster_size` and `min_samples` to be stored in `configs/thresholds.yaml` and locked after tuning. The values are currently unspecified (tuning not yet run). The minimum cluster occupancy (≥ 0.05) must also be confirmed.
+The clustering pilot and parameter-sensitivity run selected agglomerative
+Jaccard as the global primary method for full analysis:
+`linkage=average`, `distance_threshold=0.55`, `min_cluster_size=3`.
+Sensitivity settings are agglomerative Jaccard `distance_threshold=0.45`,
+`min_cluster_size=3`, and HDBSCAN Jaccard `min_cluster_size=3`,
+`min_samples=null`.
 
-**Proposed solution:**  
-1. Run HDBSCAN on a representative subset of real AF3 data (e.g., 2–3 protein–ligand conditions) with a small parameter sweep to identify stable parameter choices.
-2. Commit the chosen parameters to `configs/thresholds.yaml` under `clustering:`.
-3. Document the selection rationale in a comment in `thresholds.yaml`.
-4. Do not re-run the sweep during the main analysis.
+Primary evidence: in the 94 formally clusterable pilot conditions,
+agglomerative `0.55/min3` recovered clusters in 84 conditions, had median noise
+fraction 0.52, and produced non-noise clusters with mean size 4.77 poses
+(SD 2.80; median 4; range 3-21).
+
+**Implemented solution:**  
+1. The production full-analysis Stage 6 path now uses the selected
+   agglomerative primary method rather than the older HDBSCAN default.
+2. The `0.45/min3` agglomerative and `HDBSCAN min3` outputs remain predefined
+   sensitivity analyses.
+3. Parameter sweeps should not be re-run during the main analysis.
 
 ---
 
@@ -472,13 +483,15 @@ The current analysis-core production path now writes all TSV surfaces that are
 directly supported by implemented stages: pose manifest/confidence/index,
 QC attrition, pose geometry, pose IFP, pose residue contacts, convergence,
 raw clustering, medoids, condition cluster summary, cluster IFP/residue
-signatures, residue-importance tables, crystal anchor table, and metrics.
+signatures, residue-importance tables, crystal anchor table, crystal geometry
+table, crystal IFP diagnostic summary, and metrics.
 For short smoke runs with observed contacts but zero retained non-noise
 clusters, the Stage 16b residue tables now emit explicit zero-valued residue
-rows instead of remaining header-only. Cluster-dependent Stage 16b tests use
-`tests/fixtures/clustering_stage_outputs/`, a small deterministic Stage 16
-output fixture, instead of depending on the short one-pose real-data smoke to
-produce meaningful clusters. The following planned TSVs are still not
+rows instead of remaining header-only. Cluster-dependent tests can use
+`tests/fixtures/clustering_stage_outputs/`, which contains the selected pilot
+agglomerative Jaccard outputs (`distance_threshold=0.55`,
+`min_cluster_size=3`), instead of depending on the short one-pose real-data
+smoke to produce meaningful clusters. The following planned TSVs are still not
 implemented because their upstream analysis layers are not implemented yet:
 
 - `cluster_table.tsv`

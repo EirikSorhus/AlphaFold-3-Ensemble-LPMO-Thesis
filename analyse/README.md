@@ -9,10 +9,11 @@ This pipeline takes predicted structures (mmCIF), normalizes them,
 runs quality control (PoseBusters, Privateer, custom Cu-geometry),
 generates interaction fingerprints (ProLIF) and residue-level contact tables,
 and clusters binding modes through the shared production clustering interface
-(agglomerative Jaccard and HDBSCAN pilot paths; primary method pending pilot decision).
+(primary pilot-selected method: agglomerative Jaccard with `distance_threshold=0.55`
+and `min_cluster_size=3`; predefined agglomerative/HDBSCAN sensitivity paths retained).
 Performs residue importance analysis and produces summary reports.
 
-Primary governing document: [AF3_LPMO_pipeline_detailed_plan.md](AF3_LPMO_pipeline_detailed_plan.md) (v1.1, primary source; clustering method selection now governed by [clustering_pilot_plan.yaml](clustering_pilot_plan.yaml)).
+Primary governing document: [AF3_LPMO_pipeline_detailed_plan.md](AF3_LPMO_pipeline_detailed_plan.md) (v1.1, primary source; clustering method decision recorded in [DECISIONS.md](DECISIONS.md) and [clustering_pilot_plan.yaml](clustering_pilot_plan.yaml)).
 
 Current implementation status: steps 1-7b are verified. Stage 8 pre-QC
 active-site proximity is now wired into hard QC, and targeted QC tests pass
@@ -43,16 +44,24 @@ resolves crystal references from `input_data/pdb_structure_data.csv`, verifies
 both `5ACI` and `7PXW` for `A0A0S2GKZ1`, prepares crystal subsets, and writes
 compact `ifp_result.json` summaries plus detailed `pose_ifp_table.tsv` and
 `ifp_matrix.csv` artifacts for the representative pose and each prepared
-crystal reference. Current pocket RMSD uses a local gemmi/numpy Kabsch
+crystal reference. In production, crystal anchoring compares every retained
+cluster medoid; conditions with no retained clusters may use the top-level AF3
+model CIF only after hard QC passes, and that fallback is not counted in normal
+pose/clustering denominators. Current pocket RMSD uses a local gemmi/numpy Kabsch
 alignment on shared pocket C-alpha atoms, with the pocket defined as protein
 residues within 5 A of ligand or Cu. Apo crystal references can reuse a
 sequence-projected pocket from the representative/medoid pose, with
-residue-name normalization for variants such as `HIC -> HIS`. The same
-crystal-anchoring slice is now also wired into `run_analysis_core`, writes an
-explicit `crystal_anchoring_stage_completed` gate in `run_manifest.json`, and
-has passed focused pytest plus production smoke validation. Remaining gap: a
-production real-data run that reaches non-empty medoid-vs-crystal comparisons
-in the integrated path still needs to be exercised explicitly.
+residue-name normalization for variants such as `HIC -> HIS`. Crystal-side IFP
+Tanimoto is reported only when the prepared crystal IFP passes the same non-vdW
+contact-eligibility rule as pose clustering; pocket RMSD and crystal geometry
+remain reportable when the crystal IFP is VdW-only, zero-contact, or otherwise
+low-specific-contact. Ligand-bound crystal references also emit C1/C4 geometry
+for comparison against pose geometries. The same crystal-anchoring slice is now
+also wired into `run_analysis_core`, writes an explicit
+`crystal_anchoring_stage_completed` gate in `run_manifest.json`, and has passed
+focused pytest plus production smoke validation. Remaining gap: a production
+real-data run that reaches non-empty medoid-vs-crystal comparisons in the
+integrated path still needs to be exercised explicitly.
 
 Stage 16b residue importance is implemented and wired into the production
 analysis-core path against the Stage 16 signature contract
@@ -83,8 +92,9 @@ These directories contain the organized AF3 prediction artifacts (mmCIF files an
 - Main analyses are run first; parameter tuning is optional and done after baseline analysis.
 - Main analysis is cluster-primary (not enzyme-aggregated) for descriptive and predictive modeling.
 - Operative sub-analyses are substrate x DP combinations for DP4, DP6, DP8.
-- Primary IFP clustering method is not locked until the active pilot has selected one global method and parameter set.
+- Primary IFP clustering method is locked to agglomerative Jaccard with `linkage=average`, `distance_threshold=0.55`, and `min_cluster_size=3`, based on the completed clustering pilot.
 - A pre-QC active-site proximity gate runs before PoseBusters and Privateer.
+- PoseBusters is run in built-in `dock` mode on auto-split ligand/protein inputs. The pipeline does not override PoseBusters' intermolecular-distance defaults, so `protein-ligand_maximum_distance` uses `max_distance=5.0 Å`, while `minimum_distance_to_protein` is the separate no-clashes check.
 - Production `--n-jobs` is now used for independent per-pose prepare work, hard-QC/Privateer dispatch, and ProLIF batch work. The full clustering-pilot wrapper defaults it from `SLURM_CPUS_PER_TASK` so requested cores are actually used.
 - Routine normalization keeps `normalize_report.json` as the normal audit surface. `atom_map.tsv` and `rename_log.json` are now debug/failure artifacts only, because writing them for every successful pose produced heavy I/O without adding useful signal.
 - Detailed geometric planarity requirements are currently missing and must be specified before final reporting.
@@ -92,11 +102,11 @@ These directories contain the organized AF3 prediction artifacts (mmCIF files an
 
 ## Method And Downstream Plans
 
-One YAML plan defines the active clustering-method pilot, and three downstream
+One YAML plan records the completed clustering-method pilot decision, and three downstream
 YAML plans define the intended statistical analyses after the core AF3
 structure-analysis outputs have been generated:
 
-- [clustering_pilot_plan.yaml](clustering_pilot_plan.yaml): active pilot plan for selecting one global IFP clustering method before full analysis.
+- [clustering_pilot_plan.yaml](clustering_pilot_plan.yaml): completed pilot plan and decision record for the selected global IFP clustering method.
 - [c1_c4_predictive_analysis_plan_simplified.yaml](c1_c4_predictive_analysis_plan_simplified.yaml): exploratory C1/C4 regioactivity predictive analysis using protein-grouped modeling on condition-level AF3 summaries.
 - [substrate_activity_prediction_plan.yaml](substrate_activity_prediction_plan.yaml): exploratory substrate activity prediction across chitin, cellulose, and starch ligand contexts.
 - [cbm_full_length_vs_domain_only_analysis_plan.yaml](cbm_full_length_vs_domain_only_analysis_plan.yaml): paired full-length vs domain-only CBM analysis for proteins with both construct types.
@@ -156,10 +166,11 @@ normalization, hard QC, downstream geometry, ProLIF/IFP, residue-contact
 extraction, convergence metrics, condition-wise clustering, crystal anchoring,
 and report generation. It now writes the implemented pose/QC TSV surfaces
 (`pose_manifest.tsv`, `pose_confidence.tsv`, `structure_index.tsv`,
-`qc_attrition_table.tsv`) plus raw clustering/convergence/IFP tables and
-`crystal_anchor_table.tsv`. The crystal-anchoring stage gate in this production
-path is smoke-validated, but a real-data production run that reaches actual
-medoid-vs-crystal comparisons still remains.
+`qc_attrition_table.tsv`) plus raw clustering/convergence/IFP tables,
+`crystal_anchor_table.tsv`, `crystal_geometry_table.tsv`, and
+`crystal_ifp_diagnostic_summary.tsv`. The crystal-anchoring stage gate in this
+production path is smoke-validated, but a real-data production run that reaches
+actual medoid-vs-crystal comparisons still remains.
 
 Verified 2026-05-03 on 3 staged real AF3 CIFs (`analysis_core_real_cifs_613251`):
 1 `pass`, 1 `soft_flag`, 1 `hard_fail`; 2 poses were analyzed downstream, and
@@ -193,7 +204,7 @@ Select which to run via `construct_type: "domain_only"` or `construct_type: "ful
 - The DEL branch is still controlled by the CLI `--del` argument.
 - `--n-jobs` controls parallel workers for independent pose preparation, hard QC/Privateer dispatch, and ProLIF batch computation. Scaling is useful but not expected to be perfectly linear because process startup, container startup, filesystem I/O, and unequal per-pose runtime still contribute fixed overhead.
 - Production output must not contain `geometry_debug.pdb`; that file remains test-only.
-- Standalone crystal-anchoring harnesses may auto-select a best-ranked AF3 pose for test coverage; the production path still prefers the top-cluster medoid and only falls back to the first IFP-success pose if no medoid exists.
+- Standalone crystal-anchoring harnesses may auto-select a best-ranked AF3 pose for test coverage. The production path compares all retained cluster medoids; if a condition has no retained clusters, it may compare the top-level AF3 model CIF only after that fallback passes hard QC.
 - Shared external tool paths and default asset references are controlled separately through [configs/runtime_paths.yaml](configs/runtime_paths.yaml).
 
 ## Config Files
@@ -202,7 +213,7 @@ Select which to run via `construct_type: "domain_only"` or `construct_type: "ful
 - [configs/production.analysis_core.example.yaml](configs/production.analysis_core.example.yaml): current production run entry config for discovery scope and run selection.
 - [configs/defaults.yaml](configs/defaults.yaml): global defaults such as chain schema, confidence policy, atom-mapping defaults, and target-prefix substrate mapping.
 - [configs/thresholds.yaml](configs/thresholds.yaml): hard/soft QC thresholds, downstream geometry thresholds, convergence settings, and clustering inclusion settings.
-- [clustering_pilot_plan.yaml](clustering_pilot_plan.yaml): method-selection plan for contact eligibility, IFP feature audit, agglomerative/HDBSCAN comparison, bootstrap stability, and final clustering decision record.
+- [clustering_pilot_plan.yaml](clustering_pilot_plan.yaml): completed method-selection plan and decision record for contact eligibility, IFP feature audit, agglomerative/HDBSCAN comparison, bootstrap stability, and the final clustering choice.
 - [configs/geometry_rules.yaml](configs/geometry_rules.yaml): Cu/his-brace identification, virtual oxyl/H placement rules, and geometry output contracts.
 - [configs/prolif_features.yaml](configs/prolif_features.yaml): ProLIF interaction set, cutoffs, selections, feature naming, and residue-contact settings.
 - [configs/residue_rules.yaml](configs/residue_rules.yaml): residue/atom normalization rules, CCD mappings, and region tagging rules.
@@ -237,12 +248,19 @@ scripts/       – Helper scripts (including R-based EC activity mapping)
 - **Chain convention**: protein=A, glycans=B-D, metal=E
 - **Cu-His distance**: 1.9–2.6 Å hard gate evaluated on selected coordinating nitrogens only (`His1:N`, `His1:ND1`, and one non-His1 histidine N; `His1:NE2` excluded)
 - **Cluster rows are primary** for main descriptive and predictive analyses
-- **Clustering method pending pilot decision**: `clustering_pilot_plan.yaml` compares agglomerative Jaccard and HDBSCAN on contact-eligible IFPs, then locks one global primary method and parameters before full analysis.
+- **Clustering primary method selected from pilot**: agglomerative Jaccard on contact-eligible IFP rows, `linkage=average`, `distance_threshold=0.55`, `min_cluster_size=3`. The pilot selection evidence used `main_contact_eligible_ifp_matrix.csv`. Sensitivity settings are agglomerative `distance_threshold=0.45`, `min_cluster_size=3`, and HDBSCAN Jaccard `min_cluster_size=3`, `min_samples=null`.
 
 ## Implementation Order
 
 See [IMPLEMENTATION_PLAYBOOK.md](IMPLEMENTATION_PLAYBOOK.md) for the
 prioritized implementation plan with stop-points.
+
+## Implemented Decision Logic
+
+See [DECISIONS.md](DECISIONS.md) for a code-derived description of the
+runtime decision rules that are currently active in the implementation,
+including contact eligibility, clustering feature selection, cluster typing,
+residue signature construction, and Stage 16b residue aggregation.
 
 ## Open Questions
 
@@ -259,6 +277,7 @@ See [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md) for unresolved decisions.
 | [AF3_LPMO_pipeline_detailed_plan.md](AF3_LPMO_pipeline_detailed_plan.md) | **Primary governing plan** (v1.0) — pipeline stages, design decisions, output tables, geometry procedures |
 | [MASTERPLAN.md](MASTERPLAN.md) | Integrated secondary plan — stage summaries, failure policy, RQ→output mapping, EC label mapping |
 | [IMPLEMENTATION_PLAYBOOK.md](IMPLEMENTATION_PLAYBOOK.md) | Step-by-step implementation guide with status tracking and stop-points |
+| [DECISIONS.md](DECISIONS.md) | Implementation-grounded decision log — documents the rules that are actually active in code |
 | [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md) | Open decisions, resolved conflicts, and avklaringer |
 | [c1_c4_predictive_analysis_plan_simplified.yaml](c1_c4_predictive_analysis_plan_simplified.yaml) | Detailed implementation plan for exploratory C1/C4 regioactivity predictive modeling |
 | [substrate_activity_prediction_plan.yaml](substrate_activity_prediction_plan.yaml) | Detailed implementation plan for exploratory substrate activity prediction |

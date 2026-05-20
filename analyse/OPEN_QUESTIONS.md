@@ -54,6 +54,12 @@ foreslått default-valg slik at arbeidet kan fortsette uten blokkering.
    Det som fortsatt mangler er en integrert produksjonskjøring der en faktisk
    medoid-backed betingelse med crystal-referanser når crystal-anchoring-steget,
    samt en eksplisitt vurdering av om crystal-IFP-ene blir for VdW-dominerte.
+   Status 2026-05-20: produksjonskoden sammenligner nå alle beholdte medoids,
+   bruker top-level AF3 model CIF som hard-QC-gated fallback for no-cluster
+   conditions, blokkerer IFP-Tanimoto når crystal-IFP ikke passerer non-vdW
+   contact-eligibility, og skriver `crystal_ifp_diagnostic_summary.tsv` for å
+   kvantifisere VdW-/low-specific-contact-problemet. Spørsmålet som gjenstår er
+   biologisk cutoff/tolkning, ikke selve comparability-gaten.
 
 9. **R-modellvalg for cluster-rader** — Hvilken primarmodell skal brukes
    i R for regioselektivitet (glmnet vs glmer)?
@@ -81,6 +87,12 @@ foreslått default-valg slik at arbeidet kan fortsette uten blokkering.
     - AVKLART (2026-04-21): AF3-kjøringer bruker `num_diffusion_samples=5` → 75 poser per system.
     - AVKLART (2026-04-21): Kanonisk term er "protein" / `protein_id`.
     - AVKLART (2026-04-21): Fem separate pose-tabeller (ingen samlet `pose_table.tsv`).
+    - AVKLART (2026-05-20): Primær clusteringmetode er agglomerative Jaccard
+      på contact-eligible IFP rows med `linkage=average`,
+      `distance_threshold=0.55` og `min_cluster_size=3`. Pilotvalget ble gjort
+      på `main_contact_eligible_ifp_matrix.csv`. Sensitivitet:
+      agglomerative `distance_threshold=0.45`, `min_cluster_size=3`, og
+      HDBSCAN Jaccard `min_cluster_size=3`, `min_samples=null`.
 
 13. **Substrat-recognition/pocket-residuer for crystal anchoring** — Skal dagens
    operative pocket-heuristikk beholdes, eller erstattes/utvides med
@@ -124,9 +136,15 @@ foreslått default-valg slik at arbeidet kan fortsette uten blokkering.
    forsvant de tidligere falske real-case feilene `all_atoms_connected` og
    `internal_steric_clash`. I siste 3-pose PoseBusters-validering er eneste
    gjenstående PB-fail `minimum_distance_to_protein`.
-   *Default: behold dagens konservative klassifisering midlertidig, men avklar
-   eksplisitt om `minimum_distance_to_protein` og andre pocket-/distance-relaterte
-   PoseBusters-feil skal gi `hard_fail`, `soft_flag` eller kun rapporteres.*
+   Viktig presisering: i PoseBusters `dock`-mode er
+   `protein-ligand_maximum_distance` far-away-testen fra
+   `posebusters.modules.intermolecular_distance.check_intermolecular_distance()`
+   med standard `max_distance=5.0 A` og `search_distance=6.0 A`.
+   `minimum_distance_to_protein` er derimot den renamed `no_clashes`-utgangen,
+   ikke selve avstandsterskelen.
+   *Default: behold PoseBusters sine innebygde `dock`-defaults uendret.
+   Gjenstående avklaring er bare severity-policyen for pocket-/distance-relaterte
+   PoseBusters-feil: om de skal gi `hard_fail`, `soft_flag` eller kun rapporteres.*
 
 19. **ProLIF interaction-type pruning** — Skal endelig utvalg av ProLIF-interaksjonstyper
    bestemmes bare ved enkel sparsity-/nyttevurdering, eller er det verdt å lage en

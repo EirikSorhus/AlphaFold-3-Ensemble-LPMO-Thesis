@@ -1,10 +1,12 @@
 # AF3-LPMO Analysis Pipeline: Detailed Practical Plan
 
 Version: 1.1
-Status: Recommended main-analysis design; clustering method pending pilot decision
+Status: Recommended main-analysis design; clustering method selected from pilot
 Scope: AF3-only pipeline for LPMO–oligosaccharide complexes with pose-level QC, IFP-based clustering, geometry annotation, residue-level interpretation, and limited exploratory prediction.
 
-Clustering update: `clustering_pilot_plan.yaml` is now the governing plan for choosing the primary IFP clustering method before the full analysis run.
+Clustering update: the 2026-05-20 pilot decision selected agglomerative Jaccard
+as primary method (`distance_threshold=0.55`, `min_cluster_size=3`) with
+agglomerative `0.45/min3` and HDBSCAN `min3` retained as sensitivity settings.
 
 Runtime update 2026-05-19: production execution now passes `n_jobs` into independent per-pose preparation, hard-QC/Privateer dispatch, and ProLIF batch work. Routine successful normalization keeps only `normalize_report.json`; atom-map/rename debug files are written only for unexpected mapping or validation failures. CIF loop remapping in normalization now rewrites each affected mmCIF loop once instead of once per tag, which removes the previous dominant `gemmi_compat.py` bottleneck. The full clustering pilot should be launched through the staged Slurm-array wrapper, which splits domain-only and full-length selections into independent protein-level shards and runs them across multiple jobs/nodes. The legacy single-job wrapper is retained only as a stable fallback.
 
@@ -36,7 +38,7 @@ This is not a strong-validation pipeline. It is a structured computational inter
   - Full-length: `/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work_full_length`
 * Main pose ensemble per protein–ligand condition: **15 seeds x 5 samples = 75 poses** (AF3 `num_diffusion_samples=5`, runs completed).
 * Main clustering input: **ProLIF binary IFP only**.
-* Primary clustering method: **not locked yet**. A stratified pilot compares agglomerative Jaccard clustering and HDBSCAN on contact-eligible IFPs; one global primary method and parameter set must be selected before full analysis.
+* Primary clustering method: **locked from pilot** to agglomerative Jaccard clustering on contact-eligible IFP rows with `linkage=average`, `distance_threshold=0.55`, and `min_cluster_size=3`. HDBSCAN `min_cluster_size=3`, `min_samples=null`, `cluster_selection_method=eom` is retained as a sensitivity path.
 * Main descriptive unit: **cluster**.
 * Main biological repeated-measures unit: **protein**.
 * Main inferential caution: **poses and seeds are not independent biological replicates**.
@@ -51,19 +53,30 @@ This is not a strong-validation pipeline. It is a structured computational inter
 
 ### 2.3 Current clustering decision state
 
-The pipeline previously treated HDBSCAN on binary IFPs as the recommended default. That is now superseded by `clustering_pilot_plan.yaml`.
+The pipeline previously treated HDBSCAN on binary IFPs as the recommended
+default. That was superseded by the clustering pilot and parameter-sensitivity
+run completed on 2026-05-20.
 
-Current rule:
+Current decision:
 
-* run the clustering pilot on a stratified subset before the full analysis
-* target 20-30 protein-ligand conditions across at least 5 proteins
-* include expected correct-ligand conditions, expected wrong/inactive-ligand conditions, substrate classes where available, DP4/DP8 at minimum, high/intermediate/low QC-pass-rate conditions, and CBM/full-length cases where available
-* compare agglomerative Jaccard clustering and HDBSCAN using the same contact-eligible IFP input
-* choose one global primary method for all conditions, not a separate method per condition
-* lock the primary method, parameters, contact-eligibility rule, and IFP feature set in a decision record before full analysis
-* if both formal clustering methods are unstable or most pilot conditions lack enough contact-eligible poses, fall back to coarse contact-profile reporting rather than overinterpreting binding-mode clusters
+* use one global primary method for all protein-ligand conditions, not a separate method per condition
+* primary method: agglomerative Jaccard clustering on contact-eligible IFP rows
+* primary parameters: `linkage=average`, `distance_threshold=0.55`, `min_cluster_size=3`
+* pilot selection evidence used `main_contact_eligible_ifp_matrix.csv`
+* conservative agglomerative sensitivity: `distance_threshold=0.45`, `min_cluster_size=3`
+* HDBSCAN sensitivity: `min_cluster_size=3`, `min_samples=null`, `cluster_selection_method=eom`
+* conditions below the contact-eligible/formal clustering threshold remain reported as insufficient signal rather than interpreted as binding-mode clusters
 
-Until the pilot result is reviewed, any text below that mentions cluster summaries should be read as conditional on a condition having sufficient clusterable signal.
+Pilot rationale:
+
+* In the 94 formally clusterable pilot conditions, agglomerative `0.55/min3`
+  recovered clusters in 84 conditions, versus 79 for `0.45/min3` and 53 for
+  HDBSCAN `min3`.
+* The selected primary setting reduced median noise fraction to 0.52, compared
+  with 0.68 for the conservative `0.45/min3` setting.
+* Mean non-noise cluster size was 4.77 poses (SD 2.80; median 4; range 3-21),
+  which improved coverage without collapsing the pilot into a few large
+  clusters.
 
 \---
 
@@ -268,6 +281,8 @@ project\_root/
     cv\_results/
   11\_crystal/
     crystal\_anchor\_table.tsv
+    crystal\_geometry\_table.tsv
+    crystal\_ifp\_diagnostic\_summary.tsv
   12\_reports/
     report\_ready\_tables/
     figure\_manifest.tsv
@@ -756,8 +771,8 @@ Per protein–ligand condition:
 
 Alignment reference rule:
 
-* **Pre-clustering / per-pose computation**: use the top-ranked QC-passing pose within the condition (by `ranking_score`, or `mean_plddt` if ranking score is absent).
-* **Final reporting**: replace reference with the top-occupancy cluster medoid once clustering is complete.
+* **Per-pose computation**: use the top-ranked QC-passing pose within the condition (by `ranking_score`, or `mean_plddt` if ranking score is absent).
+* **Reporting context**: cluster medoids are reported separately for clustering, structural figures, and crystal anchoring; convergence remains a descriptive per-condition metric and does not re-filter poses.
 
 **Convergence metrics are descriptive only.** They are not used as a filter to drop poses. All QC-passing poses continue to IFP and geometry regardless of their convergence flag.
 
@@ -1286,26 +1301,46 @@ Do not use this as the only main analysis table unless forced by time.
 
 ### 19.1 Input
 
-Use cluster medoids for crystal comparison, not all poses.
+Use every retained cluster medoid for crystal comparison, not all poses. If a
+condition has no retained clusters, the top-level AF3 model CIF may be used as a
+fallback only after it passes hard QC. This fallback is not included in normal
+pose, clustering, or medoid denominators.
 
 ### 19.2 Why medoid is appropriate here
 
-Crystal comparison is a representative sanity-check, so medoid is the right compression target.
+Crystal comparison is a representative sanity-check, so retained medoids are the
+right compression target for clustered conditions. The hard-QC-passing top-level
+AF3 fallback exists only to keep no-cluster conditions interpretable against
+crystal references; it does not redefine clustering results.
 
 ### 19.3 Required outputs
 
 `crystal\_anchor\_table.tsv`:
 
 * `cluster\_id`
+* `representative\_pose\_id`
+* `representative\_role`
 * `medoid\_pose\_id`
 * `crystal\_reference\_id`
 * `local\_pocket\_rmsd`
 * `ligand\_rmsd\_if\_comparable`
 * `proximal\_sugar\_rmsd`
-* `contact\_overlap\_score`
+* `contact\_overlap\_score` / `ifp\_tanimoto` only when the prepared crystal IFP passes the same non-vdW contact-eligibility rule used for pose clustering
+* `crystal\_ifp\_contact\_eligible`
+* `crystal\_ifp\_exclusion\_class`
+* `ifp\_comparison\_eligible`
+* `crystal\_Cu\_C1\_distance`
+* `crystal\_Cu\_C4\_distance`
+* `crystal\_geometry\_status\_C1`
+* `crystal\_geometry\_status\_C4`
 * `same\_binding\_region\_flag`
 * `same\_general\_orientation\_flag`
 * `notes`
+
+`crystal\_geometry\_table.tsv` stores full C1/C4 geometry metrics for prepared
+ligand-bound crystal references. `crystal\_ifp\_diagnostic\_summary.tsv` stores
+eligibility/exclusion counts and percentages by unique crystal reference and by
+medoid/fallback comparison row.
 
 ### 19.4 Interpretation rule
 
@@ -1334,6 +1369,7 @@ This is the main analysis layer.
 7. ipTM distribution vs QC pass / geometry plausibility / cluster occupancy
 8. cluster-level residue contact heatmaps
 9. selected medoid structure figures
+10. clustering rate versus crystal-structure coverage per protein
 
 ### 21.2 Required descriptive outputs across conditions
 
@@ -1342,6 +1378,9 @@ For each protein:
 * compare chitin vs cellulose vs starch
 * compare DP4 vs DP6 vs DP8
 * compare domain-only vs full-length when CBM exists
+* compare clustering rate against crystal-reference coverage:
+  * primary view: number of available crystal structures for the protein
+  * secondary/fallback view: binary `has_crystal_reference` yes/no
 
 Recommended tables:
 
@@ -1498,7 +1537,9 @@ Condition summaries feed protein summaries and exploratory prediction.
 
 #### Stage 7 -> Stage 11
 
-Cluster medoids feed crystal sanity-check.
+Retained cluster medoids feed crystal sanity-check. No-cluster conditions may
+use a hard-QC-passing top-level AF3 model CIF fallback for crystal anchoring
+only; that fallback does not enter clustering or generated-pose denominators.
 
 ### 24.2 Hard rule
 
@@ -1536,6 +1577,8 @@ No later stage should overwrite the main AF3 pose set. Later stages only annotat
 * `protein\_residue\_regio\_delta.tsv`
 * `qc\_attrition\_table.tsv`
 * `crystal\_anchor\_table.tsv`
+* `crystal\_geometry\_table.tsv`
+* `crystal\_ifp\_diagnostic\_summary.tsv`
 * `cbm\_comparison\_table.tsv`
 
 \---
@@ -1552,7 +1595,11 @@ At minimum:
 6. ipTM vs QC pass / geometry plausibility / cluster occupancy
 7. residue contact heatmaps for representative proteins
 8. medoid structural figures for selected clusters
-9. crystal sanity overlays for representative medoids
+9. crystal sanity overlays for representative medoids, with crystal-side C1/C4 geometry comparison tables/figures where ligand-bound crystal references exist
+10. clustering rate versus crystal-structure coverage:
+    primary x-axis is number of available crystal structures per protein;
+    include a binary has/no-has crystal-reference summary as a secondary panel
+    or grouped overlay
 
 \---
 
@@ -1632,7 +1679,7 @@ If the pipeline must be reduced aggressively, keep:
 7. residue contact scoring
 8. geometry annotation
 9. ipTM descriptive summaries
-10. crystal sanity-check on a limited medoid subset
+10. crystal sanity-check on retained medoids, plus hard-QC-passing top-level AF3 fallback for no-cluster conditions
 
 Cut first:
 

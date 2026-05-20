@@ -1,5 +1,29 @@
 clustering_pilot:
   version: "1.0"
+  decision_status:
+    status: "resolved"
+    decision_date: "2026-05-20"
+    selected_primary_method: "agglomerative_jaccard"
+    selected_primary_parameters:
+      linkage: "average"
+      distance_threshold: 0.55
+      min_cluster_size: 3
+    sensitivity_methods:
+      - method: "agglomerative_jaccard"
+        linkage: "average"
+        distance_threshold: 0.45
+        min_cluster_size: 3
+      - method: "hdbscan_jaccard"
+        min_cluster_size: 3
+        min_samples: null
+        cluster_selection_method: "eom"
+    evidence_summary: >
+      Parameter sensitivity on the staged clustering pilot used 94 formally
+      clusterable conditions. Agglomerative Jaccard with threshold 0.55 and
+      min_cluster_size 3 recovered clusters in 84/94 conditions, reduced median
+      noise fraction to 0.52, and produced non-noise clusters with mean size
+      4.77 poses (SD 2.80, median 4, range 3-21). The conservative 0.45/min3
+      setting and HDBSCAN min3 are retained as predefined sensitivity analyses.
   purpose: >
     Predefinere en pilot-test som avgjør om hovedanalysen skal bruke
     agglomerative clustering eller HDBSCAN for condition-wise clustering

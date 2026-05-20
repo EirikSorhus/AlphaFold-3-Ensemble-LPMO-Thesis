@@ -80,6 +80,24 @@ _GEOMETRY_STAT_FIELDS = [
     "pocket_rmsd_vs_crystal",
 ]
 
+CLUSTER_TABLE_COLUMNS = [
+    "condition_id",
+    "cluster_id",
+    "protein_id",
+    "ligand_id",
+    "cluster_type",
+    "n_poses",
+    "occupancy",
+    "medoid_pose_id",
+    "c1_plausible_fraction",
+    "c4_plausible_fraction",
+    *[
+        column_name
+        for field_name in _GEOMETRY_STAT_FIELDS
+        for column_name in (f"{field_name}_median", f"{field_name}_iqr")
+    ],
+]
+
 _PLAUSIBLE_GEOMETRY_STATUSES = {"geometry_plausible", "geometry_highly_plausible"}
 
 
@@ -561,6 +579,12 @@ def write_cluster_residue_signature_table(rows: list[dict[str, Any]], output_pat
     """Write cluster_residue_signature.tsv."""
 
     _write_tsv(output_path, CLUSTER_RESIDUE_SIGNATURE_COLUMNS, rows)
+
+
+def write_cluster_table_tsv(rows: list[dict[str, Any]], output_path: Path) -> None:
+    """Write cluster_table.tsv."""
+
+    _write_tsv(output_path, CLUSTER_TABLE_COLUMNS, rows)
 
 
 def write_cluster_signature_summary_json(rows: list[dict[str, Any]], output_path: Path) -> None:

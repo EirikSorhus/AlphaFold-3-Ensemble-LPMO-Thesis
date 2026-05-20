@@ -468,8 +468,8 @@ def _write_production_config(
                 "label": run_id,
                 "minimum_clusterable_n": 10,
                 "agglomerative_linkage": "average",
-                "agglomerative_distance_threshold": 0.5,
-                "agglomerative_min_cluster_size": 10,
+                "agglomerative_distance_threshold": 0.55,
+                "agglomerative_min_cluster_size": 3,
             },
         },
     }

@@ -2,7 +2,7 @@
 
 This module provides the real production control path for discovery,
 normalization, hard QC, downstream geometry, ligand-resolved ProLIF IFP,
-condition-wise HDBSCAN clustering, and report generation.
+condition-wise agglomerative Jaccard clustering, and report generation.
 """
 from __future__ import annotations
 
@@ -47,6 +47,7 @@ from lpmo_pipeline.analysis.clustering_pilot import (
 )
 from lpmo_pipeline.analysis.cluster_signatures import (
     build_cluster_signature_tables,
+    write_cluster_table_tsv,
     write_cluster_ifp_signature_table,
     write_cluster_residue_signature_table,
     write_cluster_signature_summary_json,
@@ -81,7 +82,9 @@ from lpmo_pipeline.analysis.residue_importance import (
     write_protein_residue_regio_delta,
 )
 from lpmo_pipeline.analysis.crystal_anchoring import (
+    CRYSTAL_GEOMETRY_COLUMNS,
     run_crystal_reference_screen,
+    write_crystal_geometry_table,
     write_crystal_reference_screen_report,
 )
 from lpmo_pipeline.analysis.mdanalysis_metrics import (
@@ -119,6 +122,11 @@ _TARGET_PREFIX_TO_SUBSTRATE = {
     ).items()
 }
 
+PRIMARY_CLUSTERING_METHOD = "agglomerative_jaccard"
+PRIMARY_AGGLOMERATIVE_LINKAGE = "average"
+PRIMARY_AGGLOMERATIVE_DISTANCE_THRESHOLD = 0.55
+PRIMARY_AGGLOMERATIVE_MIN_CLUSTER_SIZE = 3
+
 
 @dataclass(frozen=True)
 class ProductionRunOptions:
@@ -152,8 +160,8 @@ class ClusteringPilotOptions:
     minimum_clusterable_n: int = DEFAULT_MINIMUM_CLUSTERABLE_N
     insufficient_clusterable_signal_label: str = DEFAULT_INSUFFICIENT_CLUSTERABLE_SIGNAL_LABEL
     agglomerative_linkage: str = "average"
-    agglomerative_distance_threshold: float = 0.5
-    agglomerative_min_cluster_size: int = DEFAULT_MINIMUM_CLUSTERABLE_N
+    agglomerative_distance_threshold: float = PRIMARY_AGGLOMERATIVE_DISTANCE_THRESHOLD
+    agglomerative_min_cluster_size: int = PRIMARY_AGGLOMERATIVE_MIN_CLUSTER_SIZE
 
 
 @dataclass(frozen=True)
@@ -182,6 +190,17 @@ class PreparedPose:
 
 
 @dataclass(frozen=True)
+class CrystalRepresentativeCandidate:
+    pose_id: str
+    cif_path: Path
+    role: str
+    medoid_pose_id: str = ""
+    cluster_id: int | str = ""
+    protein_id: str = ""
+    ligand_id: str = ""
+
+
+@dataclass(frozen=True)
 class AnalysisCoreResult:
     run_id: str
     output_dir: Path
@@ -206,6 +225,7 @@ class AnalysisCoreResult:
     cluster_assignments_tsv_path: Path | None = None
     medoid_manifest_tsv_path: Path | None = None
     condition_cluster_summary_tsv_path: Path | None = None
+    cluster_table_tsv_path: Path | None = None
     cluster_ifp_signature_tsv_path: Path | None = None
     cluster_residue_signature_tsv_path: Path | None = None
     cluster_signatures_json_path: Path | None = None
@@ -215,6 +235,8 @@ class AnalysisCoreResult:
     condition_patch_summary_tsv_path: Path | None = None
     protein_patch_summary_tsv_path: Path | None = None
     crystal_anchor_tsv_path: Path | None = None
+    crystal_geometry_tsv_path: Path | None = None
+    crystal_ifp_diagnostic_summary_tsv_path: Path | None = None
     n_cluster_conditions: int = 0
     crystal_anchoring_stage_completed: bool = False
     n_crystal_anchoring_conditions: int = 0
@@ -424,12 +446,15 @@ def load_production_options(
             ),
             agglomerative_linkage=str(clustering_pilot_config.get("agglomerative_linkage", "average")),
             agglomerative_distance_threshold=float(
-                clustering_pilot_config.get("agglomerative_distance_threshold", 0.5)
+                clustering_pilot_config.get(
+                    "agglomerative_distance_threshold",
+                    PRIMARY_AGGLOMERATIVE_DISTANCE_THRESHOLD,
+                )
             ),
             agglomerative_min_cluster_size=int(
                 clustering_pilot_config.get(
                     "agglomerative_min_cluster_size",
-                    clustering_pilot_config.get("minimum_clusterable_n", DEFAULT_MINIMUM_CLUSTERABLE_N),
+                    PRIMARY_AGGLOMERATIVE_MIN_CLUSTER_SIZE,
                 )
             ),
         )
@@ -881,6 +906,53 @@ def _discover_pose_inputs(options: ProductionRunOptions) -> tuple[list[str], lis
         discovered = discovered[: options.max_cases]
 
     return manifest.errors, discovered, manifest.summary
+
+
+def _discover_top_model_fallback_inputs(
+    options: ProductionRunOptions,
+) -> tuple[list[str], dict[str, PoseInputRecord]]:
+    """Discover top-level AF3 model CIFs for crystal fallback only.
+
+    These records intentionally stay out of the normal pose input list so they do
+    not affect generated-pose, QC, clustering, or medoid denominators.
+    """
+    manifest = discover_work_root(
+        options.work_root,
+        af3_only=True,
+        latest_only=options.latest_only,
+        include_targets=options.include_targets,
+    )
+
+    fallback_by_condition: dict[str, PoseInputRecord] = {}
+    for target, model, run_id, ut in manifest.iter_all_uniprot_targets():
+        if model != "af3" or ut.model_cif_path is None:
+            continue
+        if options.include_proteins and ut.uniprot_id not in options.include_proteins:
+            continue
+
+        resolved_cif_path = Path(ut.model_cif_path).resolve()
+        confidence_json_path = _select_confidence_json(
+            Path(ut.model_cif_path),
+            ut.confidence_json_paths,
+        )
+        pose = PoseInputRecord(
+            cif_path=resolved_cif_path,
+            pose_id=Path(ut.model_cif_path).stem,
+            protein_id=ut.uniprot_id,
+            ligand_id=target,
+            model=model,
+            source_run_id=_infer_source_run_id(resolved_cif_path, run_id),
+            discovered_run_id=run_id,
+            confidence_json_path=(
+                Path(confidence_json_path).resolve()
+                if confidence_json_path is not None
+                else None
+            ),
+            run_status="af3_top_model_fallback",
+        )
+        fallback_by_condition[_condition_id_for_pose(pose, options.construct_type)] = pose
+
+    return manifest.errors, fallback_by_condition
 
 
 def _prepare_pose_case(
@@ -1338,24 +1410,176 @@ def _summary_geometry_row(
     }
 
 
-def _choose_crystal_representative_pose_id(
-    batch: IFPBatch,
+def _choose_crystal_representatives(
     clustering_result: ClusteringResult,
     cluster_pose_ids: list[str],
-) -> str | None:
-    if clustering_result.medoids and clustering_result.cluster_sizes and cluster_pose_ids:
-        best_cluster_id = max(
-            sorted(clustering_result.cluster_sizes),
-            key=lambda cluster_id: clustering_result.cluster_sizes[cluster_id],
-        )
-        medoid_index = clustering_result.medoids.get(best_cluster_id)
-        if medoid_index is not None and 0 <= medoid_index < len(cluster_pose_ids):
-            return cluster_pose_ids[medoid_index]
+    prepared_pose_by_id: dict[str, PreparedPose],
+) -> list[CrystalRepresentativeCandidate]:
+    representatives: list[CrystalRepresentativeCandidate] = []
+    if not clustering_result.medoids or not cluster_pose_ids:
+        return representatives
 
-    for result in batch.results:
-        if result.status == "ok":
-            return result.pose_id
-    return None
+    for cluster_id in sorted(clustering_result.medoids):
+        medoid_index = clustering_result.medoids.get(cluster_id)
+        if medoid_index is None or not (0 <= medoid_index < len(cluster_pose_ids)):
+            continue
+        pose_id = cluster_pose_ids[medoid_index]
+        prepared_pose = prepared_pose_by_id.get(pose_id)
+        if prepared_pose is None:
+            continue
+        representatives.append(
+            CrystalRepresentativeCandidate(
+                pose_id=pose_id,
+                cif_path=prepared_pose.pose.cif_path,
+                role="cluster_medoid",
+                medoid_pose_id=pose_id,
+                cluster_id=cluster_id,
+                protein_id=prepared_pose.pose.protein_id,
+                ligand_id=prepared_pose.pose.ligand_id,
+            )
+        )
+    return representatives
+
+
+def _prepare_hard_qc_passing_top_model_fallback(
+    pose: PoseInputRecord,
+    *,
+    output_dir: Path,
+    options: ProductionRunOptions,
+) -> tuple[CrystalRepresentativeCandidate | None, dict[str, Any]]:
+    case, prepared = _prepare_pose_case(
+        pose,
+        index=1,
+        output_dir=output_dir,
+    )
+    fallback_summary = {
+        "pose_id": pose.pose_id,
+        "protein_id": pose.protein_id,
+        "ligand_id": pose.ligand_id,
+        "cif_path": str(pose.cif_path),
+        "case": case,
+        "selected": False,
+    }
+    if prepared is None:
+        fallback_summary["skip_reason"] = "fallback_prepare_failed"
+        return None, fallback_summary
+
+    qc_report = run_hard_qc(
+        [_hard_qc_input(prepared)],
+        run_id=f"{options.run_id}:crystal_fallback",
+        run_posebusters=options.run_posebusters,
+        run_privateer=options.run_privateer,
+        max_workers=1,
+        collect_timing_events=False,
+    )
+    verdict = qc_report.verdicts[0] if qc_report.verdicts else None
+    fallback_summary["qc_verdict"] = verdict.__dict__ if verdict is not None else {}
+    if verdict is None or verdict.status == "dropped":
+        fallback_summary["skip_reason"] = "fallback_hard_qc_failed"
+        return None, fallback_summary
+
+    fallback_summary["selected"] = True
+    return (
+        CrystalRepresentativeCandidate(
+            pose_id=pose.pose_id,
+            cif_path=pose.cif_path,
+            role="af3_top_model_fallback",
+            medoid_pose_id="",
+            cluster_id="",
+            protein_id=pose.protein_id,
+            ligand_id=pose.ligand_id,
+        ),
+        fallback_summary,
+    )
+
+
+def _build_crystal_geometry_row_from_comparison(
+    *,
+    protein_id: str,
+    comparison: Any,
+) -> dict[str, Any]:
+    row = {
+        "protein_id": protein_id,
+        "pdb_code": comparison.pdb_code,
+        "source_cif": comparison.source_cif,
+        "prepared_subset_cif": comparison.prepared_subset_cif,
+        "selected_protein_chain": comparison.selected_protein_chain,
+        "ligand_chain_ids": json.dumps(comparison.ligand_chain_ids),
+        "copper_chain_ids": json.dumps(comparison.copper_chain_ids),
+        "geometry_status": (
+            "computed"
+            if comparison.crystal_geometry
+            else (
+                "no_ligand_reference"
+                if comparison.status == "prepared_no_ligand"
+                else comparison.status
+            )
+        ),
+    }
+    if comparison.crystal_geometry:
+        row.update(comparison.crystal_geometry)
+    else:
+        row.update({column: "" for column in CRYSTAL_GEOMETRY_COLUMNS if column not in row})
+    return row
+
+
+def _write_crystal_ifp_diagnostic_summary(
+    crystal_anchor_rows: list[dict[str, Any]],
+    output_path: Path,
+) -> None:
+    def _summary(scope: str, rows: list[dict[str, Any]]) -> dict[str, Any]:
+        total = len(rows)
+        eligible = sum(1 for row in rows if str(row.get("crystal_ifp_contact_eligible")) == "True")
+        vdw_only = sum(1 for row in rows if row.get("crystal_ifp_exclusion_class") == "vdw_only")
+        zero_contacts = sum(
+            1
+            for row in rows
+            if row.get("crystal_ifp_exclusion_class") in {"zero_contacts", "null_ifp"}
+        )
+        low_specific = sum(
+            1 for row in rows if row.get("crystal_ifp_exclusion_class") == "low_specific_contact"
+        )
+        return {
+            "scope": scope,
+            "n_total": total,
+            "n_contact_eligible": eligible,
+            "n_ineligible": total - eligible,
+            "n_vdw_only": vdw_only,
+            "n_zero_or_null_contacts": zero_contacts,
+            "n_low_specific_contact": low_specific,
+            "contact_eligible_fraction": (eligible / total if total else 0.0),
+            "ineligible_fraction": ((total - eligible) / total if total else 0.0),
+        }
+
+    unique_rows_by_reference: dict[tuple[str, str, str], dict[str, Any]] = {}
+    for row in crystal_anchor_rows:
+        key = (
+            str(row.get("condition_id", "")),
+            str(row.get("crystal_reference_id", "")),
+            str(row.get("source_cif", "")),
+        )
+        if key[1]:
+            unique_rows_by_reference.setdefault(key, row)
+
+    rows = [
+        _summary("unique_crystal_reference", list(unique_rows_by_reference.values())),
+        _summary("medoid_or_fallback_comparison", crystal_anchor_rows),
+    ]
+    _write_tsv_rows(
+        output_path,
+        [
+            "scope",
+            "n_total",
+            "n_contact_eligible",
+            "n_ineligible",
+            "n_vdw_only",
+            "n_zero_or_null_contacts",
+            "n_low_specific_contact",
+            "contact_eligible_fraction",
+            "ineligible_fraction",
+        ],
+        rows,
+    )
 
 
 def run_analysis_core(
@@ -1395,6 +1619,8 @@ def run_analysis_core(
 
     discovery_start = perf_counter()
     discovery_errors, pose_inputs, discovery_summary = _discover_pose_inputs(options)
+    fallback_discovery_errors, top_model_fallback_by_condition = _discover_top_model_fallback_inputs(options)
+    discovery_errors = [*discovery_errors, *fallback_discovery_errors]
     _record_timing(
         step="analysis.discovery",
         start=discovery_start,
@@ -1415,8 +1641,25 @@ def run_analysis_core(
         "run_privateer": options.run_privateer,
         "n_jobs": options.n_jobs,
         "collect_timing_events": options.collect_timing_events,
+        "primary_clustering": {
+            "method": PRIMARY_CLUSTERING_METHOD,
+            "metric": "jaccard",
+            "linkage": PRIMARY_AGGLOMERATIVE_LINKAGE,
+            "distance_threshold": PRIMARY_AGGLOMERATIVE_DISTANCE_THRESHOLD,
+            "min_cluster_size": PRIMARY_AGGLOMERATIVE_MIN_CLUSTER_SIZE,
+        },
         "discovery_summary": discovery_summary,
         "discovery_errors": discovery_errors,
+        "crystal_top_model_fallback_candidates": {
+            condition_id: {
+                "pose_id": pose.pose_id,
+                "cif_path": str(pose.cif_path),
+                "protein_id": pose.protein_id,
+                "ligand_id": pose.ligand_id,
+            }
+            for condition_id, pose in sorted(top_model_fallback_by_condition.items())
+        },
+        "crystal_top_model_fallback_runs": [],
         "n_discovered": len(pose_inputs),
         "cases": [],
     }
@@ -1468,6 +1711,7 @@ def run_analysis_core(
     cluster_assignments_tsv_path: Path | None = None
     medoid_manifest_tsv_path: Path | None = None
     condition_cluster_summary_tsv_path: Path | None = None
+    cluster_table_tsv_path: Path | None = None
     cluster_ifp_signature_tsv_path: Path | None = None
     cluster_residue_signature_tsv_path: Path | None = None
     cluster_signatures_json_path: Path | None = None
@@ -1477,6 +1721,8 @@ def run_analysis_core(
     condition_patch_summary_tsv_path: Path | None = None
     protein_patch_summary_tsv_path: Path | None = None
     crystal_anchor_tsv_path: Path | None = None
+    crystal_geometry_tsv_path: Path | None = None
+    crystal_ifp_diagnostic_summary_tsv_path: Path | None = None
     metrics_csv_path: Path | None = None
     summary_json_path: Path | None = None
     report_html_path: Path | None = None
@@ -1682,12 +1928,20 @@ def run_analysis_core(
         crystal_report_entries: list[dict[str, Any]] = []
         crystal_report_errors: list[dict[str, Any]] = []
         crystal_anchor_rows: list[dict[str, Any]] = []
+        crystal_geometry_rows: list[dict[str, Any]] = []
         residue_contact_rows: list[dict[str, Any]] = []
         pose_convergence_metrics: list[PoseConvergenceMetrics] = []
         condition_convergence_summaries: list[ConditionConvergenceSummary] = []
         pilot_conditions: list[PilotConditionIFP] = []
 
-        clusterer = HDBSCANClusterer(output_dir=options.output_dir)
+        clusterer = AgglomerativeJaccardClusterer(
+            output_dir=options.output_dir,
+            config=AgglomerativeJaccardConfig(
+                linkage=PRIMARY_AGGLOMERATIVE_LINKAGE,
+                distance_threshold=PRIMARY_AGGLOMERATIVE_DISTANCE_THRESHOLD,
+                min_cluster_size=PRIMARY_AGGLOMERATIVE_MIN_CLUSTER_SIZE,
+            ),
+        )
         ifp_matrix_root = options.output_dir / "ifp_matrices"
         for condition_id in sorted(n_qc_pass_by_condition):
             condition_pose_inputs = ifp_pose_inputs_by_condition.get(condition_id, [])
@@ -1846,28 +2100,46 @@ def run_analysis_core(
                             }
                         )
 
-                representative_pose_id = _choose_crystal_representative_pose_id(
-                    batch,
+                crystal_representatives = _choose_crystal_representatives(
                     clustering_result,
                     cluster_pose_ids,
+                    prepared_pose_by_id,
                 )
-                representative_pose = prepared_pose_by_id.get(str(representative_pose_id or ""))
-                if representative_pose is not None:
-                    crystal_output_dir = options.output_dir / "crystal_anchoring" / _slug(condition_id)
+                if not crystal_representatives:
+                    fallback_pose = top_model_fallback_by_condition.get(condition_id)
+                    if fallback_pose is not None:
+                        fallback_candidate, fallback_summary = _prepare_hard_qc_passing_top_model_fallback(
+                            fallback_pose,
+                            output_dir=options.output_dir / "crystal_fallback_cases" / _slug(condition_id),
+                            options=options,
+                        )
+                        analysis_summary["crystal_top_model_fallback_runs"].append(
+                            {"condition_id": condition_id, **fallback_summary}
+                        )
+                        if fallback_candidate is not None:
+                            crystal_representatives.append(fallback_candidate)
+
+                for representative in crystal_representatives:
+                    crystal_output_dir = (
+                        options.output_dir
+                        / "crystal_anchoring"
+                        / _slug(condition_id)
+                        / _slug(representative.pose_id)
+                    )
                     crystal_report_path = crystal_output_dir / "crystal_reference_screen.json"
                     try:
                         crystal_start = perf_counter()
                         crystal_report = run_crystal_reference_screen(
-                            representative_pose.pose.cif_path,
-                            protein_id=representative_pose.pose.protein_id,
-                            ligand_id=representative_pose.pose.ligand_id,
-                            representative_pose_id=representative_pose.pose.pose_id,
+                            representative.cif_path,
+                            protein_id=representative.protein_id,
+                            ligand_id=representative.ligand_id,
+                            representative_pose_id=representative.pose_id,
                             output_dir=crystal_output_dir,
                         )
                         _record_timing(
                             step="analysis.crystal_anchoring",
                             start=crystal_start,
-                            pose_id=representative_pose.pose.pose_id,
+                            pose_id=representative.pose_id,
                             condition_id=condition_id,
                             status="ok",
                             detail=f"n_comparisons={len(crystal_report.comparisons)}",
@@ -1889,20 +2161,26 @@ def run_analysis_core(
                             ),
                             default=None,
                         )
-                        if best_tanimoto is not None:
-                            metrics_record_by_pose_id[representative_pose.pose.pose_id]["ifp_similarity_crystal"] = best_tanimoto
-                        if best_pocket_rmsd is not None:
-                            metrics_record_by_pose_id[representative_pose.pose.pose_id]["pocket_rmsd_vs_crystal"] = best_pocket_rmsd
-                        case_by_pose_id[representative_pose.pose.pose_id]["crystal_anchoring_representative_pose"] = True
-                        case_by_pose_id[representative_pose.pose.pose_id]["crystal_anchoring_report_path"] = str(crystal_report_path)
-                        case_by_pose_id[representative_pose.pose.pose_id]["crystal_anchoring_best_tanimoto"] = best_tanimoto
-                        case_by_pose_id[representative_pose.pose.pose_id]["crystal_anchoring_best_pocket_rmsd"] = best_pocket_rmsd
-                        case_by_pose_id[representative_pose.pose.pose_id]["crystal_anchoring_n_comparisons"] = len(crystal_report.comparisons)
+                        if representative.pose_id in metrics_record_by_pose_id:
+                            if best_tanimoto is not None:
+                                metrics_record_by_pose_id[representative.pose_id]["ifp_similarity_crystal"] = best_tanimoto
+                            if best_pocket_rmsd is not None:
+                                metrics_record_by_pose_id[representative.pose_id]["pocket_rmsd_vs_crystal"] = best_pocket_rmsd
+                        if representative.pose_id in case_by_pose_id:
+                            case_by_pose_id[representative.pose_id]["crystal_anchoring_representative_pose"] = True
+                            case_by_pose_id[representative.pose_id]["crystal_anchoring_representative_role"] = representative.role
+                            case_by_pose_id[representative.pose_id]["crystal_anchoring_report_path"] = str(crystal_report_path)
+                            case_by_pose_id[representative.pose_id]["crystal_anchoring_best_tanimoto"] = best_tanimoto
+                            case_by_pose_id[representative.pose_id]["crystal_anchoring_best_pocket_rmsd"] = best_pocket_rmsd
+                            case_by_pose_id[representative.pose_id]["crystal_anchoring_n_comparisons"] = len(crystal_report.comparisons)
                         report_entry = {
                             "condition_id": condition_id,
-                            "protein_id": representative_pose.pose.protein_id,
-                            "ligand_id": representative_pose.pose.ligand_id,
-                            "representative_pose_id": representative_pose.pose.pose_id,
+                            "protein_id": representative.protein_id,
+                            "ligand_id": representative.ligand_id,
+                            "representative_pose_id": representative.pose_id,
+                            "representative_role": representative.role,
+                            "medoid_pose_id": representative.medoid_pose_id,
+                            "cluster_id": representative.cluster_id,
                             "report_path": str(crystal_report_path),
                             "comparison_count": len(crystal_report.comparisons),
                             "best_tanimoto": best_tanimoto,
@@ -1910,17 +2188,23 @@ def run_analysis_core(
                         }
                         crystal_report_entries.append(report_entry)
                         crystal_reports_for_summary.append(report_entry)
-                        representative_cluster_id = case_by_pose_id[
-                            representative_pose.pose.pose_id
-                        ].get("cluster_id", "")
                         for comparison in crystal_report.comparisons:
+                            geometry = comparison.crystal_geometry or {}
+                            crystal_geometry_rows.append(
+                                _build_crystal_geometry_row_from_comparison(
+                                    protein_id=representative.protein_id,
+                                    comparison=comparison,
+                                )
+                            )
                             crystal_anchor_rows.append(
                                 {
                                     "condition_id": condition_id,
-                                    "protein_id": representative_pose.pose.protein_id,
-                                    "ligand_id": representative_pose.pose.ligand_id,
-                                    "cluster_id": representative_cluster_id,
-                                    "medoid_pose_id": representative_pose.pose.pose_id,
+                                    "protein_id": representative.protein_id,
+                                    "ligand_id": representative.ligand_id,
+                                    "cluster_id": representative.cluster_id,
+                                    "representative_pose_id": representative.pose_id,
+                                    "representative_role": representative.role,
+                                    "medoid_pose_id": representative.medoid_pose_id,
                                     "crystal_reference_id": comparison.pdb_code,
                                     "source_cif": comparison.source_cif,
                                     "prepared_subset_cif": comparison.prepared_subset_cif,
@@ -1932,39 +2216,50 @@ def run_analysis_core(
                                     "same_binding_region_flag": comparison.pocket_rmsd_below_threshold,
                                     "same_general_orientation_flag": "",
                                     "ifp_tanimoto": comparison.ifp_tanimoto,
+                                    "crystal_ifp_contact_eligible": comparison.crystal_ifp_contact_eligible,
+                                    "crystal_ifp_exclusion_class": comparison.crystal_ifp_exclusion_class,
+                                    "crystal_n_vdw_interactions": comparison.crystal_n_vdw_interactions,
+                                    "crystal_n_non_vdw_interactions": comparison.crystal_n_non_vdw_interactions,
+                                    "crystal_n_non_vdw_contact_residues": comparison.crystal_n_non_vdw_contact_residues,
+                                    "ifp_comparison_eligible": comparison.ifp_comparison_eligible,
+                                    "crystal_Cu_C1_distance": geometry.get("Cu_C1_distance", ""),
+                                    "crystal_Cu_C4_distance": geometry.get("Cu_C4_distance", ""),
+                                    "crystal_geometry_status_C1": geometry.get("geometry_status_C1", ""),
+                                    "crystal_geometry_status_C4": geometry.get("geometry_status_C4", ""),
                                     "pocket_residues": json.dumps(comparison.pocket_residues),
                                     "comparison_status": comparison.status,
                                     "notes": comparison.error or "",
                                 }
                             )
                     except Exception as exc:
-                        if "crystal_start" in locals():
-                            _record_timing(
-                                step="analysis.crystal_anchoring",
-                                start=crystal_start,
-                                pose_id=representative_pose.pose.pose_id,
-                                condition_id=condition_id,
-                                status="error",
-                                detail=f"{exc.__class__.__name__}: {exc}",
-                            )
+                        _record_timing(
+                            step="analysis.crystal_anchoring",
+                            start=crystal_start if "crystal_start" in locals() else perf_counter(),
+                            pose_id=representative.pose_id,
+                            condition_id=condition_id,
+                            status="error",
+                            detail=f"{exc.__class__.__name__}: {exc}",
+                        )
                         error_entry = {
                             "condition_id": condition_id,
-                            "protein_id": representative_pose.pose.protein_id,
-                            "ligand_id": representative_pose.pose.ligand_id,
-                            "representative_pose_id": representative_pose.pose.pose_id,
+                            "protein_id": representative.protein_id,
+                            "ligand_id": representative.ligand_id,
+                            "representative_pose_id": representative.pose_id,
+                            "representative_role": representative.role,
                             "error": f"{exc.__class__.__name__}: {exc}",
                         }
                         crystal_report_errors.append(error_entry)
-                        case_by_pose_id[representative_pose.pose.pose_id]["crystal_anchoring_error"] = error_entry["error"]
+                        if representative.pose_id in case_by_pose_id:
+                            case_by_pose_id[representative.pose_id]["crystal_anchoring_error"] = error_entry["error"]
                         crystal_anchor_rows.append(
                             {
                                 "condition_id": condition_id,
-                                "protein_id": representative_pose.pose.protein_id,
-                                "ligand_id": representative_pose.pose.ligand_id,
-                                "cluster_id": case_by_pose_id[
-                                    representative_pose.pose.pose_id
-                                ].get("cluster_id", ""),
-                                "medoid_pose_id": representative_pose.pose.pose_id,
+                                "protein_id": representative.protein_id,
+                                "ligand_id": representative.ligand_id,
+                                "cluster_id": representative.cluster_id,
+                                "representative_pose_id": representative.pose_id,
+                                "representative_role": representative.role,
+                                "medoid_pose_id": representative.medoid_pose_id,
                                 "crystal_reference_id": "",
                                 "source_cif": "",
                                 "prepared_subset_cif": "",
@@ -1976,6 +2271,16 @@ def run_analysis_core(
                                 "same_binding_region_flag": "",
                                 "same_general_orientation_flag": "",
                                 "ifp_tanimoto": "",
+                                "crystal_ifp_contact_eligible": "",
+                                "crystal_ifp_exclusion_class": "",
+                                "crystal_n_vdw_interactions": "",
+                                "crystal_n_non_vdw_interactions": "",
+                                "crystal_n_non_vdw_contact_residues": "",
+                                "ifp_comparison_eligible": "",
+                                "crystal_Cu_C1_distance": "",
+                                "crystal_Cu_C4_distance": "",
+                                "crystal_geometry_status_C1": "",
+                                "crystal_geometry_status_C4": "",
                                 "pocket_residues": "[]",
                                 "comparison_status": "error",
                                 "notes": error_entry["error"],
@@ -2138,6 +2443,11 @@ def run_analysis_core(
                 cluster_signature_tables.cluster_summaries,
                 cluster_signatures_json_path,
             )
+            cluster_table_tsv_path = options.output_dir / "cluster_table.tsv"
+            write_cluster_table_tsv(
+                cluster_signature_tables.cluster_summaries,
+                cluster_table_tsv_path,
+            )
             cluster_annotation_stage_completed = True
             _record_timing(
                 step="analysis.cluster_annotation",
@@ -2216,6 +2526,8 @@ def run_analysis_core(
                 "protein_id",
                 "ligand_id",
                 "cluster_id",
+                "representative_pose_id",
+                "representative_role",
                 "medoid_pose_id",
                 "crystal_reference_id",
                 "source_cif",
@@ -2228,11 +2540,44 @@ def run_analysis_core(
                 "same_binding_region_flag",
                 "same_general_orientation_flag",
                 "ifp_tanimoto",
+                "crystal_ifp_contact_eligible",
+                "crystal_ifp_exclusion_class",
+                "crystal_n_vdw_interactions",
+                "crystal_n_non_vdw_interactions",
+                "crystal_n_non_vdw_contact_residues",
+                "ifp_comparison_eligible",
+                "crystal_Cu_C1_distance",
+                "crystal_Cu_C4_distance",
+                "crystal_geometry_status_C1",
+                "crystal_geometry_status_C4",
                 "pocket_residues",
                 "comparison_status",
                 "notes",
             ],
             crystal_anchor_rows,
+        )
+        crystal_geometry_rows_by_key: dict[tuple[str, str, str], dict[str, Any]] = {}
+        for row in crystal_geometry_rows:
+            if not row.get("pdb_code"):
+                continue
+            key = (
+                str(row.get("protein_id", "")),
+                str(row.get("pdb_code", "")),
+                str(row.get("source_cif", "")),
+            )
+            crystal_geometry_rows_by_key.setdefault(key, row)
+
+        crystal_geometry_tsv_path = options.output_dir / "crystal_geometry_table.tsv"
+        write_crystal_geometry_table(
+            list(crystal_geometry_rows_by_key.values()),
+            crystal_geometry_tsv_path,
+        )
+        crystal_ifp_diagnostic_summary_tsv_path = (
+            options.output_dir / "crystal_ifp_diagnostic_summary.tsv"
+        )
+        _write_crystal_ifp_diagnostic_summary(
+            crystal_anchor_rows,
+            crystal_ifp_diagnostic_summary_tsv_path,
         )
 
         pose_geometry_tsv_path = options.output_dir / "pose_geometry.tsv"
@@ -2272,6 +2617,7 @@ def run_analysis_core(
                 "cluster_assignments_tsv": str(cluster_assignments_tsv_path) if cluster_assignments_tsv_path else None,
                 "medoid_manifest_tsv": str(medoid_manifest_tsv_path) if medoid_manifest_tsv_path else None,
                 "condition_cluster_summary_tsv": str(condition_cluster_summary_tsv_path) if condition_cluster_summary_tsv_path else None,
+                "cluster_table_tsv": str(cluster_table_tsv_path) if cluster_table_tsv_path else None,
                 "cluster_ifp_signature_tsv": str(cluster_ifp_signature_tsv_path) if cluster_ifp_signature_tsv_path else None,
                 "cluster_residue_signature_tsv": str(cluster_residue_signature_tsv_path) if cluster_residue_signature_tsv_path else None,
                 "cluster_signatures_json": str(cluster_signatures_json_path) if cluster_signatures_json_path else None,
@@ -2281,6 +2627,8 @@ def run_analysis_core(
                 "condition_patch_summary_tsv": str(condition_patch_summary_tsv_path) if condition_patch_summary_tsv_path else None,
                 "protein_patch_summary_tsv": str(protein_patch_summary_tsv_path) if protein_patch_summary_tsv_path else None,
                 "crystal_anchor_tsv": str(crystal_anchor_tsv_path),
+                "crystal_geometry_tsv": str(crystal_geometry_tsv_path),
+                "crystal_ifp_diagnostic_summary_tsv": str(crystal_ifp_diagnostic_summary_tsv_path),
                 "crystal_anchoring_reports": crystal_report_entries,
                 "crystal_anchoring_errors": crystal_report_errors,
                 "crystal_anchoring_stage_completed": crystal_anchoring_stage_completed,
@@ -2362,6 +2710,7 @@ def run_analysis_core(
         cluster_assignments_tsv_path=cluster_assignments_tsv_path,
         medoid_manifest_tsv_path=medoid_manifest_tsv_path,
         condition_cluster_summary_tsv_path=condition_cluster_summary_tsv_path,
+        cluster_table_tsv_path=cluster_table_tsv_path,
         cluster_ifp_signature_tsv_path=cluster_ifp_signature_tsv_path,
         cluster_residue_signature_tsv_path=cluster_residue_signature_tsv_path,
         cluster_signatures_json_path=cluster_signatures_json_path,
@@ -2371,6 +2720,8 @@ def run_analysis_core(
         condition_patch_summary_tsv_path=condition_patch_summary_tsv_path,
         protein_patch_summary_tsv_path=protein_patch_summary_tsv_path,
         crystal_anchor_tsv_path=crystal_anchor_tsv_path,
+        crystal_geometry_tsv_path=crystal_geometry_tsv_path,
+        crystal_ifp_diagnostic_summary_tsv_path=crystal_ifp_diagnostic_summary_tsv_path,
         n_cluster_conditions=n_cluster_conditions,
         crystal_anchoring_stage_completed=crystal_anchoring_stage_completed,
         n_crystal_anchoring_conditions=n_crystal_anchoring_conditions,

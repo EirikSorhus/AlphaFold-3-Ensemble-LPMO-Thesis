@@ -7,8 +7,12 @@ from pathlib import Path
 import numpy as np
 
 from lpmo_pipeline.analysis.analysis_orchestrator import (
+    PreparedPose,
     ProductionRunOptions,
+    _choose_crystal_representatives,
     _discover_pose_inputs,
+    _discover_top_model_fallback_inputs,
+    _prepare_hard_qc_passing_top_model_fallback,
     load_production_options,
     run_analysis_core,
 )
@@ -106,6 +110,151 @@ def test_discover_pose_inputs_filters_by_include_proteins(tmp_path: Path) -> Non
         "Q7SCE9_NAG4_seed-1_sample-0_model",
         "Q7SCE9_NAG4_seed-1_sample-1_model",
     }
+
+
+def test_discover_top_model_fallback_inputs_keeps_best_af3_model_separate(tmp_path: Path) -> None:
+    work_root = _make_work_root(tmp_path)
+    options = ProductionRunOptions(
+        run_id="test-run",
+        output_dir=tmp_path / "output",
+        del_variant="a",
+        work_root=work_root,
+        af3_only=True,
+        latest_only=False,
+        include_targets=("NAG4",),
+    )
+
+    errors, poses, _summary = _discover_pose_inputs(options)
+    fallback_errors, fallback_by_condition = _discover_top_model_fallback_inputs(options)
+
+    assert errors == []
+    assert fallback_errors == []
+    assert {pose.pose_id for pose in poses} == {
+        "Q7SCE9_NAG4_seed-1_sample-0_model",
+        "Q7SCE9_NAG4_seed-1_sample-1_model",
+    }
+    fallback = fallback_by_condition["Q7SCE9__domain_only__chitin_DP4"]
+    assert fallback.pose_id == "Q7SCE9_NAG4_model"
+    assert fallback.run_status == "af3_top_model_fallback"
+
+
+def test_choose_crystal_representatives_returns_all_cluster_medoids(tmp_path: Path) -> None:
+    work_root = _make_work_root(tmp_path)
+    options = ProductionRunOptions(
+        run_id="test-run",
+        output_dir=tmp_path / "output",
+        del_variant="a",
+        work_root=work_root,
+        af3_only=True,
+        latest_only=False,
+        include_targets=("NAG4",),
+    )
+    _errors, poses, _summary = _discover_pose_inputs(options)
+    prepared_by_id = {
+        pose.pose_id: PreparedPose(
+            pose=pose,
+            case_dir=tmp_path / pose.pose_id,
+            normalized_cif=pose.cif_path,
+            posebusters_pdb=pose.cif_path,
+            privateer_input_cif=pose.cif_path,
+            structure={},
+        )
+        for pose in poses
+    }
+    clustering_result = ClusteringResult(
+        n_clusters=2,
+        n_outliers=0,
+        outlier_rate=0.0,
+        cluster_sizes={0: 1, 1: 1},
+        cluster_occupancy={0: 0.5, 1: 0.5},
+        outlier_indices=[],
+        cluster_labels=np.asarray([0, 1], dtype=int),
+        medoids={0: 0, 1: 1},
+        medoid_distance_sums={0: 0.0, 1: 0.0},
+    )
+
+    representatives = _choose_crystal_representatives(
+        clustering_result,
+        [pose.pose_id for pose in poses],
+        prepared_by_id,
+    )
+
+    assert [representative.role for representative in representatives] == [
+        "cluster_medoid",
+        "cluster_medoid",
+    ]
+    assert [representative.medoid_pose_id for representative in representatives] == [
+        "Q7SCE9_NAG4_seed-1_sample-0_model",
+        "Q7SCE9_NAG4_seed-1_sample-1_model",
+    ]
+
+
+def test_top_model_fallback_requires_non_dropped_hard_qc(tmp_path: Path, monkeypatch) -> None:
+    work_root = _make_work_root(tmp_path)
+    options = ProductionRunOptions(
+        run_id="test-run",
+        output_dir=tmp_path / "output",
+        del_variant="a",
+        work_root=work_root,
+        af3_only=True,
+        latest_only=False,
+        include_targets=("NAG4",),
+    )
+    _errors, fallback_by_condition = _discover_top_model_fallback_inputs(options)
+    fallback_pose = fallback_by_condition["Q7SCE9__domain_only__chitin_DP4"]
+
+    def _fake_prepare_pose_case(pose, *, index: int, output_dir: Path):
+        del index
+        prepared = PreparedPose(
+            pose=pose,
+            case_dir=output_dir / "case",
+            normalized_cif=pose.cif_path,
+            posebusters_pdb=pose.cif_path,
+            privateer_input_cif=pose.cif_path,
+            structure={},
+        )
+        return {"pose_id": pose.pose_id, "status": "prepared"}, prepared
+
+    monkeypatch.setattr(
+        "lpmo_pipeline.analysis.analysis_orchestrator._prepare_pose_case",
+        _fake_prepare_pose_case,
+    )
+    monkeypatch.setattr(
+        "lpmo_pipeline.analysis.analysis_orchestrator.run_hard_qc",
+        lambda poses, **kwargs: build_qc_report(
+            run_id="fallback",
+            verdicts=[PoseQCVerdict(pose_id=poses[0].pose_id, status="dropped")],
+        ),
+    )
+
+    representative, summary = _prepare_hard_qc_passing_top_model_fallback(
+        fallback_pose,
+        output_dir=tmp_path / "fallback",
+        options=options,
+    )
+
+    assert representative is None
+    assert summary["selected"] is False
+    assert summary["skip_reason"] == "fallback_hard_qc_failed"
+
+    monkeypatch.setattr(
+        "lpmo_pipeline.analysis.analysis_orchestrator.run_hard_qc",
+        lambda poses, **kwargs: build_qc_report(
+            run_id="fallback",
+            verdicts=[PoseQCVerdict(pose_id=poses[0].pose_id, status="passed")],
+        ),
+    )
+
+    representative, summary = _prepare_hard_qc_passing_top_model_fallback(
+        fallback_pose,
+        output_dir=tmp_path / "fallback",
+        options=options,
+    )
+
+    assert representative is not None
+    assert representative.role == "af3_top_model_fallback"
+    assert representative.medoid_pose_id == ""
+    assert summary["selected"] is True
 
 
 def test_discover_pose_inputs_preserves_upstream_run_id_for_symlinked_stage(tmp_path: Path) -> None:
@@ -318,8 +467,8 @@ def test_run_analysis_core_writes_qc_geometry_and_reports(tmp_path, monkeypatch)
         )
 
     class _FakeClusterer:
-        def __init__(self, output_dir: Path | None = None):
-            del output_dir
+        def __init__(self, output_dir: Path | None = None, config=None):
+            del output_dir, config
             self.config = type(
                 "FakeClusterConfig",
                 (),
@@ -327,6 +476,8 @@ def test_run_analysis_core_writes_qc_geometry_and_reports(tmp_path, monkeypatch)
                     "min_cluster_size": 1,
                     "min_samples": None,
                     "cluster_selection_method": "eom",
+                    "linkage": "average",
+                    "distance_threshold": 0.55,
                 },
             )()
 
@@ -404,7 +555,7 @@ def test_run_analysis_core_writes_qc_geometry_and_reports(tmp_path, monkeypatch)
         _fake_compute_condition_convergence,
     )
     monkeypatch.setattr(
-        "lpmo_pipeline.analysis.analysis_orchestrator.HDBSCANClusterer",
+        "lpmo_pipeline.analysis.analysis_orchestrator.AgglomerativeJaccardClusterer",
         _FakeClusterer,
     )
     monkeypatch.setattr(
@@ -442,6 +593,20 @@ def test_run_analysis_core_writes_qc_geometry_and_reports(tmp_path, monkeypatch)
                     crystal_ifp_result_json="/tmp/5ACI_ifp.json",
                     crystal_pose_ifp_table_tsv="/tmp/5ACI_ifp.tsv",
                     crystal_ifp_matrix_csv="/tmp/5ACI_ifp.csv",
+                    crystal_ifp_contact_eligible=True,
+                    crystal_n_non_vdw_interactions=2,
+                    crystal_n_non_vdw_contact_residues=1,
+                    ifp_comparison_eligible=True,
+                    crystal_geometry={
+                        "pose_id": "5ACI",
+                        "model": "crystal",
+                        "protein_id": protein_id,
+                        "ligand_id": ligand_id,
+                        "Cu_C1_distance": 3.2,
+                        "Cu_C4_distance": 4.8,
+                        "geometry_status_C1": "geometry_plausible",
+                        "geometry_status_C4": "geometry_computable_implausible",
+                    },
                     pocket_residues=[10, 11, 12],
                     pocket_rmsd=1.5,
                     pocket_rmsd_below_threshold=True,
@@ -503,6 +668,11 @@ def test_run_analysis_core_writes_qc_geometry_and_reports(tmp_path, monkeypatch)
     assert result.condition_patch_summary_tsv_path is not None and result.condition_patch_summary_tsv_path.exists()
     assert result.protein_patch_summary_tsv_path is not None and result.protein_patch_summary_tsv_path.exists()
     assert result.crystal_anchor_tsv_path is not None and result.crystal_anchor_tsv_path.exists()
+    assert result.crystal_geometry_tsv_path is not None and result.crystal_geometry_tsv_path.exists()
+    assert (
+        result.crystal_ifp_diagnostic_summary_tsv_path is not None
+        and result.crystal_ifp_diagnostic_summary_tsv_path.exists()
+    )
     assert result.metrics_csv_path is not None and result.metrics_csv_path.exists()
     assert result.summary_json_path is not None and result.summary_json_path.exists()
     assert result.report_html_path is not None and result.report_html_path.exists()
@@ -742,10 +912,31 @@ def test_run_analysis_core_writes_qc_geometry_and_reports(tmp_path, monkeypatch)
         crystal_anchor_rows = list(csv.DictReader(handle, delimiter="\t"))
     assert len(crystal_anchor_rows) == 1
     assert crystal_anchor_rows[0]["condition_id"] == "Q7SCE9__domain_only__chitin_DP4"
+    assert crystal_anchor_rows[0]["representative_pose_id"] == "Q7SCE9_NAG4_seed-1_sample-0_model"
+    assert crystal_anchor_rows[0]["representative_role"] == "cluster_medoid"
+    assert crystal_anchor_rows[0]["medoid_pose_id"] == "Q7SCE9_NAG4_seed-1_sample-0_model"
     assert crystal_anchor_rows[0]["crystal_reference_id"] == "5ACI"
     assert crystal_anchor_rows[0]["local_pocket_rmsd"] == "1.5"
     assert crystal_anchor_rows[0]["contact_overlap_score"] == "0.25"
+    assert crystal_anchor_rows[0]["crystal_ifp_contact_eligible"] == "True"
+    assert crystal_anchor_rows[0]["ifp_comparison_eligible"] == "True"
+    assert crystal_anchor_rows[0]["crystal_Cu_C1_distance"] == "3.2"
+    assert crystal_anchor_rows[0]["crystal_geometry_status_C1"] == "geometry_plausible"
     assert crystal_anchor_rows[0]["comparison_status"] == "ok"
+
+    with open(result.crystal_geometry_tsv_path, newline="") as handle:
+        crystal_geometry_rows = list(csv.DictReader(handle, delimiter="\t"))
+    assert len(crystal_geometry_rows) == 1
+    assert crystal_geometry_rows[0]["pdb_code"] == "5ACI"
+    assert crystal_geometry_rows[0]["Cu_C1_distance"] == "3.2"
+    assert crystal_geometry_rows[0]["geometry_status_C4"] == "geometry_computable_implausible"
+
+    with open(result.crystal_ifp_diagnostic_summary_tsv_path, newline="") as handle:
+        crystal_ifp_summary_rows = list(csv.DictReader(handle, delimiter="\t"))
+    assert crystal_ifp_summary_rows[0]["scope"] == "unique_crystal_reference"
+    assert crystal_ifp_summary_rows[0]["n_contact_eligible"] == "1"
+    assert crystal_ifp_summary_rows[1]["scope"] == "medoid_or_fallback_comparison"
+    assert crystal_ifp_summary_rows[1]["contact_eligible_fraction"] == "1.0"
 
     summary_json = json.loads(result.summary_json_path.read_text())
     assert summary_json["dataset_stats"]["n_total_poses"] == 2
@@ -757,6 +948,13 @@ def test_run_analysis_core_writes_qc_geometry_and_reports(tmp_path, monkeypatch)
     analysis_summary = json.loads(result.summary_path.read_text())
     assert analysis_summary["qc_counts"]["dropped"] == 1
     assert analysis_summary["n_cluster_conditions"] == 1
+    assert analysis_summary["primary_clustering"] == {
+        "method": "agglomerative_jaccard",
+        "metric": "jaccard",
+        "linkage": "average",
+        "distance_threshold": 0.55,
+        "min_cluster_size": 3,
+    }
     assert analysis_summary["run_posebusters"] is False
     assert analysis_summary["run_privateer"] is False
     assert analysis_summary["pose_ifp_table_tsv"].endswith("pose_ifp_table.tsv")
@@ -802,7 +1000,10 @@ def test_run_analysis_core_writes_qc_geometry_and_reports(tmp_path, monkeypatch)
     ).exists()
     assert analysis_summary["crystal_anchoring_stage_completed"] is True
     assert analysis_summary["crystal_anchor_tsv"].endswith("crystal_anchor_table.tsv")
+    assert analysis_summary["crystal_geometry_tsv"].endswith("crystal_geometry_table.tsv")
+    assert analysis_summary["crystal_ifp_diagnostic_summary_tsv"].endswith("crystal_ifp_diagnostic_summary.tsv")
     assert analysis_summary["crystal_anchoring_reports"][0]["report_path"].endswith("crystal_reference_screen.json")
+    assert analysis_summary["crystal_anchoring_reports"][0]["representative_role"] == "cluster_medoid"
     assert analysis_summary["crystal_anchoring_reports"][0]["best_tanimoto"] == 0.25
     assert analysis_summary["crystal_anchoring_reports"][0]["best_pocket_rmsd"] == 1.5
     dropped_case = next(

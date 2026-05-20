@@ -229,6 +229,8 @@ def cmd_run(args):
             print(f"  Medoid manifest: {result.medoid_manifest_tsv_path}")
         if result.condition_cluster_summary_tsv_path is not None:
             print(f"  Condition cluster summary: {result.condition_cluster_summary_tsv_path}")
+        if result.cluster_table_tsv_path is not None:
+            print(f"  Cluster table: {result.cluster_table_tsv_path}")
         if result.cluster_ifp_signature_tsv_path is not None:
             print(f"  Cluster IFP signature: {result.cluster_ifp_signature_tsv_path}")
         if result.cluster_residue_signature_tsv_path is not None:

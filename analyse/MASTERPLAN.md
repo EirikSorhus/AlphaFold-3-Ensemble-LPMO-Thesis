@@ -7,7 +7,7 @@ This file follows the active priority stack for implementation decisions:
 2. Latest user comments in the working thread
 3. `MASTERPLAN.md` (this file) and `IMPLEMENTATION_PLAYBOOK.md`
 4. Detailed downstream implementation plans:
-   - `clustering_pilot_plan.yaml` — active plan for choosing IFP clustering method before full analysis
+  - `clustering_pilot_plan.yaml` — completed pilot plan and decision record for the selected IFP clustering method
    - `c1_c4_predictive_analysis_plan_simplified.yaml` — exploratory C1/C4 regioactivity predictive modeling
    - `substrate_activity_prediction_plan.yaml` — exploratory substrate activity prediction from AF3 ligand-condition summaries
    - `cbm_full_length_vs_domain_only_analysis_plan.yaml` — paired full-length vs domain-only CBM analysis
@@ -39,7 +39,7 @@ This file follows the active priority stack for implementation decisions:
 - Main analyses must not aggregate cluster rows to one enzyme row.
 - Enzyme-level summaries are secondary sensitivity analyses only.
 - IFP clustering uses IFP features only; geometry is linked after clustering.
-- Primary IFP clustering method is pending the active pilot in `clustering_pilot_plan.yaml`; HDBSCAN is no longer treated as the locked default.
+- Primary IFP clustering method is locked from the completed pilot: agglomerative Jaccard on contact-eligible IFP rows with `linkage=average`, `distance_threshold=0.55`, and `min_cluster_size=3`. HDBSCAN remains a predefined sensitivity path only.
 - Atom names are not assumed consistent across models; mapping key is (element, CCD, local bond graph, 3D proximity).
 - Chain schema: protein=A, glycans=B..D, metal=E.
 - Normalization must hard-fail if no glycan residues remain after chain remap; protein+metal-only source CIFs are invalid analysis inputs and must not continue downstream as soft warnings.
@@ -95,7 +95,9 @@ pose-level outputs. **See OPEN_QUESTIONS.md item 17 for the decision on merged v
 | family_residue_enrichment.tsv | TSV | family × residue | Family-level residue enrichment (optional, new in v1.0) |
 | condition_patch_summary.tsv | TSV | condition | Residue-property patch summaries (new in v1.0) |
 | protein_patch_summary.tsv | TSV | protein | Protein-level patch summaries (new in v1.0) |
-| crystal_anchor_table.tsv | TSV | cluster | Crystal sanity check |
+| crystal_anchor_table.tsv | TSV | medoid/fallback × crystal reference | Crystal sanity check; includes pocket RMSD, IFP comparability, and crystal geometry summary fields |
+| crystal_geometry_table.tsv | TSV | prepared crystal reference | Crystal-side C1/C4 geometry for ligand-bound references |
+| crystal_ifp_diagnostic_summary.tsv | TSV | diagnostic scope | Crystal IFP eligibility/exclusion counts and percentages |
 | cbm_comparison_table.tsv | TSV | protein–subanalysis | Domain-only vs full-length paired analyses |
 
 ### 2.5 Run artifacts
@@ -124,6 +126,7 @@ Implementation order follows `IMPLEMENTATION_PLAYBOOK.md`.
 
 ### Stage 2 - Pre-QC / Hard QC (was Step 2–3)
 - Pre-QC active-site proximity gate: `min_cu_ligand_distance <= 10.0 Å` (hard gate before PoseBusters/Privateer; see `thresholds.yaml: hard_gates.active_site_proximity_max_a`).
+- PoseBusters currently runs in built-in `dock` mode on auto-split ligand/protein inputs. The pipeline does not override PoseBusters' `intermolecular_distance` defaults, so the far-away check uses `max_distance=5.0 Å` and `minimum_distance_to_protein` is the renamed clash/no-clashes check rather than that distance threshold.
 - Hard fail criteria: severe PoseBusters fail, severe Privateer fail, Cu missing, ligand missing/broken/unparsable, structure corrupt.
 - Soft flags: retained as metadata; do NOT exclude before IFP.
 - Required gate: atom mapping coverage = 100%.
@@ -148,22 +151,27 @@ Implementation order follows `IMPLEMENTATION_PLAYBOOK.md`.
 
 ### Stage 5 - Convergence Metrics (new in v1.0)
 - Per protein–ligand condition: compute ligand RMSD to a fixed reference pose.
-- During pre-clustering: use best QC-passing seed-1 pose as reference; after clustering: use top-occupancy cluster medoid.
+- Current production implementation uses the top-ranked QC-passing pose within the condition as the fixed convergence reference. Cluster medoids are used later for crystal anchoring and structural figures, not as an implicit filter on convergence.
 - Per pose: `ligand_rmsd_to_reference`, `convergent_flag` (RMSD < `convergent_rmsd_max_a`; see `thresholds.yaml: convergence.convergent_rmsd_max_a`).
 - Per condition: `convergence_fraction`, `median_ligand_rmsd`, `iqr_ligand_rmsd`.
 
 ### Stage 6 - Clustering (was Step 6)
 - Input: QC-passing poses with successful IFP generation and enough non-vdW contact signal.
 - One clustering per protein–ligand condition (AF3-only simplification).
-- Method is not locked yet. The active pilot compares agglomerative Jaccard clustering
-  and HDBSCAN Jaccard on contact-eligible binary ProLIF IFPs.
+- Method locked from the 2026-05-20 clustering pilot decision:
+  agglomerative Jaccard on contact-eligible IFP rows,
+  `linkage=average`, `distance_threshold=0.55`, `min_cluster_size=3`.
+  The pilot selection evidence used `main_contact_eligible_ifp_matrix.csv`.
 - Contact eligibility is applied after IFP; main pilot rule is
   `min_non_vdw_interactions >= 2` and `min_non_vdw_contact_residues >= 1`,
   with lenient/strict sensitivity rules.
 - Conditions with `n_contact_eligible < 10` are reported as
   `insufficient_clusterable_signal` rather than formally clustered.
-- The pilot must select one global primary method and fixed parameters before
-  the full analysis; do not choose method separately per condition.
+- Use one global primary method and fixed parameters; do not choose method
+  separately per condition.
+- Sensitivity settings: agglomerative Jaccard with `distance_threshold=0.45`,
+  `min_cluster_size=3`, and HDBSCAN Jaccard with `min_cluster_size=3`,
+  `min_samples=null`.
 - Noise/low-support groups are reported separately and retained in raw output.
 - Minimum cluster occupancy for main summaries: `>= 0.05` (confirmed; see `thresholds.yaml: cluster_inclusion.min_occupancy`).
 - Output: `cluster_assignments.tsv`, `medoid_manifest.tsv`, `condition_cluster_summary.tsv`.
@@ -202,9 +210,12 @@ Implementation order follows `IMPLEMENTATION_PLAYBOOK.md`.
 - Secondary sensitivity table only; do NOT use as main analysis table.
 
 ### Stage 11 - Crystal Sanity-Check (was Step 12)
-- Input: cluster medoids only (not all poses).
-- Alignment: current operational implementation uses local Kabsch alignment on shared pocket C-alpha atoms; pocket residues come from ligand/Cu proximity in holo references or sequence-projected medoid pockets for apo references.
-- Output: `crystal_anchor_table.tsv`.
+- Input: every retained cluster medoid, not all poses.
+- If a condition has no retained clusters, use the top-level AF3 model CIF as a crystal-anchoring fallback only when it passes hard QC; this fallback is not included in normal pose, clustering, or medoid denominators.
+- Alignment: current operational implementation uses local Kabsch alignment on shared pocket C-alpha atoms; pocket residues come from ligand/Cu proximity in holo references or sequence-projected representative pockets for apo references.
+- Crystal IFP similarity is comparable only when the prepared crystal IFP passes the same non-vdW contact-eligibility rule used for pose clustering. VdW-only, zero-contact, and low-specific-contact crystal IFPs keep RMSD/geometry outputs but leave IFP Tanimoto non-comparable.
+- Ligand-bound crystal references get C1/C4 geometry computed with the same downstream geometry fields used for poses.
+- Output: `crystal_anchor_table.tsv`, `crystal_geometry_table.tsv`, `crystal_ifp_diagnostic_summary.tsv`.
 - Crystal mismatch does NOT invalidate a cluster; context and plausibility only.
 
 ### Stage 12 - Removed
@@ -213,8 +224,9 @@ Implementation order follows `IMPLEMENTATION_PLAYBOOK.md`.
 
 ### Stage 13 - Descriptive Analysis (was Step 9)
 - Primary descriptive unit: cluster.
-- Required outputs: QC attrition plot, cluster count distribution, top-cluster occupancy distribution, cluster entropy, geometry plausibility fractions, ipTM vs QC/geometry/occupancy, residue contact heatmaps, medoid structural figures.
+- Required outputs: QC attrition plot, cluster count distribution, top-cluster occupancy distribution, cluster entropy, geometry plausibility fractions, ipTM vs QC/geometry/occupancy, residue contact heatmaps, medoid structural figures, and clustering rate versus crystal-structure coverage.
 - Cross-condition comparisons: chitin vs cellulose vs starch; DP4 vs DP6 vs DP8; domain-only vs full-length.
+- Crystal-coverage descriptive figure: plot clustering rate against the number of available crystal structures per protein as the primary view, with a binary `has_crystal_reference` yes/no summary as a secondary panel or grouped overlay.
 
 ### Stage 14 - Exploratory Predictive Analysis (was Step 10)
 - Keep simple: at most 1–2 tasks (e.g., C1 vs C4, chitin vs cellulose preference).
@@ -329,7 +341,8 @@ Every run writes `run_manifest.json` including:
 | RQ1 C1/C4 regioselectivity | cluster | Cu-C1/C4, oxyl-H, attack angles, occupancy | cluster_table.tsv, predictive_cluster_table.tsv |
 | RQ2 substrate specificity | cluster | substrate/DP-specific occupancy + IFP signatures | cluster_table.tsv, predictive_cluster_table.tsv |
 | RQ3 CBM effect | paired protein–subanalysis | occupancy shifts, support, CBM proximity | cbm_comparison_table.tsv |
-| RQ4 crystal anchoring | cluster/protein–ligand condition | pocket RMSD (current operational implementation: optimized local C-alpha alignment on ligand/Cu-proximal pocket via gemmi/numpy Kabsch), ligand/proximal RMSD, IFP similarity | crystal_anchor_table.tsv |
+| RQ4 crystal anchoring | cluster/protein–ligand condition | pocket RMSD (current operational implementation: optimized local C-alpha alignment on ligand/Cu-proximal pocket via gemmi/numpy Kabsch), ligand/proximal RMSD, contact-eligible IFP similarity, crystal-side C1/C4 geometry comparison | crystal_anchor_table.tsv, crystal_geometry_table.tsv, crystal_ifp_diagnostic_summary.tsv |
+| RQ4b crystal coverage vs clustering | protein / protein–ligand condition | clustering rate by number of available crystal structures, plus binary has/no-has crystal-reference comparison | condition_table.tsv, crystal_anchor_table.tsv, crystal_ifp_diagnostic_summary.tsv, figure_manifest.tsv |
 
 ## 11. Implementation Status
 

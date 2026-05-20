@@ -5,12 +5,12 @@
 # - normalization
 # - hard QC
 # - downstream geometry -> pose_geometry.tsv
+# - ProLIF IFP generation and residue contacts
+# - convergence metrics
+# - condition-wise clustering and cluster signatures
+# - crystal anchoring, including all retained medoids and hard-QC-passing
+#   top-level AF3 model fallback for no-cluster conditions
 # - metrics.csv / summary.json / report.html
-#
-# Not yet included in this production slice:
-# - ProLIF IFP generation
-# - clustering
-# - crystal anchoring
 #
 # Shared external tool paths and bundled config/schema references are resolved
 # separately through configs/runtime_paths.yaml.
