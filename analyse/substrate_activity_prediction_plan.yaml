@@ -1,7 +1,13 @@
 analysis_plan:
   name: af3_ligand_activity_prediction
   version: 1.0
-  status: exploratory_predictive_module
+  status: revision_pending_model_and_predictor_selection
+  revision_note_2026_05_21: >
+    This predictive-analysis plan is being revised before final model
+    implementation. Final model families and predictor-variable sets are not
+    selected yet. The implemented Python code should be treated as a tested
+    leakage-safety/baseline scaffold only, and the planned CV contract is
+    5-fold grouped CV unless a later documented decision changes it.
   scope: protein_ligand_activity_from_AF3_ligand_panel
 
 purpose:
@@ -298,7 +304,7 @@ cross_validation:
   inner_cv:
     splitter: stratified_group_k_fold
     group_column: protein_id
-    preferred_n_splits: 3
+    preferred_n_splits: 5
     shuffle: true
     random_seed: 20260516
     stratification_targets:

@@ -151,9 +151,43 @@ def test_build_cluster_signature_tables_aggregates_cluster_features_and_geometry
             },
         ],
         pose_metadata_by_id={
-            "pose_a": {"protein_id": "P1", "ligand_id": "NAG4"},
-            "pose_b": {"protein_id": "P1", "ligand_id": "NAG4"},
-            "pose_noise": {"protein_id": "P1", "ligand_id": "NAG4"},
+            "pose_a": {
+                "protein_id": "P1",
+                "ligand_id": "NAG4",
+                "construct_type": "domain_only",
+            },
+            "pose_b": {
+                "protein_id": "P1",
+                "ligand_id": "NAG4",
+                "construct_type": "domain_only",
+            },
+            "pose_noise": {
+                "protein_id": "P1",
+                "ligand_id": "NAG4",
+                "construct_type": "domain_only",
+            },
+        },
+        condition_metadata_by_id={
+            "P1__domain_only__chitin_DP4": {
+                "protein_id": "P1",
+                "construct_type": "domain_only",
+                "substrate_class": "chitin",
+                "dp": 4,
+            }
+        },
+        pose_confidence_rows_by_id={
+            "pose_a": {"ranking_score": 0.9, "iptm": 0.8, "mean_plddt": 90.0},
+            "pose_b": {"ranking_score": 0.7, "iptm": 0.6, "mean_plddt": 80.0},
+        },
+        pose_convergence_rows_by_id={
+            "pose_a": {
+                "ligand_rmsd_to_reference": 0.0,
+                "convergent_flag": True,
+            },
+            "pose_b": {
+                "ligand_rmsd_to_reference": 1.0,
+                "convergent_flag": True,
+            },
         },
         thresholds_path=_thresholds_path(tmp_path),
     )
@@ -167,6 +201,20 @@ def test_build_cluster_signature_tables_aggregates_cluster_features_and_geometry
     assert summary["cluster_type"] == "C1_compatible"
     assert summary["Cu_C1_distance_median"] == pytest.approx(3.0)
     assert summary["Cu_C1_distance_iqr"] == pytest.approx(1.0)
+    assert summary["construct_type"] == "domain_only"
+    assert summary["substrate_class"] == "chitin"
+    assert summary["dp"] == 4
+    assert summary["cluster_size"] == 2
+    assert summary["c1_geometry_computable_fraction"] == pytest.approx(1.0)
+    assert summary["c4_geometry_computable_fraction"] == pytest.approx(1.0)
+    assert summary["c1_geometry_plausible_fraction"] == pytest.approx(1.0)
+    assert summary["c4_geometry_plausible_fraction"] == pytest.approx(0.0)
+    assert summary["mean_ranking_score"] == pytest.approx(0.8)
+    assert summary["median_iptm"] == pytest.approx(0.7)
+    assert summary["medoid_mean_plddt"] == 90.0
+    assert summary["median_ligand_rmsd_to_reference"] == pytest.approx(0.5)
+    assert summary["convergent_fraction"] == pytest.approx(1.0)
+    assert summary["medoid_ligand_rmsd_to_reference"] == 0.0
 
     hbond_rows = [
         row

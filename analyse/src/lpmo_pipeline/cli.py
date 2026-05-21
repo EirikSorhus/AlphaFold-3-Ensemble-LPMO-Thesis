@@ -237,6 +237,10 @@ def cmd_run(args):
             print(f"  Cluster residue signature: {result.cluster_residue_signature_tsv_path}")
         if result.cluster_signatures_json_path is not None:
             print(f"  Cluster signatures JSON: {result.cluster_signatures_json_path}")
+        if result.condition_table_tsv_path is not None:
+            print(f"  Condition table: {result.condition_table_tsv_path}")
+        if result.protein_summary_table_tsv_path is not None:
+            print(f"  Protein summary table: {result.protein_summary_table_tsv_path}")
         if result.crystal_anchor_tsv_path is not None:
             print(f"  Crystal anchor table: {result.crystal_anchor_tsv_path}")
         if result.metrics_csv_path is not None:

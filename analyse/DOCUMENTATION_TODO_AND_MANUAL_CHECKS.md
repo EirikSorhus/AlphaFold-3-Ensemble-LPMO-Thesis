@@ -438,17 +438,19 @@ Two detailed predictive implementation plans now exist:
 - `c1_c4_predictive_analysis_plan_simplified.yaml` for C1/C4 regioactivity prediction.
 - `substrate_activity_prediction_plan.yaml` for substrate activity prediction.
 
-These plans specify elastic-net logistic regression, grouped CV by
-`protein_id`, compact condition-level feature sets, and strict exploratory
-interpretation. The remaining decision is whether to keep the originally
-preferred R/glmnet implementation, use the sklearn implementation described in
-the YAML plans, or keep both with one marked as the primary implementation.
+Update 2026-05-21:
+These plans are now explicitly marked for revision before final model
+implementation. The model families and predictor-variable sets are not selected
+yet. The current Python code is only a tested leakage-safety/baseline scaffold,
+not a final modeling decision. The planned CV contract is 5-fold grouped CV by
+`protein_id` when enough protein groups exist.
 
 **Proposed solution:**  
-1. Confirm the primary implementation backend for the YAML predictive plans: R/glmnet, sklearn elastic-net logistic regression, or both with one primary.
-2. Confirm whether `glmer` remains a sensitivity check, or whether the YAML-defined nested grouped CV models replace it for the first implementation.
+1. Revise the predictive YAML plans to choose the final model families and predictor-variable sets.
+2. Confirm the primary implementation backend for the YAML predictive plans: R/glmnet, sklearn, or both with one primary.
 3. Update OPEN_QUESTIONS.md item 9 to mark the model/backend choice as resolved.
-4. Implement `scripts/ec_activity_mapping.R` first (step 19), then build the predictive modeling tables and models according to `c1_c4_predictive_analysis_plan_simplified.yaml` and `substrate_activity_prediction_plan.yaml`.
+4. Keep 5-fold grouped CV by `protein_id` as the default plan unless the revised predictive-analysis plan records a different choice.
+5. `scripts/ec_activity_mapping.R`, the Python `predictive_cluster_table.tsv` builder, and the first grouped binary Python scaffold now exist; next validate on real predictive rows after the plan revision.
 
 ---
 
@@ -467,24 +469,25 @@ condition-level summaries, primary endpoints such as `bridge_fraction`,
 rules and expected output tables.
 
 **Proposed solution:**
-1. Ensure upstream outputs needed by the plan exist: `condition_table.tsv`, `cluster_table.tsv`, `cluster_residue_signature.tsv`, `protein_condition_residue_scores.tsv`, and the construct-specific condition summaries.
-2. Define or import residue region annotations for catalytic domain, CBM, linker, and other regions before computing CBM metrics.
-3. Implement `analysis/cbm_comparison.py` and/or related scripts against `cbm_full_length_vs_domain_only_analysis_plan.yaml`.
+1. Ensure the remaining upstream outputs needed by the plan exist: construct-specific condition summaries, plus verification that the current `cluster_table.tsv`, `condition_table.tsv`, `cluster_residue_signature.tsv`, and `protein_condition_residue_scores.tsv` expose the fields the plan expects on paired full-length/domain-only data.
+2. Define or import residue region annotations for catalytic domain, CBM, linker, and other regions before interpreting CBM metrics on real data.
+3. The first condition-level `analysis/cbm_comparison.py` builders now exist; extend them only after validating their paired rows on full-length/domain-only real data.
 4. Validate the paired table on a small set of proteins with both construct types before running the full CBM side analysis.
 
 ---
 
-### P10c — Planned downstream TSVs still depend on unimplemented annotation layers
+### P10c — Planned downstream TSVs still depend on later analysis layers
 
-**Priority:** MEDIUM — these are required before descriptive, predictive, residue-importance, and CBM analyses can be run from the production outputs.
+**Priority:** MEDIUM — these are required before predictive, family-aligned, and CBM-specific analyses can be run from the production outputs.
 
 **Description:**
 The current analysis-core production path now writes all TSV surfaces that are
 directly supported by implemented stages: pose manifest/confidence/index,
 QC attrition, pose geometry, pose IFP, pose residue contacts, convergence,
-raw clustering, medoids, condition cluster summary, cluster IFP/residue
-signatures, residue-importance tables, crystal anchor table, crystal geometry
-table, crystal IFP diagnostic summary, and metrics.
+raw clustering, medoids, condition cluster summary, `cluster_table.tsv`,
+cluster IFP/residue signatures, residue-importance tables, crystal anchor
+table, crystal geometry table, crystal IFP diagnostic summary,
+`condition_table.tsv`, `protein_summary_table.tsv`, and metrics.
 For short smoke runs with observed contacts but zero retained non-noise
 clusters, the Stage 16b residue tables now emit explicit zero-valued residue
 rows instead of remaining header-only. Cluster-dependent tests can use
@@ -494,19 +497,16 @@ agglomerative Jaccard outputs (`distance_threshold=0.55`,
 smoke to produce meaningful clusters. The following planned TSVs are still not
 implemented because their upstream analysis layers are not implemented yet:
 
-- `cluster_table.tsv`
 - `family_aligned_residue_table.tsv`
 - `family_residue_enrichment.tsv`
-- `condition_table.tsv`
-- `protein_summary_table.tsv`
-- predictive modeling tables under `10_predictive/modeling_tables/`
-- CBM paired-analysis outputs such as `cbm_construct_condition_summary.tsv` and `cbm_paired_comparison_table.tsv`
+- full predictive model outputs/reports under `10_predictive/modeling_tables/`
+- downstream CBM reports/statistical summaries beyond `cbm_construct_condition_summary.tsv` and `cbm_paired_comparison_table.tsv`
 
 **Proposed solution:**
-1. Promote pilot clustering outputs for at least one multi-pose real-data condition with retained clusters into a reusable fixture or smoke input, then validate non-zero cluster signatures and non-zero Stage 16b residue weights against it.
-2. Implement `cluster_table.tsv` plus the later `condition_table.tsv` / `protein_summary_table.tsv` summary layers on top of the now-stable cluster-signature and residue-importance outputs.
+1. Promote pilot clustering outputs for at least one multi-pose real-data condition with retained clusters into a reusable fixture or smoke input, then validate non-zero enriched `cluster_table.tsv`, cluster signatures, and non-zero Stage 16b residue weights against it.
+2. Verify `condition_table.tsv` and `protein_summary_table.tsv` on a broader integrated real-data run, including null-cluster and null-IFP conditions.
 3. Implement family-aligned residue enrichment only after the within-protein residue outputs are validated on clustered real data.
-4. Implement predictive modeling and CBM paired analysis after `condition_table.tsv` exists.
+4. Implement predictive modeling and CBM paired analysis on top of the new summary tables.
 
 ---
 

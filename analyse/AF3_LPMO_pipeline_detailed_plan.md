@@ -1003,6 +1003,15 @@ Per condition:
 
 Build one row per cluster in `cluster\_table.tsv`.
 
+Current implementation status 2026-05-20:
+
+* the production analysis-core path now writes a first `cluster\_table.tsv`
+  as a flat export of retained non-noise Stage 7 `cluster_summaries`
+* this current implementation reuses the same Stage 7 aggregation already
+  written to `cluster\_signatures.json`
+* the richer field set below remains the recommended target contract for later
+  enrichment where those fields are not yet materialized in code
+
 Required fields:
 
 * identifiers:

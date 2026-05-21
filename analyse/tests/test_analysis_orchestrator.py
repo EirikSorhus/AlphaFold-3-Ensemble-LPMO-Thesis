@@ -667,6 +667,8 @@ def test_run_analysis_core_writes_qc_geometry_and_reports(tmp_path, monkeypatch)
     assert result.protein_residue_regio_delta_tsv_path is not None and result.protein_residue_regio_delta_tsv_path.exists()
     assert result.condition_patch_summary_tsv_path is not None and result.condition_patch_summary_tsv_path.exists()
     assert result.protein_patch_summary_tsv_path is not None and result.protein_patch_summary_tsv_path.exists()
+    assert result.condition_table_tsv_path is not None and result.condition_table_tsv_path.exists()
+    assert result.protein_summary_table_tsv_path is not None and result.protein_summary_table_tsv_path.exists()
     assert result.crystal_anchor_tsv_path is not None and result.crystal_anchor_tsv_path.exists()
     assert result.crystal_geometry_tsv_path is not None and result.crystal_geometry_tsv_path.exists()
     assert (
@@ -904,6 +906,28 @@ def test_run_analysis_core_writes_qc_geometry_and_reports(tmp_path, monkeypatch)
         }
     ]
 
+    with open(result.condition_table_tsv_path, newline="") as handle:
+        condition_table_rows = list(csv.DictReader(handle, delimiter="\t"))
+    assert len(condition_table_rows) == 1
+    assert condition_table_rows[0]["condition_id"] == "Q7SCE9__domain_only__chitin_DP4"
+    assert condition_table_rows[0]["n_generated"] == "2"
+    assert condition_table_rows[0]["n_stage1_hard_fail"] == "1"
+    assert condition_table_rows[0]["n_clusters"] == "1"
+    assert condition_table_rows[0]["convergence_fraction"] == "1.0"
+    assert condition_table_rows[0]["any_valid_cluster"] == "True"
+    assert condition_table_rows[0]["n_confidence_rows"] == "2"
+    assert condition_table_rows[0]["n_cluster_rows"] == "1"
+    assert condition_table_rows[0]["cluster_total_occupancy"] == "1.0"
+    assert condition_table_rows[0]["occupancy_weighted_c1_plausible_fraction"] == "1.0"
+
+    with open(result.protein_summary_table_tsv_path, newline="") as handle:
+        protein_summary_rows = list(csv.DictReader(handle, delimiter="\t"))
+    assert len(protein_summary_rows) == 1
+    assert protein_summary_rows[0]["protein_id"] == "Q7SCE9"
+    assert protein_summary_rows[0]["n_conditions"] == "1"
+    assert protein_summary_rows[0]["n_generated"] == "2"
+    assert protein_summary_rows[0]["n_conditions_with_clusters"] == "1"
+
     cluster_signatures = json.loads(result.cluster_signatures_json_path.read_text())
     assert cluster_signatures["clusters"][0]["cluster_id"] == 0
     assert cluster_signatures["clusters"][0]["medoid_pose_id"] == "Q7SCE9_NAG4_seed-1_sample-0_model"
@@ -973,6 +997,8 @@ def test_run_analysis_core_writes_qc_geometry_and_reports(tmp_path, monkeypatch)
     assert analysis_summary["protein_residue_regio_delta_tsv"].endswith("protein_residue_regio_delta.tsv")
     assert analysis_summary["condition_patch_summary_tsv"].endswith("condition_patch_summary.tsv")
     assert analysis_summary["protein_patch_summary_tsv"].endswith("protein_patch_summary.tsv")
+    assert analysis_summary["condition_table_tsv"].endswith("condition_table.tsv")
+    assert analysis_summary["protein_summary_table_tsv"].endswith("protein_summary_table.tsv")
     assert analysis_summary["clustering_pilot"]["label"] == "test-pilot"
     assert analysis_summary["clustering_pilot"]["selected_main_feature_count"] == 2
     assert analysis_summary["clustering_pilot"]["n_conditions"] == 1

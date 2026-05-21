@@ -61,9 +61,13 @@ foreslått default-valg slik at arbeidet kan fortsette uten blokkering.
    kvantifisere VdW-/low-specific-contact-problemet. Spørsmålet som gjenstår er
    biologisk cutoff/tolkning, ikke selve comparability-gaten.
 
-9. **R-modellvalg for cluster-rader** — Hvilken primarmodell skal brukes
-   i R for regioselektivitet (glmnet vs glmer)?
-   *Default: penalized logistisk regresjon (glmnet), mixed model som sensitivitet.*
+9. **Predictive modellvalg og prediksjonsvariabler** — Hvilke endelige
+   modellfamilier og prediksjonsvariabler skal brukes for regioselektivitet og
+   substrataktivitet?
+   *Status 2026-05-21: ikke avklart. `predictive_models.py` inneholder kun et
+   testet scaffold for leakage-sikre grouped folds og smale baseline-runnere.
+   Planene skal revideres før endelig implementasjon. Default CV-kontrakt er
+   5-fold grouped CV på `protein_id` når det finnes nok proteingrupper.*
 
 10. **EC 1.14.99.- ikke-AA17 mapping** — Hvilken endelig tekstetikett og
     hvilket standardsubstrat for "xylan ol"-tilfeller?

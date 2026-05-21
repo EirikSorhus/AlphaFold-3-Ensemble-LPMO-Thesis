@@ -52,6 +52,13 @@ from lpmo_pipeline.analysis.cluster_signatures import (
     write_cluster_residue_signature_table,
     write_cluster_signature_summary_json,
 )
+from lpmo_pipeline.analysis.condition_summary import (
+    build_condition_table_rows,
+    build_protein_summary_rows,
+    read_tsv,
+    write_condition_table,
+    write_protein_summary_table,
+)
 from lpmo_pipeline.analysis.convergence_metrics import (
     ConditionConvergenceSummary,
     ConvergencePoseInput,
@@ -234,6 +241,8 @@ class AnalysisCoreResult:
     protein_residue_regio_delta_tsv_path: Path | None = None
     condition_patch_summary_tsv_path: Path | None = None
     protein_patch_summary_tsv_path: Path | None = None
+    condition_table_tsv_path: Path | None = None
+    protein_summary_table_tsv_path: Path | None = None
     crystal_anchor_tsv_path: Path | None = None
     crystal_geometry_tsv_path: Path | None = None
     crystal_ifp_diagnostic_summary_tsv_path: Path | None = None
@@ -1720,6 +1729,8 @@ def run_analysis_core(
     protein_residue_regio_delta_tsv_path: Path | None = None
     condition_patch_summary_tsv_path: Path | None = None
     protein_patch_summary_tsv_path: Path | None = None
+    condition_table_tsv_path: Path | None = None
+    protein_summary_table_tsv_path: Path | None = None
     crystal_anchor_tsv_path: Path | None = None
     crystal_geometry_tsv_path: Path | None = None
     crystal_ifp_diagnostic_summary_tsv_path: Path | None = None
@@ -2406,15 +2417,40 @@ def run_analysis_core(
             )
             n_cluster_conditions = len(condition_summary_rows)
 
-            pose_metadata_by_id = {
-                prepared_pose.pose.pose_id: {
+            pose_metadata_by_id = {}
+            for prepared_pose in prepared_poses:
+                substrate_class, dp = _parse_target_metadata(prepared_pose.pose.ligand_id)
+                pose_metadata_by_id[prepared_pose.pose.pose_id] = {
                     "protein_id": prepared_pose.pose.protein_id,
                     "ligand_id": prepared_pose.pose.ligand_id,
+                    "construct_type": options.construct_type,
+                    "substrate_class": substrate_class,
+                    "dp": dp,
                     "condition_id": str(
                         case_by_pose_id[prepared_pose.pose.pose_id].get("condition_id", "")
                     ),
                 }
-                for prepared_pose in prepared_poses
+            condition_metadata_by_id: dict[str, dict[str, Any]] = {}
+            for prepared_pose in prepared_poses:
+                pose_id = prepared_pose.pose.pose_id
+                case = case_by_pose_id.get(pose_id, {})
+                condition_id = str(case.get("condition_id", ""))
+                if not condition_id or condition_id in condition_metadata_by_id:
+                    continue
+                substrate_class, dp = _parse_target_metadata(prepared_pose.pose.ligand_id)
+                condition_metadata_by_id[condition_id] = {
+                    "protein_id": prepared_pose.pose.protein_id,
+                    "construct_type": options.construct_type,
+                    "substrate_class": str(case.get("substrate_class", "")) or substrate_class,
+                    "dp": dp,
+                }
+            pose_confidence_rows_by_id = {
+                pose.pose_id: _read_confidence_summary(pose.confidence_json_path)
+                for pose in pose_inputs
+            }
+            pose_convergence_rows_by_id = {
+                metric.pose_id: metric.to_row()
+                for metric in pose_convergence_metrics
             }
             cluster_annotation_start = perf_counter()
             cluster_signature_tables = build_cluster_signature_tables(
@@ -2427,6 +2463,9 @@ def run_analysis_core(
                 ifp_results=all_ifp_results,
                 residue_contact_rows=residue_contact_rows,
                 pose_metadata_by_id=pose_metadata_by_id,
+                condition_metadata_by_id=condition_metadata_by_id,
+                pose_confidence_rows_by_id=pose_confidence_rows_by_id,
+                pose_convergence_rows_by_id=pose_convergence_rows_by_id,
             )
             cluster_ifp_signature_tsv_path = options.output_dir / "cluster_ifp_signature.tsv"
             write_cluster_ifp_signature_table(
@@ -2455,21 +2494,6 @@ def run_analysis_core(
                 status="ok",
                 detail=f"n_cluster_summaries={len(cluster_signature_tables.cluster_summaries)}",
             )
-
-            condition_metadata_by_id: dict[str, dict[str, Any]] = {}
-            for prepared_pose in prepared_poses:
-                pose_id = prepared_pose.pose.pose_id
-                case = case_by_pose_id.get(pose_id, {})
-                condition_id = str(case.get("condition_id", ""))
-                if not condition_id or condition_id in condition_metadata_by_id:
-                    continue
-                substrate_class, dp = _parse_target_metadata(prepared_pose.pose.ligand_id)
-                condition_metadata_by_id[condition_id] = {
-                    "protein_id": prepared_pose.pose.protein_id,
-                    "construct_type": options.construct_type,
-                    "substrate_class": str(case.get("substrate_class", "")) or substrate_class,
-                    "dp": dp,
-                }
 
             residue_importance_start = perf_counter()
             residue_importance_outputs = compute_residue_importance_outputs(
@@ -2672,12 +2696,27 @@ def run_analysis_core(
         options=options,
         case_by_pose_id=case_by_pose_id,
     )
+    condition_table_tsv_path = options.output_dir / "condition_table.tsv"
+    condition_table_rows = build_condition_table_rows(
+        qc_attrition_rows=read_tsv(qc_attrition_tsv_path),
+        condition_cluster_summary_rows=read_tsv(condition_cluster_summary_tsv_path),
+        condition_convergence_summary_rows=read_tsv(condition_convergence_summary_tsv_path),
+        condition_patch_summary_rows=read_tsv(condition_patch_summary_tsv_path),
+        pose_confidence_rows=read_tsv(pose_confidence_tsv_path),
+        cluster_table_rows=read_tsv(cluster_table_tsv_path),
+    )
+    write_condition_table(condition_table_rows, condition_table_tsv_path)
+    protein_summary_table_tsv_path = options.output_dir / "protein_summary_table.tsv"
+    protein_summary_rows = build_protein_summary_rows(condition_table_rows)
+    write_protein_summary_table(protein_summary_rows, protein_summary_table_tsv_path)
     analysis_summary.update(
         {
             "pose_manifest_tsv": str(pose_manifest_tsv_path),
             "pose_confidence_tsv": str(pose_confidence_tsv_path),
             "structure_index_tsv": str(structure_index_tsv_path),
             "qc_attrition_tsv": str(qc_attrition_tsv_path),
+            "condition_table_tsv": str(condition_table_tsv_path),
+            "protein_summary_table_tsv": str(protein_summary_table_tsv_path),
         }
     )
 
@@ -2719,6 +2758,8 @@ def run_analysis_core(
         protein_residue_regio_delta_tsv_path=protein_residue_regio_delta_tsv_path,
         condition_patch_summary_tsv_path=condition_patch_summary_tsv_path,
         protein_patch_summary_tsv_path=protein_patch_summary_tsv_path,
+        condition_table_tsv_path=condition_table_tsv_path,
+        protein_summary_table_tsv_path=protein_summary_table_tsv_path,
         crystal_anchor_tsv_path=crystal_anchor_tsv_path,
         crystal_geometry_tsv_path=crystal_geometry_tsv_path,
         crystal_ifp_diagnostic_summary_tsv_path=crystal_ifp_diagnostic_summary_tsv_path,

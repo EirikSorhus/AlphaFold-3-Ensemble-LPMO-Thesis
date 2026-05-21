@@ -51,10 +51,10 @@ Konfigurasjonsregel (gjeldende):
 | 14 | `analysis/mdanalysis_metrics.py` | ⚠️ Implementert, koblet inn i analysis-core produksjonssti, og verifisert på ekte data; RMSD-felter og videre geometry-hardening gjenstår |
 | 14b | `analysis/convergence_metrics.py` | ⚠️ Standalone slice verifisert på ekte data 2026-05-04 via `test_convergence_real_cifs.sh` (jobb 619047), og koblet inn i analysis-core produksjonssti med focused pytest; ny integrert real-data verifikasjon gjenstår |
 | 15 | `analysis/clustering_agglomerative.py` (`clustering_hdbscan.py` beholdt som sensitivitet) | ⚠️ Primær Stage 6-metode er låst 2026-05-20 til condition-wise agglomerative Jaccard med `linkage=average`, `distance_threshold=0.55` og `min_cluster_size=3`. HDBSCAN `min_cluster_size=3`, `min_samples=null` beholdes som sensitivitet. Focused clustering unit tests ble kjørt på nytt 2026-05-16; real-data clustering-output inspeksjon gjenstår før senere analysebygging |
-| 16 | `analysis/cluster_signatures.py` | ✅ Koblet inn i analysis-core produksjonsstien og verifisert 2026-05-18 med focused pytest + real-data sbatch smoke (jobb 1105024). Produksjonsstien skriver `cluster_ifp_signature.tsv`, `cluster_residue_signature.tsv`, `cluster_signatures.json` og `cluster_annotation_stage_completed`. |
+| 16 | `analysis/cluster_signatures.py` | ✅ Koblet inn i analysis-core produksjonsstien og verifisert 2026-05-18 med focused pytest + real-data sbatch smoke (jobb 1105024). Produksjonsstien skriver `cluster_table.tsv`, `cluster_ifp_signature.tsv`, `cluster_residue_signature.tsv`, `cluster_signatures.json` og `cluster_annotation_stage_completed`. |
 | 16b | `analysis/residue_importance.py` | ✅ Koblet inn i analysis-core produksjonsstien og verifisert 2026-05-18 med focused pytest + real-data sbatch smoke (jobb 1105024). 16b konsumerer Stage 16-signaturene, skriver eksplisitte nullrader ved observerte kontakter uten retained clusters, og bruker ikke loop-fraksjon. |
 | 17 | `placer/run_placer.py` | ❌ FJERNET — PLACER er fjernet fra analysen (beslutning 2026-04-21) |
-| 18–25 | Analyse, aktivitetsmapping, modeller, rapportering | ⚠️ Delvis påbegynt. `report/` + `cli.py` analysis-core produksjonssti skriver nå også ProLIF-, Stage 6-clustering-, cluster-signature/residue-importance-, crystal-anchoring- og implementerte pose/QC TSV-artefakter (`pose_manifest.tsv`, `pose_confidence.tsv`, `structure_index.tsv`, `qc_attrition_table.tsv`, `crystal_anchor_table.tsv`, `crystal_geometry_table.tsv`, `crystal_ifp_diagnostic_summary.tsv`). En bred integrert real-data kjøring som faktisk gir medoid-vs-crystal-sammenligninger og senere analyser gjenstår fortsatt. |
+| 18–25 | Analyse, aktivitetsmapping, modeller, rapportering | ⚠️ Delvis påbegynt. `report/` + `cli.py` analysis-core produksjonssti skriver nå også ProLIF-, Stage 6-clustering-, Stage 7 `cluster_table`/signatur-, residue-importance-, condition/protein-summary-, crystal-anchoring- og implementerte pose/QC TSV-artefakter (`pose_manifest.tsv`, `pose_confidence.tsv`, `structure_index.tsv`, `qc_attrition_table.tsv`, `cluster_table.tsv`, `condition_table.tsv`, `protein_summary_table.tsv`, `crystal_anchor_table.tsv`, `crystal_geometry_table.tsv`, `crystal_ifp_diagnostic_summary.tsv`). En bred integrert real-data kjøring som faktisk gir medoid-vs-crystal-sammenligninger og senere analyser gjenstår fortsatt. |
 
 ---
 
@@ -263,7 +263,7 @@ Konfigurasjonsregel (gjeldende):
 
 16. **`analysis/cluster_signatures.py`** — clusterannotering med median/IQR.
     Krav: geometri brukes som annotering etter clustering, ikke som clusterinput.
-    Output: `cluster_ifp_signature.tsv`, `cluster_residue_signature.tsv`, `cluster_signatures.json`.
+    Output: `cluster_table.tsv`, `cluster_ifp_signature.tsv`, `cluster_residue_signature.tsv`, `cluster_signatures.json`.
     Cluster type-etiketter: C1_compatible, C4_compatible, mixed_compatible, non_plausible, uncertain.
     Terskler defineres i `configs/thresholds.yaml` og låses før full analyse.
     Status 2026-05-18: Stage 7-tabellbyggeren aggregerer eksisterende
@@ -273,6 +273,15 @@ Konfigurasjonsregel (gjeldende):
     median/IQR-geometri i `cluster_signatures.json`. Koblet inn i
     `analysis/analysis_orchestrator.py` og CLI-manifestet som
     `cluster_annotation_stage_completed`.
+    Status 2026-05-20: samme Stage 7-overflate skriver nå også `cluster_table.tsv`
+    som en flat TSV-eksport av de samme retained non-noise `cluster_summaries`
+    som ligger i `cluster_signatures.json`. Exporten gjenbruker eksisterende
+    Stage 7-aggregater, innfører ingen ny clusterlogikk, og lager ikke
+    syntetiske nullrader for no-cluster conditions.
+    Status 2026-05-21: `cluster_table.tsv` er beriket bakoverkompatibelt med
+    condition metadata, `cluster_size`, C1/C4
+    computable/plausible/highly-plausible-fraksjoner, pose-confidence
+    mean/median/medoid-felter og convergence mean/median/medoid-felter.
     Verifisering:
     `/cluster/work/projects/nn1003k/eirik/conda/analyse_env/bin/python -m pytest tests/test_cluster_signatures.py tests/test_residue_importance.py tests/test_analysis_orchestrator.py tests/test_cli_run.py -q`
     (10 passed), og `tests/run_tests_scripts/test_analysis_core_real_cifs.sh`
@@ -323,6 +332,11 @@ Konfigurasjonsregel (gjeldende):
     `c1_c4_predictive_analysis_plan_simplified.yaml` og
     `substrate_activity_prediction_plan.yaml` spesifiserer nå hvilke
     condition-/cluster-/metadata-tabeller som må bygges før prediktiv modellering.
+    Status 2026-05-21: modulen har nå en separat postprosess-bygger for
+    `predictive_cluster_table.tsv` fra beriket `cluster_table.tsv`,
+    proteinmetadata og EC/activity mapping. Koden bruker dagens Stage 7-felter
+    (`Cu_C1_distance_median`, `oxyl_H_C1_distance_median`, osv.) i stedet for
+    eldre `median_cu_c1`-navn, og er dekket av focused pytest.
 
 19. **`scripts/ec_activity_mapping.R`** — metadata EC# → aktivitet/substrat/regio.
     Krav: implementer eksplisitte regler for 1.14.99.53/54/55/56 og 1.14.99.- med AA17-spesialtilfelle.
@@ -335,6 +349,11 @@ Konfigurasjonsregel (gjeldende):
       - `substrate_activity_prediction_plan.yaml` for substrataktivitet
     Begge planene bruker `protein_id` som CV-gruppe og eksplisitt
     exploratory-only tolkning.
+    Status 2026-05-21: Python-modulen har nå et testet, foreløpig scaffold for
+    leakage-sikre grouped folds på `protein_id` med 5-fold som default når det
+    finnes nok proteingrupper, pluss smale baseline-runnere. Dette er ikke en
+    full modellfase og modellene/prediksjonsvariablene er ikke valgt. De to
+    predictive YAML-planene er markert for revisjon før endelig implementasjon.
 
 21. **`analysis/crystal_anchoring.py`, `cbm_variant.py`, `cbm_comparison.py`**
     som sekundæranalyser.
@@ -342,6 +361,11 @@ Konfigurasjonsregel (gjeldende):
     `cbm_full_length_vs_domain_only_analysis_plan.yaml`, som nå er den
     detaljerte implementasjonsplanen for full-length vs domain-only
     sammenligning, regionmerking, parvise endepunkter og outputtabeller.
+    Status 2026-05-21: `analysis/cbm_comparison.py` har nå condition-level
+    sideanalyse som bygger `cbm_construct_condition_summary.tsv` og
+    `cbm_paired_comparison_table.tsv` fra `condition_table.tsv`,
+    `cluster_table.tsv` og proteinmetadata. Pose-level dual-IFP i
+    `cbm_variant.py` er fortsatt lavere prioritet.
     Crystal anchoring bruker per i dag lokal gemmi/numpy Kabsch-superposisjon
     på delte pocket C-alpha-atomer, ikke operativ PyMOL `pair_fit`.
         Status 2026-05-16: standalone crystal-reference-slice er verifisert på ekte
@@ -406,7 +430,18 @@ Konfigurasjonsregel (gjeldende):
     `qc_attrition_table.tsv`, `crystal_anchor_table.tsv`,
     `crystal_geometry_table.tsv` og `crystal_ifp_diagnostic_summary.tsv`. Focused tester for
     orchestrator/CLI og clustering passer, men real-data inspeksjon av
-    clustering-output gjenstår før `cluster_table.tsv` og senere analyser bygges.
+    clustering-output gjenstår før de senere prediktive lagene
+    (`predictive_cluster_table.tsv` og modeller) bygges.
+    Status 2026-05-21: production analysis-core skriver nå også
+    `condition_table.tsv` med `qc_attrition_table.tsv` som masterradsett, join
+    av cluster/convergence/patch/confidence-felter og occupancy-vektede
+    cluster-aggregater, samt `protein_summary_table.tsv` som rent groupby-lag
+    over `condition_table.tsv`. Focused pytest for condition summary,
+    orchestrator og CLI passer.
+    Status 2026-05-20: analysis-core skriver nå også `cluster_table.tsv` fra
+    Stage 7 `cluster_summaries`, og CLI-en eksponerer artefakten sammen med de
+    øvrige cluster-outputene. Focused pytest for `tests/test_cluster_signatures.py`,
+    `tests/test_analysis_orchestrator.py` og `tests/test_cli_run.py` passer etter denne wiring-endringen.
     Status 2026-05-19: `lpmo-pipeline run`, real-case pilot-runneren og
     `run_clustering_pilot_full.sh` sender nå `n_jobs` inn i produksjonsstien.
     Prepare, hard QC/Privateer og ProLIF kan dermed bruke flere workers; pilotens

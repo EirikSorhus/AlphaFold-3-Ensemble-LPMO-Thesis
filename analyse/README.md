@@ -63,6 +63,34 @@ focused pytest plus production smoke validation. Remaining gap: a production
 real-data run that reaches non-empty medoid-vs-crystal comparisons in the
 integrated path still needs to be exercised explicitly.
 
+Stage 16 cluster annotation now also writes `cluster_table.tsv` as a flat,
+backward-compatible TSV export of the retained non-noise `cluster_summaries`
+already emitted in `cluster_signatures.json`. The table keeps the original
+identifier/type/geometry columns and appends condition metadata, cluster size,
+C1/C4 computable/plausible/highly-plausible fractions, pose-confidence
+aggregates, and convergence aggregates. This export is wired through
+`run_analysis_core` and the CLI artifact listing, and focused pytest covering
+`tests/test_cluster_signatures.py`, `tests/test_analysis_orchestrator.py`, and
+`tests/test_cli_run.py` passes in `analyse_env`.
+
+`analysis/activity_mapping.py` now has a separate postprocess builder for
+`predictive_cluster_table.tsv` from enriched `cluster_table.tsv`, protein
+metadata, and EC/activity labels. It is intentionally not part of the core
+`lpmo-pipeline run` path.
+
+`analysis/predictive_models.py` currently provides a tested provisional scaffold:
+leakage-safe grouped folds on `protein_id` with a 5-fold default when enough
+protein groups exist, plus two narrow baseline runners. These are not final
+model choices. The predictive-analysis plans are explicitly marked for revision
+before final model implementation because the model families and predictor
+variables still need to be selected.
+
+`analysis/cbm_comparison.py` now has a condition-level CBM paired-analysis
+builder for `cbm_construct_condition_summary.tsv` and
+`cbm_paired_comparison_table.tsv`, using `condition_table.tsv`,
+`cluster_table.tsv`, and protein metadata. Pose-level CBM dual-IFP remains a
+later side analysis.
+
 Stage 16b residue importance is implemented and wired into the production
 analysis-core path against the Stage 16 signature contract
 (`cluster_residue_signature.tsv`, `cluster_ifp_signature.tsv`,
@@ -130,7 +158,7 @@ CBM paired-analysis specifications in [MASTERPLAN.md](MASTERPLAN.md).
 # Install
 pip install -e ".[dev]"
 
-# Production mode (current analysis-core slice: QC + geometry + ProLIF + clustering + crystal anchoring + reports)
+# Production mode (current analysis-core slice: QC + geometry + ProLIF + clustering + cluster annotation + residue importance + crystal anchoring + reports)
 lpmo-pipeline run \
   --mode production \
   --config configs/production.analysis_core.example.yaml \
@@ -163,12 +191,15 @@ Rscript scripts/ec_activity_mapping.R \
 
 The current production entry path is the analysis-core slice. It runs discovery,
 normalization, hard QC, downstream geometry, ProLIF/IFP, residue-contact
-extraction, convergence metrics, condition-wise clustering, crystal anchoring,
-and report generation. It now writes the implemented pose/QC TSV surfaces
-(`pose_manifest.tsv`, `pose_confidence.tsv`, `structure_index.tsv`,
-`qc_attrition_table.tsv`) plus raw clustering/convergence/IFP tables,
-`crystal_anchor_table.tsv`, `crystal_geometry_table.tsv`, and
-`crystal_ifp_diagnostic_summary.tsv`. The crystal-anchoring stage gate in this
+extraction, convergence metrics, condition-wise clustering, Stage 7 cluster
+annotation, residue importance, crystal anchoring, and report generation. It
+now writes the implemented pose/QC TSV surfaces (`pose_manifest.tsv`,
+`pose_confidence.tsv`, `structure_index.tsv`, `qc_attrition_table.tsv`) plus
+raw clustering/convergence/IFP tables, `cluster_table.tsv`,
+`cluster_ifp_signature.tsv`, `cluster_residue_signature.tsv`,
+`cluster_signatures.json`, `condition_table.tsv`, `protein_summary_table.tsv`,
+`crystal_anchor_table.tsv`,
+`crystal_geometry_table.tsv`, and `crystal_ifp_diagnostic_summary.tsv`. The crystal-anchoring stage gate in this
 production path is smoke-validated, but a real-data production run that reaches
 actual medoid-vs-crystal comparisons still remains.
 
@@ -260,7 +291,8 @@ prioritized implementation plan with stop-points.
 See [DECISIONS.md](DECISIONS.md) for a code-derived description of the
 runtime decision rules that are currently active in the implementation,
 including contact eligibility, clustering feature selection, cluster typing,
-residue signature construction, and Stage 16b residue aggregation.
+the flat Stage 7 `cluster_table.tsv` export, residue signature construction,
+and Stage 16b residue aggregation.
 
 ## Open Questions
 

@@ -16,7 +16,7 @@ The main decision surfaces currently live in these code paths:
 - `src/lpmo_pipeline/analysis/clustering_agglomerative.py` for the current production clustering path.
 - `src/lpmo_pipeline/analysis/clustering_hdbscan.py` for the retained HDBSCAN sensitivity path and shared clustering helpers.
 - `src/lpmo_pipeline/analysis/analysis_orchestrator.py` for which poses and matrices actually move downstream.
-- `src/lpmo_pipeline/analysis/cluster_signatures.py` for cluster type assignment and Stage 16 signature tables.
+- `src/lpmo_pipeline/analysis/cluster_signatures.py` for cluster type assignment, the flat `cluster_table.tsv` export, and Stage 16 signature tables.
 - `src/lpmo_pipeline/analysis/residue_contact_extraction.py` for the residue-contact surface consumed by Stage 16.
 - `src/lpmo_pipeline/analysis/residue_importance.py` for Stage 16b residue and patch aggregation.
 - `src/lpmo_pipeline/qc/posebusters_runner.py` for the active PoseBusters input contract and failure classification.
@@ -68,6 +68,8 @@ Current active thresholds are:
 
 - `min_non_vdw_interactions = 2`
 - `min_non_vdw_contact_residues = 1`
+
+The config also contains sensitivity variants, but the active production rule remains the 2/1 gate above. A single non-VdW interaction against one residue is not currently treated as sufficient specific-contact signal for clustering or pose-vs-crystal IFP comparison.
 
 ### Active exclusion classes
 
@@ -349,6 +351,22 @@ The active decision order is:
 4. `C1_compatible` if C1 meets its minimum and is greater than C4
 5. `C4_compatible` if C4 meets its minimum and is greater than C1
 6. `uncertain` otherwise
+
+### Current flat cluster-table export behavior
+
+`write_cluster_table_tsv()` in `src/lpmo_pipeline/analysis/cluster_signatures.py`
+currently writes `cluster_table.tsv` as a flat TSV export of the same
+`cluster_summaries` rows that are also serialized into `cluster_signatures.json`.
+
+- It is not a second aggregation pass; it reuses the already built Stage 16 summary rows.
+- It includes only retained non-noise clusters because `cluster_summaries` are derived from non-noise membership.
+- Conditions with no retained clusters therefore produce a header-only `cluster_table.tsv` rather than synthetic null rows.
+- Current exported columns are:
+  - identifiers: `condition_id`, `cluster_id`, `protein_id`, `ligand_id`, `medoid_pose_id`
+  - summary labels: `cluster_type`, `n_poses`, `occupancy`, `c1_plausible_fraction`, `c4_plausible_fraction`
+  - geometry summaries: median/IQR pairs for every field in `_GEOMETRY_STAT_FIELDS`
+  - appended downstream fields: `construct_type`, `substrate_class`, `dp`, `cluster_size`, C1/C4 computable/plausible/highly-plausible fractions, pose-confidence mean/median/medoid fields, and convergence mean/median/medoid fields
+- Stage 16b residue-importance code does not consume `cluster_table.tsv`; it still works from the richer Stage 16 signature/summary surfaces already passed in memory.
 
 ### Current Stage 16 IFP signature behavior
 
@@ -699,6 +717,8 @@ The prepared crystal IFP must also pass the same contact-eligibility rule used f
 
 - at least 2 non-VdW interactions
 - at least 1 non-VdW contact residue
+
+There is no crystal-specific lenient override in the active screen path. A 1/1 crystal IFP remains non-comparable because one non-VdW contact alone is not treated as enough specific-contact evidence for IFP similarity scoring.
 
 If a crystal IFP is `vdw_only`, `null_ifp`, or `low_specific_contact`, pocket RMSD and crystal geometry remain reportable, but `ifp_tanimoto` is left non-comparable and `crystal_ifp_exclusion_class` records the reason.
 

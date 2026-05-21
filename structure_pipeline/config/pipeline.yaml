@@ -39,10 +39,11 @@ slurm:
   tmp_base: /cluster/work/projects/nn1003k/eirik/tmp
 
 # AF3 settings
-# CLI overrides: --af3-seeds, --af3-diffusion-samples
+# CLI overrides: --af3-seeds, --af3-diffusion-samples, --af3-num-recycles
 af3:
-  seeds: 10                    # Number of model seeds
+  seeds: 15                    # Number of model seeds
   num_diffusion_samples: 5     # Diffusion samples per seed
+  num_recycles: 10             # Recycling iterations
 
 # Boltz-2 settings
 # CLI overrides: --boltz-diffusion-samples, --boltz-recycling-steps
@@ -68,7 +69,7 @@ rf3:
 inputs:
   # FASTA file with proteins (pipe-separated format: >UniProtIDs|ID|Organism|Annotation)
   # Place your .fasta files in: input/fasta/
-  proteins_fasta: input/fasta/lpmo_core_domain_2026-03-14_06-52-15_deduplicated.fasta
+  proteins_fasta: input/fasta/lpmo_cbm_2026-03-14_06-52-15.fasta
 
   # Ligand CIF files organized by category
   # Place your CIF files in: input/ligand/{category}/*.cif
@@ -86,6 +87,9 @@ inputs:
 
   # Mount point for squashfs MSAs inside container/job
   msa_sqsh_mount_point: /msa
+
+  # Oligosaccharide definitions for AF3 multi-monomer CCD + bondedAtomPairs
+  oligo_definitions: config/oligo_definitions.yaml
 
 # Output locations
 outputs:

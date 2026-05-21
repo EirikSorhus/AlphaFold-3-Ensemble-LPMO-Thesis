@@ -1,7 +1,13 @@
 analysis:
   name: c1_c4_predictive_analysis_simplified
   version: 2.0
-  status: exploratory_predictive_module
+  status: revision_pending_model_and_predictor_selection
+  revision_note_2026_05_21: >
+    The plan is being revised before final predictive implementation. Final
+    model families and predictor-variable sets are not selected yet. Keep the
+    implemented Python code as a tested leakage-safety/baseline scaffold only,
+    and use 5-fold grouped CV as the planned CV contract unless a later
+    documented decision changes it.
   purpose: >
     Test whether summarized AF3 protein-ligand-condition outputs contain
     recoverable signal for protein-level C1 and C4 regioactivity.
@@ -368,7 +374,7 @@ hyperparameter_tuning:
     rule: tune_threshold_inside_inner_cv_only
   inner_cv:
     preferred_method: StratifiedGroupKFold
-    n_splits: 3
+    n_splits: 5
     group_column: protein_id
     shuffle: true
     random_state: 42
@@ -558,7 +564,7 @@ implementation_steps:
     action: >
       For has_C1_activity and has_C4_activity separately, run 5-fold outer
       grouped CV. Inside each training fold, tune recipe, regularization, and
-      threshold using 3-fold grouped CV.
+      threshold using 5-fold grouped CV.
   - step: aggregate_predictions_to_protein_level
     action: >
       Aggregate out-of-fold condition probabilities to protein-level probabilities

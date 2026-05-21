@@ -180,9 +180,15 @@ Implementation order follows `IMPLEMENTATION_PLAYBOOK.md`.
 - Attach geometry/QC/support features to each cluster (median/IQR summaries).
 - Assign cluster type: `C1_compatible`, `C4_compatible`, `mixed_compatible`, `non_plausible`, `uncertain`.
 - Thresholds for cluster type stored in `configs/thresholds.yaml`.
-- Build `cluster_ifp_signature.tsv`, `cluster_residue_signature.tsv`, and
-  `cluster_signatures.json` from existing Stage 6 cluster membership and
-  medoids; do not re-cluster or re-select medoids during annotation.
+- Build `cluster_table.tsv`, `cluster_ifp_signature.tsv`,
+  `cluster_residue_signature.tsv`, and `cluster_signatures.json` from existing
+  Stage 6 cluster membership and medoids; do not re-cluster or re-select
+  medoids during annotation. Current production `cluster_table.tsv` is a flat
+  TSV export of the same retained non-noise cluster summaries written to
+  `cluster_signatures.json`; it keeps the original columns and appends
+  condition metadata, cluster size, C1/C4 computable/plausible/highly-plausible
+  fractions, pose-confidence summaries, and convergence summaries for downstream
+  descriptive/predictive tables.
 
 ### Stage 8 - Residue Importance Analysis (new in v1.0)
 - Consumes Stage 7 cluster annotation outputs (`cluster_residue_signature.tsv`,
@@ -231,7 +237,13 @@ Implementation order follows `IMPLEMENTATION_PLAYBOOK.md`.
 ### Stage 14 - Exploratory Predictive Analysis (was Step 10)
 - Keep simple: at most 1–2 tasks (e.g., C1 vs C4, chitin vs cellulose preference).
 - Primary rows: cluster.
-- Grouped CV at protein level (all clusters from same protein in one fold).
+- `analysis/activity_mapping.py` builds `predictive_cluster_table.tsv` as a separate postprocess table from enriched `cluster_table.tsv`, protein metadata, and mapped EC/activity labels. This is not part of the core `run_analysis_core` path.
+- Grouped CV at protein level (all clusters from same protein in one fold), with
+  5 folds as the planned default when enough protein groups exist.
+- Predictive implementation is not final. `analysis/predictive_models.py`
+  currently provides only a tested leakage-safety/baseline scaffold. The
+  predictive-analysis plans must be revised before final implementation because
+  model families and predictor variables have not been selected yet.
 - Report: balanced accuracy, macro F1, AUROC where applicable.
 - Results are exploratory; do NOT overinterpret as causal biology.
 - Detailed implementation plans:
@@ -244,6 +256,11 @@ Implementation order follows `IMPLEMENTATION_PLAYBOOK.md`.
 - Output: `cbm_comparison_table.tsv`.
 - Statistics: paired Wilcoxon signed-rank; report effect sizes and direction.
 - Detailed implementation plan: `cbm_full_length_vs_domain_only_analysis_plan.yaml` specifies the matched construct-pair design, CBM/linker region definitions, condition summaries, primary endpoints, paired statistics, and required CBM analysis outputs.
+- `analysis/cbm_comparison.py` now starts this as a condition-level side
+  analysis: it builds `cbm_construct_condition_summary.tsv` and
+  `cbm_paired_comparison_table.tsv` from `condition_table.tsv`,
+  `cluster_table.tsv`, and protein metadata. Pose-level dual-IFP remains lower
+  priority.
 
 ## 4. Activity Label Mapping From EC
 
