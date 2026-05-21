@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 from lpmo_pipeline.analysis.analysis_orchestrator import AnalysisCoreResult
-from lpmo_pipeline.cli import cmd_run
+from lpmo_pipeline.cli import cmd_family_enrichment, cmd_predictive, cmd_run
 
 
 def test_cmd_run_calls_analysis_core_and_writes_manifest(tmp_path, monkeypatch) -> None:
@@ -123,3 +123,141 @@ def test_cmd_run_calls_analysis_core_and_writes_manifest(tmp_path, monkeypatch) 
     assert manifest["gates_passed"]["clustering_stage_completed"] is True
     assert manifest["gates_passed"]["cluster_annotation_stage_completed"] is True
     assert manifest["gates_passed"]["crystal_anchoring_stage_completed"] is True
+
+
+def test_cmd_predictive_calls_postprocess(tmp_path, monkeypatch) -> None:
+    condition_table = tmp_path / "condition_table.tsv"
+    protein_metadata = tmp_path / "protein_metadata.tsv"
+    output_dir = tmp_path / "predictive_results"
+    condition_table.write_text("condition_id\tprotein_id\n")
+    protein_metadata.write_text("protein_id\texperimental_regio_label\n")
+
+    called = {}
+
+    def _fake_run_predictive_postprocess(
+        *,
+        condition_table_path: Path,
+        protein_metadata_path: Path,
+        output_dir: Path,
+        task: str,
+        n_folds: int,
+        random_state: int,
+    ):
+        called["condition_table_path"] = condition_table_path
+        called["protein_metadata_path"] = protein_metadata_path
+        called["output_dir"] = output_dir
+        called["task"] = task
+        called["n_folds"] = n_folds
+        called["random_state"] = random_state
+        output_dir.mkdir(parents=True, exist_ok=True)
+        summary_path = output_dir / "10_predictive" / "predictive_summary.json"
+        summary_path.parent.mkdir(parents=True, exist_ok=True)
+        summary_path.write_text("{}\n")
+
+        class _Result:
+            def __init__(self) -> None:
+                self.summary_path = summary_path
+                self.modeling_table_paths = {"c1_c4": output_dir / "10_predictive" / "modeling_tables" / "c1.tsv"}
+                self.metrics_paths = {"c1_activity": output_dir / "10_predictive" / "cv_results" / "c1_metrics.tsv"}
+                self.predictions_paths = {"c1_activity": output_dir / "10_predictive" / "cv_results" / "c1_predictions.tsv"}
+
+        return _Result()
+
+    monkeypatch.setattr("lpmo_pipeline.cli.run_predictive_postprocess", _fake_run_predictive_postprocess)
+
+    args = argparse.Namespace(
+        condition_table=condition_table,
+        protein_metadata=protein_metadata,
+        output=output_dir,
+        task="c1_c4",
+        n_folds=3,
+        random_state=11,
+    )
+
+    exit_code = cmd_predictive(args)
+
+    assert exit_code == 0
+    assert called["condition_table_path"] == condition_table
+    assert called["protein_metadata_path"] == protein_metadata
+    assert called["output_dir"] == output_dir
+    assert called["task"] == "c1_c4"
+    assert called["n_folds"] == 3
+    assert called["random_state"] == 11
+
+
+def test_cmd_family_enrichment_calls_postprocess(tmp_path, monkeypatch) -> None:
+    scores_path = tmp_path / "protein_condition_residue_scores.tsv"
+    delta_path = tmp_path / "protein_residue_regio_delta.tsv"
+    metadata_path = tmp_path / "protein_metadata.tsv"
+    core_fasta_path = tmp_path / "core.fasta"
+    output_dir = tmp_path / "family_results"
+    scores_path.write_text("protein_id\tcondition_id\n")
+    delta_path.write_text("protein_id\tresidue_label\n")
+    metadata_path.write_text("UniProt_ID\tCAZy_family\n")
+    core_fasta_path.write_text(">UniProtIDs|P1|Example|AA10 enzyme\nMNAS\n")
+
+    called = {}
+
+    def _fake_run_family_enrichment_postprocess(
+        *,
+        protein_condition_residue_scores_path: Path,
+        protein_residue_regio_delta_path: Path,
+        protein_metadata_path: Path,
+        core_fasta_path: Path,
+        output_dir: Path,
+        alignment_dir: Path | None,
+        families: tuple[str, ...],
+        mafft_executable: str,
+    ):
+        called["protein_condition_residue_scores_path"] = protein_condition_residue_scores_path
+        called["protein_residue_regio_delta_path"] = protein_residue_regio_delta_path
+        called["protein_metadata_path"] = protein_metadata_path
+        called["core_fasta_path"] = core_fasta_path
+        called["output_dir"] = output_dir
+        called["alignment_dir"] = alignment_dir
+        called["families"] = families
+        called["mafft_executable"] = mafft_executable
+        family_root = output_dir / "08_family_residue_enrichment"
+        family_root.mkdir(parents=True, exist_ok=True)
+
+        class _Result:
+            def __init__(self) -> None:
+                self.family_aligned_residue_table_path = family_root / "family_aligned_residue_table.tsv"
+                self.family_residue_enrichment_path = family_root / "family_residue_enrichment.tsv"
+                self.alignment_manifest_path = family_root / "family_alignment_manifest.tsv"
+                self.summary_path = family_root / "family_enrichment_summary.json"
+
+        result = _Result()
+        result.family_aligned_residue_table_path.write_text("\n")
+        result.family_residue_enrichment_path.write_text("\n")
+        result.alignment_manifest_path.write_text("\n")
+        result.summary_path.write_text("{}\n")
+        return result
+
+    monkeypatch.setattr(
+        "lpmo_pipeline.cli.run_family_enrichment_postprocess",
+        _fake_run_family_enrichment_postprocess,
+    )
+
+    args = argparse.Namespace(
+        protein_condition_residue_scores=scores_path,
+        protein_residue_regio_delta=delta_path,
+        protein_metadata=metadata_path,
+        core_fasta=core_fasta_path,
+        output=output_dir,
+        alignment_dir=None,
+        families=["AA9", "AA10"],
+        mafft_executable="mafft",
+    )
+
+    exit_code = cmd_family_enrichment(args)
+
+    assert exit_code == 0
+    assert called["protein_condition_residue_scores_path"] == scores_path
+    assert called["protein_residue_regio_delta_path"] == delta_path
+    assert called["protein_metadata_path"] == metadata_path
+    assert called["core_fasta_path"] == core_fasta_path
+    assert called["output_dir"] == output_dir
+    assert called["alignment_dir"] is None
+    assert called["families"] == ("AA9", "AA10")
+    assert called["mafft_executable"] == "mafft"

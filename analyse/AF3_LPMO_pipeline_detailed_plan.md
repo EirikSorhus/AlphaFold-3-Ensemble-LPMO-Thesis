@@ -1351,6 +1351,18 @@ ligand-bound crystal references. `crystal\_ifp\_diagnostic\_summary.tsv` stores
 eligibility/exclusion counts and percentages by unique crystal reference and by
 medoid/fallback comparison row.
 
+Current implementation detail (2026-05-21): ligand-bound crystal references are
+first written as chemistry-preserving selected mmCIFs, remapped to the canonical
+`A` protein / `B-C-D` glycan / `E` Cu scheme, then normalized before
+protonation. The full crystal complex keeps Cu for geometry and pocket RMSD, but
+the ProLIF ligand MOL2 is glycan-only and excludes Cu, water, ions, and common
+buffer/solvent residues. ProLIF resolves ligand residue IDs from the companion
+`ligand_only_for_prolif.pdb` when available, preserving distinct glycan chains
+even when Obabel MOL2 substructure labels repeat as `BGC1`, `BGC2`, and so on.
+A crystal IFP that remains `vdw_only`,
+`null_ifp`, or `low_specific_contact` after this prep is treated as a
+non-comparable contact-signal outcome, not as known prep contamination.
+
 ### 19.4 Interpretation rule
 
 Crystal mismatch does not invalidate a cluster. It is used only for context and plausibility discussion.
@@ -1412,6 +1424,11 @@ Must include:
 ### 22.1 Scope
 
 Keep simple. Do not build a large model zoo.
+
+Update 2026-05-21: the downstream activity-prediction plans were revised into
+smaller, less-detailed planning documents. They should now be treated as
+compact exploratory plans with small-effective-n constraints rather than full
+implementation blueprints.
 
 ### 22.2 Acceptable prediction targets
 

@@ -321,14 +321,34 @@ Konfigurasjonsregel (gjeldende):
         den hadde ingen faktiske clusters (`cluster_signatures.clusters=[]`), men
         skrev 6 eksplisitte nullrader i både `protein_condition_residue_scores.tsv`
         og `protein_residue_regio_delta.tsv` fra observerte kontakter.
-        ⛔ Gjenstår: verifiser ikke-null, cluster-vektede residue-scorer på en
-        multi-pose real-data-betingelse med faktiske retained clusters.
+        Status 2026-05-21 (senere): en ny retained-cluster-regresjon i
+        `tests/test_residue_importance.py` verifiserer nå ikke-null,
+        cluster-vektede Stage 16b-output mot den real-deriverte fixture-roten
+        `tests/fixtures/clustering_stage_outputs/` for `A0A0S2GKZ1`, inkludert
+        ikke-null `residue_contact_score`, ikke-null C1/C4-deltaer og eksakt
+        samsvar med de innskrevne Stage 16b-tabellene. Family-grenen er nå
+        implementert som en valgfri, separat postprosess gjennom
+        `analysis/family_alignment.py`,
+        `analysis/family_enrichment_postprocess.py` og CLI-kommandoen
+        `lpmo-pipeline family-enrichment`. Den filtrerer til AA9/AA10
+        `domain_only`, bruker den dedupliserte catalytic-core FASTA-en sammen
+        med metadata for sekvensgruppe-resolusjon, og bygger family-alignments
+        via precomputed aligned FASTA eller MAFFT uten å kobles inn i
+        `run_analysis_core()`. Verifisering: `tests/test_family_alignment.py`,
+        `tests/test_family_residue_enrichment.py`,
+        `tests/test_family_enrichment_postprocess.py` og
+        `tests/test_cli_run.py::test_cmd_family_enrichment_calls_postprocess`
+        kjører grønt i `tests/run_tests_scripts/test_family_enrichment_validation.sh`,
+        og sbatch jobb 1150831 prosesserte både AA9 og AA10 på de mergede
+        staged pilot `domain_only`-shardene med `mafft_linsi`, som skrev 219
+        rader i `family_aligned_residue_table.tsv` og 83 rader i
+        `family_residue_enrichment.tsv`.
 
 17. ~~**`placer/run_placer.py`**~~ — **FJERNET. PLACER er fjernet fra analysen helt (beslutning 2026-04-21).** Steg 17 er avviklet. Se statusoversikt.
 
 18. **`analysis/activity_mapping.py`** — bygg `predictive_cluster_table` fra cluster-rader.
     Krav: ingen primær aggregering cluster→protein. Bruk `protein_id` som kolonnenavn.
-    De nye detaljerte prediktive planene
+    De reviderte aktivitets-prediktive planene
     `c1_c4_predictive_analysis_plan_simplified.yaml` og
     `substrate_activity_prediction_plan.yaml` spesifiserer nå hvilke
     condition-/cluster-/metadata-tabeller som må bygges før prediktiv modellering.
@@ -344,7 +364,7 @@ Konfigurasjonsregel (gjeldende):
 
 20. **`analysis/predictive_models.py` + R scripts** — cluster-baserte modeller.
     Krav: grouped CV på enzymnivå, cluster-rader beholdes, avhengighet modelleres.
-    Implementasjonen skal følge de detaljerte planene:
+        Implementasjonen skal følge de reviderte, mindre detaljerte planene:
       - `c1_c4_predictive_analysis_plan_simplified.yaml` for C1/C4-regioaktivitet
       - `substrate_activity_prediction_plan.yaml` for substrataktivitet
     Begge planene bruker `protein_id` som CV-gruppe og eksplisitt
@@ -352,8 +372,8 @@ Konfigurasjonsregel (gjeldende):
     Status 2026-05-21: Python-modulen har nå et testet, foreløpig scaffold for
     leakage-sikre grouped folds på `protein_id` med 5-fold som default når det
     finnes nok proteingrupper, pluss smale baseline-runnere. Dette er ikke en
-    full modellfase og modellene/prediksjonsvariablene er ikke valgt. De to
-    predictive YAML-planene er markert for revisjon før endelig implementasjon.
+    full modellfase. De to predictive YAML-planene er nå revidert til kompakte
+    aktivitetsplaner med smalere scope og færre låste prediktorer enn før.
 
 21. **`analysis/crystal_anchoring.py`, `cbm_variant.py`, `cbm_comparison.py`**
     som sekundæranalyser.
@@ -375,6 +395,15 @@ Konfigurasjonsregel (gjeldende):
             `Oligo_Activity` eller `Comment`
         - multikjede-krystaller subsett-es til valgt proteinkjede, tilhørende
             ligand og Cu, med fallback når foretrukket kjede A ikke er holo
+        - Status 2026-05-21: crystal-subsettet bevarer nå relevant kjemimetadata
+            (`_entity`, `_chem_comp`, `_chem_comp_bond`, `_struct_conn`) og
+            remappes eksplisitt til `A` protein, `B/C/D` glykan og `E` site-Cu.
+            Ligandbundne crystal references normaliseres før protonering.
+        - ProLIF-liganden fra crystal-prep er nå glykan-only: Cu blir værende i
+            `complex_H.pdb` for geometri/RMSD, men filtreres ut av
+            `ligand_for_prolif.mol2` sammen med solvent/ioner. 6YDC har focused
+            regresjonstest for at bare valgt site-Cu beholdes og at Cu ikke
+            lekker inn i ligand-only eksporten.
         - standalone-harnessen kan auto-velge en best-rangert AF3-pose for denne
             real-data-valideringen; produksjonsstien sammenligner alle beholdte
             cluster-medoider
@@ -397,7 +426,9 @@ Konfigurasjonsregel (gjeldende):
         - crystal-IFP må passere samme non-vdW contact-eligibility-regel som
             pose-clustering før `ifp_tanimoto` regnes som sammenlignbar; VdW-only,
             zero-contact og low-specific-contact crystal-IFP-er beholder RMSD og
-            geometry-output, men merkes som IFP-non-comparable
+            geometry-output, men merkes som IFP-non-comparable. Etter crystal-prep
+            hardeningen er slike utfall ikke lenger kjent Cu/normaliserings-
+            forurensning uten ny evidens.
         - ligandbundne crystal references får nå C1/C4-geometri i
             `crystal_geometry_table.tsv`, og nøkkelfeltene joines inn i
             `crystal_anchor_table.tsv`; `crystal_ifp_diagnostic_summary.tsv`
@@ -438,6 +469,15 @@ Konfigurasjonsregel (gjeldende):
     cluster-aggregater, samt `protein_summary_table.tsv` som rent groupby-lag
     over `condition_table.tsv`. Focused pytest for condition summary,
     orchestrator og CLI passer.
+    Status 2026-05-21 (senere): `tests/run_tests_scripts/run_summary_table_validation.py`
+    kan nå regenerere `cluster_table.tsv`, `condition_table.tsv` og
+    `protein_summary_table.tsv` fra eksisterende production outputs, med fallback
+    til `cluster_signatures.json` når eldre shard-outputs mangler skrevet
+    `cluster_table.tsv`. Harnessen er verifisert på merge av 14 komplette
+    `tests/tests_results/clustering_pilot_staged/domain_only_shards/*/production_output`
+    (1 ufullstendig shard ble eksplisitt rapportert og hoppet over), og
+    validerte 126 betingelser med både retained-cluster-, no-valid-cluster- og
+    contact-sparse/null-IFP-signaltilfeller.
     Status 2026-05-20: analysis-core skriver nå også `cluster_table.tsv` fra
     Stage 7 `cluster_summaries`, og CLI-en eksponerer artefakten sammen med de
     øvrige cluster-outputene. Focused pytest for `tests/test_cluster_signatures.py`,

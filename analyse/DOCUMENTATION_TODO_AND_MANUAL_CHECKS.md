@@ -24,16 +24,14 @@ The following YAML files have been added as detailed implementation plans for
 downstream analyses that run after the core AF3 structure-analysis pipeline
 produces condition-, cluster-, residue-, and geometry-level outputs:
 
-- `c1_c4_predictive_analysis_plan_simplified.yaml` — detailed exploratory
-  predictive-analysis plan for protein-level C1 and C4 regioactivity. It
-  defines the modeling row unit, required input tables, target labels,
-  repeated ligand-context handling, feature engineering, nested protein-grouped
-  cross-validation, and output interpretation limits.
-- `substrate_activity_prediction_plan.yaml` — detailed exploratory
-  predictive-analysis plan for substrate activity across chitin, cellulose, and
-  starch. It defines protein-substrate activity labels, condition-level
-  modeling rows, cluster aggregation, feature blocks, grouped CV, models, and
-  reporting outputs.
+- `c1_c4_predictive_analysis_plan_simplified.yaml` — revised compact
+  predictive-analysis plan for protein-level C1 and C4 activity. It now serves
+  as a smaller planning note with locked predictor choices and small-effective-n
+  constraints rather than an exhaustive implementation blueprint.
+- `substrate_activity_prediction_plan.yaml` — revised compact predictive-
+  analysis plan for substrate activity across chitin, cellulose, and starch.
+  It now records the narrowed model scope, substrate-specific row restrictions,
+  and locked predictor choices rather than a fully detailed implementation map.
 - `cbm_full_length_vs_domain_only_analysis_plan.yaml` — detailed paired-analysis
   plan for comparing full-length and domain-only constructs in CBM-containing
   proteins. It defines matched construct-pair inclusion rules, CBM/linker
@@ -434,23 +432,22 @@ fraction 0.52, and produced non-noise clusters with mean size 4.77 poses
 OPEN_QUESTIONS.md item 9: primary model is `glmnet` (penalized logistic) with `glmer` (mixed effects) as sensitivity check. This is still a default, not a confirmed decision.
 
 Update 2026-05-16:
-Two detailed predictive implementation plans now exist:
+Two revised compact predictive implementation plans now exist:
 - `c1_c4_predictive_analysis_plan_simplified.yaml` for C1/C4 regioactivity prediction.
 - `substrate_activity_prediction_plan.yaml` for substrate activity prediction.
 
 Update 2026-05-21:
-These plans are now explicitly marked for revision before final model
-implementation. The model families and predictor-variable sets are not selected
-yet. The current Python code is only a tested leakage-safety/baseline scaffold,
-not a final modeling decision. The planned CV contract is 5-fold grouped CV by
-`protein_id` when enough protein groups exist.
+These plans have now been revised into less-detailed activity-prediction
+documents. They keep the current Python code in scaffold status, preserve the
+5-fold grouped CV contract by `protein_id`, and narrow the scope to compact
+exploratory models with small-effective-n predictor limits.
 
 **Proposed solution:**  
-1. Revise the predictive YAML plans to choose the final model families and predictor-variable sets.
-2. Confirm the primary implementation backend for the YAML predictive plans: R/glmnet, sklearn, or both with one primary.
-3. Update OPEN_QUESTIONS.md item 9 to mark the model/backend choice as resolved.
-4. Keep 5-fold grouped CV by `protein_id` as the default plan unless the revised predictive-analysis plan records a different choice.
-5. `scripts/ec_activity_mapping.R`, the Python `predictive_cluster_table.tsv` builder, and the first grouped binary Python scaffold now exist; next validate on real predictive rows after the plan revision.
+1. Keep the revised compact YAML plans as the current planning source for activity prediction.
+2. Confirm the primary implementation backend for the predictive models: R/glmnet, sklearn, or both with one primary.
+3. Update OPEN_QUESTIONS.md item 9 to separate resolved predictor-plan changes from unresolved backend choices.
+4. Keep 5-fold grouped CV by `protein_id` as the default plan unless a later revision records a different choice.
+5. `scripts/ec_activity_mapping.R`, the Python `predictive_cluster_table.tsv` builder, and the first grouped binary Python scaffold now exist; next validate on real predictive rows against the revised compact plans.
 
 ---
 
@@ -478,7 +475,7 @@ rules and expected output tables.
 
 ### P10c — Planned downstream TSVs still depend on later analysis layers
 
-**Priority:** MEDIUM — these are required before predictive, family-aligned, and CBM-specific analyses can be run from the production outputs.
+**Priority:** MEDIUM — these are required before predictive and CBM-specific analyses can be run from the production outputs.
 
 **Description:**
 The current analysis-core production path now writes all TSV surfaces that are
@@ -497,16 +494,40 @@ agglomerative Jaccard outputs (`distance_threshold=0.55`,
 smoke to produce meaningful clusters. The following planned TSVs are still not
 implemented because their upstream analysis layers are not implemented yet:
 
-- `family_aligned_residue_table.tsv`
-- `family_residue_enrichment.tsv`
 - full predictive model outputs/reports under `10_predictive/modeling_tables/`
 - downstream CBM reports/statistical summaries beyond `cbm_construct_condition_summary.tsv` and `cbm_paired_comparison_table.tsv`
 
+Update 2026-05-21:
+- Step 1 in the proposed solution below is now implemented for Stage 16b via a
+  retained-cluster regression in `tests/test_residue_importance.py` against the
+  real-derived fixture root `tests/fixtures/clustering_stage_outputs/`. This
+  checks non-zero enriched residue outputs and parity with the checked-in Stage
+  16b TSVs for a protein with both retained-cluster and no-valid-cluster
+  conditions.
+- Step 2 is now implemented as a reusable harness in
+  `tests/run_tests_scripts/run_summary_table_validation.py`. The harness can
+  rebuild `cluster_table.tsv`, `condition_table.tsv`, and
+  `protein_summary_table.tsv` from existing production outputs and was verified
+  on merged staged pilot domain-only shards, where it covered retained-cluster,
+  no-valid-cluster, zero-contact-eligible, and null-IFP-signal conditions.
+- `family_aligned_residue_table.tsv` and `family_residue_enrichment.tsv` are
+  now implemented as outputs from the optional standalone postprocess
+  `lpmo-pipeline family-enrichment`, backed by
+  `analysis/family_alignment.py` and
+  `analysis/family_enrichment_postprocess.py`.
+- Real-data validation for that optional family layer now exists in
+  `tests/run_tests_scripts/test_family_enrichment_validation.sh`. Verified
+  2026-05-21 via sbatch jobb 1150831 on merged staged pilot `domain_only`
+  shards: 14 complete shard outputs were loaded, 1 incomplete shard was skipped,
+  and both AA9 and AA10 were processed with `mafft_linsi`, producing 219 rows
+  in `family_aligned_residue_table.tsv` and 83 rows in
+  `family_residue_enrichment.tsv`.
+- The family layer remains intentionally outside the mandatory production
+  `run_analysis_core()` path so downstream analyses do not depend on it.
+
 **Proposed solution:**
-1. Promote pilot clustering outputs for at least one multi-pose real-data condition with retained clusters into a reusable fixture or smoke input, then validate non-zero enriched `cluster_table.tsv`, cluster signatures, and non-zero Stage 16b residue weights against it.
-2. Verify `condition_table.tsv` and `protein_summary_table.tsv` on a broader integrated real-data run, including null-cluster and null-IFP conditions.
-3. Implement family-aligned residue enrichment only after the within-protein residue outputs are validated on clustered real data.
-4. Implement predictive modeling and CBM paired analysis on top of the new summary tables.
+1. Keep the optional family residue layer outside the production analysis path unless a later decision explicitly makes it required.
+2. Implement predictive modeling and CBM paired analysis on top of the newly validated summary tables.
 
 ---
 
@@ -540,6 +561,11 @@ Review the actual proteins in the dataset that fall into this category and check
 
 **Description:**  
 AF3 mmCIF inputs generally do not include `_chem_comp_bond`. The normalization code now treats missing `_chem_comp_bond` as informational (not warning/failure), but multiple docs/config fields still describe it as required.
+For deposited crystal references, crystal anchoring now preserves `_chem_comp`,
+`_chem_comp_bond`, and `_struct_conn` when those categories exist in the source
+mmCIF before normalizing/protonating the selected crystal subset. This does not
+change the AF3-input status: missing `_chem_comp_bond` remains informational for
+AF3 normalized poses.
 
 Potential risk:
 - If a downstream AF3 step later depends on explicit bond-table data and no alternative source is used, that downstream step should fail with a clear error. This should not be silently assumed by normalization.

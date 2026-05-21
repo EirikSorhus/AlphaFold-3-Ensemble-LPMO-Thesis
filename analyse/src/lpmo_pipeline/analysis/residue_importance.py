@@ -530,7 +530,8 @@ def compute_residue_importance_outputs(
             }
             protein_residue_accumulator[aggregate_key] = aggregate
 
-        aggregate["n_conditions_with_contact"] += 1
+        if _as_float(row.get("residue_contact_score")) > 0.0:
+            aggregate["n_conditions_with_contact"] += 1
         aggregate["sum_c1_weighted_residue_score"] += _as_float(row["c1_weighted_residue_score"])
         aggregate["sum_c4_weighted_residue_score"] += _as_float(row["c4_weighted_residue_score"])
 

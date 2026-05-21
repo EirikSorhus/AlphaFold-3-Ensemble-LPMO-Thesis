@@ -97,6 +97,91 @@ def test_result_from_dataframe_keeps_ligand_residues_separate() -> None:
     assert result.flat_bitvector == [1, 0, 1, 0]
 
 
+def test_ligand_annotation_uses_companion_pdb_chains_for_duplicate_residue_numbers(
+    tmp_path: Path,
+) -> None:
+    ligand_mol2 = tmp_path / "ligand_for_prolif.mol2"
+    ligand_mol2.write_text("@<TRIPOS>MOLECULE\nfixture\n")
+    (tmp_path / "ligand_only_for_prolif.pdb").write_text(
+        "\n".join(
+            [
+                "HETATM    1  O1  BGC B   1       0.000   0.000   0.000  1.00  0.00           O  ",
+                "HETATM    2  O1  BGC C   1       5.000   0.000   0.000  1.00  0.00           O  ",
+                "END",
+            ]
+        )
+    )
+
+    class FakeAtom:
+        def __init__(
+            self,
+            index: int,
+            atomic_number: int,
+            symbol: str,
+            neighbors: list["FakeAtom"] | None = None,
+        ) -> None:
+            self._index = index
+            self._atomic_number = atomic_number
+            self._symbol = symbol
+            self._neighbors = neighbors or []
+
+        def GetAtomicNum(self) -> int:
+            return self._atomic_number
+
+        def GetSymbol(self) -> str:
+            return self._symbol
+
+        def GetIdx(self) -> int:
+            return self._index
+
+        def GetNeighbors(self) -> list["FakeAtom"]:
+            return self._neighbors
+
+    first = FakeAtom(0, 8, "O")
+    second = FakeAtom(1, 8, "O")
+    hydrogen = FakeAtom(2, 1, "H", neighbors=[second])
+
+    class FakeLigand:
+        def GetAtoms(self) -> list[FakeAtom]:
+            return [first, second, hydrogen]
+
+    atom_records = [
+        {
+            "atom_name": "O1",
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0,
+            "substructure_id": 1,
+            "substructure_name": "BGC1",
+        },
+        {
+            "atom_name": "O1",
+            "x": 5.0,
+            "y": 0.0,
+            "z": 0.0,
+            "substructure_id": 1,
+            "substructure_name": "BGC1",
+        },
+        {
+            "atom_name": "H1",
+            "x": 5.8,
+            "y": 0.0,
+            "z": 0.0,
+            "substructure_id": 1,
+            "substructure_name": "BGC1",
+        },
+    ]
+
+    annotations = prolif_ifp._resolve_ligand_annotations(
+        FakeLigand(),
+        atom_records,
+        ligand_mol2,
+        "B",
+    )
+
+    assert annotations == [("BGC", 1, "B"), ("BGC", 1, "C"), ("BGC", 1, "C")]
+
+
 def test_compute_ifp_single_real_probe_artifacts_if_available() -> None:
     probe_dir = (
         Path(__file__).resolve().parent
@@ -122,6 +207,39 @@ def test_compute_ifp_single_real_probe_artifacts_if_available() -> None:
     assert len(result.feature_names) == len(result.flat_bitvector)
     assert result.interaction_counts["HBDonor"] >= 1
     assert any(feature_name.startswith("NAG") for feature_name in result.feature_names)
+
+
+def test_compute_ifp_single_real_6ydc_crystal_uses_multiple_glycan_residues_if_available() -> None:
+    probe_dir = (
+        Path(__file__).resolve().parent
+        / "tests_results"
+        / "crystal_anchoring_real_cifs_1144620"
+        / "crystal_anchoring_output"
+        / "references"
+        / "6YDC_A0A223GEC9"
+        / "protonated"
+    )
+    complex_pdb = probe_dir / "complex_H.pdb"
+    ligand_mol2 = probe_dir / "ligand_for_prolif.mol2"
+
+    if not complex_pdb.exists() or not ligand_mol2.exists():
+        pytest.skip("Real 6YDC crystal anchoring artifacts are not available in this workspace")
+
+    result = prolif_ifp.compute_ifp_single(
+        complex_pdb=complex_pdb,
+        ligand_mol2=ligand_mol2,
+        pose_id="6YDC",
+    )
+
+    active_ligand_residues = {
+        feature_name.split("|", maxsplit=1)[0]
+        for feature_name, value in zip(result.feature_names, result.flat_bitvector, strict=True)
+        if value
+    }
+
+    assert result.status == "ok"
+    assert len(active_ligand_residues) > 1
+    assert "BGC4.C" in active_ligand_residues
 
 
 def test_compute_tanimoto_similarity_handles_empty_union() -> None:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import json
 from pathlib import Path
 
 import pytest
@@ -8,6 +9,7 @@ import pytest
 from lpmo_pipeline.analysis.condition_summary import (
     build_condition_table_rows,
     build_protein_summary_rows,
+    read_tsv,
     write_condition_table,
     write_protein_summary_table,
 )
@@ -194,3 +196,91 @@ def test_protein_summary_is_groupby_over_condition_table(tmp_path: Path) -> None
     with protein_table.open(newline="") as handle:
         written = list(csv.DictReader(handle, delimiter="\t"))
     assert written[0]["protein_id"] == "P1"
+
+
+def test_condition_table_can_be_generated_from_clustering_fixture_without_crystal_anchoring(
+    tmp_path: Path,
+) -> None:
+    fixture_dir = Path(__file__).parent / "fixtures" / "clustering_stage_outputs"
+    condition_cluster_summary_rows = read_tsv(fixture_dir / "condition_cluster_summary.tsv")
+    condition_patch_summary_rows = read_tsv(fixture_dir / "condition_patch_summary.tsv")
+    cluster_payload = json.loads((fixture_dir / "cluster_signatures.json").read_text())
+    cluster_table_rows = list(cluster_payload["clusters"])
+
+    cluster_summary_by_condition = {
+        str(row["condition_id"]): row for row in condition_cluster_summary_rows
+    }
+    ligand_by_condition: dict[str, str] = {}
+    for row in cluster_table_rows:
+        condition_id = str(row.get("condition_id", ""))
+        ligand_id = str(row.get("ligand_id", ""))
+        if condition_id and ligand_id and condition_id not in ligand_by_condition:
+            ligand_by_condition[condition_id] = ligand_id
+
+    qc_attrition_rows = []
+    for patch_row in condition_patch_summary_rows:
+        condition_id = str(patch_row["condition_id"])
+        cluster_summary_row = cluster_summary_by_condition.get(condition_id, {})
+        qc_attrition_rows.append(
+            {
+                "condition_id": condition_id,
+                "protein_id": patch_row.get("protein_id", ""),
+                "construct_type": patch_row.get("construct_type", ""),
+                "ligand_id": ligand_by_condition.get(condition_id, ""),
+                "substrate_class": patch_row.get("substrate_class", ""),
+                "dp": patch_row.get("dp", ""),
+                "n_generated": cluster_summary_row.get("n_qc_pass_poses", "0"),
+                "n_prepared": cluster_summary_row.get("n_qc_pass_poses", "0"),
+                "n_prep_error": "0",
+                "n_stage1_hard_fail": "0",
+                "n_stage1_soft_flag": "0",
+                "n_stage1_pass": cluster_summary_row.get("n_qc_pass_poses", "0"),
+                "hard_fail_rate": "0.0",
+            }
+        )
+
+    condition_rows = build_condition_table_rows(
+        qc_attrition_rows=qc_attrition_rows,
+        condition_cluster_summary_rows=condition_cluster_summary_rows,
+        condition_patch_summary_rows=condition_patch_summary_rows,
+        cluster_table_rows=cluster_table_rows,
+    )
+
+    assert len(condition_rows) == len(qc_attrition_rows)
+    assert condition_rows
+
+    condition_rows_by_id = {str(row["condition_id"]): row for row in condition_rows}
+    clustered_condition_id = next(
+        str(row["condition_id"])
+        for row in condition_cluster_summary_rows
+        if int(row["n_clusters"]) > 0
+    )
+    unclustered_condition_id = next(
+        str(row["condition_id"])
+        for row in condition_cluster_summary_rows
+        if int(row["n_clusters"]) == 0
+    )
+
+    expected_cluster_rows = [
+        row for row in cluster_table_rows if str(row.get("condition_id", "")) == clustered_condition_id
+    ]
+    expected_cluster_occupancy = sum(float(row["occupancy"]) for row in expected_cluster_rows)
+    clustered_row = condition_rows_by_id[clustered_condition_id]
+    assert clustered_row["n_cluster_rows"] == len(expected_cluster_rows)
+    assert clustered_row["cluster_total_occupancy"] == pytest.approx(expected_cluster_occupancy)
+    assert clustered_row["n_clusters"] == cluster_summary_by_condition[clustered_condition_id]["n_clusters"]
+    assert clustered_row["any_valid_cluster"] == next(
+        row["any_valid_cluster"]
+        for row in condition_patch_summary_rows
+        if str(row["condition_id"]) == clustered_condition_id
+    )
+
+    unclustered_row = condition_rows_by_id[unclustered_condition_id]
+    assert unclustered_row["n_cluster_rows"] == 0
+    assert unclustered_row["cluster_total_occupancy"] == ""
+
+    condition_table = tmp_path / "condition_table.tsv"
+    write_condition_table(condition_rows, condition_table)
+    written = read_tsv(condition_table)
+    assert len(written) == len(condition_rows)
+    assert {row["condition_id"] for row in written} == set(condition_rows_by_id)

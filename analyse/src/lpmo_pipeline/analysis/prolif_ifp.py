@@ -273,6 +273,9 @@ def _parse_mol2_atom_records(ligand_mol2: Path) -> list[dict[str, Any]]:
         atom_records.append(
             {
                 "atom_name": str(parts[1]),
+                "x": float(parts[2]),
+                "y": float(parts[3]),
+                "z": float(parts[4]),
                 "substructure_id": int(parts[6]),
                 "substructure_name": str(parts[7]),
             }
@@ -281,6 +284,34 @@ def _parse_mol2_atom_records(ligand_mol2: Path) -> list[dict[str, Any]]:
     if not atom_records:
         raise ValueError(f"No MOL2 atom records found in {ligand_mol2}")
 
+    return atom_records
+
+
+def _parse_ligand_pdb_atom_records(ligand_pdb: Path) -> list[dict[str, Any]]:
+    atom_records: list[dict[str, Any]] = []
+    for line in ligand_pdb.read_text().splitlines():
+        if not line.startswith(("ATOM  ", "HETATM")):
+            continue
+        try:
+            residue_number = int(line[22:26].strip() or "0")
+            x = float(line[30:38])
+            y = float(line[38:46])
+            z = float(line[46:54])
+        except ValueError:
+            continue
+        element = (line[76:78].strip() or line[12:16].strip()[0]).upper()
+        atom_records.append(
+            {
+                "atom_name": line[12:16].strip(),
+                "residue_name": line[17:20].strip() or "UNL",
+                "chain": line[21].strip() or _DEFAULT_LIGAND_CHAIN,
+                "residue_number": residue_number,
+                "element": element,
+                "x": x,
+                "y": y,
+                "z": z,
+            }
+        )
     return atom_records
 
 
@@ -293,6 +324,80 @@ def _split_substructure_label(substructure_name: str, fallback_number: int) -> t
         residue_name = substructure_name.strip() or "UNL"
         residue_number = fallback_number
     return residue_name[:3], residue_number
+
+
+def _fallback_ligand_annotation(
+    record: dict[str, Any],
+    ligand_chain: str,
+) -> tuple[str, int, str]:
+    residue_name, residue_number = _split_substructure_label(
+        record["substructure_name"],
+        record["substructure_id"],
+    )
+    return residue_name, residue_number, ligand_chain
+
+
+def _distance_squared(left: dict[str, Any], right: dict[str, Any]) -> float:
+    return (
+        (float(left["x"]) - float(right["x"])) ** 2
+        + (float(left["y"]) - float(right["y"])) ** 2
+        + (float(left["z"]) - float(right["z"])) ** 2
+    )
+
+
+def _resolve_ligand_annotations(
+    ligand: Any,
+    atom_records: list[dict[str, Any]],
+    ligand_mol2: Path,
+    ligand_chain: str,
+) -> list[tuple[str, int, str]]:
+    """Resolve per-atom ProLIF residue IDs without collapsing glycan chains."""
+    annotations = [
+        _fallback_ligand_annotation(record, ligand_chain) for record in atom_records
+    ]
+
+    ligand_pdb = ligand_mol2.with_name("ligand_only_for_prolif.pdb")
+    if not ligand_pdb.exists():
+        return annotations
+
+    pdb_records = _parse_ligand_pdb_atom_records(ligand_pdb)
+    if not pdb_records:
+        return annotations
+
+    used_pdb_indices: set[int] = set()
+    for atom_index, (atom, record) in enumerate(zip(ligand.GetAtoms(), atom_records, strict=True)):
+        if atom.GetAtomicNum() == 1:
+            continue
+        element = atom.GetSymbol().upper()
+        best_index: int | None = None
+        best_distance = float("inf")
+        for pdb_index, pdb_record in enumerate(pdb_records):
+            if pdb_index in used_pdb_indices:
+                continue
+            if str(pdb_record["element"]).upper() != element:
+                continue
+            distance = _distance_squared(record, pdb_record)
+            if distance < best_distance:
+                best_index = pdb_index
+                best_distance = distance
+        if best_index is None or best_distance > 0.05**2:
+            continue
+        used_pdb_indices.add(best_index)
+        pdb_record = pdb_records[best_index]
+        annotations[atom_index] = (
+            str(pdb_record["residue_name"])[:3],
+            int(pdb_record["residue_number"]),
+            str(pdb_record["chain"]) or ligand_chain,
+        )
+
+    for atom_index, atom in enumerate(ligand.GetAtoms()):
+        if atom.GetAtomicNum() != 1:
+            continue
+        for neighbor in atom.GetNeighbors():
+            annotations[atom_index] = annotations[neighbor.GetIdx()]
+            break
+
+    return annotations
 
 
 def _load_ligand_molecule(ligand_mol2: Path, ligand_chain: str) -> Any:
@@ -309,16 +414,19 @@ def _load_ligand_molecule(ligand_mol2: Path, ligand_chain: str) -> Any:
             f"{ligand.GetNumAtoms()} != {len(atom_records)}"
         )
 
-    for atom, record in zip(ligand.GetAtoms(), atom_records, strict=True):
-        residue_name, residue_number = _split_substructure_label(
-            record["substructure_name"],
-            record["substructure_id"],
-        )
+    annotations = _resolve_ligand_annotations(
+        ligand,
+        atom_records,
+        ligand_mol2,
+        ligand_chain,
+    )
+    for atom, record, annotation in zip(ligand.GetAtoms(), atom_records, annotations, strict=True):
+        residue_name, residue_number, chain_id = annotation
         monomer_info = Chem.AtomPDBResidueInfo()
         monomer_info.SetName(record["atom_name"][:4].rjust(4))
         monomer_info.SetResidueName(residue_name.rjust(3))
         monomer_info.SetResidueNumber(residue_number)
-        monomer_info.SetChainId(ligand_chain)
+        monomer_info.SetChainId(chain_id)
         monomer_info.SetIsHeteroAtom(True)
         monomer_info.SetSerialNumber(atom.GetIdx() + 1)
         atom.SetMonomerInfo(monomer_info)

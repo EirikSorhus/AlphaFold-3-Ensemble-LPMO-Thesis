@@ -64,10 +64,13 @@ foreslått default-valg slik at arbeidet kan fortsette uten blokkering.
 9. **Predictive modellvalg og prediksjonsvariabler** — Hvilke endelige
    modellfamilier og prediksjonsvariabler skal brukes for regioselektivitet og
    substrataktivitet?
-   *Status 2026-05-21: ikke avklart. `predictive_models.py` inneholder kun et
+   *Status 2026-05-21: delvis avklart. Aktivitets-prediksjonsplanene er
+   revidert og mindre detaljerte enn før, med small-effective-n begrensninger
+   og kompakte låste prediktorsett. `predictive_models.py` er fortsatt bare et
    testet scaffold for leakage-sikre grouped folds og smale baseline-runnere.
-   Planene skal revideres før endelig implementasjon. Default CV-kontrakt er
-   5-fold grouped CV på `protein_id` når det finnes nok proteingrupper.*
+   Default CV-kontrakt er fortsatt 5-fold grouped CV på `protein_id` når det
+   finnes nok proteingrupper. Gjenstående avklaring er primær backend og den
+   endelige modellimplementasjonen.*
 
 10. **EC 1.14.99.- ikke-AA17 mapping** — Hvilken endelig tekstetikett og
     hvilket standardsubstrat for "xylan ol"-tilfeller?

@@ -659,7 +659,10 @@ So the table no longer overloads `medoid_pose_id` for non-medoid fallback repres
 - Preferred protein chain comes from the PDB field hint if present, otherwise chain `A`
 - Ligand chains are resolved first from `_pdbx_branch_scheme` and mapped onto actual model chain IDs
 - If branch-scheme mapping is unavailable, the code falls back to carbohydrate-like `_pdbx_nonpoly_scheme` chains
-- Copper chains are resolved from nonpoly monomers matching the copper monomer set
+- Copper chains are resolved per selected protein site:
+  - first from `_struct_conn` metal coordination rows involving the selected protein copy
+  - then from `_pdbx_nonpoly_scheme` rows whose deposited strand/auth chain matches the selected protein copy
+  - finally from nearest Cu distance as a fallback
 
 Ligand-bound chain choice is then decided by heavy-atom distance:
 
@@ -682,9 +685,17 @@ It writes a filtered subset mmCIF containing only:
 The subset writer then remaps chain IDs onto the pipeline's default chain scheme:
 
 - selected protein chain -> `A`
-- selected ligand and copper chains -> the next available default chain IDs
+- selected ligand chains -> `B`, `C`, `D`, then later available chain IDs if needed
+- selected site Cu -> `E`
 
-The filtered file rewrites the relevant `_atom_site`, `_pdbx_branch_scheme`, `_pdbx_nonpoly_scheme`, and `_struct_asym` loops to match the remapped subset.
+The filtered file rewrites the relevant `_atom_site`, `_entity`, `_struct_asym`,
+`_chem_comp`, `_chem_comp_bond`, `_pdbx_branch_scheme`,
+`_pdbx_nonpoly_scheme`, `_struct_conn_type`, and `_struct_conn` loops to match
+the remapped subset. Atom rows are filtered by role, not chain alone: protein
+residues are kept only for the selected protein chain, carbohydrate residues
+only for selected ligand chains, and Cu only for the selected site Cu. Water,
+chloride, common buffer/solvent residues, and off-site external ligands are
+excluded from the selected crystal subset.
 
 ### Prepared crystal states
 
@@ -695,11 +706,26 @@ The filtered file rewrites the relevant `_atom_site`, `_pdbx_branch_scheme`, `_p
   - keep the subset/normalized reference
   - skip protonation and crystal IFP generation
 - If ligand chains are present:
-  - protonate the selected subset
+  - normalize the selected subset with `NormalizeMMCIFRunner`
+  - protonate the normalized selected subset
   - require both `complex_h_pdb` and `ligand_mol2`
   - compute a crystal IFP from those artifacts
 
 The representative pose follows a similar normalize -> protonate -> IFP path before screening.
+
+Crystal protonation keeps Cu in `complex_H.pdb` for geometry and pocket RMSD, but
+the ProLIF ligand export is glycan-only. If Cu or another non-ligand residue is
+present in a copied glycan chain, `io/protonate_export.py` skips it from
+`ligand_only_for_prolif.pdb` / `ligand_for_prolif.mol2` and records a warning
+and skipped-residue count in `protonation_report.json`.
+
+Current ProLIF loading does not rely solely on MOL2 substructure labels for
+ligand residue identity. Obabel can emit repeated `BGC1`, `BGC2`, ... labels for
+separate glycan chains, so `analysis/prolif_ifp.py` maps MOL2 heavy atoms back to
+the sibling `ligand_only_for_prolif.pdb` by coordinates and preserves the PDB
+chain IDs. Added hydrogens inherit the residue identity of their bonded heavy
+atom. This keeps contacts from `BGC1.B` and `BGC1.C` distinct in the IFP feature
+space.
 
 ### IFP comparison rule in the current screen path
 
@@ -723,6 +749,12 @@ There is no crystal-specific lenient override in the active screen path. A 1/1 c
 If a crystal IFP is `vdw_only`, `null_ifp`, or `low_specific_contact`, pocket RMSD and crystal geometry remain reportable, but `ifp_tanimoto` is left non-comparable and `crystal_ifp_exclusion_class` records the reason.
 
 `crystal_ifp_diagnostic_summary.tsv` reports these eligibility/exclusion counts both by unique crystal reference and by medoid/fallback comparison row.
+
+After the crystal-reference prep hardening, those exclusion classes should no
+longer be attributed to known Cu contamination or missing crystal-side
+normalization without further evidence. They may still occur because the
+prepared deposited ligand genuinely has too little non-vdW ProLIF signal under
+the shared contact-eligibility rule.
 
 ### Crystal-side C1/C4 geometry
 
@@ -793,3 +825,94 @@ These are the main places where the current implementation differs from a naive 
   - Legacy constants and behavior in `run_crystal_anchoring()` are not the same thing as the active production path.
 
 When updating plans or README text, these implementation-grounded rules should be treated as the current behavior until the code changes.
+
+## 12. Optional Family Residue Enrichment Postprocess
+
+The current within-family residue comparison is implemented as a standalone
+optional postprocess, not as part of the required production `run` path.
+
+### Execution boundary
+
+- The production `run_analysis_core()` path still ends at the existing Stage 16b
+  outputs plus summary/reporting layers.
+- The optional family layer is entered only through the dedicated CLI command
+  `lpmo-pipeline family-enrichment`, which calls
+  `run_family_enrichment_postprocess()` in
+  `src/lpmo_pipeline/analysis/family_enrichment_postprocess.py`.
+- No analysis-core stage, summary table, or report depends on the family outputs.
+
+### Input contract
+
+The postprocess consumes these inputs directly:
+
+- `protein_condition_residue_scores.tsv`
+- `protein_residue_regio_delta.tsv`
+- `input_data/metadata_final_ec_fixed.tsv`
+- `input_data/lpmo_core_domain_2026-03-14_06-52-15_deduplicated.fasta`
+
+The current implementation does not read sequences from the production metadata
+TSVs themselves. The catalytic-core FASTA is the canonical sequence source.
+
+### Family and construct scope
+
+- The active family scope is limited to `AA9` and `AA10`.
+- The active construct scope is limited to `domain_only` rows, determined from
+  the second `condition_id` token.
+- Full-length rows are intentionally ignored in this first version because the
+  family comparison is based on catalytic-core sequence alignment and assumes
+  domain-local residue numbering.
+
+### Catalytic-sequence mapping and deduplication
+
+- FASTA headers are parsed from the `UniProtIDs|...|...` accession field in the
+  deduplicated catalytic-core FASTA.
+- Metadata rows are resolved against that FASTA using the primary UniProt ID,
+  `CoAccessions`, and `Cat_CoAccessions`.
+- The deduplication and aggregation unit is `Cat_Seq_Group` when available,
+  with fallback to the protein identifier only if no sequence-group field is
+  present.
+- Family-level enrichment statistics are computed over unique catalytic
+  sequence groups, while `family_aligned_residue_table.tsv` still keeps the
+  per-protein provenance rows.
+
+### Alignment source rules
+
+- If `--alignment-dir` contains `<family>.aligned.fasta`, that precomputed
+  alignment is used as the source of truth.
+- Otherwise the postprocess attempts a MAFFT L-INS-i style alignment using
+  `mafft --localpair --maxiterate 1000` on one representative sequence per
+  catalytic sequence group.
+- The alignment IDs are the catalytic sequence-group identifiers, not raw
+  protein IDs.
+
+### Skip and failure semantics
+
+This feature is explicitly soft-failing. A family is skipped instead of failing
+the overall postprocess when any of these conditions holds:
+
+- no resolved AA9/AA10 family members after metadata and construct filtering
+- fewer than 2 catalytic sequence groups remain in the family
+- no precomputed alignment is available and `mafft` is missing
+- MAFFT returns a non-zero exit code
+- the aligned FASTA omits one of the expected sequence-group IDs
+- the ungapped aligned sequence does not match the canonical catalytic-core
+  sequence for that group
+- no Stage 16b residues can be mapped to alignment columns
+
+The postprocess summary JSON records processed versus skipped families and the
+reason for each skipped family.
+
+### Output contract
+
+The postprocess writes under `08_family_residue_enrichment/`:
+
+- `family_aligned_residue_table.tsv`
+- `family_residue_enrichment.tsv`
+- `family_alignment_manifest.tsv`
+- `family_enrichment_summary.json`
+
+`family_aligned_residue_table.tsv` now includes `family_aggregation_id`,
+`construct_type`, `catalytic_core_residue_index`, and `alignment_residue` as
+explicit provenance fields. `family_residue_enrichment.tsv` keeps raw protein
+counts and also adds catalytic sequence-group counts so duplicate catalytic
+cores are not overcounted in the summary means.

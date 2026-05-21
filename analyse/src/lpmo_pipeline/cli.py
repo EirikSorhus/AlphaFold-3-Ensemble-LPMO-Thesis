@@ -5,6 +5,7 @@ Responsibility: Main command-line interface with production run mode and optiona
 Usage:
   python -m lpmo_pipeline run --mode production --config configs/production.yaml --output results/del_a/
     python -m lpmo_pipeline tune --config configs/tuning_af3.yaml --output results/tuning_af3/
+    python -m lpmo_pipeline predictive --condition-table results/condition_table.tsv --protein-metadata metadata/protein_metadata.tsv --output results/
 """
 
 import argparse
@@ -13,6 +14,8 @@ import sys
 from pathlib import Path
 
 from lpmo_pipeline.analysis.analysis_orchestrator import run_analysis_core
+from lpmo_pipeline.analysis.family_enrichment_postprocess import run_family_enrichment_postprocess
+from lpmo_pipeline.analysis.predictive_postprocess import run_predictive_postprocess
 from lpmo_pipeline.io.discovery import discover_work_root
 from lpmo_pipeline.tuning.tune_orchestrator import run_tuning
 from lpmo_pipeline.utils.manifest import ManifestBuilder, ToolVersionFetcher
@@ -63,6 +66,73 @@ def main():
         help="Only discover the run pointed to by the 'latest' symlink",
     )
 
+    # PREDICTIVE subcommand
+    predictive_parser = subparsers.add_parser(
+        "predictive",
+        help="Run predictive postprocess over summary tables",
+    )
+    predictive_parser.add_argument(
+        "--condition-table", type=Path, required=True,
+        help="Path to condition_table.tsv",
+    )
+    predictive_parser.add_argument(
+        "--protein-metadata", type=Path, required=True,
+        help="Path to protein_metadata.tsv",
+    )
+    predictive_parser.add_argument(
+        "--output", type=Path, required=True,
+        help="Output directory for predictive analysis artifacts",
+    )
+    predictive_parser.add_argument(
+        "--task", choices=["all", "c1_c4", "substrate"], default="all",
+        help="Which predictive task set to run",
+    )
+    predictive_parser.add_argument(
+        "--n-folds", type=int, default=5,
+        help="Target number of grouped CV folds",
+    )
+    predictive_parser.add_argument(
+        "--random-state", type=int, default=42,
+        help="Random seed for grouped CV and logistic regression",
+    )
+
+    family_parser = subparsers.add_parser(
+        "family-enrichment",
+        help="Run optional AA9/AA10 family residue enrichment postprocess",
+    )
+    family_parser.add_argument(
+        "--protein-condition-residue-scores", type=Path, required=True,
+        help="Path to protein_condition_residue_scores.tsv",
+    )
+    family_parser.add_argument(
+        "--protein-residue-regio-delta", type=Path, required=True,
+        help="Path to protein_residue_regio_delta.tsv",
+    )
+    family_parser.add_argument(
+        "--protein-metadata", type=Path, required=True,
+        help="Path to protein metadata TSV",
+    )
+    family_parser.add_argument(
+        "--core-fasta", type=Path, required=True,
+        help="Path to the deduplicated catalytic-core FASTA",
+    )
+    family_parser.add_argument(
+        "--output", type=Path, required=True,
+        help="Output directory for family enrichment artifacts",
+    )
+    family_parser.add_argument(
+        "--alignment-dir", type=Path, default=None,
+        help="Optional directory with precomputed {AA9,AA10}.aligned.fasta files",
+    )
+    family_parser.add_argument(
+        "--families", nargs="+", default=["AA9", "AA10"],
+        help="Family labels to include (default: AA9 AA10)",
+    )
+    family_parser.add_argument(
+        "--mafft-executable", default="mafft",
+        help="MAFFT executable used when precomputed alignments are absent",
+    )
+
     # RUN subcommand
     run_parser = subparsers.add_parser("run", help="Run production analysis")
     run_parser.add_argument("--mode", required=True, choices=["production"],
@@ -84,6 +154,10 @@ def main():
         return cmd_run(args)
     elif args.command == "discover":
         return cmd_discover(args)
+    elif args.command == "predictive":
+        return cmd_predictive(args)
+    elif args.command == "family-enrichment":
+        return cmd_family_enrichment(args)
     else:
         parser.print_help()
         return 1
@@ -259,6 +333,73 @@ def cmd_run(args):
         manifest_builder.record_gate("crystal_anchoring_stage_completed", False)
         manifest_builder.write(manifest_path)
         return 1
+
+
+def cmd_predictive(args):
+    """Execute predictive postprocess subcommand."""
+    print("[PREDICTIVE] Starting predictive postprocess...")
+    print(f"  Condition table: {args.condition_table}")
+    print(f"  Protein metadata: {args.protein_metadata}")
+    print(f"  Output: {args.output}")
+
+    args.output.mkdir(parents=True, exist_ok=True)
+
+    try:
+        result = run_predictive_postprocess(
+            condition_table_path=args.condition_table,
+            protein_metadata_path=args.protein_metadata,
+            output_dir=args.output,
+            task=args.task,
+            n_folds=args.n_folds,
+            random_state=args.random_state,
+        )
+    except Exception as exc:
+        print(f"[ERROR] Predictive postprocess failed: {exc}", file=sys.stderr)
+        return 1
+
+    print("[PREDICTIVE] Predictive postprocess completed")
+    print(f"  Summary JSON: {result.summary_path}")
+    for name, path in sorted(result.modeling_table_paths.items()):
+        print(f"  Modeling table ({name}): {path}")
+    for name, path in sorted(result.metrics_paths.items()):
+        print(f"  Metrics ({name}): {path}")
+    for name, path in sorted(result.predictions_paths.items()):
+        print(f"  Predictions ({name}): {path}")
+    return 0
+
+
+def cmd_family_enrichment(args):
+    """Execute optional family enrichment postprocess."""
+    print("[FAMILY] Starting optional family residue enrichment postprocess...")
+    print(f"  Protein-condition residue scores: {args.protein_condition_residue_scores}")
+    print(f"  Protein residue regio delta: {args.protein_residue_regio_delta}")
+    print(f"  Protein metadata: {args.protein_metadata}")
+    print(f"  Core FASTA: {args.core_fasta}")
+    print(f"  Output: {args.output}")
+
+    args.output.mkdir(parents=True, exist_ok=True)
+
+    try:
+        result = run_family_enrichment_postprocess(
+            protein_condition_residue_scores_path=args.protein_condition_residue_scores,
+            protein_residue_regio_delta_path=args.protein_residue_regio_delta,
+            protein_metadata_path=args.protein_metadata,
+            core_fasta_path=args.core_fasta,
+            output_dir=args.output,
+            alignment_dir=args.alignment_dir,
+            families=tuple(args.families),
+            mafft_executable=args.mafft_executable,
+        )
+    except Exception as exc:
+        print(f"[ERROR] Family enrichment postprocess failed: {exc}", file=sys.stderr)
+        return 1
+
+    print("[FAMILY] Family enrichment postprocess completed")
+    print(f"  Family aligned residue table: {result.family_aligned_residue_table_path}")
+    print(f"  Family residue enrichment: {result.family_residue_enrichment_path}")
+    print(f"  Alignment manifest: {result.alignment_manifest_path}")
+    print(f"  Summary: {result.summary_path}")
+    return 0
 
 
 def cmd_discover(args):

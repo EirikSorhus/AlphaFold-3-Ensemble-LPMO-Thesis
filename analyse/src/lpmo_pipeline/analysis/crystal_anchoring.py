@@ -157,6 +157,7 @@ class CrystalReferencePoseComparison:
     pdb_code: str
     source_cif: str
     prepared_subset_cif: str = ""
+    prepared_normalized_cif: str = ""
     selected_protein_chain: str = ""
     ligand_chain_ids: list[str] = field(default_factory=list)
     copper_chain_ids: list[str] = field(default_factory=list)
@@ -403,6 +404,28 @@ def _find_nonpoly_carbohydrate_chain_ids(block: Any) -> tuple[str, ...]:
     )
 
 
+def _normalize_comp_id(value: Any) -> str:
+    return str(value).strip().upper()
+
+
+def _is_protein_comp_id(value: Any) -> bool:
+    return _normalize_comp_id(value) in _PROTEIN_RESIDUE_NAMES
+
+
+def _is_copper_comp_id(value: Any) -> bool:
+    return _normalize_comp_id(value) in _COPPER_MONOMERS
+
+
+def _is_ligand_comp_id(value: Any) -> bool:
+    comp_id = _normalize_comp_id(value)
+    return (
+        bool(comp_id)
+        and comp_id not in _PROTEIN_RESIDUE_NAMES
+        and comp_id not in _NONPOLY_EXCLUDED_MONOMERS
+        and comp_id not in _COPPER_MONOMERS
+    )
+
+
 def _atom_element_name(atom: Any) -> str:
     element = getattr(atom, "element", None)
     name = getattr(element, "name", "") if element is not None else ""
@@ -474,6 +497,132 @@ def _min_chain_distance(chain_a: Any, chain_b: Any) -> float | None:
 
 def _select_copper_chain_ids(block: Any) -> tuple[str, ...]:
     return _find_nonpoly_chain_ids_for_monomers(block, set(_COPPER_MONOMERS))
+
+
+def _struct_conn_partner_chain_for_copper_site(
+    row: Iterable[Any],
+    tags: list[str],
+    selected_protein_chain: str,
+) -> str | None:
+    values = list(row)
+    index_by_tag = {tag: index for index, tag in enumerate(tags)}
+
+    def _value(tag: str) -> str:
+        index = index_by_tag.get(tag)
+        if index is None:
+            return ""
+        return str(values[index]).strip()
+
+    partners: list[dict[str, str]] = []
+    for partner_index in (1, 2, 3):
+        label_asym = _value(f"_struct_conn.ptnr{partner_index}_label_asym_id")
+        label_comp = _value(f"_struct_conn.ptnr{partner_index}_label_comp_id")
+        auth_asym = _value(f"_struct_conn.ptnr{partner_index}_auth_asym_id")
+        auth_comp = _value(f"_struct_conn.ptnr{partner_index}_auth_comp_id")
+        if not any((label_asym, label_comp, auth_asym, auth_comp)):
+            continue
+        partners.append(
+            {
+                "label_asym_id": label_asym,
+                "label_comp_id": label_comp,
+                "auth_asym_id": auth_asym,
+                "auth_comp_id": auth_comp,
+            }
+        )
+
+    copper_partners = [
+        partner
+        for partner in partners
+        if _is_copper_comp_id(partner["label_comp_id"] or partner["auth_comp_id"])
+    ]
+    if not copper_partners:
+        return None
+
+    protein_matches = [
+        partner
+        for partner in partners
+        if not _is_copper_comp_id(partner["label_comp_id"] or partner["auth_comp_id"])
+        and (
+            partner["label_asym_id"] == selected_protein_chain
+            or partner["auth_asym_id"] == selected_protein_chain
+        )
+    ]
+    if not protein_matches:
+        return None
+
+    return copper_partners[0]["label_asym_id"] or copper_partners[0]["auth_asym_id"] or None
+
+
+def _select_copper_chain_ids_for_site(
+    block: Any,
+    model: Any,
+    selected_protein_chain: str,
+) -> tuple[str, ...]:
+    """Select Cu chains for the chosen protein copy, not every deposited Cu."""
+    struct_conn_tags, struct_conn_rows = _loop_rows_for_tag(block, "_struct_conn.id")
+    if struct_conn_rows:
+        chain_ids = _unique_nonempty(
+            chain_id
+            for row in struct_conn_rows
+            for chain_id in [
+                _struct_conn_partner_chain_for_copper_site(
+                    row,
+                    struct_conn_tags,
+                    selected_protein_chain,
+                )
+            ]
+            if chain_id
+        )
+        if chain_ids:
+            return chain_ids
+
+    nonpoly_tags, nonpoly_rows = _loop_rows_for_tag(
+        block,
+        "_pdbx_nonpoly_scheme.asym_id",
+        fallback_prefix="_pdbx_nonpoly_scheme.",
+        fallback_columns=[
+            "asym_id",
+            "entity_id",
+            "mon_id",
+            "ndb_seq_num",
+            "pdb_seq_num",
+            "auth_seq_num",
+            "pdb_mon_id",
+            "auth_mon_id",
+            "pdb_strand_id",
+            "pdb_ins_code",
+        ],
+    )
+    if nonpoly_rows:
+        chain_ids = _unique_nonempty(
+            _row_value(nonpoly_tags, row, "_pdbx_nonpoly_scheme.asym_id")
+            for row in nonpoly_rows
+            if _is_copper_comp_id(_row_value(nonpoly_tags, row, "_pdbx_nonpoly_scheme.mon_id"))
+            and selected_protein_chain
+            in {
+                _row_value(nonpoly_tags, row, "_pdbx_nonpoly_scheme.auth_asym_id"),
+                _row_value(nonpoly_tags, row, "_pdbx_nonpoly_scheme.pdb_strand_id"),
+            }
+        )
+        if chain_ids:
+            return chain_ids
+
+    protein_chain = _find_chain(model, selected_protein_chain)
+    copper_chain_ids = _select_copper_chain_ids(block)
+    if protein_chain is None or not copper_chain_ids:
+        return copper_chain_ids[:1]
+
+    distances: list[tuple[str, float]] = []
+    for copper_chain_id in copper_chain_ids:
+        copper_chain = _find_chain(model, copper_chain_id)
+        if copper_chain is None:
+            continue
+        distance = _min_chain_distance(protein_chain, copper_chain)
+        if distance is not None:
+            distances.append((copper_chain_id, distance))
+    if distances:
+        return (min(distances, key=lambda item: item[1])[0],)
+    return copper_chain_ids[:1]
 
 
 def select_crystal_reference_site(
@@ -572,7 +721,11 @@ def select_crystal_reference_site(
         preferred_protein_chain=preferred_protein_chain,
         selected_protein_chain=selected_protein_chain,
         ligand_chain_ids=selected_ligand_chain_ids,
-        copper_chain_ids=_select_copper_chain_ids(block),
+        copper_chain_ids=_select_copper_chain_ids_for_site(
+            block,
+            model,
+            selected_protein_chain,
+        ),
         expected_ligand=expected_ligand,
         preferred_chain_has_ligand=preferred_chain_has_ligand,
         selected_chain_has_ligand=bool(selected_ligand_chain_ids),
@@ -583,6 +736,14 @@ def select_crystal_reference_site(
 
 def _format_mmcif_value(value: Any) -> str:
     text = str(value)
+    if "\n" in text or "\r" in text:
+        text = " ".join(
+            line.strip().strip(";")
+            for line in text.replace("\r", "\n").split("\n")
+            if line.strip().strip(";")
+        )
+    if len(text) >= 2 and text[0] == text[-1] and text[0] in {"'", '"'}:
+        text = text[1:-1]
     if text == "":
         return "?"
     if any(character.isspace() for character in text) or any(character in text for character in ("'", '"', "#")):
@@ -644,18 +805,170 @@ def _iter_remapped_chain_ids() -> Iterable[str]:
 def _build_selected_chain_id_map(selection: CrystalReferenceSelection) -> dict[str, str]:
     chain_id_map = {selection.selected_protein_chain: DEFAULT_PROTEIN_CHAIN}
     used_chain_ids = {DEFAULT_PROTEIN_CHAIN}
-    remapped_chain_ids = _iter_remapped_chain_ids()
 
-    for source_chain_id in (*selection.ligand_chain_ids, *selection.copper_chain_ids):
+    for source_chain_id, mapped_chain_id in zip(
+        selection.ligand_chain_ids,
+        DEFAULT_GLYCAN_CHAINS,
+        strict=False,
+    ):
+        if source_chain_id in chain_id_map:
+            continue
+        chain_id_map[source_chain_id] = mapped_chain_id
+        used_chain_ids.add(mapped_chain_id)
+
+    extra_chain_ids = _iter_remapped_chain_ids()
+    for source_chain_id in selection.ligand_chain_ids[len(DEFAULT_GLYCAN_CHAINS):]:
         if source_chain_id in chain_id_map:
             continue
         mapped_chain_id = next(
-            candidate for candidate in remapped_chain_ids if candidate not in used_chain_ids
+            candidate for candidate in extra_chain_ids if candidate not in used_chain_ids
         )
         chain_id_map[source_chain_id] = mapped_chain_id
         used_chain_ids.add(mapped_chain_id)
 
+    for index, source_chain_id in enumerate(selection.copper_chain_ids):
+        if source_chain_id in chain_id_map:
+            continue
+        if index == 0 and DEFAULT_CU_CHAIN not in used_chain_ids:
+            mapped_chain_id = DEFAULT_CU_CHAIN
+        else:
+            mapped_chain_id = next(
+                candidate for candidate in extra_chain_ids if candidate not in used_chain_ids
+            )
+        chain_id_map[source_chain_id] = mapped_chain_id
+        used_chain_ids.add(mapped_chain_id)
+
     return chain_id_map
+
+
+def _loop_rows_for_tag(
+    block: Any,
+    required_tag: str,
+    *,
+    fallback_prefix: str | None = None,
+    fallback_columns: list[str] | None = None,
+) -> tuple[list[str], list[list[str]]]:
+    find_loop = getattr(block, "find_loop", None)
+    if callable(find_loop):
+        try:
+            column = find_loop(required_tag)
+        except Exception:
+            column = None
+        if column:
+            loop = column.get_loop()
+            tags = [str(tag) for tag in loop.tags]
+            width = int(loop.width())
+            length = int(loop.length())
+            rows = [
+                [str(loop.values[row_index * width + column_index]) for column_index in range(width)]
+                for row_index in range(length)
+            ]
+            return tags, rows
+
+    if fallback_prefix and fallback_columns:
+        rows = block.find(fallback_prefix, fallback_columns)
+        if rows:
+            return [f"{fallback_prefix}{column}" for column in fallback_columns], [list(row) for row in rows]
+    return [], []
+
+
+def _write_loop(lines: list[str], tags: list[str], rows: Iterable[Iterable[Any]]) -> None:
+    row_values = [list(row) for row in rows]
+    if not tags or not row_values:
+        return
+    lines.append("loop_")
+    lines.extend(tags)
+    for row in row_values:
+        lines.append(" ".join(_format_mmcif_value(value) for value in row))
+    lines.append("#")
+
+
+def _row_value(tags: list[str], row: list[Any], tag: str) -> str:
+    try:
+        return str(row[tags.index(tag)]).strip()
+    except ValueError:
+        return ""
+
+
+def _set_row_value(tags: list[str], row: list[Any], tag: str, value: str) -> None:
+    try:
+        row[tags.index(tag)] = value
+    except ValueError:
+        return
+
+
+def _remapped_chain_for_atom_row(
+    row: list[Any],
+    tags: list[str],
+    selection: CrystalReferenceSelection,
+    chain_id_map: dict[str, str],
+) -> str | None:
+    chain_id = _row_value(tags, row, "_atom_site.label_asym_id")
+    comp_id = _row_value(tags, row, "_atom_site.label_comp_id")
+    if chain_id == selection.selected_protein_chain and _is_protein_comp_id(comp_id):
+        return chain_id_map[selection.selected_protein_chain]
+    if chain_id in selection.ligand_chain_ids and _is_ligand_comp_id(comp_id):
+        return chain_id_map[chain_id]
+    if chain_id in selection.copper_chain_ids and _is_copper_comp_id(comp_id):
+        return chain_id_map[chain_id]
+    return None
+
+
+def _struct_conn_partner_allowed(
+    chain_id: str,
+    comp_id: str,
+    selection: CrystalReferenceSelection,
+) -> bool:
+    if not chain_id or chain_id in {"?", "."}:
+        return True
+    if chain_id == selection.selected_protein_chain:
+        return _is_protein_comp_id(comp_id)
+    if chain_id in selection.ligand_chain_ids:
+        return _is_ligand_comp_id(comp_id)
+    if chain_id in selection.copper_chain_ids:
+        return _is_copper_comp_id(comp_id)
+    return False
+
+
+def _filter_and_remap_struct_conn_rows(
+    tags: list[str],
+    rows: list[list[str]],
+    selection: CrystalReferenceSelection,
+    chain_id_map: dict[str, str],
+) -> list[list[str]]:
+    filtered_rows: list[list[str]] = []
+    for source_row in rows:
+        row = list(source_row)
+        include = False
+        allowed = True
+        partner_destinations: dict[int, str] = {}
+
+        for partner_index in (1, 2, 3):
+            label_chain_tag = f"_struct_conn.ptnr{partner_index}_label_asym_id"
+            label_comp_tag = f"_struct_conn.ptnr{partner_index}_label_comp_id"
+            auth_chain_tag = f"_struct_conn.ptnr{partner_index}_auth_asym_id"
+            auth_comp_tag = f"_struct_conn.ptnr{partner_index}_auth_comp_id"
+            chain_id = _row_value(tags, row, label_chain_tag)
+            comp_id = _row_value(tags, row, label_comp_tag) or _row_value(tags, row, auth_comp_tag)
+            if not chain_id:
+                chain_id = _row_value(tags, row, auth_chain_tag)
+            if not chain_id and not comp_id:
+                continue
+            if chain_id in chain_id_map:
+                include = True
+                partner_destinations[partner_index] = chain_id_map[chain_id]
+            if not _struct_conn_partner_allowed(chain_id, comp_id, selection):
+                allowed = False
+                break
+
+        if not include or not allowed:
+            continue
+
+        for partner_index, destination_chain in partner_destinations.items():
+            _set_row_value(tags, row, f"_struct_conn.ptnr{partner_index}_label_asym_id", destination_chain)
+            _set_row_value(tags, row, f"_struct_conn.ptnr{partner_index}_auth_asym_id", destination_chain)
+        filtered_rows.append(row)
+    return filtered_rows
 
 
 def _write_selected_reference_cif(
@@ -663,12 +976,7 @@ def _write_selected_reference_cif(
     selection: CrystalReferenceSelection,
     output_path: Path,
 ) -> Path:
-    """Write a minimal mmCIF for the selected crystal view.
-
-    The writer filters atom_site rows directly from the deposited mmCIF block so
-    Cu and other nonpoly atoms are preserved even when gemmi's Structure view only
-    materializes the protein and branch chains.
-    """
+    """Write a metadata-preserving mmCIF for the selected crystal view."""
     block = _read_reference_block(source_cif)
     chain_id_map = _build_selected_chain_id_map(selection)
     included_chain_ids = {
@@ -696,35 +1004,132 @@ def _write_selected_reference_cif(
         "auth_asym_id",
         "pdbx_PDB_model_num",
     ]
-    atom_rows = block.find("_atom_site.", atom_columns)
+    atom_tags = [f"_atom_site.{column}" for column in atom_columns]
+    atom_rows = [list(row) for row in block.find("_atom_site.", atom_columns)]
     if not atom_rows:
         raise ValueError(f"No _atom_site loop found in crystal reference: {source_cif}")
 
-    filtered_atom_rows = [
-        row
-        for row in atom_rows
-        if str(row[6]).strip() in included_chain_ids
-    ]
+    filtered_atom_rows: list[list[str]] = []
+    retained_entity_ids: set[str] = set()
+    retained_comp_ids: set[str] = set()
+    for atom_row in atom_rows:
+        row = list(atom_row)
+        destination_chain = _remapped_chain_for_atom_row(row, atom_tags, selection, chain_id_map)
+        if destination_chain is None:
+            continue
+        _set_row_value(atom_tags, row, "_atom_site.label_asym_id", destination_chain)
+        _set_row_value(atom_tags, row, "_atom_site.auth_asym_id", destination_chain)
+        retained_entity_ids.add(_row_value(atom_tags, row, "_atom_site.label_entity_id"))
+        retained_comp_ids.add(_normalize_comp_id(_row_value(atom_tags, row, "_atom_site.label_comp_id")))
+        filtered_atom_rows.append(row)
     if not filtered_atom_rows:
         raise ValueError(
             f"Selected crystal subset for {source_cif} contained no atom_site rows for chains {sorted(included_chain_ids)}"
         )
+    retained_entity_ids.discard("")
+    retained_entity_ids.discard("?")
+    retained_entity_ids.discard(".")
+    retained_comp_ids.discard("")
+    retained_comp_ids.discard("?")
+    retained_comp_ids.discard(".")
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    lines = [f"data_{output_path.stem}", f"_entry.id {output_path.stem}", "#", "loop_"]
-    lines.extend([f"_atom_site.{column}" for column in atom_columns])
-    for row in filtered_atom_rows:
-        row_values = list(row)
-        row_values[6] = chain_id_map.get(str(row_values[6]).strip(), row_values[6])
-        row_values[16] = chain_id_map.get(str(row_values[16]).strip(), row_values[16])
-        lines.append(" ".join(_format_mmcif_value(value) for value in row_values))
-    lines.append("#")
+    lines = [f"data_{output_path.stem}", f"_entry.id {output_path.stem}", "#"]
 
-    _write_optional_filtered_loop(
-        lines,
+    entity_tags, entity_rows = _loop_rows_for_tag(
         block,
-        "_pdbx_branch_scheme.",
+        "_entity.id",
+        fallback_prefix="_entity.",
+        fallback_columns=[
+            "id",
+            "type",
+            "src_method",
+            "pdbx_description",
+            "formula_weight",
+            "pdbx_number_of_molecules",
+            "pdbx_ec",
+            "pdbx_mutation",
+            "pdbx_fragment",
+            "details",
+        ],
+    )
+    _write_loop(
+        lines,
+        entity_tags,
         [
+            row
+            for row in entity_rows
+            if _row_value(entity_tags, row, "_entity.id") in retained_entity_ids
+        ],
+    )
+
+    struct_asym_tags, struct_asym_rows = _loop_rows_for_tag(
+        block,
+        "_struct_asym.id",
+        fallback_prefix="_struct_asym.",
+        fallback_columns=["id", "pdbx_blank_PDB_chainid_flag", "pdbx_modified", "entity_id", "details"],
+    )
+    remapped_struct_asym_rows: list[list[str]] = []
+    for source_row in struct_asym_rows:
+        row = list(source_row)
+        source_chain_id = _row_value(struct_asym_tags, row, "_struct_asym.id")
+        if source_chain_id not in included_chain_ids:
+            continue
+        _set_row_value(struct_asym_tags, row, "_struct_asym.id", chain_id_map[source_chain_id])
+        remapped_struct_asym_rows.append(row)
+    _write_loop(lines, struct_asym_tags, remapped_struct_asym_rows)
+
+    chem_comp_tags, chem_comp_rows = _loop_rows_for_tag(
+        block,
+        "_chem_comp.id",
+        fallback_prefix="_chem_comp.",
+        fallback_columns=[
+            "id",
+            "type",
+            "mon_nstd_flag",
+            "name",
+            "pdbx_synonyms",
+            "formula",
+            "formula_weight",
+        ],
+    )
+    _write_loop(
+        lines,
+        chem_comp_tags,
+        [
+            row
+            for row in chem_comp_rows
+            if _normalize_comp_id(_row_value(chem_comp_tags, row, "_chem_comp.id")) in retained_comp_ids
+        ],
+    )
+
+    chem_comp_bond_tags, chem_comp_bond_rows = _loop_rows_for_tag(
+        block,
+        "_chem_comp_bond.comp_id",
+        fallback_prefix="_chem_comp_bond.",
+        fallback_columns=[
+            "comp_id",
+            "atom_id_1",
+            "atom_id_2",
+            "value_order",
+            "pdbx_aromatic_flag",
+            "pdbx_stereo_config",
+            "pdbx_ordinal",
+        ],
+    )
+    _write_loop(
+        lines,
+        chem_comp_bond_tags,
+        [
+            row
+            for row in chem_comp_bond_rows
+            if _normalize_comp_id(_row_value(chem_comp_bond_tags, row, "_chem_comp_bond.comp_id")) in retained_comp_ids
+        ],
+    )
+
+    _write_loop(lines, atom_tags, filtered_atom_rows)
+
+    branch_columns = [
             "asym_id",
             "entity_id",
             "mon_id",
@@ -736,17 +1141,27 @@ def _write_selected_reference_cif(
             "auth_mon_id",
             "auth_seq_num",
             "hetero",
-        ],
-        "asym_id",
-        included_chain_ids,
-        chain_id_map=chain_id_map,
-        remapped_chain_columns=("asym_id", "pdb_asym_id", "auth_asym_id"),
-    )
-    _write_optional_filtered_loop(
-        lines,
+    ]
+    branch_tags, branch_rows = _loop_rows_for_tag(
         block,
-        "_pdbx_nonpoly_scheme.",
-        [
+        "_pdbx_branch_scheme.asym_id",
+        fallback_prefix="_pdbx_branch_scheme.",
+        fallback_columns=branch_columns,
+    )
+    remapped_branch_rows: list[list[str]] = []
+    for source_row in branch_rows:
+        row = list(source_row)
+        source_chain_id = _row_value(branch_tags, row, "_pdbx_branch_scheme.asym_id")
+        if source_chain_id not in selection.ligand_chain_ids:
+            continue
+        destination_chain = chain_id_map[source_chain_id]
+        _set_row_value(branch_tags, row, "_pdbx_branch_scheme.asym_id", destination_chain)
+        _set_row_value(branch_tags, row, "_pdbx_branch_scheme.pdb_asym_id", destination_chain)
+        _set_row_value(branch_tags, row, "_pdbx_branch_scheme.auth_asym_id", destination_chain)
+        remapped_branch_rows.append(row)
+    _write_loop(lines, branch_tags, remapped_branch_rows)
+
+    nonpoly_columns = [
             "asym_id",
             "entity_id",
             "mon_id",
@@ -757,21 +1172,47 @@ def _write_selected_reference_cif(
             "auth_mon_id",
             "pdb_strand_id",
             "pdb_ins_code",
-        ],
-        "asym_id",
-        included_chain_ids,
-        chain_id_map=chain_id_map,
-        remapped_chain_columns=("asym_id", "pdb_strand_id"),
-    )
-    _write_optional_filtered_loop(
-        lines,
+    ]
+    nonpoly_tags, nonpoly_rows = _loop_rows_for_tag(
         block,
-        "_struct_asym.",
-        ["id", "pdbx_blank_PDB_chainid_flag", "pdbx_modified", "entity_id", "details"],
-        "id",
-        included_chain_ids,
-        chain_id_map=chain_id_map,
-        remapped_chain_columns=("id",),
+        "_pdbx_nonpoly_scheme.asym_id",
+        fallback_prefix="_pdbx_nonpoly_scheme.",
+        fallback_columns=nonpoly_columns,
+    )
+    remapped_nonpoly_rows: list[list[str]] = []
+    for source_row in nonpoly_rows:
+        row = list(source_row)
+        source_chain_id = _row_value(nonpoly_tags, row, "_pdbx_nonpoly_scheme.asym_id")
+        mon_id = _row_value(nonpoly_tags, row, "_pdbx_nonpoly_scheme.mon_id")
+        if source_chain_id not in selection.copper_chain_ids or not _is_copper_comp_id(mon_id):
+            continue
+        destination_chain = chain_id_map[source_chain_id]
+        _set_row_value(nonpoly_tags, row, "_pdbx_nonpoly_scheme.asym_id", destination_chain)
+        _set_row_value(nonpoly_tags, row, "_pdbx_nonpoly_scheme.pdb_strand_id", destination_chain)
+        remapped_nonpoly_rows.append(row)
+    _write_loop(lines, nonpoly_tags, remapped_nonpoly_rows)
+
+    struct_conn_type_tags, struct_conn_type_rows = _loop_rows_for_tag(
+        block,
+        "_struct_conn_type.id",
+        fallback_prefix="_struct_conn_type.",
+        fallback_columns=["id", "criteria", "reference"],
+    )
+    _write_loop(lines, struct_conn_type_tags, struct_conn_type_rows)
+
+    struct_conn_tags, struct_conn_rows = _loop_rows_for_tag(
+        block,
+        "_struct_conn.id",
+    )
+    _write_loop(
+        lines,
+        struct_conn_tags,
+        _filter_and_remap_struct_conn_rows(
+            struct_conn_tags,
+            struct_conn_rows,
+            selection,
+            chain_id_map,
+        ),
     )
 
     output_path.write_text("\n".join(lines) + "\n")
@@ -948,6 +1389,33 @@ def prepare_crystal_reference(
         )
 
     try:
+        normalize_ok, normalized_cif = NormalizeMMCIFRunner(
+            prepared_input_cif,
+            reference_dir / "normalize",
+        ).run()
+    except Exception as exc:
+        return PreparedCrystalReference(
+            record=record,
+            selection=selection,
+            subset_cif=subset_cif,
+            normalized_cif=prepared_input_cif,
+            status="normalization_failed",
+            error=f"{exc.__class__.__name__}: {exc}",
+        )
+
+    if not normalize_ok or normalized_cif is None:
+        return PreparedCrystalReference(
+            record=record,
+            selection=selection,
+            subset_cif=subset_cif,
+            normalized_cif=prepared_input_cif,
+            status="normalization_failed",
+            error="Crystal reference normalization failed",
+        )
+
+    prepared_input_cif = Path(normalized_cif).resolve()
+
+    try:
         protonate_ok, protonation_report = protonate_and_export(prepared_input_cif, reference_dir / "protonated")
     except Exception as exc:
         return PreparedCrystalReference(
@@ -1122,6 +1590,7 @@ def run_crystal_reference_screen(
             pdb_code=record.pdb_code,
             source_cif=str(record.source_cif),
             prepared_subset_cif=str(prepared.subset_cif),
+            prepared_normalized_cif=str(prepared.normalized_cif or ""),
             selected_protein_chain=prepared.selection.selected_protein_chain,
             ligand_chain_ids=list(prepared.selection.ligand_chain_ids),
             copper_chain_ids=list(prepared.selection.copper_chain_ids),
@@ -1258,6 +1727,7 @@ def write_crystal_reference_screen_report(
                 "pdb_code": comparison.pdb_code,
                 "source_cif": comparison.source_cif,
                 "prepared_subset_cif": comparison.prepared_subset_cif,
+                "prepared_normalized_cif": comparison.prepared_normalized_cif,
                 "selected_protein_chain": comparison.selected_protein_chain,
                 "ligand_chain_ids": comparison.ligand_chain_ids,
                 "copper_chain_ids": comparison.copper_chain_ids,

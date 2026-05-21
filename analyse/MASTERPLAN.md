@@ -219,6 +219,8 @@ Implementation order follows `IMPLEMENTATION_PLAYBOOK.md`.
 - Input: every retained cluster medoid, not all poses.
 - If a condition has no retained clusters, use the top-level AF3 model CIF as a crystal-anchoring fallback only when it passes hard QC; this fallback is not included in normal pose, clustering, or medoid denominators.
 - Alignment: current operational implementation uses local Kabsch alignment on shared pocket C-alpha atoms; pocket residues come from ligand/Cu proximity in holo references or sequence-projected representative pockets for apo references.
+- Ligand-bound crystal references are subsetted with relevant chemistry metadata preserved, remapped to `A` protein / `B-C-D` glycan / `E` Cu, normalized before protonation, and then exported through the same ProLIF/geometry artifact path as AF3 poses.
+- Crystal `complex_H.pdb` keeps Cu for geometry and pocket definition, while crystal `ligand_for_prolif.mol2` is glycan-only and excludes Cu/solvent/ions.
 - Crystal IFP similarity is comparable only when the prepared crystal IFP passes the same non-vdW contact-eligibility rule used for pose clustering. VdW-only, zero-contact, and low-specific-contact crystal IFPs keep RMSD/geometry outputs but leave IFP Tanimoto non-comparable.
 - Ligand-bound crystal references get C1/C4 geometry computed with the same downstream geometry fields used for poses.
 - Output: `crystal_anchor_table.tsv`, `crystal_geometry_table.tsv`, `crystal_ifp_diagnostic_summary.tsv`.
@@ -242,13 +244,14 @@ Implementation order follows `IMPLEMENTATION_PLAYBOOK.md`.
   5 folds as the planned default when enough protein groups exist.
 - Predictive implementation is not final. `analysis/predictive_models.py`
   currently provides only a tested leakage-safety/baseline scaffold. The
-  predictive-analysis plans must be revised before final implementation because
-  model families and predictor variables have not been selected yet.
+  activity-prediction plans were revised on 2026-05-21 into smaller, less-
+  detailed planning documents with compact locked predictor sets and narrow
+  exploratory scope.
 - Report: balanced accuracy, macro F1, AUROC where applicable.
 - Results are exploratory; do NOT overinterpret as causal biology.
 - Detailed implementation plans:
-  - `c1_c4_predictive_analysis_plan_simplified.yaml` specifies the C1/C4 regioactivity modeling table, labels, compact feature set, nested grouped CV, and binary C1/C4 model outputs.
-  - `substrate_activity_prediction_plan.yaml` specifies the substrate activity modeling table, protein-substrate activity labels, grouped CV, feature aggregation, and reporting for chitin/cellulose/starch prediction.
+  - `c1_c4_predictive_analysis_plan_simplified.yaml` now records the revised compact C1/C4 activity-prediction plan, including small-effective-n constraints and a reduced predictor set.
+  - `substrate_activity_prediction_plan.yaml` now records the revised compact substrate-activity plan, including substrate-specific model restrictions and a reduced predictor set.
 
 ### Stage 15 - CBM Paired Analysis (was Step 13)
 - Only proteins with both domain-only and full-length constructs.

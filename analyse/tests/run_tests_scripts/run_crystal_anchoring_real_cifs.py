@@ -17,6 +17,7 @@ DEFAULT_LIGAND_ID = "CEL4"
 DEFAULT_WORK_CORE_ROOT = Path(
     "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work_core"
 )
+METAL_MOL2_TOKENS = ("CU301", " CU ", " ZN ", " FE ", " MN ", " MG ")
 
 
 def _select_best_ranked_af3_pose(
@@ -90,6 +91,16 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def _mol2_contains_metal(mol2_path: str) -> bool:
+    if not mol2_path:
+        return False
+    path = Path(mol2_path)
+    if not path.exists():
+        return False
+    text = path.read_text(errors="ignore").upper()
+    return any(token in text for token in METAL_MOL2_TOKENS)
+
+
 def main() -> int:
     args = _parse_args()
     run_dir = Path(args.run_dir).resolve()
@@ -144,8 +155,11 @@ def main() -> int:
         crystal_ifp_contact_eligible_count = 0
         pocket_rmsd_count = 0
         prepared_subset_paths: list[str] = []
+        prepared_normalized_paths: list[str] = []
         pdb_codes: list[str] = []
         comparison_ifp_artifacts: list[dict[str, str]] = []
+        metal_contaminated_mol2_paths: list[str] = []
+        ligand_bound_missing_normalized_paths: list[str] = []
         for comparison in report.comparisons:
             comparison_status_counts[comparison.status] = comparison_status_counts.get(comparison.status, 0) + 1
             if comparison.used_fallback_protein_chain:
@@ -159,7 +173,19 @@ def main() -> int:
             if comparison.pocket_rmsd is not None:
                 pocket_rmsd_count += 1
             prepared_subset_paths.append(comparison.prepared_subset_cif)
+            if comparison.prepared_normalized_cif:
+                prepared_normalized_paths.append(comparison.prepared_normalized_cif)
+            if comparison.ligand_chain_ids and not comparison.prepared_normalized_cif:
+                ligand_bound_missing_normalized_paths.append(comparison.pdb_code)
             pdb_codes.append(comparison.pdb_code)
+            if comparison.crystal_ifp_matrix_csv:
+                mol2_path = str(
+                    Path(comparison.crystal_ifp_matrix_csv).parent.parent
+                    / "protonated"
+                    / "ligand_for_prolif.mol2"
+                )
+                if _mol2_contains_metal(mol2_path):
+                    metal_contaminated_mol2_paths.append(mol2_path)
             comparison_ifp_artifacts.append(
                 {
                     "pdb_code": comparison.pdb_code,
@@ -178,9 +204,13 @@ def main() -> int:
                 "ifp_scored_count": ifp_scored_count,
                 "crystal_ifp_contact_eligible_count": crystal_ifp_contact_eligible_count,
                 "pocket_rmsd_count": pocket_rmsd_count,
+                "representative_prepared_for_ifp": bool(report.representative_pose_ifp_result_json),
                 "fallback_count": fallback_count,
                 "pdb_codes": pdb_codes,
                 "prepared_subset_paths": prepared_subset_paths,
+                "prepared_normalized_paths": prepared_normalized_paths,
+                "metal_contaminated_mol2_paths": metal_contaminated_mol2_paths,
+                "ligand_bound_missing_normalized_paths": ligand_bound_missing_normalized_paths,
                 "representative_pose_ifp_result_json": report.representative_pose_ifp_result_json,
                 "representative_pose_pose_ifp_table_tsv": report.representative_pose_pose_ifp_table_tsv,
                 "representative_pose_ifp_matrix_csv": report.representative_pose_ifp_matrix_csv,
@@ -197,11 +227,24 @@ def main() -> int:
             return 1
         if expected_codes and set(pdb_codes) != expected_codes:
             return 1
-        if any(comparison.status in {"pose_ifp_failed", "protonation_failed", "ifp_failed"} for comparison in report.comparisons):
+        crystal_failure_statuses = {
+            "normalization_failed",
+            "protonation_failed",
+            "protonation_artifacts_missing",
+            "ifp_failed",
+        }
+        if any(comparison.status in crystal_failure_statuses for comparison in report.comparisons):
             return 1
-        if pocket_rmsd_count == 0:
+        representative_prepared = bool(report.representative_pose_ifp_result_json)
+        if representative_prepared and pocket_rmsd_count == 0:
             return 1
         if any(not Path(path).exists() for path in prepared_subset_paths):
+            return 1
+        if any(not Path(path).exists() for path in prepared_normalized_paths):
+            return 1
+        if metal_contaminated_mol2_paths:
+            return 1
+        if ligand_bound_missing_normalized_paths:
             return 1
         return 0
     except Exception as exc:

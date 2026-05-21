@@ -46,6 +46,17 @@ _PROTEIN_RESIDUE_NAMES: frozenset[str] = frozenset(
     ]
 )
 
+_METAL_RESIDUE_NAMES: frozenset[str] = frozenset(
+    ["CU", "CU1", "CU2", "ZN", "FE", "MN", "CO", "NI", "MG", "CA", "NA", "K"]
+)
+
+_LIGAND_EXPORT_EXCLUDED_RESIDUE_NAMES: frozenset[str] = frozenset(
+    [
+        "HOH", "WAT", "DOD", "CL", "SO4", "PO4", "ACT", "FMT", "EOH",
+        "PEG", "GOL", "MPD", "EDO", "MES", "TRS",
+    ]
+) | _METAL_RESIDUE_NAMES
+
 _GLYCAN_LINK_RESNAMES: frozenset[str] = frozenset(["NAG", "BGC", "GLC"])
 
 _GLYCAN_CORE_BONDS: tuple[tuple[str, str], ...] = (
@@ -82,6 +93,9 @@ class ProtonationReport:
     ligand_mol2: str
     complex_h_backend: str = "none"
     used_obabel: bool = False
+    ligand_only_residue_count: int = 0
+    ligand_only_skipped_residue_count: int = 0
+    ligand_only_skipped_residue_names: list[str] = field(default_factory=list)
     blockers: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
 
@@ -118,6 +132,9 @@ class ProtonationExportRunner:
 
         blockers: list[str] = []
         warnings: list[str] = []
+        ligand_only_residue_count = 0
+        ligand_only_skipped_residue_count = 0
+        ligand_only_skipped_residue_names: list[str] = []
         complex_h_backend = "none"
         used_obabel = False
 
@@ -172,7 +189,21 @@ class ProtonationExportRunner:
                 try:
                     ligand_only_pdb = protonated_dir / "ligand_only_for_prolif.pdb"
                     ligand_residue_count = _write_ligand_only_pdb(
-                        self.input_cif, ligand_only_pdb
+                        self.input_cif,
+                        ligand_only_pdb,
+                        warnings=warnings,
+                    )
+                    ligand_only_residue_count = ligand_residue_count
+                    skipped_summary = getattr(
+                        _write_ligand_only_pdb,
+                        "last_skipped_residue_summary",
+                        {},
+                    )
+                    ligand_only_skipped_residue_count = int(
+                        skipped_summary.get("count", 0)
+                    )
+                    ligand_only_skipped_residue_names = list(
+                        skipped_summary.get("residue_names", [])
                     )
                     if ligand_residue_count == 0:
                         blockers.append("ligand_only_extract_empty")
@@ -201,6 +232,9 @@ class ProtonationExportRunner:
                 except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
                     blockers.append("obabel_failed")
                     warnings.append(f"obabel_error: {exc}")
+                except Exception as exc:
+                    blockers.append("ligand_only_extract_failed")
+                    warnings.append(f"ligand_only_extract_error: {exc}")
             else:
                 blockers.append("obabel_not_found")
 
@@ -215,6 +249,9 @@ class ProtonationExportRunner:
                 ligand_mol2=str(ligand_mol2),
                 complex_h_backend=complex_h_backend,
                 used_obabel=used_obabel,
+                ligand_only_residue_count=ligand_only_residue_count,
+                ligand_only_skipped_residue_count=ligand_only_skipped_residue_count,
+                ligand_only_skipped_residue_names=ligand_only_skipped_residue_names,
                 blockers=blockers,
                 warnings=warnings,
             )
@@ -639,9 +676,23 @@ def _copy_chain_to_output(model: gemmi.Model, source_chain_name: str, out_model:
     return False
 
 
+def _residue_name(residue: gemmi.Residue) -> str:
+    return str(getattr(residue, "name", "") or "").strip().upper()
+
+
+def _residue_is_prolif_ligand(residue: gemmi.Residue) -> bool:
+    residue_name = _residue_name(residue)
+    return (
+        bool(residue_name)
+        and residue_name not in _PROTEIN_RESIDUE_NAMES
+        and residue_name not in _LIGAND_EXPORT_EXCLUDED_RESIDUE_NAMES
+    )
+
+
 def _build_ligand_only_structure(
     input_cif: Path,
     glycan_chains: tuple[str, ...] = ("B", "C", "D"),
+    warnings: list[str] | None = None,
 ) -> gemmi.Structure:
     """Create a structure containing only validated glycan chains for ligand export.
 
@@ -657,32 +708,59 @@ def _build_ligand_only_structure(
     out_model = gemmi.Model("1")
 
     added_residues = 0
+    skipped_residue_names: list[str] = []
     for chain_name in glycan_chains:
         for chain in st[0]:
             if chain.name != chain_name:
                 continue
-            residue_names = {res.name for res in chain}
+            residue_names = {_residue_name(res) for res in chain}
             if residue_names and residue_names.issubset(_PROTEIN_RESIDUE_NAMES):
                 raise ValueError(
                     f"Chain {chain_name} contains only protein residues "
                     f"({residue_names}); not a glycan chain"
                 )
-            if _copy_chain_to_output(st[0], chain_name, out_model):
-                added_residues += sum(1 for _ in chain)
+            out_chain = gemmi.Chain(chain.name)
+            for residue in chain:
+                if not _residue_is_prolif_ligand(residue):
+                    skipped_residue_names.append(_residue_name(residue))
+                    continue
+                out_chain.add_residue(residue, pos=-1)
+                added_residues += 1
+            if len(out_chain) > 0:
+                out_model.add_chain(out_chain, pos=-1)
 
     if added_residues == 0:
         raise ValueError(f"No glycan chains {glycan_chains} found in {input_cif}")
+
+    skipped_unique = sorted(set(skipped_residue_names))
+    _build_ligand_only_structure.last_skipped_residue_summary = {
+        "count": len(skipped_residue_names),
+        "residue_names": skipped_unique,
+    }
+    if skipped_residue_names and warnings is not None:
+        warnings.append(
+            "ligand_only_skipped_non_ligand_residues: "
+            f"count={len(skipped_residue_names)} residue_names={skipped_unique}"
+        )
 
     out_st.add_model(out_model, pos=-1)
     return out_st
 
 
-def _write_ligand_only_pdb(input_cif: Path, out_pdb: Path) -> int:
+def _write_ligand_only_pdb(
+    input_cif: Path,
+    out_pdb: Path,
+    warnings: list[str] | None = None,
+) -> int:
     """Write ligand-only PDB (glycan chains B/C/D) for MOL2 conversion.
 
     Returns the number of residues written.
     """
-    out_st = _build_ligand_only_structure(input_cif)
+    out_st = _build_ligand_only_structure(input_cif, warnings=warnings)
+    _write_ligand_only_pdb.last_skipped_residue_summary = getattr(
+        _build_ligand_only_structure,
+        "last_skipped_residue_summary",
+        {"count": 0, "residue_names": []},
+    )
     out_st.write_pdb(str(out_pdb))
     return sum(len(list(chain)) for chain in out_st[0])
-

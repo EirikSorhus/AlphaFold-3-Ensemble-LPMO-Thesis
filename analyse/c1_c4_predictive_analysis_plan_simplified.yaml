@@ -1,581 +1,209 @@
 analysis:
-  name: c1_c4_predictive_analysis_simplified
-  version: 2.0
-  status: revision_pending_model_and_predictor_selection
-  revision_note_2026_05_21: >
-    The plan is being revised before final predictive implementation. Final
-    model families and predictor-variable sets are not selected yet. Keep the
-    implemented Python code as a tested leakage-safety/baseline scaffold only,
-    and use 5-fold grouped CV as the planned CV contract unless a later
-    documented decision changes it.
-  purpose: >
-    Test whether summarized AF3 protein-ligand-condition outputs contain
-    recoverable signal for protein-level C1 and C4 regioactivity.
-  biological_question: >
-    For a protein with AF3 predictions against chitin, cellulose, and starch
-    ligands at DP4, DP6, and DP8, can the summarized predicted binding modes
-    help identify whether the protein has experimental C1 activity, C4 activity,
-    or both?
-  guiding_principle: >
-    Use one compact, protein-grouped predictive analysis with two binary targets.
-    Treat substrate_class and dp as repeated ligand-prediction contexts, and use
-    them mainly for stratified diagnostics. Allow a limited substrate-interaction
-    recipe to compete with the simpler feature-only recipe inside nested CV.
+  name: c1_c4_predictive_analysis_locked_small_n
+  version: 1.0
+  status: locked_predictor_set_for_small_effective_n
+  revision_date: 2026-05-21
 
-scope:
-  include:
-    - domain_or_core_construct_only
-    - protein_level_C1_activity
-    - protein_level_C4_activity
-    - AF3_condition_summaries_from_all_9_ligand_contexts
-    - matched_vs_mismatched_ligand_context_diagnostics
-  prediction_claim: >
-    The analysis estimates whether AF3-derived summaries contain recoverable
-    signal associated with experimental regioactivity. It is not a mechanistic
-    proof of the true oxidative site.
+purpose:
+  objective: >
+    Test whether AF3-derived summary features contain recoverable signal for
+    experimental C1 and C4 activity.
+  interpretation: >
+    This is an exploratory signal-detection analysis, not a final biochemical
+    activity model.
+  caution:
+    - small dataset
+    - imbalanced classes
+    - uncertain negative annotations
+    - effective_n_is_number_of_proteins_not_number_of_rows
 
-input_tables:
-  required:
-    protein_metadata:
-      path: metadata/protein_metadata.tsv
-      required_columns:
-        - protein_id
-        - construct_type
-        - experimental_regio_label
-        - experimental_substrate_label
-    condition_table:
-      path: 09_descriptive/condition_table.tsv
-      row_unit: protein_id x construct_type x substrate_class x dp
-      required_columns:
-        identifiers:
-          - protein_id
-          - construct_type
-          - condition_id
-          - substrate_class
-          - dp
-        pose_and_qc_counts:
-          - n_generated
-          - n_qc_pass
-          - n_ifp_success
-          - n_geometry_computable
-          - n_geometry_plausible
-        cluster_summaries:
-          - n_clusters
-          - noise_fraction
-          - top_cluster_occupancy
-          - cluster_entropy
-          - occupancy_gini
-        geometry_summaries:
-          - occupancy_weighted_C1_compatible_fraction
-          - occupancy_weighted_C4_compatible_fraction
-          - occupancy_weighted_non_plausible_fraction
-          - best_C1_geometry_score
-          - best_C4_geometry_score
-          - occupancy_weighted_C1_geometry_score
-          - occupancy_weighted_C4_geometry_score
-          - median_oxyl_H_C1
-          - median_oxyl_H_C4
-          - median_Cu_C1
-          - median_Cu_C4
-          - median_attack_angle_C1
-          - median_attack_angle_C4
-        contact_summaries:
-          - hbond_contact_fraction
-          - hydrophobic_contact_fraction
-          - aromatic_contact_fraction
-          - polar_contact_fraction
-          - catalytic_surface_contact_fraction
-          - linker_contact_fraction
-        confidence_and_stability:
-          - iptm_mean_qc_pass
-          - iptm_sd_qc_pass
-          - mean_plddt_mean
-          - convergence_fraction
-  optional:
-    cluster_table:
-      path: 08_cluster_annotation/cluster_table.tsv
-      use: rebuild_or_audit_condition_table_if_needed
-    qc_attrition_table:
-      path: 04_qc/qc_tables/qc_attrition_table.tsv
-      use: fill_or_verify_zero_pose_and_qc_count_features
+design_constraints:
+  effective_n_definition: protein_id
+  predictor_limit_rule: >
+    No model may use more than 8 prediction variables because effective n is the
+    number of proteins.
+  construct_rule: >
+    Use one construct per protein. Prefer domain_only. If domain_only is absent,
+    use catalytic_domain.
 
-row_construction:
-  main_modeling_row_unit: protein_id x construct_type x substrate_class x dp
-  construct_filter:
-    preferred_construct_type: domain_only
-    fallback_construct_type: catalytic_domain
-    rule: >
-      Use one construct representation per protein in the predictive table.
-      Prefer the domain/core construct used for the main AF3 regioactivity
-      analysis.
-  required_condition_grid:
-    substrate_classes:
-      - chitin
-      - cellulose
-      - starch
-    dp_values:
-      - 4
-      - 6
-      - 8
-    expected_rows_per_protein: 9
-  zero_condition_handling:
-    keep_condition_row: true
-    rule: >
-      Keep every expected protein x substrate_class x dp condition in the
-      modeling table. Conditions with no retained clusters are represented by
-      count, QC, missingness, and validity features.
-    zero_cluster_values:
-      n_clusters: 0
-      top_cluster_occupancy: 0
-      cluster_entropy: 0
-      occupancy_gini: 0
-      any_valid_cluster: false
-    zero_pose_or_no_ifp_values:
-      n_qc_pass: 0
-      n_ifp_success: 0
-      n_geometry_computable: 0
-      any_valid_pose: false
-      any_ifp_success: false
-      any_geometry_computable: false
-    structural_summary_values: missing_then_imputed_inside_training_fold
-    missingness_flags:
-      - missing_cluster_features
-      - missing_C1_geometry_features
-      - missing_C4_geometry_features
-      - missing_contact_features
-      - missing_confidence_features
-  condition_weighting:
-    training_weight_rule: equal_total_weight_per_protein
-    formula: 1.0 / number_of_condition_rows_for_that_protein
-    rationale: >
-      Each protein contributes equal total training weight while all ligand
-      contexts remain available as repeated AF3 probe conditions.
-
-label_construction:
-  target_level: protein
-  source_column: experimental_regio_label
-  accepted_labels:
-    C1:
-      has_C1_activity: 1
-      has_C4_activity: 0
-      regio_class: C1_only
-    C4:
-      has_C1_activity: 0
-      has_C4_activity: 1
-      regio_class: C4_only
-    C1/C4:
-      has_C1_activity: 1
-      has_C4_activity: 1
-      regio_class: C1_C4
-    mixed:
-      has_C1_activity: 1
-      has_C4_activity: 1
-      regio_class: C1_C4
-  label_join_rule: >
-    Join the same protein-level target labels onto every condition row belonging
-    to that protein. The predictive target is protein-level regio-capacity, not
-    substrate-specific regioactivity.
-  models_to_fit:
-    - model_name: c1_activity_model
-      target_column: has_C1_activity
-      positive_meaning: protein_has_experimental_C1_activity
-    - model_name: c4_activity_model
-      target_column: has_C4_activity
-      positive_meaning: protein_has_experimental_C4_activity
-  final_regio_call_from_binary_models:
-    C1_only: has_C1_probability_above_threshold and not has_C4_probability_above_threshold
-    C4_only: has_C4_probability_above_threshold and not has_C1_probability_above_threshold
-    C1_C4: has_C1_probability_above_threshold and has_C4_probability_above_threshold
-    low_confidence_no_call: neither_probability_above_threshold
-
-ligand_context_metadata:
-  active_substrate_classes:
-    source_column: experimental_substrate_label
-    parsing_rule: >
-      Convert experimental substrate labels into a set of active classes per
-      protein, allowing multi-activity such as chitin+cellulose.
-  ligand_match_status:
-    rule: >
-      matched when condition substrate_class is included in that protein's
-      active_substrate_classes; mismatched otherwise.
-    use: diagnostics_and_stratified_reporting
-  context_columns_for_reporting:
+modeling_rows:
+  input_table: 09_descriptive/condition_table.tsv
+  source_row_unit: protein_id__construct_type__substrate_class__dp
+  modeling_row_unit: protein_id__substrate_class
+  grouping_unit_for_cv: protein_id
+  aggregation_rule: >
+    After construct filtering, aggregate the three dp rows within each
+    protein_id__substrate_class block using arithmetic mean across available DP4,
+    DP6, and DP8 rows. Do not aggregate across substrate_class.
+  required_metadata_columns:
+    - protein_id
+    - construct_type
     - substrate_class
     - dp
-    - ligand_match_status
+    - experimental_regio_label
 
-feature_engineering:
-  feature_source_level: condition_table
-  base_numeric_features:
-    qc_and_availability:
-      - n_generated
-      - n_qc_pass
-      - n_ifp_success
-      - n_geometry_computable
-      - n_geometry_plausible
-      - qc_pass_fraction
-      - ifp_success_fraction
-      - geometry_computable_fraction
-      - geometry_plausible_fraction
-      - any_valid_pose
-      - any_ifp_success
-      - any_geometry_computable
-      - any_valid_cluster
-      - missing_cluster_features
-      - missing_C1_geometry_features
-      - missing_C4_geometry_features
-      - missing_contact_features
-    clustering_and_support:
-      - n_clusters
-      - noise_fraction
-      - top_cluster_occupancy
-      - cluster_entropy
-      - occupancy_gini
-      - convergence_fraction
-    C1_C4_geometry:
-      - occupancy_weighted_C1_compatible_fraction
-      - occupancy_weighted_C4_compatible_fraction
-      - occupancy_weighted_non_plausible_fraction
-      - best_C1_geometry_score
-      - best_C4_geometry_score
-      - occupancy_weighted_C1_geometry_score
-      - occupancy_weighted_C4_geometry_score
-      - median_oxyl_H_C1
-      - median_oxyl_H_C4
-      - median_Cu_C1
-      - median_Cu_C4
-      - median_attack_angle_C1
-      - median_attack_angle_C4
-    C1_C4_contrast_features:
-      - delta_compatible_fraction_C1_minus_C4
-      - delta_best_geometry_score_C1_minus_C4
-      - delta_weighted_geometry_score_C1_minus_C4
-      - delta_median_oxyl_H_C1_minus_C4
-      - delta_median_Cu_C1_minus_C4
-      - delta_median_attack_angle_C1_minus_C4
-    contact_and_patch_summaries:
-      - hbond_contact_fraction
-      - hydrophobic_contact_fraction
-      - aromatic_contact_fraction
-      - polar_contact_fraction
-      - catalytic_surface_contact_fraction
-      - linker_contact_fraction
-      - residue_property_aromatic_fraction
-      - residue_property_polar_fraction
-      - residue_property_charged_fraction
-    confidence_features_if_available:
-      - iptm_mean_qc_pass
-      - iptm_sd_qc_pass
-      - mean_plddt_mean
-  derived_feature_formulas:
-    qc_pass_fraction: n_qc_pass / n_generated
-    ifp_success_fraction: n_ifp_success / n_generated
-    geometry_computable_fraction: n_geometry_computable / n_generated
-    geometry_plausible_fraction: n_geometry_plausible / n_generated
-    delta_compatible_fraction_C1_minus_C4: occupancy_weighted_C1_compatible_fraction - occupancy_weighted_C4_compatible_fraction
-    delta_best_geometry_score_C1_minus_C4: best_C1_geometry_score - best_C4_geometry_score
-    delta_weighted_geometry_score_C1_minus_C4: occupancy_weighted_C1_geometry_score - occupancy_weighted_C4_geometry_score
-    delta_median_oxyl_H_C1_minus_C4: median_oxyl_H_C1 - median_oxyl_H_C4
-    delta_median_Cu_C1_minus_C4: median_Cu_C1 - median_Cu_C4
-    delta_median_attack_angle_C1_minus_C4: median_attack_angle_C1 - median_attack_angle_C4
-  feature_set_size_control:
-    maximum_base_numeric_features: 35
-    selection_rule: >
-      Use the listed compact summaries in the primary table. If more candidate
-      summaries are available, keep the biologically interpretable C1/C4 contrast,
-      geometry, cluster-support, QC, and compact contact features first.
-  preprocessing_pipeline:
-    numeric_imputation: median_fit_on_training_fold
-    binary_imputation: constant_zero_fit_on_training_fold
-    missingness_flags: keep_as_binary_numeric_features
-    scaling: standardize_numeric_features_fit_on_training_fold
-    low_variance_filter: remove_features_with_zero_variance_in_training_fold
-    high_correlation_filter:
-      apply: true
-      threshold_abs_spearman: 0.95
-      selection_rule: keep_feature_with_clearer_biological_interpretation
-
-model_recipes:
-  candidate_recipes:
-    base_feature_model:
-      description: >
-        Main compact model using AF3-derived condition summaries without direct
-        substrate or DP terms.
-      predictors:
-        - base_numeric_features
-      rationale: >
-        Tests whether the structural summaries themselves contain general C1/C4
-        signal across the ligand prediction panel.
-    limited_substrate_interaction_model:
-      description: >
-        Compact interaction model allowing a small predefined set of structural
-        effects to vary by substrate_class.
-      predictors:
-        - base_numeric_features
-        - selected_feature_x_substrate_class_interactions
-      selected_interaction_features:
-        - occupancy_weighted_C1_compatible_fraction
-        - occupancy_weighted_C4_compatible_fraction
-        - best_C1_geometry_score
-        - best_C4_geometry_score
-        - delta_compatible_fraction_C1_minus_C4
-        - delta_best_geometry_score_C1_minus_C4
-        - top_cluster_occupancy
-        - n_qc_pass
-        - n_clusters
-      rationale: >
-        Substrate class may change how AF3-derived geometry and support features
-        relate to experimental regioactivity. The interaction set is small and
-        pre-defined so it can be evaluated without creating a large model zoo.
-  recipe_selection:
-    method: choose_recipe_inside_inner_grouped_cv
-    primary_selection_metric: balanced_accuracy
-    secondary_selection_metric: macro_f1
-    practical_significance_rule: >
-      Prefer the interaction recipe only when its mean inner-CV balanced accuracy
-      is at least 0.03 higher than the base model for the target being tuned.
-    tie_breaking:
-      - prefer_base_feature_model
-      - prefer_simpler_regularization
-      - prefer_more_stable_fold_performance
+targets:
+  c1_model:
+    target_name: has_C1_activity
+    positive_labels:
+      - C1
+      - C1/C4
+      - mixed
+    negative_labels:
+      - C4
+  c4_model:
+    target_name: has_C4_activity
+    positive_labels:
+      - C4
+      - C1/C4
+      - mixed
+    negative_labels:
+      - C1
 
 model_type:
-  algorithm: elastic_net_penalized_logistic_regression
-  implementation:
-    python: sklearn.linear_model.LogisticRegression
-    solver: saga
-    penalty: elasticnet
-    max_iter: 10000
-    class_weight: balanced
-    fit_intercept: true
-  separate_models:
-    - c1_activity_model
-    - c4_activity_model
-  rationale: >
-    Elastic-net logistic regression is interpretable, handles correlated AF3
-    summary features, and is suitable for a small exploratory predictive module.
+  algorithm: logistic_regression
+  penalty: l2
+  class_weight: balanced
+  fit_intercept: true
+  solver: liblinear_or_lbfgs
+  regularization_selection: inner_cv_or_predeclared_grid
+  preprocessing:
+    numeric_imputation: median_fit_on_training_fold_only
+    scaling: standardize_fit_on_training_fold_only
 
-hyperparameter_tuning:
-  nested_cv: true
-  tuned_items:
-    - model_recipe
-    - elastic_net_l1_ratio
-    - regularization_strength_C
-    - decision_threshold
-  l1_ratio_grid:
-    values: [0.05, 0.25, 0.5, 0.75, 0.95]
-    meaning: 0_is_ridge_like_1_is_lasso_like
-  C_grid:
-    values: logspace_minus4_to_plus4_25_values
-    meaning: smaller_C_gives_stronger_regularization
-  decision_threshold_grid:
-    values: [0.30, 0.35, 0.40, 0.45, 0.50, 0.55, 0.60, 0.65, 0.70]
-    selection_metric: balanced_accuracy
-    rule: tune_threshold_inside_inner_cv_only
-  inner_cv:
-    preferred_method: StratifiedGroupKFold
-    n_splits: 5
+evaluation:
+  cross_validation:
+    type: grouped_5_fold_cv
     group_column: protein_id
-    shuffle: true
-    random_state: 42
-    fallback_method: GroupKFold
-    fallback_rule: use_when_stratified_group_folds_cannot_preserve_both_classes
-  hyperparameter_selection:
-    primary_metric: balanced_accuracy
-    tie_tolerance: 0.01
-    tie_breaking:
-      - choose_stronger_regularization_lower_C
-      - choose_lower_l1_ratio_for_stability
-      - choose_threshold_closer_to_0_50
-      - choose_base_recipe_when_performance_is_similar
-
-cross_validation:
-  outer_cv:
-    preferred_method: StratifiedGroupKFold
-    n_splits: 5
-    group_column: protein_id
-    shuffle: true
-    random_state: 42
-    fallback_method: GroupKFold
-    fallback_rule: use_when_target_class_counts_or_group_structure_make_stratification_unstable
-  grouping_rule: >
-    All rows from the same protein remain in the same fold, including every
-    substrate_class, DP, cluster-derived summary, and construct-derived summary
-    included in the predictive table.
-  fold_quality_checks:
-    - each_outer_training_fold_has_at_least_one_positive_and_one_negative_for_the_target
-    - each_outer_test_fold_has_at_least_one_positive_or_is_reported_with_metric_limitations
-    - no_protein_id_overlap_between_train_and_test
-  preprocessing_scope: fit_all_imputation_scaling_filtering_and_recipe_encoding_inside_training_fold
-
-prediction_aggregation:
-  condition_level_predictions:
-    output: one_probability_per_condition_row_per_target
-    use: diagnostics_by_substrate_class_dp_and_ligand_match_status
-  protein_level_predictions:
-    primary_aggregation: mean_probability_across_all_9_condition_rows
-    secondary_aggregation: max_probability_across_all_9_condition_rows
-    rationale: >
-      Mean aggregation estimates broad protein-level signal across the ligand
-      prediction panel. Max aggregation checks whether a single strong ligand
-      context captures regio-capacity.
-  threshold_application:
-    target_specific_thresholds: selected_inside_inner_cv
-    final_binary_calls: apply_threshold_to_protein_level_aggregated_probabilities
-
-performance_reporting:
-  primary_reporting_level: protein_level_outer_cv_predictions
-  secondary_reporting_level: condition_level_outer_cv_predictions
-  target_specific_metrics:
+    preferred_splitter: StratifiedGroupKFold
+    fallback_splitter: GroupKFold
+  report:
+    - n_positive
+    - n_negative
+    - PR_AUC
     - balanced_accuracy
-    - macro_f1
-    - sensitivity
-    - specificity
-    - precision
-    - recall
-    - ROC_AUC
-    - average_precision_AUPRC
-    - confusion_matrix
-  combined_regio_metrics:
-    - exact_regio_class_accuracy
-    - macro_f1_over_C1_only_C4_only_C1_C4
-    - hamming_loss_for_two_binary_targets
-    - confusion_matrix_over_final_regio_calls
-  uncertainty_summary:
-    - mean_across_outer_folds
-    - standard_deviation_across_outer_folds
-    - pooled_out_of_fold_metric_with_bootstrap_confidence_interval_by_protein
-  class_balance_reporting:
-    - n_C1_positive_proteins
-    - n_C1_negative_proteins
-    - n_C4_positive_proteins
-    - n_C4_negative_proteins
-    - n_C1_only_proteins
-    - n_C4_only_proteins
-    - n_C1_C4_proteins
+    - Recall_at_k
+  recall_at_k_rule: >
+    k must be fixed before running the analysis. Recommended default: k equals
+    the number of positive proteins in the outer test fold.
 
-diagnostics:
-  matched_vs_mismatched_ligand_context:
-    level: condition_level_outer_cv_predictions
-    group_column: ligand_match_status
-    metrics:
-      - balanced_accuracy
-      - ROC_AUC
-      - average_precision_AUPRC
-      - predicted_probability_distribution
-    purpose: >
-      Estimate whether AF3 predictions using experimentally active ligand
-      classes give stronger C1/C4 signal than predictions using inactive ligand
-      classes.
-  substrate_class_diagnostics:
-    level: condition_level_outer_cv_predictions
-    group_column: substrate_class
-    report_for:
-      - chitin
-      - cellulose
-      - starch
-  dp_diagnostics:
-    level: condition_level_outer_cv_predictions
-    group_column: dp
-    report_for:
-      - 4
-      - 6
-      - 8
-  zero_condition_diagnostics:
-    groups:
-      - any_valid_pose
-      - any_valid_cluster
-      - any_geometry_computable
-    report:
-      - frequency_by_target_label
-      - frequency_by_substrate_class
-      - mean_predicted_probability_by_group
-  selected_recipe_diagnostics:
-    report:
-      - selected_recipe_per_outer_fold_per_target
-      - selected_l1_ratio_per_outer_fold_per_target
-      - selected_C_per_outer_fold_per_target
-      - selected_threshold_per_outer_fold_per_target
+predictors:
+  locked_count: 8
+  definitions:
+    - predictor_name: occupancy_weighted_C1_minus_C4_plausibility
+      source_columns:
+        - occupancy_weighted_c1_plausible_fraction
+        - occupancy_weighted_c4_plausible_fraction
+      condition_formula: >
+        occupancy_weighted_c1_plausible_fraction -
+        occupancy_weighted_c4_plausible_fraction
+      protein_substrate_formula: >
+        mean(condition_formula across available dp rows for the same protein_id
+        and substrate_class)
+      reason: >
+        Primary geometry contrast between C1-like and C4-like plausibility.
 
-final_refit:
-  perform_after_nested_cv: true
-  purpose:
-    - summarize_coefficients
-    - produce_an_exploratory_scoring_model_for_future_unvalidated_proteins
-  procedure:
-    - use_all_labelled_proteins_in_the_main_construct_set
-    - repeat_grouped_inner_cv_to_choose_recipe_l1_ratio_C_and_threshold
-    - refit_selected_pipeline_on_all_labelled_condition_rows
-    - export_coefficients_and_preprocessing_metadata
-  performance_source: outer_cv_only
+    - predictor_name: occupancy_weighted_delta_attack_angle
+      source_columns:
+        - occupancy_weighted_attack_angle_C1_median
+        - occupancy_weighted_attack_angle_C4_median
+      condition_formula: >
+        occupancy_weighted_attack_angle_C1_median -
+        occupancy_weighted_attack_angle_C4_median
+      protein_substrate_formula: >
+        mean(condition_formula across available dp rows for the same protein_id
+        and substrate_class)
+      reason: >
+        Captures directional/orientational geometry not fully redundant with the
+        plausibility fraction.
 
-outputs:
-  modeling_tables:
-    - 10_predictive/modeling_tables/c1_c4_condition_modeling_table.tsv
-    - 10_predictive/modeling_tables/c1_c4_protein_label_table.tsv
-    - 10_predictive/modeling_tables/c1_c4_feature_dictionary.tsv
-  cv_results:
-    - 10_predictive/cv_results/c1_activity_condition_outer_cv_predictions.tsv
-    - 10_predictive/cv_results/c4_activity_condition_outer_cv_predictions.tsv
-    - 10_predictive/cv_results/c1_activity_protein_outer_cv_predictions.tsv
-    - 10_predictive/cv_results/c4_activity_protein_outer_cv_predictions.tsv
-    - 10_predictive/cv_results/c1_c4_combined_regio_outer_cv_predictions.tsv
-    - 10_predictive/cv_results/c1_activity_cv_metrics.tsv
-    - 10_predictive/cv_results/c4_activity_cv_metrics.tsv
-    - 10_predictive/cv_results/c1_c4_combined_regio_cv_metrics.tsv
-    - 10_predictive/cv_results/c1_activity_selected_hyperparameters.tsv
-    - 10_predictive/cv_results/c4_activity_selected_hyperparameters.tsv
-  diagnostics:
-    - 10_predictive/cv_results/c1_c4_matched_vs_mismatched_metrics.tsv
-    - 10_predictive/cv_results/c1_c4_by_substrate_class_metrics.tsv
-    - 10_predictive/cv_results/c1_c4_by_dp_metrics.tsv
-    - 10_predictive/cv_results/c1_c4_zero_condition_diagnostics.tsv
-  final_model:
-    - 10_predictive/final_models/c1_activity_final_model_coefficients.tsv
-    - 10_predictive/final_models/c4_activity_final_model_coefficients.tsv
-    - 10_predictive/final_models/c1_activity_final_pipeline_metadata.yaml
-    - 10_predictive/final_models/c4_activity_final_pipeline_metadata.yaml
-  figures:
-    - 10_predictive/figures/c1_activity_protein_confusion_matrix.png
-    - 10_predictive/figures/c4_activity_protein_confusion_matrix.png
-    - 10_predictive/figures/c1_c4_combined_regio_confusion_matrix.png
-    - 10_predictive/figures/c1_activity_probability_by_true_label.png
-    - 10_predictive/figures/c4_activity_probability_by_true_label.png
-    - 10_predictive/figures/c1_c4_matched_vs_mismatched_probability_plot.png
-    - 10_predictive/figures/c1_c4_substrate_class_diagnostic_plot.png
-    - 10_predictive/figures/c1_c4_dp_diagnostic_plot.png
+    - predictor_name: occupancy_weighted_delta_Cu_distance
+      source_columns:
+        - occupancy_weighted_Cu_C4_distance_median
+        - occupancy_weighted_Cu_C1_distance_median
+      condition_formula: >
+        occupancy_weighted_Cu_C4_distance_median -
+        occupancy_weighted_Cu_C1_distance_median
+      protein_substrate_formula: >
+        mean(condition_formula across available dp rows for the same protein_id
+        and substrate_class)
+      reason: >
+        Captures C1-vs-C4 distance preference in a way that complements attack
+        angle and plausibility.
 
-implementation_steps:
-  - step: build_condition_modeling_table
-    action: >
-      Filter to the chosen construct, join protein metadata, create all expected
-      substrate_class x dp condition rows per protein, and fill zero-condition
-      indicators where AF3/QC/clustering produced no usable summary.
-  - step: create_targets_and_context_metadata
-    action: >
-      Encode has_C1_activity and has_C4_activity from experimental_regio_label.
-      Parse experimental_substrate_label into active_substrate_classes and create
-      ligand_match_status for each condition row.
-  - step: derive_compact_features
-    action: >
-      Compute fractions, C1/C4 contrast features, missingness flags, and compact
-      contact/cluster/QC summaries. Save a feature dictionary with definitions.
-  - step: run_nested_grouped_cv_for_each_target
-    action: >
-      For has_C1_activity and has_C4_activity separately, run 5-fold outer
-      grouped CV. Inside each training fold, tune recipe, regularization, and
-      threshold using 5-fold grouped CV.
-  - step: aggregate_predictions_to_protein_level
-    action: >
-      Aggregate out-of-fold condition probabilities to protein-level probabilities
-      using mean aggregation as primary and max aggregation as secondary.
-  - step: calculate_metrics_and_diagnostics
-    action: >
-      Report target-specific, combined-regio, matched-vs-mismatched,
-      substrate-class, DP, and zero-condition diagnostics using only outer-CV
-      predictions.
-  - step: refit_final_exploratory_models
-    action: >
-      After performance estimation, refit C1 and C4 pipelines on all labelled
-      data using grouped inner CV for hyperparameter choice. Export coefficients
-      and pipeline metadata.
+    - predictor_name: hbond_contact_fraction
+      source_columns:
+        - hbond_contact_fraction
+      condition_formula: hbond_contact_fraction
+      protein_substrate_formula: >
+        mean(hbond_contact_fraction across available dp rows for the same
+        protein_id and substrate_class)
+      reason: >
+        Compact readout of polar contact chemistry likely relevant to productive
+        carbohydrate recognition.
+
+    - predictor_name: aromatic_contact_fraction
+      source_columns:
+        - aromatic_contact_fraction
+      condition_formula: aromatic_contact_fraction
+      protein_substrate_formula: >
+        mean(aromatic_contact_fraction across available dp rows for the same
+        protein_id and substrate_class)
+      reason: >
+        Captures stacking-like contact behavior that often matters for glycan
+        engagement.
+
+    - predictor_name: catalytic_surface_contact_fraction
+      source_columns:
+        - catalytic_surface_contact_fraction
+      condition_formula: catalytic_surface_contact_fraction
+      protein_substrate_formula: >
+        mean(catalytic_surface_contact_fraction across available dp rows for the
+        same protein_id and substrate_class)
+      reason: >
+        Distinguishes catalytic-surface engagement from more peripheral contact
+        patterns.
+
+    - predictor_name: contact_eligible_fraction
+      source_columns:
+        - contact_eligible_fraction
+      condition_formula: contact_eligible_fraction
+      protein_substrate_formula: >
+        mean(contact_eligible_fraction across available dp rows for the same
+        protein_id and substrate_class)
+      reason: >
+        Measures how much of the AF3 ensemble yields interpretable binding-mode
+        signal rather than null or weak-contact poses.
+
+    - predictor_name: convergence_fraction
+      source_columns:
+        - convergence_fraction
+      condition_formula: convergence_fraction
+      protein_substrate_formula: >
+        mean(convergence_fraction across available dp rows for the same
+        protein_id and substrate_class)
+      reason: >
+        Describes internal reproducibility of the predicted ligand placement
+        within the ensemble.
+
+excluded_predictors:
+  - occupancy_weighted_delta_oxyl_H_median
+  - active_site_angle_variation
+  explanation:
+    - >
+      occupancy_weighted_delta_oxyl_H_median was excluded because it overlaps
+      substantially with the plausibility signal, which is already derived from
+      oxyl-H geometry.
+    - >
+      active_site_angle_variation was excluded because it is not part of the
+      current condition_table contract and would add a more noise-sensitive
+      summary under very low effective n.
+
+reporting_and_interpretation:
+  primary_claim: >
+    Whether AF3-derived summary features contain detectable signal associated
+    with experimental C1/C4 specificity.
+  non_claims:
+    - not a mechanistic proof
+    - not a final activity classifier
+    - not evidence that negatives are true biochemical negatives

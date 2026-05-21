@@ -32,7 +32,7 @@ from typing import Any
 
 import numpy as np
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import balanced_accuracy_score
+from sklearn.metrics import average_precision_score, balanced_accuracy_score
 from sklearn.tree import DecisionTreeClassifier
 
 logger = logging.getLogger(__name__)
@@ -61,6 +61,24 @@ class CVResult:
     fold_test_protein_ids: list[list[str]] = field(default_factory=list)
 
 
+@dataclass
+class BinaryClassificationCVResult:
+    """Grouped CV result for one binary classification model."""
+
+    model_name: str
+    target_column: str
+    feature_columns: list[str]
+    n_rows: int = 0
+    n_positive: int = 0
+    n_negative: int = 0
+    n_folds: int = 0
+    fold_metrics: list[dict[str, Any]] = field(default_factory=list)
+    mean_metrics: dict[str, float] = field(default_factory=dict)
+    std_metrics: dict[str, float] = field(default_factory=dict)
+    feature_importances: dict[str, float] = field(default_factory=dict)
+    predictions: list[dict[str, Any]] = field(default_factory=list)
+
+
 def _as_float(value: Any) -> float | None:
     if value in (None, ""):
         return None
@@ -71,6 +89,61 @@ def _as_float(value: Any) -> float | None:
     if not np.isfinite(numeric):
         return None
     return numeric
+
+
+def _as_binary_int(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return int(value)
+    if value in (0, 1):
+        return int(value)
+    normalized = str(value).strip().lower()
+    if normalized in {"0", "false", "no"}:
+        return 0
+    if normalized in {"1", "true", "yes"}:
+        return 1
+    return None
+
+
+def _prepare_numeric_matrix(rows: list[dict[str, Any]], feature_columns: list[str]) -> np.ndarray:
+    return np.asarray(
+        [
+            [_as_float(row.get(column)) if _as_float(row.get(column)) is not None else np.nan for column in feature_columns]
+            for row in rows
+        ],
+        dtype=float,
+    )
+
+
+def _fit_numeric_preprocessor(x_train: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    medians = np.nanmedian(x_train, axis=0)
+    medians = np.where(np.isnan(medians), 0.0, medians)
+    imputed = np.where(np.isnan(x_train), medians, x_train)
+    means = np.mean(imputed, axis=0)
+    stds = np.std(imputed, axis=0)
+    stds = np.where(stds == 0.0, 1.0, stds)
+    return medians, means, stds
+
+
+def _transform_numeric_matrix(
+    x: np.ndarray,
+    *,
+    medians: np.ndarray,
+    means: np.ndarray,
+    stds: np.ndarray,
+) -> np.ndarray:
+    imputed = np.where(np.isnan(x), medians, x)
+    return (imputed - means) / stds
+
+
+def _recall_at_k(y_true: np.ndarray, y_score: np.ndarray, k: int) -> float:
+    if k <= 0:
+        return 0.0
+    positive_total = int(np.sum(y_true))
+    if positive_total <= 0:
+        return 0.0
+    top_k = min(k, len(y_true))
+    ranking = np.argsort(-y_score, kind="stable")[:top_k]
+    return float(np.sum(y_true[ranking]) / positive_total)
 
 
 def build_grouped_stratified_cv(
@@ -251,6 +324,145 @@ def run_binary_predictive_baselines(
             }
         results.append(result)
     return results
+
+
+def run_grouped_binary_logistic_cv(
+    rows: list[dict[str, Any]],
+    *,
+    feature_columns: list[str],
+    target_column: str,
+    group_column: str = "protein_id",
+    row_id_column: str = "model_row_id",
+    model_name: str = "logistic_regression",
+    n_folds: int = 5,
+    random_state: int = 42,
+    c_value: float = 1.0,
+) -> BinaryClassificationCVResult:
+    """Run grouped 5-fold binary logistic regression with fold-local preprocessing."""
+
+    filtered_rows = []
+    for row in rows:
+        group_value = str(row.get(group_column, "")).strip()
+        target_value = _as_binary_int(row.get(target_column))
+        if not group_value or target_value is None:
+            continue
+        filtered_rows.append(row)
+
+    result = BinaryClassificationCVResult(
+        model_name=model_name,
+        target_column=target_column,
+        feature_columns=list(feature_columns),
+        n_rows=len(filtered_rows),
+    )
+    if not filtered_rows:
+        return result
+
+    protein_ids = sorted({str(row[group_column]) for row in filtered_rows})
+    activity_labels = {
+        protein_id: "positive" if _as_binary_int(next(
+            row[target_column] for row in filtered_rows if str(row[group_column]) == protein_id
+        )) == 1 else "negative"
+        for protein_id in protein_ids
+    }
+    result.n_positive = sum(1 for protein_id in protein_ids if activity_labels[protein_id] == "positive")
+    result.n_negative = sum(1 for protein_id in protein_ids if activity_labels[protein_id] == "negative")
+    if result.n_positive == 0 or result.n_negative == 0:
+        return result
+
+    folds = build_grouped_stratified_cv(
+        protein_ids,
+        activity_labels,
+        hierarchy={protein_id: protein_id for protein_id in protein_ids},
+        n_folds=n_folds,
+        random_state=random_state,
+    )
+    result.n_folds = len(folds)
+    if not folds:
+        return result
+
+    importance_accumulator = np.zeros(len(feature_columns), dtype=float)
+    n_importance_folds = 0
+
+    for fold in folds:
+        train_proteins = set(fold.train_protein_ids)
+        test_proteins = set(fold.test_protein_ids)
+        train_rows = [row for row in filtered_rows if str(row[group_column]) in train_proteins]
+        test_rows = [row for row in filtered_rows if str(row[group_column]) in test_proteins]
+        if not train_rows or not test_rows:
+            continue
+
+        y_train = np.asarray([_as_binary_int(row[target_column]) for row in train_rows], dtype=int)
+        y_test = np.asarray([_as_binary_int(row[target_column]) for row in test_rows], dtype=int)
+        if len(set(y_train.tolist())) < 2:
+            continue
+
+        x_train_raw = _prepare_numeric_matrix(train_rows, feature_columns)
+        x_test_raw = _prepare_numeric_matrix(test_rows, feature_columns)
+        medians, means, stds = _fit_numeric_preprocessor(x_train_raw)
+        x_train = _transform_numeric_matrix(x_train_raw, medians=medians, means=means, stds=stds)
+        x_test = _transform_numeric_matrix(x_test_raw, medians=medians, means=means, stds=stds)
+
+        estimator = LogisticRegression(
+            penalty="l2",
+            C=c_value,
+            class_weight="balanced",
+            solver="liblinear",
+            max_iter=1000,
+            random_state=random_state,
+        )
+        estimator.fit(x_train, y_train)
+        y_score = estimator.predict_proba(x_test)[:, 1]
+        y_pred = estimator.predict(x_test)
+
+        k = int(np.sum(y_test))
+        pr_auc = float(average_precision_score(y_test, y_score)) if k > 0 else 0.0
+        balanced_accuracy = float(balanced_accuracy_score(y_test, y_pred))
+        recall_at_k = _recall_at_k(y_test, y_score, k)
+        result.fold_metrics.append(
+            {
+                "fold_id": fold.fold_id,
+                "n_test_rows": len(test_rows),
+                "n_test_positive": int(np.sum(y_test)),
+                "n_test_negative": int(len(y_test) - np.sum(y_test)),
+                "pr_auc": pr_auc,
+                "balanced_accuracy": balanced_accuracy,
+                "recall_at_k": recall_at_k,
+                "k": k,
+            }
+        )
+        for row, true_value, score_value, pred_value in zip(test_rows, y_test, y_score, y_pred, strict=True):
+            result.predictions.append(
+                {
+                    "fold_id": fold.fold_id,
+                    "row_id": row.get(row_id_column, ""),
+                    "protein_id": row.get(group_column, ""),
+                    "y_true": int(true_value),
+                    "y_score": float(score_value),
+                    "y_pred": int(pred_value),
+                }
+            )
+        if hasattr(estimator, "coef_"):
+            importance_accumulator += np.abs(estimator.coef_[0])
+            n_importance_folds += 1
+
+    for metric_name in ("pr_auc", "balanced_accuracy", "recall_at_k"):
+        metric_values = [float(fold_metric[metric_name]) for fold_metric in result.fold_metrics]
+        if metric_values:
+            result.mean_metrics[metric_name] = float(np.mean(metric_values))
+            result.std_metrics[metric_name] = float(np.std(metric_values))
+        else:
+            result.mean_metrics[metric_name] = 0.0
+            result.std_metrics[metric_name] = 0.0
+    if n_importance_folds:
+        result.feature_importances = {
+            feature: float(value)
+            for feature, value in zip(
+                feature_columns,
+                importance_accumulator / n_importance_folds,
+                strict=True,
+            )
+        }
+    return result
 
 
 def run_predictive_model(

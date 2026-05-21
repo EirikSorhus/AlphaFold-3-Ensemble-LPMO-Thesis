@@ -225,12 +225,23 @@ def test_write_selected_reference_cif_keeps_real_selected_chains(tmp_path: Path)
 
     subset_text = subset_cif.read_text()
     subset_structure = crystal_anchoring.gemmi.read_structure(str(subset_cif))
+    subset_block = crystal_anchoring.gemmi.cif.read(str(subset_cif)).sole_block()
+    atom_rows = subset_block.find(
+        "_atom_site.",
+        ["label_asym_id", "label_comp_id", "auth_asym_id"],
+    )
 
     assert subset_cif.exists()
-    assert {chain.name for chain in subset_structure[0]} == {"A", "B"}
+    assert {chain.name for chain in subset_structure[0]} == {"A", "B", "E"}
+    assert "_entity.id" in subset_text
+    assert "_chem_comp.id" in subset_text
+    assert "_chem_comp_bond.comp_id" in subset_text
+    assert "_struct_conn.id" in subset_text
     assert "_pdbx_branch_scheme.asym_id" in subset_text
     assert "_pdbx_nonpoly_scheme.asym_id" in subset_text
-    assert " CU " in subset_text
+    assert {row[0] for row in atom_rows if row[1] == "CU"} == {"E"}
+    assert {row[2] for row in atom_rows if row[1] == "CU"} == {"E"}
+    assert not any(row[1] in {"HOH", "CL"} for row in atom_rows)
 
 
 def test_select_crystal_reference_site_resolves_real_7pxw_branch_ligand() -> None:
@@ -247,6 +258,95 @@ def test_select_crystal_reference_site_resolves_real_7pxw_branch_ligand() -> Non
     assert selection.selected_chain_has_ligand is True
     assert selection.used_fallback_protein_chain is False
     assert "E" in selection.copper_chain_ids
+
+
+def test_select_crystal_reference_site_keeps_only_site_specific_cu_for_real_6ydc() -> None:
+    source_cif = CRYSTAL_ROOT / "A0A223GEC9" / "6YDC_A0A223GEC9_ligand.cif"
+    selection = crystal_anchoring.select_crystal_reference_site(
+        source_cif,
+        preferred_protein_chain="A",
+        expected_ligand=True,
+    )
+
+    assert selection.selected_protein_chain == "A"
+    assert selection.copper_chain_ids == ("H",)
+
+
+def test_write_selected_reference_cif_remaps_real_6ydc_site_cu_to_e_only(tmp_path: Path) -> None:
+    source_cif = CRYSTAL_ROOT / "A0A223GEC9" / "6YDC_A0A223GEC9_ligand.cif"
+    selection = crystal_anchoring.select_crystal_reference_site(
+        source_cif,
+        preferred_protein_chain="A",
+        expected_ligand=True,
+    )
+
+    subset_cif = crystal_anchoring._write_selected_reference_cif(
+        source_cif,
+        selection,
+        tmp_path / "selected_reference.cif",
+    )
+    subset_block = crystal_anchoring.gemmi.cif.read(str(subset_cif)).sole_block()
+    atom_rows = subset_block.find(
+        "_atom_site.",
+        ["label_asym_id", "label_comp_id", "auth_asym_id"],
+    )
+
+    assert {row[0] for row in atom_rows if row[1] == "CU"} == {"E"}
+    assert {row[2] for row in atom_rows if row[1] == "CU"} == {"E"}
+    assert not any(row[1] in {"HOH", "CL", "SO4"} for row in atom_rows)
+
+
+def test_prepare_crystal_reference_protonates_normalized_subset(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source_cif = CRYSTAL_ROOT / "A0A0S2GKZ1" / "5ACI_A0A0S2GKZ1_ligand.cif"
+    record = crystal_anchoring.CrystalReferenceRecord(
+        family="AA9",
+        protein_id="A0A0S2GKZ1",
+        pdb_code="5ACI",
+        source_cif=source_cif,
+        carbohydrate_ligands="CEL",
+        expected_ligand=True,
+    )
+    captured: dict[str, Path] = {}
+
+    class FakeNormalizeRunner:
+        def __init__(self, input_cif: Path, output_dir: Path) -> None:
+            captured["normalize_input"] = Path(input_cif)
+            self.output_dir = Path(output_dir)
+
+        def run(self) -> tuple[bool, Path]:
+            self.output_dir.mkdir(parents=True, exist_ok=True)
+            normalized_cif = self.output_dir / "normalized.cif"
+            normalized_cif.write_text("data_normalized\n#\n")
+            captured["normalized_cif"] = normalized_cif.resolve()
+            return True, normalized_cif
+
+    def fake_protonate_and_export(input_cif: Path, output_dir: Path) -> tuple[bool, dict[str, str]]:
+        captured["protonate_input"] = Path(input_cif).resolve()
+        output_dir.mkdir(parents=True, exist_ok=True)
+        complex_pdb = output_dir / "complex_H.pdb"
+        ligand_mol2 = output_dir / "ligand_for_prolif.mol2"
+        complex_pdb.write_text("END\n")
+        ligand_mol2.write_text("@<TRIPOS>MOLECULE\nmock\n")
+        return True, {"complex_h_pdb": str(complex_pdb), "ligand_mol2": str(ligand_mol2)}
+
+    monkeypatch.setattr(crystal_anchoring, "NormalizeMMCIFRunner", FakeNormalizeRunner)
+    monkeypatch.setattr(crystal_anchoring, "protonate_and_export", fake_protonate_and_export)
+    monkeypatch.setattr(
+        crystal_anchoring,
+        "compute_ifp_single",
+        lambda **_: crystal_anchoring.IFPResult(pose_id="5ACI", status="ok"),
+    )
+    monkeypatch.setattr(crystal_anchoring, "_compute_crystal_geometry_metrics", lambda _: None)
+
+    prepared = crystal_anchoring.prepare_crystal_reference(record, tmp_path)
+
+    assert prepared.status == "prepared"
+    assert captured["normalize_input"].name == "selected_reference.cif"
+    assert captured["protonate_input"] == captured["normalized_cif"]
+    assert prepared.normalized_cif == captured["normalized_cif"]
 
 
 def test_compute_feature_aligned_tanimoto_aligns_union_feature_space() -> None:

@@ -41,10 +41,18 @@ real-data verification of that production path still remains.
 Crystal anchoring is now also verified as a standalone real-data slice via
 `tests/run_tests_scripts/test_crystal_anchoring_real_cifs.sh`; that slice
 resolves crystal references from `input_data/pdb_structure_data.csv`, verifies
-both `5ACI` and `7PXW` for `A0A0S2GKZ1`, prepares crystal subsets, and writes
-compact `ifp_result.json` summaries plus detailed `pose_ifp_table.tsv` and
-`ifp_matrix.csv` artifacts for the representative pose and each prepared
-crystal reference. In production, crystal anchoring compares every retained
+both `5ACI` and `7PXW` for `A0A0S2GKZ1`, prepares chemistry-preserving crystal
+subsets, normalizes ligand-bound crystal references before protonation, and
+writes compact `ifp_result.json` summaries plus detailed `pose_ifp_table.tsv`
+and `ifp_matrix.csv` artifacts for the representative pose and each prepared
+crystal reference. Crystal subsets use the same canonical chain scheme as AF3
+poses (`A` protein, `B/C/D` glycans, `E` Cu). Cu stays in `complex_H.pdb` for
+geometry/RMSD, but is excluded from `ligand_for_prolif.mol2` so ProLIF receives
+the glycan ligand only. During ProLIF loading, ligand atom residue identities are
+resolved against the sibling `ligand_only_for_prolif.pdb` when available, so
+multiple glycan chains with repeated residue numbers remain distinct
+(`BGC1.B`, `BGC1.C`, etc.) instead of collapsing to a single chain. In
+production, crystal anchoring compares every retained
 cluster medoid; conditions with no retained clusters may use the top-level AF3
 model CIF only after hard QC passes, and that fallback is not counted in normal
 pose/clustering denominators. Current pocket RMSD uses a local gemmi/numpy Kabsch
@@ -55,8 +63,10 @@ residue-name normalization for variants such as `HIC -> HIS`. Crystal-side IFP
 Tanimoto is reported only when the prepared crystal IFP passes the same non-vdW
 contact-eligibility rule as pose clustering; pocket RMSD and crystal geometry
 remain reportable when the crystal IFP is VdW-only, zero-contact, or otherwise
-low-specific-contact. Ligand-bound crystal references also emit C1/C4 geometry
-for comparison against pose geometries. The same crystal-anchoring slice is now
+low-specific-contact. After the crystal-prep hardening, those non-comparable IFP
+classes should be interpreted as data/contact signal outcomes rather than known
+Cu/ligand-export contamination. Ligand-bound crystal references also emit C1/C4
+geometry for comparison against pose geometries. The same crystal-anchoring slice is now
 also wired into `run_analysis_core`, writes an explicit
 `crystal_anchoring_stage_completed` gate in `run_manifest.json`, and has passed
 focused pytest plus production smoke validation. Remaining gap: a production
@@ -82,8 +92,9 @@ metadata, and EC/activity labels. It is intentionally not part of the core
 leakage-safe grouped folds on `protein_id` with a 5-fold default when enough
 protein groups exist, plus two narrow baseline runners. These are not final
 model choices. The predictive-analysis plans are explicitly marked for revision
-before final model implementation because the model families and predictor
-variables still need to be selected.
+before final model implementation. The current C1/C4 and substrate plans have
+been revised into smaller, less-detailed activity-prediction plans that lock
+compact predictor sets and keep the implementation scope narrow.
 
 `analysis/cbm_comparison.py` now has a condition-level CBM paired-analysis
 builder for `cbm_construct_condition_summary.tsv` and
@@ -135,13 +146,15 @@ YAML plans define the intended statistical analyses after the core AF3
 structure-analysis outputs have been generated:
 
 - [clustering_pilot_plan.yaml](clustering_pilot_plan.yaml): completed pilot plan and decision record for the selected global IFP clustering method.
-- [c1_c4_predictive_analysis_plan_simplified.yaml](c1_c4_predictive_analysis_plan_simplified.yaml): exploratory C1/C4 regioactivity predictive analysis using protein-grouped modeling on condition-level AF3 summaries.
-- [substrate_activity_prediction_plan.yaml](substrate_activity_prediction_plan.yaml): exploratory substrate activity prediction across chitin, cellulose, and starch ligand contexts.
+- [c1_c4_predictive_analysis_plan_simplified.yaml](c1_c4_predictive_analysis_plan_simplified.yaml): revised compact C1/C4 activity-prediction plan with small-effective-n constraints and a locked limited predictor set.
+- [substrate_activity_prediction_plan.yaml](substrate_activity_prediction_plan.yaml): revised compact substrate-activity prediction plan with small-effective-n constraints and a locked limited predictor set.
 - [cbm_full_length_vs_domain_only_analysis_plan.yaml](cbm_full_length_vs_domain_only_analysis_plan.yaml): paired full-length vs domain-only CBM analysis for proteins with both construct types.
 
 These files are implementation plans, not runtime configuration for
-`lpmo-pipeline run`. They refine the Stage 14 predictive-analysis and Stage 15
-CBM paired-analysis specifications in [MASTERPLAN.md](MASTERPLAN.md).
+`lpmo-pipeline run`. The two activity-prediction plans were simplified on
+2026-05-21 and no longer try to be exhaustive implementation blueprints. They
+refine the Stage 14 predictive-analysis and Stage 15 CBM paired-analysis
+specifications in [MASTERPLAN.md](MASTERPLAN.md).
 
 ## Configuration Policy
 
@@ -171,6 +184,17 @@ lpmo-pipeline tune \
   --model AF3 \
   --config configs/tuning_af3.yaml \
   --output results/tuning_af3
+
+# Optional AA9/AA10 family residue enrichment postprocess
+lpmo-pipeline family-enrichment \
+  --protein-condition-residue-scores results/del_a/protein_condition_residue_scores.tsv \
+  --protein-residue-regio-delta results/del_a/protein_residue_regio_delta.tsv \
+  --protein-metadata input_data/metadata_final_ec_fixed.tsv \
+  --core-fasta input_data/lpmo_core_domain_2026-03-14_06-52-15_deduplicated.fasta \
+  --output results/del_a
+
+# Sbatch-backed validation for the optional family enrichment layer
+sbatch tests/run_tests_scripts/test_family_enrichment_validation.sh
 
 # Real-data smoke test for the current production entry path
 sbatch tests/run_tests_scripts/test_analysis_core_real_cifs.sh
@@ -202,6 +226,10 @@ raw clustering/convergence/IFP tables, `cluster_table.tsv`,
 `crystal_geometry_table.tsv`, and `crystal_ifp_diagnostic_summary.tsv`. The crystal-anchoring stage gate in this
 production path is smoke-validated, but a real-data production run that reaches
 actual medoid-vs-crystal comparisons still remains.
+
+The optional family enrichment layer is not part of this production contract.
+It is a separate postprocess over Stage 16b outputs and currently targets only
+AA9/AA10 domain-only rows through `lpmo-pipeline family-enrichment`.
 
 Verified 2026-05-03 on 3 staged real AF3 CIFs (`analysis_core_real_cifs_613251`):
 1 `pass`, 1 `soft_flag`, 1 `hard_fail`; 2 poses were analyzed downstream, and
@@ -236,6 +264,7 @@ Select which to run via `construct_type: "domain_only"` or `construct_type: "ful
 - `--n-jobs` controls parallel workers for independent pose preparation, hard QC/Privateer dispatch, and ProLIF batch computation. Scaling is useful but not expected to be perfectly linear because process startup, container startup, filesystem I/O, and unequal per-pose runtime still contribute fixed overhead.
 - Production output must not contain `geometry_debug.pdb`; that file remains test-only.
 - Standalone crystal-anchoring harnesses may auto-select a best-ranked AF3 pose for test coverage. The production path compares all retained cluster medoids; if a condition has no retained clusters, it may compare the top-level AF3 model CIF only after that fallback passes hard QC.
+- The optional `family-enrichment` command is intentionally decoupled from `run`. It consumes existing Stage 16b TSVs plus metadata and the deduplicated catalytic-core FASTA, filters to AA9/AA10 domain-only rows, and writes outputs under `08_family_residue_enrichment/`. If no precomputed family alignment is provided and `mafft` is unavailable, the command records a clean skip reason instead of failing the production outputs.
 - Shared external tool paths and default asset references are controlled separately through [configs/runtime_paths.yaml](configs/runtime_paths.yaml).
 
 ## Config Files
@@ -250,6 +279,7 @@ Select which to run via `construct_type: "domain_only"` or `construct_type: "ful
 - [configs/residue_rules.yaml](configs/residue_rules.yaml): residue/atom normalization rules, CCD mappings, and region tagging rules.
 - [configs/cv_hierarchy.yaml](configs/cv_hierarchy.yaml): grouped cross-validation hierarchy and stratification settings for later predictive analyses.
 - [configs/tuning_af3.yaml](configs/tuning_af3.yaml), [configs/tuning_boltz2.yaml](configs/tuning_boltz2.yaml), [configs/tuning_rf3.yaml](configs/tuning_rf3.yaml): model-specific tuning grids.
+- [human_readability_code_walkthrough/FAMILY_ENRICHMENT_POSTPROCESS.md](human_readability_code_walkthrough/FAMILY_ENRICHMENT_POSTPROCESS.md): detailed walkthrough of the optional AA9/AA10 family enrichment postprocess.
 
 ## Project Structure
 
@@ -311,8 +341,8 @@ See [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md) for unresolved decisions.
 | [IMPLEMENTATION_PLAYBOOK.md](IMPLEMENTATION_PLAYBOOK.md) | Step-by-step implementation guide with status tracking and stop-points |
 | [DECISIONS.md](DECISIONS.md) | Implementation-grounded decision log — documents the rules that are actually active in code |
 | [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md) | Open decisions, resolved conflicts, and avklaringer |
-| [c1_c4_predictive_analysis_plan_simplified.yaml](c1_c4_predictive_analysis_plan_simplified.yaml) | Detailed implementation plan for exploratory C1/C4 regioactivity predictive modeling |
-| [substrate_activity_prediction_plan.yaml](substrate_activity_prediction_plan.yaml) | Detailed implementation plan for exploratory substrate activity prediction |
+| [c1_c4_predictive_analysis_plan_simplified.yaml](c1_c4_predictive_analysis_plan_simplified.yaml) | Revised compact plan for exploratory C1/C4 activity prediction under small effective n |
+| [substrate_activity_prediction_plan.yaml](substrate_activity_prediction_plan.yaml) | Revised compact plan for exploratory substrate activity prediction under small effective n |
 | [cbm_full_length_vs_domain_only_analysis_plan.yaml](cbm_full_length_vs_domain_only_analysis_plan.yaml) | Detailed implementation plan for paired full-length vs domain-only CBM analysis |
 | [copilot.md](copilot.md) | AI assistant (Copilot) guide — hard rules, architectural policy, AI decision boundaries |
 | [ATTRIBUTION.md](ATTRIBUTION.md) | Third-party code attribution |

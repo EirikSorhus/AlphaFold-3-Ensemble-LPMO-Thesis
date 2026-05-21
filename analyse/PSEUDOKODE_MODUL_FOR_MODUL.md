@@ -395,11 +395,27 @@ PROCEDURE RunCrystalAnchoringIfAvailable(system, cluster_signatures):
     IF CrystalAvailable(system) == FALSE:
         RETURN EmptyTable()
 
-    # 1) Identify alignment atoms
+    # 1) Prepare crystal reference in the same canonical chain schema as AF3
+    selected_reference <- SelectProteinLigandCuSite(system.crystal)
+    selected_reference_cif <- WriteSelectedReferenceCif(
+        selected_reference,
+        keep_metadata = [_entity, _chem_comp, _chem_comp_bond, _struct_conn],
+        chain_schema = {protein: A, glycan: B/C/D, cu: E}
+    )
+    IF selected_reference.has_ligand:
+        normalized_reference_cif <- NormalizeMMCIF(selected_reference_cif)
+        crystal_artifacts <- ProtonateAndExport(normalized_reference_cif)
+        # complex_H keeps Cu for geometry/RMSD; ligand MOL2 is glycan-only for ProLIF.
+        crystal_ifp <- ComputeProLIF(
+            crystal_artifacts.complex_H_pdb,
+            crystal_artifacts.glycan_only_ligand_mol2
+        )
+
+    # 2) Identify alignment atoms
     his_brace_residues <- FindHistidineBrace(system.predicted)
     cu_near_residues <- FindResiduesNearCu(system.predicted, cutoff=3.5)
 
-    # 2) Substrate-recognition residues
+    # 3) Substrate-recognition residues
     IF LiteratureResiduesAvailable(system.enzyme_family):
         surface_residues <- LoadLiteratureResidues(system.enzyme_family)
     ELSE:
@@ -410,15 +426,15 @@ PROCEDURE RunCrystalAnchoringIfAvailable(system, cluster_signatures):
 
     alignment_residues <- Union(his_brace_residues, cu_near_residues, surface_residues)
 
-    # 3) PyMOL pair_fit for optimal local superposition
-    rmsd_after_alignment <- PyMOLPairFit(
-        system.predicted, system.crystal, alignment_residues
+    # 4) Current implementation: local Kabsch superposition on shared pocket C-alpha atoms
+    rmsd_after_alignment <- LocalKabschPocketRMSD(
+        system.predicted, selected_reference, alignment_residues
     )
 
-    # 4) Metrics after optimized alignment
+    # 5) Metrics after optimized alignment
     metrics <- {
         pocket_rmsd: rmsd_after_alignment,
-        alignment_type: "optimized_local_pair_fit",
+        alignment_type: "optimized_local_kabsch",
         alignment_residue_count: Count(alignment_residues),
         residue_source: "literature" OR "proximity",
         ligand_or_proximal_segment_rmsd,

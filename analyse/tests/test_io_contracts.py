@@ -97,6 +97,51 @@ class TestNormalizedCIFContract:
 class TestProtonationContract:
     """Verify protonation outputs have required features."""
 
+    def test_ligand_only_export_skips_cu_residue_in_glycan_chain(self, tmp_path: Path) -> None:
+        """Cu in a copied glycan chain must not enter the ProLIF ligand PDB."""
+        from lpmo_pipeline.io.protonate_export import _write_ligand_only_pdb
+
+        cif_path = tmp_path / "glycan_with_cu.cif"
+        cif_path.write_text(
+            """data_glycan_with_cu
+_entry.id glycan_with_cu
+#
+loop_
+_atom_site.group_PDB
+_atom_site.id
+_atom_site.type_symbol
+_atom_site.label_atom_id
+_atom_site.label_alt_id
+_atom_site.label_comp_id
+_atom_site.label_asym_id
+_atom_site.label_entity_id
+_atom_site.label_seq_id
+_atom_site.pdbx_PDB_ins_code
+_atom_site.Cartn_x
+_atom_site.Cartn_y
+_atom_site.Cartn_z
+_atom_site.occupancy
+_atom_site.B_iso_or_equiv
+_atom_site.auth_seq_id
+_atom_site.auth_asym_id
+_atom_site.pdbx_PDB_model_num
+HETATM 1 C C1 . BGC B 1 1 ? 0.0 0.0 0.0 1.00 10.0 1 B 1
+HETATM 2 O O5 . BGC B 1 1 ? 1.0 0.0 0.0 1.00 10.0 1 B 1
+HETATM 3 CU CU . CU B 2 . ? 5.0 0.0 0.0 1.00 10.0 301 B 1
+#
+"""
+        )
+        warnings: list[str] = []
+        ligand_pdb = tmp_path / "ligand_only_for_prolif.pdb"
+
+        residue_count = _write_ligand_only_pdb(cif_path, ligand_pdb, warnings=warnings)
+        ligand_text = ligand_pdb.read_text()
+
+        assert residue_count == 1
+        assert "BGC" in ligand_text
+        assert " CU " not in ligand_text
+        assert any("ligand_only_skipped_non_ligand_residues" in warning for warning in warnings)
+
     def test_cif_to_pdb_writes_posebusters_pdb(self, tmp_path: Path) -> None:
         """Step 7b writes a PDB artifact from normalized mmCIF."""
         from lpmo_pipeline.io.cif_to_pdb import convert_cif_to_pdb
@@ -341,3 +386,5 @@ class TestProtonationContract:
         assert not protein_hits, (
             f"ligand_for_prolif.mol2 contains protein residue labels: {protein_hits}"
         )
+        assert "CU301" not in mol2_text
+        assert " CU " not in mol2_text
