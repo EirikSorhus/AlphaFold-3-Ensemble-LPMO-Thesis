@@ -41,9 +41,9 @@ def test_ifp_result_from_pose_ifp_row_parses_json_payloads() -> None:
             "pose_id": "P1_NAG4_seed-1_sample-0_model",
             "ifp_generation_status": "ok",
             "ifp_vector": "[1, 0]",
-            "ifp_feature_names": '["NAG1.B|ASN10.A|HBDonor", "NAG1.B|ASN10.A|VdWContact"]',
+            "ifp_feature_names": '["NAG1.B|ASN10.A|ImplicitHBDonor", "NAG1.B|ASN10.A|VdWContact"]',
             "n_total_contacts": "1",
-            "ifp_interaction_counts": '{"HBDonor": 1, "VdWContact": 0}',
+            "ifp_interaction_counts": '{"ImplicitHBDonor": 1, "VdWContact": 0}',
             "ifp_error": "",
         }
     )
@@ -51,8 +51,8 @@ def test_ifp_result_from_pose_ifp_row_parses_json_payloads() -> None:
     assert result.pose_id == "P1_NAG4_seed-1_sample-0_model"
     assert result.status == "ok"
     assert result.flat_bitvector == [1, 0]
-    assert result.feature_names == ["NAG1.B|ASN10.A|HBDonor", "NAG1.B|ASN10.A|VdWContact"]
-    assert result.interaction_counts == {"HBDonor": 1, "VdWContact": 0}
+    assert result.feature_names == ["NAG1.B|ASN10.A|ImplicitHBDonor", "NAG1.B|ASN10.A|VdWContact"]
+    assert result.interaction_counts == {"ImplicitHBDonor": 1, "VdWContact": 0}
 
 
 def test_build_fixture_from_synthetic_condition_is_deterministic(tmp_path: Path) -> None:
@@ -72,10 +72,12 @@ def test_build_fixture_from_synthetic_condition_is_deterministic(tmp_path: Path)
     matrix_path.write_text(
         "\n".join(
             [
-                "pose_id,NAG1.B|ASN10.A|HBDonor",
+                "pose_id,NAG1.B|ASN10.A|ImplicitHBDonor",
                 "P1_NAG4_seed-1_sample-0_model,1",
                 "P1_NAG4_seed-1_sample-1_model,1",
                 "P1_NAG4_seed-1_sample-2_model,1",
+                "P1_NAG4_seed-2_sample-0_model,1",
+                "P1_NAG4_seed-2_sample-1_model,1",
             ]
         )
         + "\n"
@@ -85,6 +87,8 @@ def test_build_fixture_from_synthetic_condition_is_deterministic(tmp_path: Path)
         "P1_NAG4_seed-1_sample-0_model",
         "P1_NAG4_seed-1_sample-1_model",
         "P1_NAG4_seed-1_sample-2_model",
+        "P1_NAG4_seed-2_sample-0_model",
+        "P1_NAG4_seed-2_sample-1_model",
     ]
     _write_tsv(
         production_root / "pose_ifp_table.tsv",
@@ -94,16 +98,11 @@ def test_build_fixture_from_synthetic_condition_is_deterministic(tmp_path: Path)
             "ifp_vector",
             "ifp_feature_names",
             "n_total_contacts",
-            "n_hbond_donor",
-            "n_hbond_acceptor",
-            "n_hydrophobic",
-            "n_aromatic",
-            "n_anionic",
-            "n_cationic",
-            "n_cation_pi",
-            "n_pi_cation",
+            "n_implicit_hbond_acceptor",
+            "n_implicit_hbond_donor",
             "n_vdw_contact",
             "ifp_interaction_counts",
+            "ifp_interaction_occurrence_counts",
             "ifp_error",
         ],
         [
@@ -111,18 +110,13 @@ def test_build_fixture_from_synthetic_condition_is_deterministic(tmp_path: Path)
                 "pose_id": pose_id,
                 "ifp_generation_status": "ok",
                 "ifp_vector": "[1]",
-                "ifp_feature_names": '["NAG1.B|ASN10.A|HBDonor"]',
+                "ifp_feature_names": '["NAG1.B|ASN10.A|ImplicitHBDonor"]',
                 "n_total_contacts": 1,
-                "n_hbond_donor": 1,
-                "n_hbond_acceptor": 0,
-                "n_hydrophobic": 0,
-                "n_aromatic": 0,
-                "n_anionic": 0,
-                "n_cationic": 0,
-                "n_cation_pi": 0,
-                "n_pi_cation": 0,
+                "n_implicit_hbond_acceptor": 0,
+                "n_implicit_hbond_donor": 1,
                 "n_vdw_contact": 0,
-                "ifp_interaction_counts": '{"HBDonor": 1}',
+                "ifp_interaction_counts": '{"ImplicitHBDonor": 1}',
+                "ifp_interaction_occurrence_counts": '{"ImplicitHBDonor": 1}',
                 "ifp_error": "",
             }
             for pose_id in pose_ids
@@ -153,7 +147,7 @@ def test_build_fixture_from_synthetic_condition_is_deterministic(tmp_path: Path)
                 "residue_chain": "A",
                 "residue_number": 10,
                 "residue_name": "ASN",
-                "interaction_type": "HBDonor",
+                "interaction_type": "ImplicitHBDonor",
                 "contact_present": 1,
                 "ligand_residue_label": "NAG1.B",
                 "distance_if_available": "",
@@ -281,7 +275,7 @@ def test_build_fixture_from_synthetic_condition_is_deterministic(tmp_path: Path)
                 "distance_threshold": module.SELECTED_DISTANCE_THRESHOLD,
                 "min_cluster_size": module.SELECTED_MIN_CLUSTER_SIZE,
                 "original_formal_clustering_allowed": "True",
-                "original_n_qc_pass_poses": 3,
+                "original_n_qc_pass_poses": 5,
                 "matrix_path": str(matrix_path),
                 "cluster_assignments_tsv": str(provenance_dir / "cluster_assignments.tsv"),
                 "medoid_manifest_tsv": str(provenance_dir / "medoid_manifest.tsv"),

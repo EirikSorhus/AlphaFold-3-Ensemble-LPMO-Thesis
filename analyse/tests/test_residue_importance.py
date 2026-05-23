@@ -38,6 +38,60 @@ def _index_rows(rows: list[dict[str, str]], *keys: str) -> dict[tuple[str, ...],
     return indexed
 
 
+def _with_non_core_defaults(row: dict[str, str]) -> dict[str, str]:
+    updated = dict(row)
+    updated.pop("hydrophobic_contact_fraction", None)
+    updated.pop("mean_hydrophobic_contact_fraction", None)
+    if (
+        "is_non_core_region" not in updated
+        and ("is_cbm_region" in updated or "is_linker_region" in updated)
+    ):
+        updated["is_non_core_region"] = str(
+            updated.get("is_cbm_region", "False") == "True"
+            or updated.get("is_linker_region", "False") == "True"
+        )
+    if (
+        "non_core_contact_fraction" not in updated
+        and ("cbm_contact_fraction" in updated or "linker_contact_fraction" in updated)
+    ):
+        updated["non_core_contact_fraction"] = str(
+            float(updated.get("cbm_contact_fraction", 0.0) or 0.0)
+            + float(updated.get("linker_contact_fraction", 0.0) or 0.0)
+        )
+    if (
+        "mean_non_core_contact_fraction" not in updated
+        and (
+            "mean_cbm_contact_fraction" in updated
+            or "mean_linker_contact_fraction" in updated
+        )
+    ):
+        updated["mean_non_core_contact_fraction"] = str(
+            float(updated.get("mean_cbm_contact_fraction", 0.0) or 0.0)
+            + float(updated.get("mean_linker_contact_fraction", 0.0) or 0.0)
+        )
+    return updated
+
+
+def _normalize_interaction_name(value: str) -> str:
+    return {
+        "HBDonor": "ImplicitHBDonor",
+        "HBAcceptor": "ImplicitHBAcceptor",
+    }.get(value, value)
+
+
+def _normalize_interaction_row(row: dict[str, str]) -> dict[str, str]:
+    updated = dict(row)
+    if "interaction_type" in updated:
+        updated["interaction_type"] = _normalize_interaction_name(str(updated["interaction_type"]))
+    feature_name = str(updated.get("feature_name", ""))
+    if feature_name:
+        parts = feature_name.split("|")
+        if len(parts) == 3:
+            parts[2] = _normalize_interaction_name(parts[2])
+            updated["feature_name"] = "|".join(parts)
+    return updated
+
+
 def test_compute_residue_importance_outputs_consumes_stage16_signatures() -> None:
     outputs = compute_residue_importance_outputs(
         [
@@ -53,7 +107,7 @@ def test_compute_residue_importance_outputs_consumes_stage16_signatures() -> Non
                 "residue_chain": "A",
                 "residue_number": 10,
                 "residue_name": "ASN",
-                "interaction_type": "HBDonor",
+                "interaction_type": "ImplicitHBDonor",
                 "ligand_residue_label": "NAG1.B",
                 "n_poses_with_contact": 2,
                 "contact_frequency": 1.0,
@@ -120,10 +174,10 @@ def test_compute_residue_importance_outputs_consumes_stage16_signatures() -> Non
                 "n_poses": 2,
                 "occupancy": 2 / 3,
                 "medoid_pose_id": "pose-1",
-                "feature_name": "NAG1.B|ASN10.A|HBDonor",
+                "feature_name": "NAG1.B|ASN10.A|ImplicitHBDonor",
                 "ligand_residue_label": "NAG1.B",
                 "protein_residue_label": "ASN10.A",
-                "interaction_type": "HBDonor",
+                "interaction_type": "ImplicitHBDonor",
                 "n_poses_with_contact": 2,
                 "contact_frequency": 1.0,
             },
@@ -185,6 +239,7 @@ def test_compute_residue_importance_outputs_consumes_stage16_signatures() -> Non
             "mean_c4_weighted_residue_score": pytest.approx(0.0),
             "c1_minus_c4_weighted_delta": pytest.approx(1 / 3),
             "is_catalytic_surface_region": False,
+            "is_non_core_region": False,
             "is_cbm_region": False,
             "is_linker_region": False,
         },
@@ -200,6 +255,7 @@ def test_compute_residue_importance_outputs_consumes_stage16_signatures() -> Non
             "mean_c4_weighted_residue_score": pytest.approx(1 / 3),
             "c1_minus_c4_weighted_delta": pytest.approx(-1 / 3),
             "is_catalytic_surface_region": False,
+            "is_non_core_region": False,
             "is_cbm_region": False,
             "is_linker_region": False,
         },
@@ -219,9 +275,9 @@ def test_compute_residue_importance_outputs_consumes_stage16_signatures() -> Non
             "aromatic_contact_fraction": pytest.approx(1 / 3),
             "polar_contact_fraction": pytest.approx(2 / 3),
             "charged_contact_fraction": pytest.approx(0.0),
-            "hydrophobic_contact_fraction": pytest.approx(0.0),
             "hbond_contact_fraction": pytest.approx(2 / 3),
             "catalytic_surface_contact_fraction": pytest.approx(0.0),
+            "non_core_contact_fraction": pytest.approx(0.0),
             "cbm_contact_fraction": pytest.approx(0.0),
             "linker_contact_fraction": pytest.approx(0.0),
         },
@@ -238,9 +294,9 @@ def test_compute_residue_importance_outputs_consumes_stage16_signatures() -> Non
             "aromatic_contact_fraction": 0.0,
             "polar_contact_fraction": 0.0,
             "charged_contact_fraction": 0.0,
-            "hydrophobic_contact_fraction": 0.0,
             "hbond_contact_fraction": 0.0,
             "catalytic_surface_contact_fraction": 0.0,
+            "non_core_contact_fraction": 0.0,
             "cbm_contact_fraction": 0.0,
             "linker_contact_fraction": 0.0,
         },
@@ -254,9 +310,9 @@ def test_compute_residue_importance_outputs_consumes_stage16_signatures() -> Non
             "mean_aromatic_contact_fraction": pytest.approx(1 / 6),
             "mean_polar_contact_fraction": pytest.approx(1 / 3),
             "mean_charged_contact_fraction": pytest.approx(0.0),
-            "mean_hydrophobic_contact_fraction": pytest.approx(0.0),
             "mean_hbond_contact_fraction": pytest.approx(1 / 3),
             "mean_catalytic_surface_contact_fraction": pytest.approx(0.0),
+            "mean_non_core_contact_fraction": pytest.approx(0.0),
             "mean_cbm_contact_fraction": pytest.approx(0.0),
             "mean_linker_contact_fraction": pytest.approx(0.0),
         }
@@ -290,7 +346,7 @@ def test_compute_residue_importance_outputs_backfills_zero_rows_without_valid_cl
                 "residue_chain": "A",
                 "residue_number": 88,
                 "residue_name": "ASN",
-                "interaction_type": "HBDonor",
+                "interaction_type": "ImplicitHBDonor",
                 "contact_present": 1,
                 "ligand_residue_label": "NAG3.B",
                 "distance_if_available": "",
@@ -326,7 +382,7 @@ def test_compute_residue_importance_outputs_counts_only_positive_contact_conditi
                 "residue_chain": "A",
                 "residue_number": 10,
                 "residue_name": "ASN",
-                "interaction_type": "HBDonor",
+                "interaction_type": "ImplicitHBDonor",
                 "ligand_residue_label": "NAG1.B",
                 "n_poses_with_contact": 1,
                 "contact_frequency": 1.0,
@@ -371,7 +427,7 @@ def test_compute_residue_importance_outputs_counts_only_positive_contact_conditi
                 "residue_chain": "A",
                 "residue_number": 10,
                 "residue_name": "ASN",
-                "interaction_type": "HBDonor",
+                "interaction_type": "ImplicitHBDonor",
                 "contact_present": 1,
                 "ligand_residue_label": "NAG1.B",
                 "distance_if_available": "",
@@ -386,7 +442,7 @@ def test_compute_residue_importance_outputs_counts_only_positive_contact_conditi
                 "residue_chain": "A",
                 "residue_number": 10,
                 "residue_name": "ASN",
-                "interaction_type": "HBDonor",
+                "interaction_type": "ImplicitHBDonor",
                 "contact_present": 1,
                 "ligand_residue_label": "NAG1.B",
                 "distance_if_available": "",
@@ -432,6 +488,7 @@ def test_compute_residue_importance_outputs_counts_only_positive_contact_conditi
             "mean_c4_weighted_residue_score": pytest.approx(0.0),
             "c1_minus_c4_weighted_delta": pytest.approx(0.5),
             "is_catalytic_surface_region": False,
+            "is_non_core_region": False,
             "is_cbm_region": False,
             "is_linker_region": False,
         }
@@ -487,9 +544,9 @@ def test_write_residue_importance_outputs_write_headers_and_rows(tmp_path: Path)
             "aromatic_contact_fraction": "0.0",
             "polar_contact_fraction": "0.0",
             "charged_contact_fraction": "0.0",
-            "hydrophobic_contact_fraction": "0.0",
             "hbond_contact_fraction": "0.0",
             "catalytic_surface_contact_fraction": "0.0",
+            "non_core_contact_fraction": "0.0",
             "cbm_contact_fraction": "0.0",
             "linker_contact_fraction": "0.0",
         }
@@ -502,9 +559,9 @@ def test_write_residue_importance_outputs_write_headers_and_rows(tmp_path: Path)
             "mean_aromatic_contact_fraction": "0.0",
             "mean_polar_contact_fraction": "0.0",
             "mean_charged_contact_fraction": "0.0",
-            "mean_hydrophobic_contact_fraction": "0.0",
             "mean_hbond_contact_fraction": "0.0",
             "mean_catalytic_surface_contact_fraction": "0.0",
+            "mean_non_core_contact_fraction": "0.0",
             "mean_cbm_contact_fraction": "0.0",
             "mean_linker_contact_fraction": "0.0",
         }
@@ -542,10 +599,10 @@ def test_compute_residue_importance_outputs_matches_retained_cluster_fixture(tmp
     )
 
     outputs = compute_residue_importance_outputs(
-        cluster_residue_signature_rows=cluster_residue_signature_rows,
+        cluster_residue_signature_rows=[_normalize_interaction_row(row) for row in cluster_residue_signature_rows],
         cluster_summary_rows=cluster_summary_rows,
-        cluster_ifp_signature_rows=cluster_ifp_signature_rows,
-        observed_residue_contact_rows=observed_residue_contact_rows,
+        cluster_ifp_signature_rows=[_normalize_interaction_row(row) for row in cluster_ifp_signature_rows],
+        observed_residue_contact_rows=[_normalize_interaction_row(row) for row in observed_residue_contact_rows],
     )
 
     protein_condition_path = tmp_path / "protein_condition_residue_scores.tsv"
@@ -576,20 +633,20 @@ def test_compute_residue_importance_outputs_matches_retained_cluster_fixture(tmp
     )
 
     assert _index_rows(actual_protein_condition_rows, "condition_id", "residue_label") == _index_rows(
-        expected_protein_condition_rows,
+        [_with_non_core_defaults(row) for row in expected_protein_condition_rows],
         "condition_id",
         "residue_label",
     )
     assert _index_rows(actual_protein_regio_rows, "residue_label") == _index_rows(
-        expected_protein_regio_rows,
+        [_with_non_core_defaults(row) for row in expected_protein_regio_rows],
         "residue_label",
     )
     assert _index_rows(actual_condition_patch_rows, "condition_id") == _index_rows(
-        expected_condition_patch_rows,
+        [_with_non_core_defaults(row) for row in expected_condition_patch_rows],
         "condition_id",
     )
     assert _index_rows(actual_protein_patch_rows, "protein_id") == _index_rows(
-        expected_protein_patch_rows,
+        [_with_non_core_defaults(row) for row in expected_protein_patch_rows],
         "protein_id",
     )
 

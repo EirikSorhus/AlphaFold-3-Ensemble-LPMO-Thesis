@@ -1,8 +1,6 @@
----
 name: python-bioinformatics-analyse
-description: "Default Python coding workflow for almost all analyse/ tasks: implement or refactor parsers, validators, adapters, QC gates, artifact builders, manifest/report logic, schema contracts, and tests in analyse/src/lpmo_pipeline and analyse/tests. Use for mmCIF, Gemmi, PoseBusters, Privateer, MDAnalysis, ProLIF, HDBSCAN, manifest consistency work, and activating the correct pipeline-specific conda environment before running python or pytest. Never use pip or conda install commands. Do not use for installing programs/dependencies or R coding. Avoid re-implementing structure prediction runner internals."
+description: "Default Python coding workflow for almost all analyse/ tasks: implement or refactor parsers, validators, adapters, QC gates, artifact builders, manifest/report logic, schema contracts, and tests in analyse/src/lpmo_pipeline and analyse/tests. Use for mmCIF, Gemmi, PoseBusters, Privateer, MDAnalysis, ProLIF, agglomerative clustering and HDBSCAN sensitivity work, manifest consistency work, and activating the correct pipeline-specific conda environment before running python or pytest. Never use pip or conda install commands. Do not use for installing programs/dependencies or R coding. Avoid re-implementing structure prediction runner internals."
 argument-hint: "Describe task + module path + expected input/output artifacts + constraints"
----
 
 # Python Bioinformatics Coding for analyse/
 
@@ -29,10 +27,10 @@ Use this skill for Python development in the unfinished analyse pipeline when im
 ## Environment Rules
 
 - Python and pytest must only be run from an activated conda environment.
-- Never run any major coding or testing on the login node; use sbatch shell scripts.
+- Avoid heavy full-pipeline runs on the login node; targeted edits, unit tests, and narrow pytest slices are acceptable there when lightweight.
 - Conda environments are located under `/cluster/work/projects/nn1003k/eirik/conda/`.
 - Always use the environment that matches the pipeline or subproject being changed.
-- For `analyse/` work, select the documented `analyse_env` environment before running `python` or `pytest`.
+- For `analyse/` work, select the documented `analyse_full_prolif_env` environment before running `python` or `pytest`, unless governing docs for a different subtask explicitly say otherwise.
 - For other pipelines or subprojects, switch to that pipeline's corresponding environment first.
 - If the correct environment is unclear from repository documentation, stop and ask instead of guessing.
 - Never install packages with pip, conda, or mamba as part of this skill.
@@ -115,6 +113,9 @@ Before coding, identify:
 - Atom mapping logic is topology/geometry aware, not name-only.
 - QC outputs distinguish hard-fail vs soft-flag outcomes.
 - Geometric metrics include units and stable field names.
+- Active ProLIF production inputs are non-protonated `analysis_export/complex_for_prolif.pdb` plus `analysis_export/ligand_only_for_prolif.pdb`.
+- Active ProLIF interaction surface is `ImplicitHBAcceptor`, `ImplicitHBDonor`, and `VdWContact`; default main clustering includes only the two implicit H-bond types.
+- Current primary clustering policy is HDBSCAN Jaccard with `min_cluster_size=5`, `min_samples=null`; treat HDBSCAN `min_cluster_size=3` as lenient sensitivity, agglomerative Jaccard `distance_threshold=0.55`, `min_cluster_size=5` as orthogonal sensitivity, and HDBSCAN `min_cluster_size=10` as conservative negative control unless governing docs or the user explicitly ask for something else.
 - Clustering inputs are reproducible and traceable in manifest/report artifacts.
 
 ## Test Strategy

@@ -7,6 +7,24 @@ It is intentionally implementation-grounded:
 - Tests are used as confirmation of intended behavior.
 - If a plan document and the current implementation differ, this file follows the implementation.
 
+## ProLIF Implicit-H Migration (2026-05-22)
+
+ProLIF production code now uses
+`/cluster/work/projects/nn1003k/eirik/conda/analyse_full_prolif_env` and the
+implicit hydrogen-bond interactions from ProLIF. The raw IFP surface is limited
+to `ImplicitHBAcceptor`, `ImplicitHBDonor`, and `VdWContact`.
+
+ProLIF inputs are non-protonated PDB/PDB artifacts written under
+`analysis_export/`: `complex_for_prolif.pdb` and
+`ligand_only_for_prolif.pdb`. `complex_H.pdb` and `ligand_for_prolif.mol2`
+remain legacy protonation artifacts and are not ProLIF inputs.
+
+Main production clustering excludes `VdWContact` and uses only
+`ImplicitHBAcceptor`/`ImplicitHBDonor`; VdW remains available for raw IFP,
+residue-contact diagnostics, and contact-eligibility accounting. Hydrophobic
+interaction predictors/fractions were removed, and the H-bond fraction now
+counts only the two implicit H-bond types.
+
 ## Scope And Traceability
 
 The main decision surfaces currently live in these code paths:
@@ -29,18 +47,12 @@ The raw ProLIF feature surface is controlled by `load_prolif_features_config()` 
 
 - The code first reads `configs/prolif_features.yaml`.
 - If `active_interaction_types` is present there, that list becomes the active raw IFP interaction set.
-- If the config is missing or empty, the fallback default is the full nine-type set hard-coded in `prolif_ifp.py`:
-  - `HBDonor`
-  - `HBAcceptor`
-  - `Hydrophobic`
-  - `PiStacking`
-  - `Anionic`
-  - `Cationic`
-  - `CationPi`
-  - `PiCation`
+- If the config is missing or empty, the fallback default is the three-type set hard-coded in `prolif_ifp.py`:
+  - `ImplicitHBAcceptor`
+  - `ImplicitHBDonor`
   - `VdWContact`
 
-Current `configs/prolif_features.yaml` explicitly activates all nine interaction types, so the raw batch matrix is presently built from the full supported interaction surface.
+Current `configs/prolif_features.yaml` explicitly activates those three interaction types. ProLIF uses non-protonated PDB/PDB inputs from `analysis_export/`.
 
 ### Feature naming contract
 
@@ -109,11 +121,39 @@ The current production clustering path is `AgglomerativeJaccardClusterer` in
 
 The important implementation detail is:
 
-- Production Stage 6 uses `batch.matrix[index]` for each contact-eligible pose.
-- There is no additional feature-pruning step before the production agglomerative call.
-- Therefore, the current production clustering path uses the full raw ProLIF feature space for contact-eligible poses.
+- Production Stage 6 first evaluates contact eligibility on the full raw
+  ProLIF result.
+- For the agglomerative clustering input, it then builds a condition-local
+  `main_clustering_ifp_matrix.csv` from the contact-eligible poses.
+- That matrix uses the same main-feature policy as the pilot path:
+  `ImplicitHBAcceptor` and `ImplicitHBDonor` by default, with explicit
+  `extra_include_interaction_types` support and `VdWContact` excluded.
+- Formal production clustering is allowed only when
+  `n_contact_eligible >= minimum_clusterable_n` and the condition-local main
+  matrix has at least one feature. Otherwise the condition is reported with
+  `insufficient_clusterable_signal`, `empty_main_matrix`, or
+  `no_clusterable_poses` in `condition_cluster_summary.tsv` and
+  `condition_table.tsv`.
+- The raw all-interaction IFP matrix is still written and retained for audit,
+  contact summaries, and downstream descriptive signatures.
 
-In practice, that means current production clustering uses all active interaction types from `configs/prolif_features.yaml`, not the pilot's reduced “main clustering feature” set.
+In practice, residue-level feature columns can differ by protein-condition
+because the observed contacting residues differ, but the production interaction
+type policy is fixed unless config explicitly opts in to extra interaction
+types.
+
+2026-05-21 real-data smoke validation:
+
+- `analysis_core_real_cifs_1152258` exercised a no-contact-eligible condition
+  and recorded `clustering_status = no_clusterable_poses` with no main matrix,
+  as expected.
+- `analysis_core_real_cifs_1152273` exercised a contact-eligible but
+  insufficient-support condition. It wrote
+  `ifp_matrices/A0A0S2GKZ1__domain_only__chitin_DP8/main_clustering_ifp_matrix.csv`
+  with one row and two main features, propagated
+  `clustering_status = insufficient_clusterable_signal` to
+  `condition_cluster_summary.tsv` and `condition_table.tsv`, and did not emit
+  cluster assignments or medoids.
 
 ### Pilot-only main feature selection
 
@@ -127,9 +167,8 @@ The pilot path in `src/lpmo_pipeline/analysis/clustering_pilot.py` builds two ma
 The selection logic in `select_main_clustering_features()` is currently:
 
 - Default included interaction types:
-  - `HBDonor`
-  - `HBAcceptor`
-  - `PiStacking`
+  - `ImplicitHBAcceptor`
+  - `ImplicitHBDonor`
 - Default excluded interaction types:
   - `VdWContact`
 - Any interaction type not in the include set is dropped even if it is prevalent.
@@ -160,77 +199,75 @@ Otherwise the pilot records one of these statuses instead of running the method 
 
 ### Pilot-selected primary method for full analysis
 
-Decision date: 2026-05-20.
+Decision date: 2026-05-23.
 
-The clustering pilot and follow-up parameter-sensitivity run selected one global
-primary clustering method for the full analysis:
+The refreshed staged rerun and follow-up parameter-sensitivity review selected
+one global primary clustering method for the full analysis:
 
-- Primary method: `agglomerative_jaccard`
+- Primary method: `hdbscan_jaccard`
 - Primary distance metric: binary Jaccard on contact-eligible IFP rows
-- Selection evidence matrix: pilot `main_contact_eligible_ifp_matrix.csv`
-- Primary linkage: `average`
-- Primary `distance_threshold`: `0.55`
-- Primary `min_cluster_size`: `3`
-- Conservative agglomerative sensitivity setting:
-  - `distance_threshold = 0.45`
-  - `min_cluster_size = 3`
-- Secondary HDBSCAN sensitivity setting:
+- Selection evidence matrix: refreshed pilot `main_contact_eligible_ifp_matrix.csv`
+- Primary `min_cluster_size`: `5`
+- Primary `min_samples`: `null`
+- Primary `cluster_selection_method`: `eom`
+- Lenient HDBSCAN sensitivity setting:
   - `min_cluster_size = 3`
   - `min_samples = null`
   - `cluster_selection_method = eom`
+- Orthogonal agglomerative sensitivity setting:
+  - `distance_threshold = 0.55`
+  - `min_cluster_size = 5`
+  - `linkage = average`
+- Conservative negative-control setting:
+  - `min_cluster_size = 10`
+  - `min_samples = null`
+  - `cluster_selection_method = eom`
 
-This decision is based on the staged pilot results under
-`tests/tests_results/clustering_pilot_staged/` and the parameter-sensitivity
-run under
-`tests/tests_results/clustering_pilot_staged/clustering_parameter_sensitivity_runs/clustering_parameter_sensitivity_20260520_110146/`.
+This decision is based on the refreshed staged pilot results under
+`tests/tests_results/clustering_pilot_full_20260522_224240/` and the associated
+parameter-sensitivity outputs under its
+`clustering_parameter_sensitivity/` subtree.
 
-The primary decision used the 94 conditions that passed the original formal
-clustering gate. In that subset, `agglomerative_jaccard` with
-`distance_threshold=0.55` and `min_cluster_size=3` recovered clusters in 84/94
-conditions, produced 266 clusters, had median noise fraction 0.52, and left
-10/94 conditions as all-noise. The conservative `0.45` sensitivity recovered
-clusters in 79/94 conditions, produced 215 clusters, had median noise fraction
-0.68, and left 15/94 conditions as all-noise. HDBSCAN with
-`min_cluster_size=3` recovered clusters in 53/94 conditions and remains useful
-as a sensitivity method, but it is not selected as the primary method.
+The updated decision used the refreshed summary set and selected HDBSCAN
+`min_cluster_size=5` because it reduced excessive subdivision relative to
+HDBSCAN `min_cluster_size=3` while maintaining a lower noise burden than the
+orthogonal agglomerative `0.55/min5` comparison. The decision criterion is now
+an explicit balance between cluster recovery, cluster granularity, and noise,
+not simply maximizing recovered cluster count.
 
-Cluster sizes under the selected primary setting remained small enough for
-pilot-scale AF3 sampling interpretation: mean cluster size 4.77 poses, standard
-deviation 2.80, median 4, and range 3-21 across the non-noise clusters. This
-gave better coverage than `0.45` without collapsing the pilot into a few large
-clusters.
-
-Implementation note: as of 2026-05-20, the standard production Stage 6 path in
-`run_analysis_core()` is wired to the pilot-selected agglomerative primary
-method.
+Implementation note: some production code paths may still be wired to the older
+agglomerative primary method. That is implementation backlog, not the current
+governing Stage 6 decision.
 
 ### Production method
 
-The standard production path currently instantiates
-`AgglomerativeJaccardClusterer` in
-`src/lpmo_pipeline/analysis/analysis_orchestrator.py` with:
+The governing production target is now `HdbscanJaccardClusterer` with:
 
-- `linkage = average`
-- `distance_threshold = 0.55`
-- `min_cluster_size = 3`
-
-The effective primary Stage 6 behavior in
-`src/lpmo_pipeline/analysis/clustering_agglomerative.py` is:
-
-- Distance metric is binary Jaccard.
-- Clustering is fit with precomputed Jaccard distances and average linkage.
-- Clusters smaller than `min_cluster_size` are relabeled to noise (`-1`) after fitting.
-- Non-noise labels are renumbered sequentially.
-- If the condition has a single pose or the full pairwise Jaccard distance matrix is all zeros, the condition is collapsed into one cluster before the small-cluster filter.
-- Exact medoids are selected by minimum summed within-cluster Jaccard distance.
-
-The older HDBSCAN implementation remains available for sensitivity analysis and
-legacy comparison. Its active defaults are loaded from `configs/thresholds.yaml`:
-
-- `min_cluster_size = 3`
+- `min_cluster_size = 5`
 - `min_samples = null`
 - `metric = jaccard`
 - `cluster_selection_method = eom`
+
+If the standard production path is still instantiating
+`AgglomerativeJaccardClusterer` in
+`src/lpmo_pipeline/analysis/analysis_orchestrator.py`, that wiring is stale
+relative to the governing documentation and should be treated as backlog.
+
+The effective intended primary Stage 6 behavior is therefore:
+
+- Distance metric is binary Jaccard.
+- HDBSCAN clustering is fit on contact-eligible IFP rows with the selected
+  `min_cluster_size=5` policy.
+- Noise labels remain part of the reporting contract rather than being forced
+  into retained clusters.
+- Exact medoids are still selected by minimum summed within-cluster Jaccard
+  distance for retained clusters.
+
+Sensitivity comparison methods remain available as documented:
+
+- HDBSCAN `min_cluster_size = 3`, `min_samples = null`
+- Agglomerative Jaccard `distance_threshold = 0.55`, `min_cluster_size = 5`, `linkage = average`
+- HDBSCAN `min_cluster_size = 10`, `min_samples = null`
 
 ### Current PoseBusters hard-QC behavior
 
@@ -253,6 +290,10 @@ The active PoseBusters runtime path is `run_posebusters_single()` in
 - `protein-ligand_maximum_distance` is the far-away check (`not_too_far_away`).
 - `minimum_distance_to_protein` is the renamed `no_clashes` result, not the
   distance-cutoff field.
+- If an enabled PoseBusters invocation raises an unexpected exception in hard
+  QC, the orchestrator fails the pose closed with a
+  `posebusters_runner_error` critical error instead of treating the missing
+  result as pass.
 - Current explicit hard-fail PoseBusters codes are:
   - `sanitization`
   - `all_atoms_connected`
@@ -273,6 +314,16 @@ The active PoseBusters runtime path is `run_posebusters_single()` in
   - `inchi_convertible`
 - Any failing PoseBusters code outside those soft-warning names is still treated
   conservatively as critical by the runner.
+
+### Current Privateer hard-QC runner-error behavior
+
+Privateer is dispatched as a batch from `run_hard_qc()` after active-site
+proximity and Cu-His geometry pass. If the batch backend raises unexpectedly,
+or if it returns no result for an eligible pose, the orchestrator now creates an
+explicit failing `PrivateerResult` (`privateer_batch_runner_error` or
+`privateer_missing_result`). These are hard-fail verdicts in `qc_report.json`;
+disabled Privateer (`run_privateer=False`) remains an intentional skip, not a
+failure.
 
 ### Pilot agglomerative method
 
@@ -309,8 +360,11 @@ Stage 16 membership is reconstructed from `cluster_assignments.tsv`-style rows.
 
 Current implementation note:
 
-- `cluster_inclusion.min_occupancy` exists in `configs/thresholds.yaml`, but the current Stage 6 and Stage 16 code paths do not read it.
-- In practice, all non-noise clusters in `cluster_assignments.tsv` flow into Stage 16 regardless of occupancy.
+- There is no active `cluster_inclusion.min_occupancy` contract in
+  `configs/thresholds.yaml`. The old plan-level key was removed from the active
+  config because Stage 6 and Stage 16 do not read it.
+- In practice, all non-noise clusters in `cluster_assignments.tsv` flow into
+  Stage 16 regardless of occupancy.
 
 ### How occupancy is currently defined
 
@@ -455,13 +509,15 @@ For `condition_patch_summary.tsv`:
   - aromatic: `PHE`, `TRP`, `TYR`, `HIS`
   - polar: `SER`, `THR`, `ASN`, `GLN`, `CYS`
   - charged: `ASP`, `GLU`, `LYS`, `ARG`
-- Hydrophobic contribution is interaction-driven and currently only counts `Hydrophobic` interactions.
-- H-bond contribution is interaction-driven and currently counts `HBDonor` and `HBAcceptor`.
+- Hydrophobic interaction contribution is removed from the active patch summaries.
+- H-bond contribution is interaction-driven and currently counts `ImplicitHBAcceptor` and `ImplicitHBDonor`.
 
 For the region fractions in the same condition-level table:
 
 - The code uses weighted residue contact mass from `cluster_residue_signature_rows`, not IFP feature mass.
-- `catalytic_surface_contact_fraction`, `cbm_contact_fraction`, and `linker_contact_fraction` are each normalized by total weighted residue-contact mass for that condition.
+- `catalytic_surface_contact_fraction` and `non_core_contact_fraction` are the active interpretation fields.
+- `non_core_contact_fraction` collapses all available non-core signal into one bucket; downstream CBM analysis no longer distinguishes CBM versus linker contact attribution.
+- Legacy `cbm_contact_fraction` and `linker_contact_fraction` may still be carried in intermediate tables for compatibility, but they are not the active biological interpretation contract.
 
 ### Protein patch summary
 
@@ -477,6 +533,7 @@ The active downstream geometry row is built by `compute_pose_metrics_from_struct
 ### How the geometry row is currently built
 
 - The geometry branch reuses `check_geometry()` from hard QC to identify Cu and the histidine brace.
+- The downstream geometry branch is descriptive/flagging, not a hard QC gate. If `compute_pose_metrics_from_structure()` raises for a pose that already passed or was flagged by hard QC, the orchestrator keeps the pose in analysis export/IFP, writes a `geometry_not_computable` row, and records `geometry_metrics_error` in the pose manifest/case metadata.
 - If Cu is not found, the function returns early and the pose keeps the default geometry state:
   - most geometry distances stay `None`
   - both `geometry_status_C1` and `geometry_status_C4` stay `geometry_not_computable`
@@ -538,7 +595,7 @@ Current labels are:
 - `ring_normal_toward_cu` when the dot product is positive
 - `ring_normal_away_from_cu` when the dot product is negative
 
-### Current geometry outputs that remain placeholders
+### Current geometry RMSD ownership
 
 `core_rmsd_vs_reference` and `pocket_rmsd_vs_crystal` are present in the row contract, but this geometry module does not currently compute them.
 
@@ -704,28 +761,24 @@ excluded from the selected crystal subset.
 - If the selected crystal site has no ligand chains after selection:
   - return `status = "prepared_no_ligand"`
   - keep the subset/normalized reference
-  - skip protonation and crystal IFP generation
+  - skip analysis export and crystal IFP generation
 - If ligand chains are present:
   - normalize the selected subset with `NormalizeMMCIFRunner`
-  - protonate the normalized selected subset
-  - require both `complex_h_pdb` and `ligand_mol2`
+  - export non-protonated `analysis_export/complex_for_prolif.pdb`
+  - export non-protonated `analysis_export/ligand_only_for_prolif.pdb`
   - compute a crystal IFP from those artifacts
 
-The representative pose follows a similar normalize -> protonate -> IFP path before screening.
+The representative pose follows a similar normalize -> analysis_export -> IFP path before screening.
 
-Crystal protonation keeps Cu in `complex_H.pdb` for geometry and pocket RMSD, but
-the ProLIF ligand export is glycan-only. If Cu or another non-ligand residue is
-present in a copied glycan chain, `io/protonate_export.py` skips it from
-`ligand_only_for_prolif.pdb` / `ligand_for_prolif.mol2` and records a warning
-and skipped-residue count in `protonation_report.json`.
+Crystal analysis export keeps Cu in `complex_for_prolif.pdb` for geometry and
+pocket RMSD, but the ProLIF ligand export is glycan-only. If Cu or another
+non-ligand residue is present in a copied glycan chain, `io/analysis_export.py`
+skips it from `ligand_only_for_prolif.pdb` and records a warning and
+skipped-residue count in `analysis_export_report.json`.
 
-Current ProLIF loading does not rely solely on MOL2 substructure labels for
-ligand residue identity. Obabel can emit repeated `BGC1`, `BGC2`, ... labels for
-separate glycan chains, so `analysis/prolif_ifp.py` maps MOL2 heavy atoms back to
-the sibling `ligand_only_for_prolif.pdb` by coordinates and preserves the PDB
-chain IDs. Added hydrogens inherit the residue identity of their bonded heavy
-atom. This keeps contacts from `BGC1.B` and `BGC1.C` distinct in the IFP feature
-space.
+Current ProLIF loading reads the ligand directly from `ligand_only_for_prolif.pdb`,
+so PDB residue names, numbers, and chain IDs define the ligand residue identity.
+This keeps contacts from `BGC1.B` and `BGC1.C` distinct in the IFP feature space.
 
 ### IFP comparison rule in the current screen path
 
@@ -754,11 +807,14 @@ After the crystal-reference prep hardening, those exclusion classes should no
 longer be attributed to known Cu contamination or missing crystal-side
 normalization without further evidence. They may still occur because the
 prepared deposited ligand genuinely has too little non-vdW ProLIF signal under
-the shared contact-eligibility rule.
+the shared contact-eligibility rule. The current working interpretation is that
+crystal IFPs that remain empty or non-comparable are more likely to reflect
+real biological-structural contact sparsity or non-specificity in the deposited
+reference than a known bug in the crystal preparation or comparison path.
 
 ### Crystal-side C1/C4 geometry
 
-Ligand-bound crystal references now run the downstream C1/C4 geometry branch after crystal subsetting/protonation. The geometry code uses the remapped ligand/Cu chains from the selected crystal subset and writes:
+Ligand-bound crystal references now run the downstream C1/C4 geometry branch after crystal subsetting and non-protonated analysis export. The geometry code uses the remapped ligand/Cu chains from the selected crystal subset and writes:
 
 - full rows in `crystal_geometry_table.tsv`
 - summary fields in `crystal_anchor_table.tsv`: `crystal_Cu_C1_distance`, `crystal_Cu_C4_distance`, `crystal_geometry_status_C1`, and `crystal_geometry_status_C4`
@@ -811,13 +867,17 @@ The current threshold flag is:
 
 - `pocket_rmsd_below_threshold = pocket_rmsd < 2.5`
 
-## 11. Current Code/Plan Gaps Worth Calling Out
+## 11. Current Code/Plan Clarifications And Remaining Gaps
 
-These are the main places where the current implementation differs from a naive reading of the plan documents:
+These are the main places where the current implementation needs explicit clarification or still differs from a naive reading of the plan documents:
 
-- Production Stage 6 still clusters on the full raw contact-eligible IFP matrix.
-  - The pilot's reduced “main clustering feature” set is currently pilot-only.
-- `cluster_inclusion.min_occupancy` is present in config/docs but is not currently applied in the active Stage 6 or Stage 16 code paths.
+- Production Stage 6 now clusters on a condition-local main IFP matrix rather
+  than the full raw contact-eligible matrix; broad real-data inspection of this
+  production output is still pending.
+- The active Stage 6/16 contract is that `cluster_inclusion.min_occupancy` is
+  not used. All retained non-noise clusters are included in summaries and
+  signatures; there is no pending occupancy gate to implement unless the code
+  contract is changed explicitly later.
 - Stage 16 documentation should follow `build_cluster_signature_tables()`, not the older `compute_cluster_signatures()` helper.
 - Stage 13b and Stage 16 deliberately preserve explicit zero rows in some situations instead of reporting only positive contacts.
 - `core_rmsd_vs_reference` and `pocket_rmsd_vs_crystal` are part of the geometry row contract, but the geometry module itself does not currently compute them.

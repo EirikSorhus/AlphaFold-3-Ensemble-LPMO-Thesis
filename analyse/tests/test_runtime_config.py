@@ -114,7 +114,9 @@ hdbscan:
     (project_root / "configs" / "prolif_features.yaml").write_text(
         """
 active_interaction_types:
-  - Hydrophobic
+  - ImplicitHBAcceptor
+  - ImplicitHBDonor
+  - VdWContact
 """.lstrip()
     )
 
@@ -137,7 +139,11 @@ active_interaction_types:
         assert hdbscan_config.metric == "dice"
         assert hdbscan_config.cluster_selection_method == "leaf"
         assert hdbscan_config.locked is True
-        assert prolif_config["active_interaction_types"] == ["Hydrophobic"]
+        assert prolif_config["active_interaction_types"] == [
+          "ImplicitHBAcceptor",
+          "ImplicitHBDonor",
+          "VdWContact",
+        ]
     finally:
         monkeypatch.delenv("LPMO_PIPELINE_RUNTIME_PATHS_CONFIG", raising=False)
         config_mod.clear_runtime_paths_cache()

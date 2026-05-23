@@ -3,6 +3,11 @@
 Spørsmål som må avklares under implementasjon. Hvert punkt har et
 foreslått default-valg slik at arbeidet kan fortsette uten blokkering.
 
+**OPPDATERT 2026-05-22:** ProLIF-spørsmålet om sparse eksplisitte H-bonds er
+avklart ved implementasjon av implicit-H ProLIF. Aktivt råsett er
+`ImplicitHBAcceptor`, `ImplicitHBDonor`, `VdWContact`; main clustering bruker
+kun implicit H-bonds. VdW-only/low-specific-contact-diagnostikk beholdes.
+
 **⚠️ OPPDATERT 2026-04-21: Konflikter A–D avklart av bruker. Se bunnen av filen.**
 
 ---
@@ -47,8 +52,13 @@ foreslått default-valg slik at arbeidet kan fortsette uten blokkering.
    Status 2026-05-08: dagens integrerte analysis-core smoke-tester fullforer,
    men den testede crystal-anchoring-kjoringen ender forelopig med
    `comparison_count = 0`. Det ser ogsa ut som de testede crystal-IFP-ene kan
-   vaere dominert av VdW-interaksjoner. Dette er ikke avklart og ma sjekkes
-   opp eksplisitt senere, ikke tolkes som et biologisk funn na.
+   vaere dominert av VdW-interaksjoner. Etter senere crystal-prep-hardening og
+   standalone real-data-validering regnes dette ikke lenger som et prima facie
+   teknisk prep-problem; hvis crystal-IFP i praksis blir tom eller
+   non-comparable er den mest sannsynlige forklaringen for tiden for svak eller
+   for lite spesifikk biologisk-strukturell kontakt under den delte non-vdW
+   contact-eligibility-regelen. Dette skal fortsatt kvantifiseres bredere, men
+   skal ikke lenger default-tolkes som kjent Cu-/normaliseringskontaminasjon.
    Status 2026-05-16: standalone real-data-harnessen for `A0A0S2GKZ1` gir nå
    ikke-tomme sammenligninger mot `5ACI` og `7PXW` og lave pocket-RMSD-er.
    Det som fortsatt mangler er en integrert produksjonskjøring der en faktisk
@@ -59,26 +69,32 @@ foreslått default-valg slik at arbeidet kan fortsette uten blokkering.
    conditions, blokkerer IFP-Tanimoto når crystal-IFP ikke passerer non-vdW
    contact-eligibility, og skriver `crystal_ifp_diagnostic_summary.tsv` for å
    kvantifisere VdW-/low-specific-contact-problemet. Spørsmålet som gjenstår er
-   biologisk cutoff/tolkning, ikke selve comparability-gaten.
+   biologisk cutoff/tolkning, ikke selve comparability-gaten. Arbeidshypotesen
+   er nå at crystal-IFP som fortsatt blir tom eller non-comparable oftest
+   reflekterer reell biologisk-strukturell kontaktsparsomhet i de preparerte
+   deposited ligandene, ikke en kjent implementasjonsfeil i crystal-IFP-laget.
 
-9. **Predictive modellvalg og prediksjonsvariabler** — Hvilke endelige
-   modellfamilier og prediksjonsvariabler skal brukes for regioselektivitet og
-   substrataktivitet?
-   *Status 2026-05-21: delvis avklart. Aktivitets-prediksjonsplanene er
-   revidert og mindre detaljerte enn før, med small-effective-n begrensninger
-   og kompakte låste prediktorsett. `predictive_models.py` er fortsatt bare et
-   testet scaffold for leakage-sikre grouped folds og smale baseline-runnere.
-   Default CV-kontrakt er fortsatt 5-fold grouped CV på `protein_id` når det
-   finnes nok proteingrupper. Gjenstående avklaring er primær backend og den
-   endelige modellimplementasjonen.*
+9. ~~**Predictive modellvalg og prediksjonsvariabler**~~ — **AVKLART
+   2026-05-22 for aktiv implementasjon.**
+   Primær backend er compact Python/sklearn logistic regression med L2,
+   `class_weight="balanced"`, fold-lokal numerisk preprocessing og grouped CV
+   på `protein_id`. Prediktorsettene følger de reviderte kompakte
+   aktivitetsplanene. `run_analysis_core` kan kjøre Stage 14 direkte fra den
+   produserte `condition_table.tsv` når `production.predictive.enabled=true` og
+   proteinmetadata er satt. Gjenstående arbeid er full-run tolkning etter at
+   `predictive_summary.json["validation"]` viser nok rader, begge targetklasser
+   og evaluerbare folds, ikke valg av backend.
 
 10. **EC 1.14.99.- ikke-AA17 mapping** — Hvilken endelig tekstetikett og
     hvilket standardsubstrat for "xylan ol"-tilfeller?
     *Default: substrate_class=`xylan_or_other`, regio_class=`unknown`, aktivitet=`xylan_like_oxidative`.*
 
-11. **Geometri-planaritet** — Operasjonelle planaritetskrav mangler forelopig.
-    Dette ma spesifiseres (metode + terskler) for endelig analyse og rapportering.
-    *Status: avventer definisjon fra prosjektleder.*
+11. **Geometri-planaritet** — Avklart 2026-05-22: separat planaritetsgate er
+    ikke del av aktiv analysekontrakt. Sluttbrukerflaten bruker de implementerte
+    downstream-feltene `sugar_face_orientation`, `ring_normal_vs_brace_normal`,
+    `attack_angle_C1/C4`, `oxyl_H_*_distance` og `geometry_status_C1/C4`.
+    Nye planaritetskrav skal bare legges til som en ny eksplisitt feature hvis
+    biologisk terskel og metode bestemmes senere.
 
 12. **Statusoppsummering av avklarte punkter**
     - AVKLART: hovedanalyse aggregerer ikke cluster -> enzym.
@@ -94,12 +110,17 @@ foreslått default-valg slik at arbeidet kan fortsette uten blokkering.
     - AVKLART (2026-04-21): AF3-kjøringer bruker `num_diffusion_samples=5` → 75 poser per system.
     - AVKLART (2026-04-21): Kanonisk term er "protein" / `protein_id`.
     - AVKLART (2026-04-21): Fem separate pose-tabeller (ingen samlet `pose_table.tsv`).
-    - AVKLART (2026-05-20): Primær clusteringmetode er agglomerative Jaccard
-      på contact-eligible IFP rows med `linkage=average`,
-      `distance_threshold=0.55` og `min_cluster_size=3`. Pilotvalget ble gjort
-      på `main_contact_eligible_ifp_matrix.csv`. Sensitivitet:
-      agglomerative `distance_threshold=0.45`, `min_cluster_size=3`, og
-      HDBSCAN Jaccard `min_cluster_size=3`, `min_samples=null`.
+      - AVKLART (2026-05-23): Primær clusteringmetode er HDBSCAN Jaccard på
+         contact-eligible IFP rows med `min_cluster_size=5`, `min_samples=null`
+         og `cluster_selection_method=eom`. Begrunnelsen er bedre balanse mellom
+         cluster recovery, noise og cluster-granularitet enn både HDBSCAN
+         `min_cluster_size=3` og agglomerative `distance_threshold=0.55`,
+         `min_cluster_size=5`. Sensitivitet: HDBSCAN `min_cluster_size=3`,
+         agglomerative `distance_threshold=0.55`, `min_cluster_size=5`, og
+         HDBSCAN `min_cluster_size=10` som konservativ negativ kontroll.
+    - AVKLART (2026-05-22): Primær predictive backend er compact sklearn
+      logistic regression, kjørt som valgfri Stage 14 fra main analysis output
+      når metadata er konfigurert.
 
 13. **Substrat-recognition/pocket-residuer for crystal anchoring** — Skal dagens
    operative pocket-heuristikk beholdes, eller erstattes/utvides med

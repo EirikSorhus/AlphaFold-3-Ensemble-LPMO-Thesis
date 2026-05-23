@@ -83,17 +83,15 @@ FUNCTION ValidateCCDMonosaccharides(glycan_residues, whitelist):
         recognition_rate
     }
 
-### MODULE: src/lpmo_pipeline/io/protonate_export.py
+### MODULE: src/lpmo_pipeline/io/analysis_export.py
 
-PROCEDURE ProtonateAndExport(normalized_structure):
-    structure_H <- AddHydrogensWithReduce(normalized_structure)
-    ExportForPoseBusters(structure_H)
-    ExportForProLIF(structure_H)
+PROCEDURE ExportAnalysisArtifacts(normalized_structure):
+    complex_pdb <- ExportNonProtonatedComplexPDB(normalized_structure)
+    ligand_pdb <- ExportNonProtonatedLigandOnlyPDB(normalized_structure)
     RETURN {
-        complex_H,
-        posebusters_pdb,
-        prolif_ligand_mol2,
-        protonation_metrics
+        complex_for_prolif_pdb,
+        ligand_only_for_prolif_pdb,
+        analysis_export_report
     }
 
 ## 2) Mapping package
@@ -404,11 +402,11 @@ PROCEDURE RunCrystalAnchoringIfAvailable(system, cluster_signatures):
     )
     IF selected_reference.has_ligand:
         normalized_reference_cif <- NormalizeMMCIF(selected_reference_cif)
-        crystal_artifacts <- ProtonateAndExport(normalized_reference_cif)
-        # complex_H keeps Cu for geometry/RMSD; ligand MOL2 is glycan-only for ProLIF.
+        crystal_artifacts <- ExportAnalysisArtifacts(normalized_reference_cif)
+        # complex_for_prolif keeps Cu for geometry/RMSD; ligand-only PDB is glycan-only for ProLIF.
         crystal_ifp <- ComputeProLIF(
-            crystal_artifacts.complex_H_pdb,
-            crystal_artifacts.glycan_only_ligand_mol2
+            crystal_artifacts.complex_for_prolif_pdb,
+            crystal_artifacts.ligand_only_for_prolif_pdb
         )
 
     # 2) Identify alignment atoms

@@ -16,13 +16,13 @@ if [[ -z "${SLURM_JOB_ID:-}" ]]; then
 fi
 
 REPO_ROOT="/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse"
-PYTHON_BIN="/cluster/work/projects/nn1003k/eirik/conda/analyse_env/bin/python"
+PYTHON_BIN="/cluster/work/projects/nn1003k/eirik/conda/analyse_full_prolif_env/bin/python"
 SELECTED_GRID="${SELECTED_GRID:-$REPO_ROOT/tests/fixtures/clustering_stage_outputs/selected_primary_clustering_grid_results.tsv}"
 OUTPUT_ROOT="${OUTPUT_ROOT:-$REPO_ROOT/tests/fixtures/clustering_stage_outputs}"
 
 cd "$REPO_ROOT"
 export PYTHONPATH="$REPO_ROOT/src:${PYTHONPATH:-}"
-export PATH="/cluster/work/projects/nn1003k/eirik/conda/analyse_env/bin:$PATH"
+export PATH="/cluster/work/projects/nn1003k/eirik/conda/analyse_full_prolif_env/bin:$PATH"
 
 echo "[INFO] Selected grid: $SELECTED_GRID"
 echo "[INFO] Output root:   $OUTPUT_ROOT"

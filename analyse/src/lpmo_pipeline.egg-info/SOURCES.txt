@@ -32,6 +32,7 @@ src/lpmo_pipeline/analysis/prolif_ifp.py
 src/lpmo_pipeline/analysis/residue_contact_extraction.py
 src/lpmo_pipeline/analysis/residue_importance.py
 src/lpmo_pipeline/io/__init__.py
+src/lpmo_pipeline/io/analysis_export.py
 src/lpmo_pipeline/io/ccd_lookup.py
 src/lpmo_pipeline/io/cif_to_pdb.py
 src/lpmo_pipeline/io/discovery.py
@@ -68,6 +69,7 @@ src/lpmo_pipeline/utils/manifest.py
 src/lpmo_pipeline/utils/parallel.py
 src/lpmo_pipeline/utils/paths.py
 tests/test_activity_mapping.py
+tests/test_analysis_core_real_cifs_validation.py
 tests/test_analysis_orchestrator.py
 tests/test_atom_mapping.py
 tests/test_build_summary_json.py
@@ -101,6 +103,7 @@ tests/test_privateer_runner.py
 tests/test_prolif_ifp.py
 tests/test_qc_gates.py
 tests/test_qc_report.py
+tests/test_report_html.py
 tests/test_residue_contact_extraction.py
 tests/test_residue_importance.py
 tests/test_runtime_config.py

@@ -3,7 +3,7 @@
 
 The builder reuses existing pilot artifacts and does not rerun discovery, QC,
 ProLIF, geometry, or crystal anchoring. It reclusters the selected pilot main
-IFP matrices with the locked primary agglomerative Jaccard settings, then
+IFP matrices with the locked primary HDBSCAN Jaccard settings, then
 regenerates the flat downstream Stage 6/7/16b surfaces used by analysis tests.
 """
 from __future__ import annotations
@@ -25,11 +25,9 @@ from lpmo_pipeline.analysis.cluster_signatures import (
     write_cluster_residue_signature_table,
     write_cluster_signature_summary_json,
 )
-from lpmo_pipeline.analysis.clustering_agglomerative import (
-    AgglomerativeJaccardClusterer,
-    AgglomerativeJaccardConfig,
-)
 from lpmo_pipeline.analysis.clustering_hdbscan import (
+    HDBSCANClusterer,
+    HDBSCANConfig,
     build_cluster_assignment_rows,
     build_condition_cluster_summary,
     build_medoid_rows,
@@ -44,10 +42,11 @@ from lpmo_pipeline.analysis.residue_importance import (
 )
 
 
-SELECTED_PARAMETER_LABEL = "agglomerative_jaccard__threshold_0p55__min_cluster_size_3"
-SELECTED_METHOD = "agglomerative_jaccard"
-SELECTED_DISTANCE_THRESHOLD = 0.55
-SELECTED_MIN_CLUSTER_SIZE = 3
+SELECTED_PARAMETER_LABEL = "hdbscan_jaccard__min_cluster_size_5__min_samples_none"
+SELECTED_METHOD = "hdbscan_jaccard"
+SELECTED_DISTANCE_THRESHOLD = ""
+SELECTED_MIN_CLUSTER_SIZE = 5
+SELECTED_MIN_SAMPLES = None
 EXPECTED_CONDITION_COUNT = 145
 
 ROOT_OUTPUT_FILES = (
@@ -377,10 +376,10 @@ def _write_readme(staging_root: Path) -> None:
                 "",
                 "Primary method and parameters:",
                 "",
-                "- Method: `agglomerative_jaccard`",
-                "- Linkage: `average`",
-                "- Distance threshold: `0.55`",
-                "- Minimum cluster size: `3`",
+                "- Method: `hdbscan_jaccard`",
+                "- Minimum cluster size: `5`",
+                "- Minimum samples: `null`",
+                "- Cluster selection method: `eom`",
                 "",
                 "The root-level TSV/JSON files mirror the main analysis output surface for",
                 "clustering and downstream cluster-dependent stages. The `conditions/`",
@@ -424,12 +423,14 @@ def _write_root_outputs(
     rows: list[dict[str, str]],
     source_by_root: dict[Path, SourceOutputData],
 ) -> dict[str, Any]:
-    clusterer = AgglomerativeJaccardClusterer(
+    clusterer = HDBSCANClusterer(
         output_dir=staging_root,
-        config=AgglomerativeJaccardConfig(
-            linkage="average",
-            distance_threshold=SELECTED_DISTANCE_THRESHOLD,
+        config=HDBSCANConfig(
             min_cluster_size=SELECTED_MIN_CLUSTER_SIZE,
+            min_samples=SELECTED_MIN_SAMPLES,
+            metric="jaccard",
+            cluster_selection_method="eom",
+            locked=True,
         ),
     )
 

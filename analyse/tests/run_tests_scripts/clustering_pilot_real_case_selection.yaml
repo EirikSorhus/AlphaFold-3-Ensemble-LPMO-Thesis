@@ -13,9 +13,12 @@ run_privateer: false
 clustering_pilot:
   label: real_case_selected_proteins
   minimum_clusterable_n: 10
+  hdbscan_min_cluster_size: 5
+  hdbscan_min_samples: null
+  hdbscan_cluster_selection_method: eom
   agglomerative_linkage: average
   agglomerative_distance_threshold: 0.55
-  agglomerative_min_cluster_size: 3
+  agglomerative_min_cluster_size: 5
 
 selections:
   - target: NAG4

@@ -41,3 +41,33 @@ production:
     - NAG4
     - STA4
     - STA6
+
+  # Stage 6 clustering uses condition-local IFP columns filtered to this main
+  # interaction policy. Full raw IFP matrices are still written for audit and
+  # descriptive signatures.
+  clustering:
+    minimum_clusterable_n: 10
+    insufficient_clusterable_signal_label: "insufficient_clusterable_signal"
+    hdbscan_min_cluster_size: 5
+    hdbscan_min_samples: null
+    hdbscan_cluster_selection_method: "eom"
+    agglomerative_linkage: "average"
+    agglomerative_distance_threshold: 0.55
+    agglomerative_min_cluster_size: 5
+
+  clustering_features:
+    main_include_interaction_types:
+      - ImplicitHBAcceptor
+      - ImplicitHBDonor
+    extra_include_interaction_types: []
+    excluded_interaction_types:
+      - VdWContact
+
+  # Optional Stage 14 postprocess. When enabled, the main analysis writes
+  # 10_predictive/ directly from the just-produced condition_table.tsv.
+  predictive:
+    enabled: false
+    protein_metadata_path: "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/input_data/metadata_final_ec_fixed.tsv"
+    task: "all"
+    n_folds: 5
+    random_state: 42

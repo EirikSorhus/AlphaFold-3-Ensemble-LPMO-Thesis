@@ -15,8 +15,8 @@ from lpmo_pipeline.analysis.convergence_metrics import (
     write_condition_convergence_summary_tsv,
     write_pose_convergence_tsv,
 )
+from lpmo_pipeline.io.analysis_export import export_analysis_artifacts
 from lpmo_pipeline.io.normalize_mmcif import NormalizeMMCIFRunner
-from lpmo_pipeline.io.protonate_export import protonate_and_export
 
 
 DEFAULT_CIF_PATHS: tuple[Path, ...] = (
@@ -170,20 +170,20 @@ def main() -> int:
             normalized_path = Path(normalized_path).resolve()
             case_summary["normalized_cif"] = str(normalized_path)
 
-            protonation_dir = case_dir / "protonated"
-            ok_prot, report = protonate_and_export(normalized_path, protonation_dir)
-            case_summary["protonate_ok"] = bool(ok_prot)
-            case_summary["protonation_report_path"] = str(protonation_dir / "protonation_report.json")
-            case_summary["protonation_blockers"] = (report or {}).get("blockers", []) if report else []
-            case_summary["protonation_warnings"] = (report or {}).get("warnings", []) if report else []
-            if not ok_prot:
-                case_summary["status"] = "protonation_failed"
+            analysis_export_dir = case_dir / "analysis_export"
+            ok_export, report = export_analysis_artifacts(normalized_path, analysis_export_dir)
+            case_summary["analysis_export_ok"] = bool(ok_export)
+            case_summary["analysis_export_report_path"] = str(analysis_export_dir / "analysis_export_report.json")
+            case_summary["analysis_export_blockers"] = (report or {}).get("blockers", []) if report else []
+            case_summary["analysis_export_warnings"] = (report or {}).get("warnings", []) if report else []
+            if not ok_export:
+                case_summary["status"] = "analysis_export_failed"
                 summary["cases"].append(case_summary)
                 case_by_pose_id[pose_id] = case_summary
                 continue
 
-            complex_pdb = Path(str((report or {}).get("complex_h_pdb") or protonation_dir / "complex_H.pdb")).resolve()
-            case_summary["complex_h_pdb"] = str(complex_pdb)
+            complex_pdb = Path(str((report or {}).get("complex_for_prolif_pdb") or analysis_export_dir / "complex_for_prolif.pdb")).resolve()
+            case_summary["complex_for_prolif_pdb"] = str(complex_pdb)
             case_summary["status"] = "prepared"
 
             condition_inputs[condition_id].append(

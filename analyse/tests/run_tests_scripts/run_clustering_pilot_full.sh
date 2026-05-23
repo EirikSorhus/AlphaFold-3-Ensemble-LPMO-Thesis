@@ -2,9 +2,9 @@
 #SBATCH --job-name=run_tclustering_pilot_full
 #SBATCH --account=nn1003k
 #SBATCH --partition=small
-#SBATCH --time=24:00:00
-#SBATCH --mem=16G
-#SBATCH --cpus-per-task=3
+#SBATCH --time=00:30:00
+#SBATCH --mem=2G
+#SBATCH --cpus-per-task=1
 #SBATCH --output=/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/run_tests_scripts/logs/run_clustering_pilot_full_%j.log
 
 
@@ -12,14 +12,63 @@ set -euo pipefail
 
 REPO_ROOT="/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse"
 SCRIPT_DIR="$REPO_ROOT/tests/run_tests_scripts"
-PYTHON_BIN="/cluster/work/projects/nn1003k/eirik/conda/analyse_env/bin/python"
-OVERVIEW_TSV="$REPO_ROOT/input_data/clustering_pilot_protein_overview.tsv"
+PYTHON_BIN="/cluster/work/projects/nn1003k/eirik/conda/analyse_full_prolif_env/bin/python"
 DEFAULT_RUN_ROOT="$REPO_ROOT/tests/tests_results/clustering_pilot_full"
 
 RUN_ROOT="$DEFAULT_RUN_ROOT"
 PREPARE_ONLY=false
-FORCE_STEPS=()
-N_JOBS="${SLURM_CPUS_PER_TASK:-1}"
+SKIP_SENSITIVITY=false
+ACCOUNT="nn1003k"
+PARTITION="small"
+SHARD_SIZE=1
+ARRAY_LIMIT=""
+EXECUTE_CPUS=8
+EXECUTE_MEM="24G"
+EXECUTE_TIME="24:00:00"
+SUMMARY_CPUS=1
+SUMMARY_MEM="4G"
+SUMMARY_TIME="00:30:00"
+SENSITIVITY_CPUS=1
+SENSITIVITY_MEM="8G"
+SENSITIVITY_TIME="04:00:00"
+SENSITIVITY_OUTPUT_DIR=""
+
+usage() {
+  cat <<'EOF'
+Usage:
+    tests/run_tests_scripts/run_clustering_pilot_full.sh [options]
+
+This wrapper submits the current staged clustering pilot and then chains the
+existing clustering sensitivity job with the same parameter combinations used
+in the earlier sensitivity run:
+  - HDBSCAN min_cluster_size: 3 5 10
+  - HDBSCAN min_samples: none
+  - Agglomerative distance_threshold: 0.35 0.45 0.55
+  - Agglomerative min_cluster_size: 3 5 10
+
+Options:
+    --run-dir PATH              Output root for pilot and sensitivity artifacts.
+    --prepare-only             Do not submit jobs; print the staged and sensitivity commands.
+    --skip-sensitivity         Submit only the staged pilot, not the parameter sensitivity phase.
+    --account NAME             Slurm account (default: nn1003k).
+    --partition NAME           Slurm partition (default: small).
+    --shard-size N             Protein selections per staged shard task (default: 1).
+    --array-limit N            Optional staged array concurrency cap.
+    --n-jobs N                 Alias for --execute-cpus.
+    --execute-cpus N           CPUs per staged shard task (default: 8).
+    --execute-mem VALUE        Memory per staged shard task (default: 24G).
+    --execute-time VALUE       Walltime per staged shard task (default: 24:00:00).
+    --summary-cpus N           CPUs for staged summary job (default: 1).
+    --summary-mem VALUE        Memory for staged summary job (default: 4G).
+    --summary-time VALUE       Walltime for staged summary job (default: 00:30:00).
+    --sensitivity-cpus N       CPUs for parameter sensitivity job (default: 1).
+    --sensitivity-mem VALUE    Memory for parameter sensitivity job (default: 8G).
+    --sensitivity-time VALUE   Walltime for parameter sensitivity job (default: 04:00:00).
+    --sensitivity-output-dir PATH
+                               Optional explicit output directory for sensitivity outputs.
+    --help                     Show this help.
+EOF
+}
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -31,201 +80,211 @@ while [[ $# -gt 0 ]]; do
       PREPARE_ONLY=true
       shift
       ;;
-    --force-step)
-      FORCE_STEPS+=("$2")
+    --skip-sensitivity)
+      SKIP_SENSITIVITY=true
+      shift
+      ;;
+    --account)
+      ACCOUNT="$2"
       shift 2
       ;;
-    --n-jobs)
-      N_JOBS="$2"
+    --partition)
+      PARTITION="$2"
       shift 2
+      ;;
+    --shard-size)
+      SHARD_SIZE="$2"
+      shift 2
+      ;;
+    --array-limit)
+      ARRAY_LIMIT="$2"
+      shift 2
+      ;;
+    --n-jobs|--execute-cpus)
+      EXECUTE_CPUS="$2"
+      shift 2
+      ;;
+    --execute-mem)
+      EXECUTE_MEM="$2"
+      shift 2
+      ;;
+    --execute-time)
+      EXECUTE_TIME="$2"
+      shift 2
+      ;;
+    --summary-cpus)
+      SUMMARY_CPUS="$2"
+      shift 2
+      ;;
+    --summary-mem)
+      SUMMARY_MEM="$2"
+      shift 2
+      ;;
+    --summary-time)
+      SUMMARY_TIME="$2"
+      shift 2
+      ;;
+    --sensitivity-cpus)
+      SENSITIVITY_CPUS="$2"
+      shift 2
+      ;;
+    --sensitivity-mem)
+      SENSITIVITY_MEM="$2"
+      shift 2
+      ;;
+    --sensitivity-time)
+      SENSITIVITY_TIME="$2"
+      shift 2
+      ;;
+    --sensitivity-output-dir)
+      SENSITIVITY_OUTPUT_DIR=$(realpath -m "$2")
+      shift 2
+      ;;
+    --help)
+      usage
+      exit 0
       ;;
     *)
       echo "Unknown argument: $1" >&2
+      usage >&2
       exit 2
       ;;
   esac
 done
 
-if [[ "$PREPARE_ONLY" == false && -z "${SLURM_JOB_ID:-}" ]]; then
-  echo "[ERROR] Actual pilot execution must be submitted with sbatch, not run directly on the login node." >&2
-  echo "[INFO] Example: sbatch tests/run_tests_scripts/run_clustering_pilot_full.sh --run-dir tests/tests_results/clustering_pilot_full_run" >&2
-  echo "[INFO] Use --prepare-only only when you intentionally want a non-sbatch readiness check." >&2
-  exit 1
+if [[ "$SHARD_SIZE" -lt 1 ]]; then
+  echo "[ERROR] --shard-size must be >= 1" >&2
+  exit 2
 fi
 
 cd "$REPO_ROOT"
 export PYTHONPATH="$REPO_ROOT/src:${PYTHONPATH:-}"
 
 LOG_DIR="$RUN_ROOT/logs"
-MANIFEST_DIR="$RUN_ROOT/manifests"
 SUMMARY_DIR="$RUN_ROOT/summaries"
-DOMAIN_RUN_DIR="$RUN_ROOT/domain_only"
-FULL_RUN_DIR="$RUN_ROOT/full_length"
+STAGED_METADATA_JSON="$SUMMARY_DIR/staged_submission_metadata.json"
+ORCHESTRATOR_METADATA_JSON="$SUMMARY_DIR/full_wrapper_submission_metadata.json"
 
-mkdir -p "$LOG_DIR" "$MANIFEST_DIR" "$SUMMARY_DIR"
+mkdir -p "$LOG_DIR" "$SUMMARY_DIR"
 
-[[ -x "$PYTHON_BIN" ]] || { echo "Missing python interpreter: $PYTHON_BIN" >&2; exit 2; }
-[[ -f "$OVERVIEW_TSV" ]] || { echo "Missing pilot overview TSV: $OVERVIEW_TSV" >&2; exit 2; }
-
-FORCE_ARGS=()
-for step in "${FORCE_STEPS[@]}"; do
-  FORCE_ARGS+=(--force-step "$step")
-done
-
-run_step() {
-  local step_name=$1
-  shift
-  local log_path="$LOG_DIR/${step_name}.log"
-  echo "== $step_name =="
-  if "$@" >"$log_path" 2>&1; then
-    tail -n 20 "$log_path"
-  else
-    tail -n 40 "$log_path" >&2
-    return 1
-  fi
-}
-
-snapshot_summary() {
-  local source_path=$1
-  local target_name=$2
-  cp "$source_path" "$SUMMARY_DIR/$target_name"
-}
-
-summary_step_status() {
-  local summary_path=$1
-  "$PYTHON_BIN" - "$summary_path" <<'PY'
-import json
-import sys
-from pathlib import Path
-
-summary = json.loads(Path(sys.argv[1]).read_text())
-print(summary.get("run_step_status", "unknown"))
-PY
-}
-
-LAST_PREPARE_STATUS=""
-
-run_prepare_step() {
-  local step_name=$1
-  local run_dir=$2
-  local manifest_path=$3
-  local summary_name=$4
-  local log_path="$LOG_DIR/${step_name}.log"
-  local summary_path="$run_dir/clustering_pilot_real_case_summary.json"
-  local exit_code
-
-  echo "== $step_name =="
-  set +e
-  "$PYTHON_BIN" "$SCRIPT_DIR/run_clustering_pilot_real_case.py" \
-    --run-dir "$run_dir" \
-    --selection-manifest "$manifest_path" \
-    --n-jobs "$N_JOBS" \
-    "${FORCE_ARGS[@]}" >"$log_path" 2>&1
-  exit_code=$?
-  set -e
-
-  if [[ -f "$log_path" ]]; then
-    if [[ $exit_code -eq 0 ]]; then
-      tail -n 20 "$log_path"
-    else
-      tail -n 40 "$log_path" >&2
-    fi
-  fi
-
-  if [[ -f "$summary_path" ]]; then
-    snapshot_summary "$summary_path" "$summary_name"
-    LAST_PREPARE_STATUS=$(summary_step_status "$summary_path")
-    echo "prepare status: $LAST_PREPARE_STATUS"
-  else
-    LAST_PREPARE_STATUS="missing_summary"
-  fi
-
-  if [[ $exit_code -ne 0 && "$LAST_PREPARE_STATUS" != "blocked_missing_selection_data" ]]; then
-    return $exit_code
-  fi
-
-  return 0
-}
-
-run_step \
-  01_build_manifests \
-  "$PYTHON_BIN" "$SCRIPT_DIR/build_clustering_pilot_selection_manifests.py" \
-  --overview-tsv "$OVERVIEW_TSV" \
-  --output-dir "$MANIFEST_DIR"
-
-cp "$OVERVIEW_TSV" "$MANIFEST_DIR/clustering_pilot_protein_overview.tsv"
-snapshot_summary "$MANIFEST_DIR/clustering_pilot_manifest_summary.json" 01_manifest_generation.json
-
-DOMAIN_MANIFEST="$MANIFEST_DIR/clustering_pilot_domain_only_selection.yaml"
-FULL_MANIFEST="$MANIFEST_DIR/clustering_pilot_full_length_selection.yaml"
-FULL_COUNT=$(
-  "$PYTHON_BIN" - "$MANIFEST_DIR/clustering_pilot_manifest_summary.json" <<'PY'
-import json
-import sys
-from pathlib import Path
-summary = json.loads(Path(sys.argv[1]).read_text())
-print(int(summary["n_full_length_selections"]))
-PY
+staged_cmd=(
+  bash "$SCRIPT_DIR/submit_clustering_pilot_staged.sh"
+  --run-dir "$RUN_ROOT"
+  --account "$ACCOUNT"
+  --partition "$PARTITION"
+  --shard-size "$SHARD_SIZE"
+  --execute-cpus "$EXECUTE_CPUS"
+  --execute-mem "$EXECUTE_MEM"
+  --execute-time "$EXECUTE_TIME"
+  --summary-cpus "$SUMMARY_CPUS"
+  --summary-mem "$SUMMARY_MEM"
+  --summary-time "$SUMMARY_TIME"
+  --submission-metadata-json "$STAGED_METADATA_JSON"
 )
 
-run_prepare_step \
-  02_domain_prepare \
-  "$DOMAIN_RUN_DIR" \
-  "$DOMAIN_MANIFEST" \
-  02_domain_prepare_summary.json
-DOMAIN_PREPARE_STATUS="$LAST_PREPARE_STATUS"
-
-if [[ "$PREPARE_ONLY" == false ]]; then
-  [[ "$DOMAIN_PREPARE_STATUS" == "prepare_only" ]] || {
-    echo "Domain-only prepare did not reach a runnable state: $DOMAIN_PREPARE_STATUS" >&2
-    exit 1
-  }
-  run_step \
-    03_domain_execute \
-    "$PYTHON_BIN" "$SCRIPT_DIR/run_clustering_pilot_real_case.py" \
-    --run-dir "$DOMAIN_RUN_DIR" \
-    --selection-manifest "$DOMAIN_MANIFEST" \
-    --execute \
-    --n-jobs "$N_JOBS" \
-    "${FORCE_ARGS[@]}"
-  snapshot_summary "$DOMAIN_RUN_DIR/clustering_pilot_real_case_summary.json" 03_domain_execute_summary.json
-fi
-
-FULL_PREPARE_STATUS="not_requested"
-if [[ "$FULL_COUNT" -gt 0 ]]; then
-  run_prepare_step \
-    04_full_length_prepare \
-    "$FULL_RUN_DIR" \
-    "$FULL_MANIFEST" \
-    04_full_length_prepare_summary.json
-  FULL_PREPARE_STATUS="$LAST_PREPARE_STATUS"
-
-  if [[ "$PREPARE_ONLY" == false ]]; then
-    [[ "$FULL_PREPARE_STATUS" == "prepare_only" ]] || {
-      echo "Full-length prepare did not reach a runnable state: $FULL_PREPARE_STATUS" >&2
-      exit 1
-    }
-    run_step \
-      05_full_length_execute \
-    "$PYTHON_BIN" "$SCRIPT_DIR/run_clustering_pilot_real_case.py" \
-    --run-dir "$FULL_RUN_DIR" \
-    --selection-manifest "$FULL_MANIFEST" \
-    --execute \
-    --n-jobs "$N_JOBS" \
-    "${FORCE_ARGS[@]}"
-    snapshot_summary "$FULL_RUN_DIR/clustering_pilot_real_case_summary.json" 05_full_length_execute_summary.json
-  fi
+if [[ -n "$ARRAY_LIMIT" ]]; then
+  staged_cmd+=(--array-limit "$ARRAY_LIMIT")
 fi
 
 if [[ "$PREPARE_ONLY" == true ]]; then
-  BLOCKED_PHASES=()
-  [[ "$DOMAIN_PREPARE_STATUS" == "blocked_missing_selection_data" ]] && BLOCKED_PHASES+=("domain_only")
-  [[ "$FULL_PREPARE_STATUS" == "blocked_missing_selection_data" ]] && BLOCKED_PHASES+=("full_length")
-
-  if [[ ${#BLOCKED_PHASES[@]} -gt 0 ]]; then
-    echo "Prepare-only audit found blocked phases: ${BLOCKED_PHASES[*]}" >&2
-    exit 1
-  fi
+  staged_cmd+=(--dry-run)
 fi
 
-echo "Pilot wrapper complete. Run root: $RUN_ROOT"
+echo "== staged_pilot_submit =="
+staged_output=$("${staged_cmd[@]}")
+printf '%s\n' "$staged_output" | tee "$LOG_DIR/staged_pilot_submit.log"
+
+sensitivity_cmd=(
+  sbatch --parsable
+  --job-name=clust_param_sens
+  --account="$ACCOUNT"
+  --partition="$PARTITION"
+  --time="$SENSITIVITY_TIME"
+  --mem="$SENSITIVITY_MEM"
+  --cpus-per-task="$SENSITIVITY_CPUS"
+  --output="$LOG_DIR/parameter_sensitivity_%j.log"
+  --export="ALL,RUN_ROOT=$RUN_ROOT"
+  "$SCRIPT_DIR/run_clustering_parameter_sensitivity.slurm"
+)
+
+if [[ -n "$SENSITIVITY_OUTPUT_DIR" ]]; then
+  sensitivity_cmd+=("$SENSITIVITY_OUTPUT_DIR")
+fi
+
+if [[ "$PREPARE_ONLY" == true ]]; then
+  if [[ "$SKIP_SENSITIVITY" == false ]]; then
+    echo "== parameter_sensitivity_submit =="
+    printf '[DRY-RUN]'
+    printf ' %q' "${sensitivity_cmd[@]}"
+    printf '\n'
+  fi
+  cat > "$ORCHESTRATOR_METADATA_JSON" <<EOF
+{
+  "run_root": "$RUN_ROOT",
+  "prepare_only": true,
+  "skip_sensitivity": $([[ "$SKIP_SENSITIVITY" == true ]] && echo true || echo false),
+  "staged_submission_metadata_json": "$STAGED_METADATA_JSON",
+  "sensitivity_output_dir": "${SENSITIVITY_OUTPUT_DIR:-}"
+}
+EOF
+  echo "Pilot orchestration dry-run complete. Run root: $RUN_ROOT"
+  exit 0
+fi
+
+SUMMARY_JOB=$("$PYTHON_BIN" - "$STAGED_METADATA_JSON" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+payload = json.loads(Path(sys.argv[1]).read_text())
+print(payload.get("summary_job", ""))
+PY
+)
+
+if [[ -z "$SUMMARY_JOB" ]]; then
+  echo "[ERROR] Missing summary job id in $STAGED_METADATA_JSON" >&2
+  exit 1
+fi
+
+SENSITIVITY_JOB=""
+if [[ "$SKIP_SENSITIVITY" == false ]]; then
+  sensitivity_cmd=(
+    sbatch --parsable
+    --dependency=afterok:"$SUMMARY_JOB"
+    --job-name=clust_param_sens
+    --account="$ACCOUNT"
+    --partition="$PARTITION"
+    --time="$SENSITIVITY_TIME"
+    --mem="$SENSITIVITY_MEM"
+    --cpus-per-task="$SENSITIVITY_CPUS"
+    --output="$LOG_DIR/parameter_sensitivity_%j.log"
+    --export="ALL,RUN_ROOT=$RUN_ROOT"
+    "$SCRIPT_DIR/run_clustering_parameter_sensitivity.slurm"
+  )
+
+  if [[ -n "$SENSITIVITY_OUTPUT_DIR" ]]; then
+    sensitivity_cmd+=("$SENSITIVITY_OUTPUT_DIR")
+  fi
+
+  echo "== parameter_sensitivity_submit =="
+  SENSITIVITY_JOB=$("${sensitivity_cmd[@]}")
+  printf 'Submitted parameter sensitivity job: %s\n' "$SENSITIVITY_JOB" | tee "$LOG_DIR/parameter_sensitivity_submit.log"
+fi
+
+cat > "$ORCHESTRATOR_METADATA_JSON" <<EOF
+{
+  "run_root": "$RUN_ROOT",
+  "prepare_only": false,
+  "skip_sensitivity": $([[ "$SKIP_SENSITIVITY" == true ]] && echo true || echo false),
+  "staged_submission_metadata_json": "$STAGED_METADATA_JSON",
+  "summary_job": "$SUMMARY_JOB",
+  "sensitivity_job": "$SENSITIVITY_JOB",
+  "sensitivity_output_dir": "${SENSITIVITY_OUTPUT_DIR:-}"
+}
+EOF
+
+echo "Pilot orchestration complete. Run root: $RUN_ROOT"
+echo "Staged pilot summary job: $SUMMARY_JOB"
+if [[ "$SKIP_SENSITIVITY" == false ]]; then
+  echo "Parameter sensitivity job: $SENSITIVITY_JOB"
+fi

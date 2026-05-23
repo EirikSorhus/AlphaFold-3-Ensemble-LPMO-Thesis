@@ -1,4 +1,8 @@
 revision_update_2026_05_21_locked_predictors:
+  prolif_runtime_note_2026_05_22: >
+    H-bond predictors now come from implicit ProLIF H-bonds
+    (ImplicitHBAcceptor and ImplicitHBDonor). Hydrophobic interaction
+    predictors remain excluded from the compact predictor set.
   purpose: >
     Lock a compact predictor set for substrate-activity prediction under small
     effective n. Effective n is the number of proteins, not the number of

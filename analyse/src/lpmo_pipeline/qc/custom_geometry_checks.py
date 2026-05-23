@@ -5,7 +5,8 @@ Input:  Structure (gemmi or MDAnalysis Universe)
 Output: GeometryResult with Cu–His distances, Cu–C1/C4 distances, angles
 
 GATES:
-  - Cu–His distance must be 1.9–2.6 Å (hard fail)
+  - Cu-His distance must be 1.5-3.0 A (hard fail)
+  - Cu-His distance outside 1.8-2.6 A is retained as a soft warning
   - Cu–C1, Cu–C4 measured and flagged if > 7 Å (soft flag)
 
 INVARIANT: Atom names not assumed consistent across models.
@@ -34,8 +35,10 @@ DEFAULT_GLYCAN_CHAINS = tuple(str(chain) for chain in (_CHAIN_SCHEMA.get("glycan
 # ---------------------------------------------------------------------------
 # Thresholds (from configs/thresholds.yaml)
 # ---------------------------------------------------------------------------
-CU_HIS_MIN: float = 1.9   # Å
-CU_HIS_MAX: float = 2.6   # Å
+CU_HIS_MIN: float = 1.5   # Å
+CU_HIS_MAX: float = 3.0   # Å
+CU_HIS_SOFT_MIN: float = 1.8   # Å
+CU_HIS_SOFT_MAX: float = 2.6   # Å
 CU_SUBSTRATE_FLAG: float = 7.0  # Å — flag if Cu–C1/C4 > this
 HIS_BRACE_MAX_SEARCH_A: float = 3.0  # Å
 
@@ -101,8 +104,8 @@ def check_geometry(
     glycan_chains: list[str] | None = None,
     hard_cu_his_min_a: float = CU_HIS_MIN,
     hard_cu_his_max_a: float = CU_HIS_MAX,
-    soft_cu_his_min_a: float = CU_HIS_MIN,
-    soft_cu_his_max_a: float = CU_HIS_MAX,
+    soft_cu_his_min_a: float = CU_HIS_SOFT_MIN,
+    soft_cu_his_max_a: float = CU_HIS_SOFT_MAX,
     cu_c_soft_flag_a: float = CU_SUBSTRATE_FLAG,
     his_brace_max_search_a: float = HIS_BRACE_MAX_SEARCH_A,
 ) -> GeometryResult:

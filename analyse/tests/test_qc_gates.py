@@ -44,10 +44,20 @@ class TestPoseBustersGate:
 
 
 class TestCuHisGate:
-    """Cu-His_distances_in_range: 1.9–2.6 Å."""
+    """Cu-His_distances_in_range hard gate plus soft preferred band."""
+
+    def test_gate_config_defaults_match_locked_threshold_policy(self) -> None:
+        from lpmo_pipeline.qc.gates import GateConfig
+
+        config = GateConfig()
+
+        assert config.cu_his_dist_min == pytest.approx(1.5)
+        assert config.cu_his_dist_max == pytest.approx(3.0)
+        assert config.cu_his_soft_min_a == pytest.approx(1.8)
+        assert config.cu_his_soft_max_a == pytest.approx(2.6)
 
     def test_cu_his_out_of_range_drops(self) -> None:
-        """Cu–His distance > 2.6 Å → drop."""
+        """Cu–His distance outside the hard gate → drop."""
         from lpmo_pipeline.qc.custom_geometry_checks import GeometryResult, CuHisMeasurement
         from lpmo_pipeline.qc.qc_report import compute_verdict
 
@@ -58,13 +68,13 @@ class TestCuHisGate:
                 CuHisMeasurement(
                     his_chain="A", his_resnum=1, his_atom="NE2",
                     cu_chain="E", cu_resnum=1,
-                    distance_angstrom=3.0,
+                    distance_angstrom=3.2,
                     in_range=False,
                 ),
             ],
             cu_his_all_in_range=False,
             passed=False,
-            failure_reasons=["Cu-His distance out of range: His1:NE2=3.00Å"],
+            failure_reasons=["Cu-His distance out of range: His1:NE2=3.20Å"],
         )
         verdict = compute_verdict("test_003", pb_result=None, priv_result=None, geom_result=geom)
         assert verdict.status == "dropped"

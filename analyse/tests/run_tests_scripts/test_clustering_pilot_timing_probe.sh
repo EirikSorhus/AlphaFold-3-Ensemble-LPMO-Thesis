@@ -16,7 +16,7 @@ if [[ -z "${SLURM_JOB_ID:-}" ]]; then
 fi
 
 REPO_ROOT="/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse"
-PYTHON_BIN="/cluster/work/projects/nn1003k/eirik/conda/analyse_env/bin/python"
+PYTHON_BIN="/cluster/work/projects/nn1003k/eirik/conda/analyse_full_prolif_env/bin/python"
 RUN_DIR="$REPO_ROOT/tests/tests_results/clustering_pilot_timing_probe_${SLURM_JOB_ID}"
 N_JOBS_VALUES=(1 2 4)
 MODES=(prepare_only pilot_like qc_full)
@@ -64,7 +64,7 @@ done
 
 cd "$REPO_ROOT"
 export PYTHONPATH="$REPO_ROOT/src:${PYTHONPATH:-}"
-export PATH="/cluster/work/projects/nn1003k/eirik/conda/analyse_env/bin:$PATH"
+export PATH="/cluster/work/projects/nn1003k/eirik/conda/analyse_full_prolif_env/bin:$PATH"
 export XDG_CACHE_HOME="$RUN_DIR/cache"
 mkdir -p "$RUN_DIR" "$XDG_CACHE_HOME"
 

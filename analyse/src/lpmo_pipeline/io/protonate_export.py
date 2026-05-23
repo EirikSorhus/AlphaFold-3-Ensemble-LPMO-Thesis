@@ -32,7 +32,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional, Tuple
 
-from lpmo_pipeline.io.cif_to_pdb import convert_cif_to_pdb
+from lpmo_pipeline.io.cif_to_pdb import (
+    _build_topology_atom_xyz,
+    _choose_glycosidic_serial_pair,
+    _choose_glycosidic_topology_atoms,
+    _parse_pdb_xyz,
+    convert_cif_to_pdb,
+)
 from lpmo_pipeline.io.gemmi_compat import gemmi
 from lpmo_pipeline.utils.logging import FailureLog, StructuredLogger
 
@@ -387,7 +393,7 @@ def _protonate_with_pdbfixer(input_pdb: Path, output_pdb: Path, ph: float = 7.0)
     from openmm.app import PDBFile  # type: ignore[import]
 
     fixer = PDBFixer(filename=str(input_pdb))
-    _add_name_based_glycosidic_bonds(fixer.topology)
+    _add_name_based_glycosidic_bonds(fixer.topology, fixer.positions)
     fixer.addMissingHydrogens(ph)
 
     with open(output_pdb, "w") as out_f:
@@ -467,6 +473,7 @@ def _augment_glycan_bonds_from_names(
     residues. This adds missing NAG/BGC/GLC bonds so CONECT is complete.
     """
     atoms: list[dict[str, object]] = []
+    atom_xyz: dict[int, tuple[float, float, float]] = {}
     for line in pdb_lines:
         if not line.startswith(("ATOM  ", "HETATM")):
             continue
@@ -477,6 +484,10 @@ def _augment_glycan_bonds_from_names(
             serial = int(serial_txt)
         except ValueError:
             continue
+
+        xyz = _parse_pdb_xyz(line)
+        if xyz is not None:
+            atom_xyz[serial] = xyz
 
         resname = line[17:20].strip()
         if resname not in _GLYCAN_LINK_RESNAMES:
@@ -527,7 +538,7 @@ def _augment_glycan_bonds_from_names(
                 continue
             _add_adjacency_edge(adjacency, a_serial, b_serial)
 
-    # Inter-residue glycosidic bond: C1(i) - O4(i+1), same chain.
+    # Inter-residue glycosidic bond: O4(i) - C1(i+1), same chain.
     by_chain: dict[str, list[tuple[str, int, str]]] = {}
     for key in by_residue.keys():
         chain, resseq, _resname = key
@@ -542,11 +553,14 @@ def _augment_glycan_bonds_from_names(
             if right[1] != left[1] + 1:
                 continue
 
-            left_c1 = by_residue[left].get("C1")
-            right_o4 = by_residue[right].get("O4")
-            if left_c1 is None or right_o4 is None:
+            bond_a, bond_b = _choose_glycosidic_serial_pair(
+                by_residue[left],
+                by_residue[right],
+                atom_xyz,
+            )
+            if bond_a is None or bond_b is None:
                 continue
-            _add_adjacency_edge(adjacency, left_c1, right_o4)
+            _add_adjacency_edge(adjacency, bond_a, bond_b)
 
 
 def _add_adjacency_edge(adjacency: dict[int, set[int]], a: int, b: int) -> None:
@@ -575,11 +589,12 @@ def _residue_seq_id(residue) -> Optional[int]:
         return None
 
 
-def _add_name_based_glycosidic_bonds(topology) -> int:
-    """Add C1(i)-O4(i+1) glycosidic bonds for NAG/BGC/GLC residues.
+def _add_name_based_glycosidic_bonds(topology, positions=None) -> int:
+    """Add glycosidic bonds for adjacent NAG/BGC/GLC residues.
 
-    This ensures PDBFixer does not protonate O4 as hydroxyl when O4 is the
-    bridge oxygen in a beta-1,4-like glycan linkage.
+    This ensures PDBFixer does not protonate the bridge oxygen as hydroxyl,
+    while still handling crystal subsets where the physical glycan direction
+    does not match ascending residue numbering.
     """
     # Track existing bonds to avoid duplicates.
     existing: set[tuple[int, int]] = set()
@@ -588,6 +603,8 @@ def _add_name_based_glycosidic_bonds(topology) -> int:
         if i > j:
             i, j = j, i
         existing.add((i, j))
+
+    atom_xyz = _build_topology_atom_xyz(topology, positions)
 
     by_chain: dict[str, list] = {}
     for chain in topology.chains():
@@ -612,25 +629,16 @@ def _add_name_based_glycosidic_bonds(topology) -> int:
             if left_seq is None or right_seq is None or right_seq != left_seq + 1:
                 continue
 
-            left_c1 = None
-            right_o4 = None
-            for atom in left.atoms():
-                if atom.name == "C1":
-                    left_c1 = atom
-                    break
-            for atom in right.atoms():
-                if atom.name == "O4":
-                    right_o4 = atom
-                    break
-            if left_c1 is None or right_o4 is None:
+            bond_a, bond_b = _choose_glycosidic_topology_atoms(left, right, atom_xyz)
+            if bond_a is None or bond_b is None:
                 continue
 
-            i, j = left_c1.index, right_o4.index
+            i, j = bond_a.index, bond_b.index
             if i > j:
                 i, j = j, i
             if (i, j) in existing:
                 continue
-            topology.addBond(left_c1, right_o4)
+            topology.addBond(bond_a, bond_b)
             existing.add((i, j))
             added += 1
 

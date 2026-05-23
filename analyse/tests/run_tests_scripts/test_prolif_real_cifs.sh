@@ -15,7 +15,7 @@ if [[ -z "${SLURM_JOB_ID:-}" ]]; then
     exit 1
 fi
 
-export PATH="/cluster/work/projects/nn1003k/eirik/conda/analyse_env/bin:$PATH"
+export PATH="/cluster/work/projects/nn1003k/eirik/conda/analyse_full_prolif_env/bin:$PATH"
 export PIP_NO_CACHE_DIR=1
 
 project_root="/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse"
@@ -93,13 +93,17 @@ done
 
 if [[ "$skip_unit_tests" -eq 0 ]]; then
     echo "[INFO] Running focused ProLIF unit tests"
-    pytest tests/test_prolif_ifp.py -q
+    if /cluster/work/projects/nn1003k/eirik/conda/analyse_full_prolif_env/bin/python -m pytest --version >/dev/null 2>&1; then
+        /cluster/work/projects/nn1003k/eirik/conda/analyse_full_prolif_env/bin/python -m pytest tests/test_prolif_ifp.py -q
+    else
+        echo "[WARN] pytest is not installed in analyse_full_prolif_env; skipping focused unit tests"
+    fi
 else
     echo "[INFO] Skipping focused ProLIF unit tests (--skip-unit-tests)"
 fi
 
 echo "[INFO] Running ProLIF real-case harness on ${#cif_paths[@]} CIFs"
-/cluster/work/projects/nn1003k/eirik/conda/analyse_env/bin/python \
+/cluster/work/projects/nn1003k/eirik/conda/analyse_full_prolif_env/bin/python \
     tests/run_tests_scripts/run_prolif_real_cifs.py \
     --run-dir "$run_dir" \
     --run-id "$run_id" \

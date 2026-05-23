@@ -15,7 +15,7 @@ if [[ -z "${SLURM_JOB_ID:-}" ]]; then
     exit 1
 fi
 
-export PATH="/cluster/work/projects/nn1003k/eirik/conda/analyse_env/bin:$PATH"
+export PATH="/cluster/work/projects/nn1003k/eirik/conda/analyse_full_prolif_env/bin:$PATH"
 
 project_root="/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse"
 cd "$project_root"
@@ -74,7 +74,7 @@ else
 fi
 
 echo "[INFO] Running analysis tool smoke harness"
-/cluster/work/projects/nn1003k/eirik/conda/analyse_env/bin/python \
+/cluster/work/projects/nn1003k/eirik/conda/analyse_full_prolif_env/bin/python \
     tests/run_tests_scripts/run_analysis_tools_smoke.py \
     --run-dir "$run_dir" \
     --run-id "$run_id"

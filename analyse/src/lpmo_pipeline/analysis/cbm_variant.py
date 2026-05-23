@@ -15,8 +15,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-import numpy as np
-
 from lpmo_pipeline.config import load_defaults_config
 
 logger = logging.getLogger(__name__)
@@ -64,7 +62,7 @@ CBM_LIGAND_CONTACT_THRESHOLD = 4.5  # Å for "CBM contacts ligand"
 
 def compute_cbm_analysis(
     complex_pdb: Path,
-    ligand_mol2: Path,
+    ligand_pdb: Path,
     pose_id: str = "",
     lpmo_residues: list[int] | None = None,
     cbm_residues: list[int] | None = None,
@@ -77,8 +75,8 @@ def compute_cbm_analysis(
     Key difference from standard analysis: separate LPMO and CBM contacts.
 
     Args:
-        complex_pdb: Path to protonated full-length complex.
-        ligand_mol2: Path to ligand MOL2.
+        complex_pdb: Path to non-protonated full-length complex PDB.
+        ligand_pdb: Path to ligand-only PDB.
         pose_id: Identifier.
         lpmo_residues: Residue numbers belonging to LPMO domain.
         cbm_residues: Residue numbers belonging to CBM domain.
@@ -95,39 +93,11 @@ def compute_cbm_analysis(
     result = CBMAnalysisResult(pose_id=pose_id)
     logger.info("CBM analysis for pose %s", pose_id)
 
-    # --- Step 1: Compute IFP for LPMO domain residues only ---
-    # PSEUDOCODE: Use ProLIF with selection restricted to LPMO residues
-    # import prolif as plf
-    # u = mda.Universe(str(complex_pdb))
-    # if lpmo_residues:
-    #     lpmo_sel = "resid " + " ".join(str(r) for r in lpmo_residues)
-    #     prot_lpmo = plf.Molecule.from_mda(u, selection=f"segid {protein_chain} and ({lpmo_sel})")
-    # lig = plf.Molecule.from_file(str(ligand_mol2))
-    # fp_lpmo = plf.Fingerprint()
-    # fp_lpmo.run(lig, prot_lpmo)
-    # result.ifp_lpmo_bitvector = fp_lpmo.to_bitvectors()[0].tolist()
-
-    # --- Step 2: Compute IFP for CBM domain residues only ---
-    # if cbm_residues:
-    #     cbm_sel = "resid " + " ".join(str(r) for r in cbm_residues)
-    #     prot_cbm = plf.Molecule.from_mda(u, selection=f"segid {protein_chain} and ({cbm_sel})")
-    #     fp_cbm = plf.Fingerprint()
-    #     fp_cbm.run(lig, prot_cbm)
-    #     result.ifp_cbm_bitvector = fp_cbm.to_bitvectors()[0].tolist()
-
-    # --- Step 3: CBM proximity metrics ---
-    # PSEUDOCODE: MDAnalysis distance calculations
-    # cbm_atoms = u.select_atoms(f"segid {protein_chain} and ({cbm_sel}) and not name H*")
-    # lig_atoms = u.select_atoms(f"segid {' '.join(glycan_chains)} and not name H*")
-    # cu_atoms = u.select_atoms(f"segid {cu_chain} and element Cu")
-    #
-    # dists_cbm_lig = mda.lib.distances.distance_array(cbm_atoms.positions, lig_atoms.positions)
-    # result.proximity.cbm_ligand_min_dist = float(dists_cbm_lig.min())
-    # result.proximity.cbm_contacts_ligand = result.proximity.cbm_ligand_min_dist < CBM_LIGAND_CONTACT_THRESHOLD
-    #
-    # if len(cu_atoms) > 0:
-    #     dists_cbm_cu = mda.lib.distances.distance_array(cbm_atoms.positions, cu_atoms.positions)
-    #     result.proximity.cbm_cu_min_dist = float(dists_cbm_cu.min())
+    logger.info(
+        "Pose-level CBM dual-IFP/proximity backend is not active for %s; "
+        "condition-level CBM paired analysis is implemented in cbm_comparison.py",
+        pose_id,
+    )
 
     return result
 

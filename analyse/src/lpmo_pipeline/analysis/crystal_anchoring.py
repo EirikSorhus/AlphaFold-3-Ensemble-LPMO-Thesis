@@ -45,9 +45,9 @@ from lpmo_pipeline.analysis.mdanalysis_metrics import (
     compute_pose_metrics,
 )
 from lpmo_pipeline.config import load_defaults_config
+from lpmo_pipeline.io.analysis_export import export_analysis_artifacts
 from lpmo_pipeline.io.gemmi_compat import gemmi
 from lpmo_pipeline.io.normalize_mmcif import NormalizeMMCIFRunner
-from lpmo_pipeline.io.protonate_export import protonate_and_export
 
 logger = logging.getLogger(__name__)
 
@@ -138,7 +138,7 @@ class PreparedCrystalReference:
     subset_cif: Path
     normalized_cif: Path | None = None
     complex_pdb: Path | None = None
-    ligand_mol2: Path | None = None
+    ligand_pdb: Path | None = None
     ifp_artifact_dir: Path | None = None
     ifp_result_json: Path | None = None
     pose_ifp_table_tsv: Path | None = None
@@ -323,6 +323,44 @@ def load_crystal_reference_records(
 
     records.sort(key=lambda record: (record.pdb_code, str(record.source_cif)))
     return records
+
+
+def _parse_ligand_id_components(ligand_id: str) -> tuple[str, int | None]:
+    text = str(ligand_id).strip().upper()
+    if not text:
+        return "", None
+    match = re.match(r"^(?P<ligand>.*?)(?P<dp>\d+)$", text)
+    if match is None:
+        return text, None
+    return match.group("ligand"), int(match.group("dp"))
+
+
+def filter_crystal_reference_records(
+    records: Iterable[CrystalReferenceRecord],
+    *,
+    ligand_id: str = "",
+    require_expected_ligand: bool = True,
+) -> list[CrystalReferenceRecord]:
+    """Return the subset of crystal references matching one ligand condition.
+
+    The ligand condition uses the AF3 naming convention like ``CEL4`` or ``NAG6``.
+    Crystal rows are matched on both carbohydrate ligand label and DP so different
+    holo references for the same protein stay separable.
+    """
+    ligand_code, dp = _parse_ligand_id_components(ligand_id)
+    filtered: list[CrystalReferenceRecord] = []
+
+    for record in records:
+        if require_expected_ligand and not record.expected_ligand:
+            continue
+        if ligand_code and str(record.carbohydrate_ligands).strip().upper() != ligand_code:
+            continue
+        if dp is not None and record.dp != dp:
+            continue
+        filtered.append(record)
+
+    filtered.sort(key=lambda record: (record.pdb_code, str(record.source_cif)))
+    return filtered
 
 
 def _unique_nonempty(values: Iterable[str]) -> tuple[str, ...]:
@@ -1365,7 +1403,7 @@ def prepare_crystal_reference(
     *,
     ligand_distance_cutoff_a: float = DEFAULT_LIGAND_DISTANCE_CUTOFF_A,
 ) -> PreparedCrystalReference:
-    """Prepare one crystal reference through subset, normalization, protonation, and IFP."""
+    """Prepare one crystal reference through subset, normalization, export, and IFP."""
     selection = select_crystal_reference_site(
         record.source_cif,
         preferred_protein_chain=record.preferred_author_chain,
@@ -1416,44 +1454,44 @@ def prepare_crystal_reference(
     prepared_input_cif = Path(normalized_cif).resolve()
 
     try:
-        protonate_ok, protonation_report = protonate_and_export(prepared_input_cif, reference_dir / "protonated")
+        export_ok, export_report = export_analysis_artifacts(prepared_input_cif, reference_dir / "analysis_export")
     except Exception as exc:
         return PreparedCrystalReference(
             record=record,
             selection=selection,
             subset_cif=subset_cif,
             normalized_cif=prepared_input_cif,
-            status="protonation_failed",
+            status="analysis_export_failed",
             error=f"{exc.__class__.__name__}: {exc}",
         )
 
-    if not protonate_ok or not protonation_report:
+    if not export_ok or not export_report:
         return PreparedCrystalReference(
             record=record,
             selection=selection,
             subset_cif=subset_cif,
             normalized_cif=prepared_input_cif,
-            status="protonation_failed",
-            error="Protonation/export failed",
+            status="analysis_export_failed",
+            error="Analysis export failed",
         )
 
-    complex_pdb = Path(str(protonation_report.get("complex_h_pdb", ""))).resolve()
-    ligand_mol2 = Path(str(protonation_report.get("ligand_mol2", ""))).resolve()
-    if not complex_pdb.exists() or not ligand_mol2.exists():
+    complex_pdb = Path(str(export_report.get("complex_for_prolif_pdb", ""))).resolve()
+    ligand_pdb = Path(str(export_report.get("ligand_pdb", ""))).resolve()
+    if not complex_pdb.exists() or not ligand_pdb.exists():
         return PreparedCrystalReference(
             record=record,
             selection=selection,
             subset_cif=subset_cif,
             normalized_cif=prepared_input_cif,
             complex_pdb=complex_pdb,
-            ligand_mol2=ligand_mol2,
-            status="protonation_artifacts_missing",
-            error="Crystal protonation artifacts were not written",
+            ligand_pdb=ligand_pdb,
+            status="analysis_export_artifacts_missing",
+            error="Crystal analysis export artifacts were not written",
         )
 
     crystal_ifp = compute_ifp_single(
         complex_pdb=complex_pdb,
-        ligand_mol2=ligand_mol2,
+        ligand_pdb=ligand_pdb,
         pose_id=record.pdb_code,
         protein_chain=DEFAULT_PROTEIN_CHAIN,
     )
@@ -1470,7 +1508,7 @@ def prepare_crystal_reference(
                 subset_cif=subset_cif,
                 normalized_cif=prepared_input_cif,
                 complex_pdb=complex_pdb,
-                ligand_mol2=ligand_mol2,
+                ligand_pdb=ligand_pdb,
             )
         )
     except Exception as exc:
@@ -1491,7 +1529,7 @@ def prepare_crystal_reference(
         subset_cif=subset_cif,
         normalized_cif=prepared_input_cif,
         complex_pdb=complex_pdb,
-        ligand_mol2=ligand_mol2,
+        ligand_pdb=ligand_pdb,
         ifp_artifact_dir=ifp_artifact_dir,
         ifp_result_json=ifp_result_json,
         pose_ifp_table_tsv=pose_ifp_table_tsv,
@@ -1519,21 +1557,21 @@ def _prepare_representative_pose_ifp(
         return None, "Normalization failed", None, None
 
     try:
-        protonate_ok, protonation_report = protonate_and_export(Path(normalized_cif), output_dir / "protonated")
+        export_ok, export_report = export_analysis_artifacts(Path(normalized_cif), output_dir / "analysis_export")
     except Exception as exc:
         return None, f"{exc.__class__.__name__}: {exc}", None, None
 
-    if not protonate_ok or not protonation_report:
-        return None, "Protonation/export failed", None, None
+    if not export_ok or not export_report:
+        return None, "Analysis export failed", None, None
 
-    complex_pdb = Path(str(protonation_report.get("complex_h_pdb", ""))).resolve()
-    ligand_mol2 = Path(str(protonation_report.get("ligand_mol2", ""))).resolve()
-    if not complex_pdb.exists() or not ligand_mol2.exists():
-        return None, "Representative pose protonation artifacts missing", None, None
+    complex_pdb = Path(str(export_report.get("complex_for_prolif_pdb", ""))).resolve()
+    ligand_pdb = Path(str(export_report.get("ligand_pdb", ""))).resolve()
+    if not complex_pdb.exists() or not ligand_pdb.exists():
+        return None, "Representative pose analysis export artifacts missing", None, None
 
     pose_ifp = compute_ifp_single(
         complex_pdb=complex_pdb,
-        ligand_mol2=ligand_mol2,
+        ligand_pdb=ligand_pdb,
         pose_id=representative_pose_id,
         protein_chain=DEFAULT_PROTEIN_CHAIN,
     )
@@ -1550,6 +1588,7 @@ def run_crystal_reference_screen(
     ligand_id: str = "",
     reference_index_csv: Path = DEFAULT_REFERENCE_INDEX_CSV,
     crystal_root: Path = DEFAULT_CRYSTAL_ROOT,
+    records: Iterable[CrystalReferenceRecord] | None = None,
 ) -> CrystalReferenceScreenReport:
     """Compare one representative pose against all crystal references for a protein."""
     representative_pose_path = Path(representative_pose_cif).resolve()
@@ -1578,13 +1617,13 @@ def run_crystal_reference_screen(
             ligand_chain=DEFAULT_LIGAND_CHAIN,
             protein_chain=DEFAULT_PROTEIN_CHAIN,
         )
-    records = load_crystal_reference_records(
+    records_to_compare = list(records) if records is not None else load_crystal_reference_records(
         report.protein_id,
         reference_index_csv=reference_index_csv,
         crystal_root=crystal_root,
     )
 
-    for record in records:
+    for record in records_to_compare:
         prepared = prepare_crystal_reference(record, output_dir / "references")
         comparison = CrystalReferencePoseComparison(
             pdb_code=record.pdb_code,
@@ -1785,7 +1824,7 @@ def _comparison_tanimoto(
 
 def run_crystal_anchoring(
     crystal_pdb: Path,
-    crystal_ligand_mol2: Path | None,
+    crystal_ligand_pdb: Path | None,
     cluster_medoid_data: list[dict[str, Any]],
     protein_id: str = "",
     ligand_id: str = "",
@@ -1796,12 +1835,12 @@ def run_crystal_anchoring(
 
     Args:
         crystal_pdb: Path to crystal complex PDB.
-        crystal_ligand_mol2: Path to crystal ligand MOL2 (None if apo).
+        crystal_ligand_pdb: Path to crystal ligand PDB (None if apo).
         cluster_medoid_data: List of {
             "cluster_id": int,
             "medoid_pose_id": str,
             "medoid_pdb": Path,
-            "medoid_mol2": Path,
+            "medoid_ligand_pdb": Path,
             "medoid_ifp": list[int],  # flat bitvector
         }
         protein_id: For metadata.
@@ -1818,11 +1857,11 @@ def run_crystal_anchoring(
         crystal_pdb=str(crystal_pdb),
     )
 
-    if crystal_ligand_mol2 is not None and crystal_ligand_mol2.exists():
+    if crystal_ligand_pdb is not None and crystal_ligand_pdb.exists():
         report.has_crystal_ligand = True
         crystal_ifp_result = compute_ifp_single(
             complex_pdb=crystal_pdb,
-            ligand_mol2=crystal_ligand_mol2,
+            ligand_pdb=crystal_ligand_pdb,
             pose_id="crystal",
             protein_chain=protein_chain,
         )

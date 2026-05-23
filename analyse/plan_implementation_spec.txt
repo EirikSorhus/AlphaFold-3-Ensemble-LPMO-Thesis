@@ -224,7 +224,8 @@ Important rules:
 - DO NOT reposition Cu
 - DO NOT add virtual oxyl
 - DO NOT add virtual H on C1/C4
-- ProLIF can handle hydrogens needed for interaction detection
+- ProLIF must use the non-protonated normalized analysis-export PDB/PDB inputs
+  and implicit-H interaction types
 
 Goal:
 - capture interaction patterns around the binding surface and active-site region
@@ -238,16 +239,18 @@ Tool:
 
 Generate binary IFP per pose.
 
-Include consistent interaction types, for example:
-- Hbond donor
-- Hbond acceptor
-- hydrophobic
-- aromatic / stacking if robustly supported
-- any other standard ProLIF type used consistently
+Active raw interaction types:
+- ImplicitHBDonor
+- ImplicitHBAcceptor
+- VdWContact
+
+Main clustering uses only the two implicit H-bond types. VdWContact remains a
+raw diagnostic/contact-eligibility signal. Hydrophobic and other legacy ProLIF
+families are excluded unless a new explicit calibration reintroduces them.
 
 Important rule:
 - do NOT use a separate polar-contact-count feature in the main pipeline
-- polarity is already represented by Hbond donor / acceptor in IFP
+- polarity is represented by ImplicitHBDonor / ImplicitHBAcceptor in IFP
 
 Add to pose_table:
 - ifp_vector

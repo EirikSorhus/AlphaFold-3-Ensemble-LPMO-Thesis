@@ -31,13 +31,15 @@ connectivity:
 
 # PLACER: removed from pipeline (2026-04-21)
 
-# ── Protonation / export ──
+# ── Legacy protonation / export ──
+# Not used by the active ProLIF path. Production ProLIF uses non-protonated
+# analysis_export PDB/PDB artifacts and implicit-H interactions.
 protonation:
   reduce_flags: ["-HIS"]         # prioritise Cu-coordinating His
   export_formats:
     posebusters: "pdb"           # with CONECT
-    prolif: "mol2"               # bond orders + Gasteiger charges
-    analysis: "pdb"              # full-H complex
+    prolif: "pdb"                # non-protonated complex + ligand-only PDB
+    analysis: "pdb"              # non-protonated analysis export
 
 # ── CCD monosaccharide whitelist (Privateer prep) ──
 ccd_monosaccharides:

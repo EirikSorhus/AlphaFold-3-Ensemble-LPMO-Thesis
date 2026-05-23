@@ -4,10 +4,10 @@ Responsibility: Orchestrate the hard QC sequence for a batch of poses.
 
 Sequence per pose:
     1. Run active-site proximity pre-gate (Stage 8)
-        2. Run PoseBusters
-        3. Run Cu-His + substrate geometry checks
-        4. Run Privateer when input is available
-        5. Aggregate into unified QC verdict via compute_verdict()
+    2. Run Cu-His + substrate geometry checks
+    3. Run PoseBusters
+    4. Run Privateer when input is available
+    5. Aggregate into unified QC verdict via compute_verdict()
 
 INVARIANT — "Ikke-slett regel":
   All numeric metrics are preserved in the verdict even when the pose is
@@ -62,6 +62,23 @@ class _PoseEvaluation:
     timing_events: list[dict[str, Any]] = field(default_factory=list)
 
 
+def _posebusters_runner_error_result(pose_id: str, exc: Exception) -> PoseBustersSingleResult:
+    return PoseBustersSingleResult(
+        pose_id=pose_id,
+        passed=False,
+        critical_errors=["posebusters_runner_error"],
+        details={"runner_error": str(exc)},
+    )
+
+
+def _privateer_runner_error_result(pose_id: str, error: str) -> PrivateerResult:
+    return PrivateerResult(
+        pose_id=pose_id,
+        all_pass=False,
+        runner_error=error,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Input model
 # ---------------------------------------------------------------------------
@@ -114,9 +131,11 @@ def run_hard_qc(
             If this fails, the pose is dropped from further QC and downstream
             analysis.
         3. **PoseBusters** — chemical/stereochemical validation.
-         If the PoseBusters backend raises an unexpected exception the pose
-         is still processed (``pb_result`` set to ``None``).
+            If the PoseBusters backend raises an unexpected exception, the
+            pose gets an explicit hard-fail PoseBusters result.
         4. **Privateer** — if ``privateer_cif_path`` is provided.
+            If the Privateer batch backend raises an unexpected exception, all
+            Privateer-eligible poses get explicit hard-fail Privateer results.
 
     All numeric metrics are retained regardless of pass/fail status
     ("Ikke-slett regel").
@@ -265,12 +284,12 @@ def run_hard_qc(
                         detail=";".join(pb_result.critical_errors or []),
                     )
                 )
-            except Exception:
+            except Exception as exc:
                 logger.exception(
-                    "PoseBusters raised an unexpected error for pose %s; "
-                    "continuing without PB result",
+                    "PoseBusters raised an unexpected error for pose %s; failing pose closed",
                     pose.pose_id,
                 )
+                pb_result = _posebusters_runner_error_result(pose.pose_id, exc)
                 _append_pose_timing(
                     _timing_event(
                         step="hard_qc.posebusters",
@@ -343,6 +362,14 @@ def run_hard_qc(
         try:
             for result in run_privateer_batch(privateer_inputs, max_workers=worker_count):
                 privateer_results[result.pose_id] = result
+            missing_pose_ids = [
+                item.pose_id for item in privateer_inputs if item.pose_id not in privateer_results
+            ]
+            for pose_id in missing_pose_ids:
+                privateer_results[pose_id] = _privateer_runner_error_result(
+                    pose_id,
+                    "privateer_missing_result",
+                )
             if collect_timing_events:
                 timing_events.append(
                     _timing_event(
@@ -352,10 +379,15 @@ def run_hard_qc(
                         detail=f"n_inputs={len(privateer_inputs)}",
                     )
                 )
-        except Exception:
+        except Exception as exc:
             logger.exception(
-                "Privateer batch raised an unexpected error; continuing without Privateer results"
+                "Privateer batch raised an unexpected error; failing eligible poses closed"
             )
+            for item in privateer_inputs:
+                privateer_results[item.pose_id] = _privateer_runner_error_result(
+                    item.pose_id,
+                    f"privateer_batch_runner_error:{exc}",
+                )
             if collect_timing_events:
                 timing_events.append(
                     _timing_event(
@@ -363,6 +395,22 @@ def run_hard_qc(
                         start=privateer_start,
                         status="error",
                         detail=f"n_inputs={len(privateer_inputs)}",
+                    )
+                )
+        if collect_timing_events and privateer_inputs:
+            missing_pose_ids = [
+                item.pose_id
+                for item in privateer_inputs
+                if privateer_results.get(item.pose_id, PrivateerResult()).runner_error
+                == "privateer_missing_result"
+            ]
+            if missing_pose_ids:
+                timing_events.append(
+                    _timing_event(
+                        step="hard_qc.privateer_batch_missing_results",
+                        start=privateer_start,
+                        status="error",
+                        detail=f"pose_ids={','.join(missing_pose_ids)}",
                     )
                 )
     else:

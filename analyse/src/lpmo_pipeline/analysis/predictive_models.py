@@ -1,14 +1,14 @@
 # src/lpmo_pipeline/analysis/predictive_models.py
 """
-Responsibility: Provisional predictive-modeling scaffold from cluster features.
-Input:  predictive_cluster_table (cluster-level rows + activity labels)
-Output: Model performance metrics, feature importances
+Responsibility: Final compact sklearn backend for exploratory predictive models.
+Input:  condition-derived modeling tables or optional predictive_cluster_table rows.
+Output: Grouped-CV metrics, predictions, and feature importances.
 
 Status:
-    This module is not the final predictive-analysis implementation. It
-    currently provides tested leakage-safety utilities and narrow baseline
-    runners while the project plan is revised to select final model families
-    and predictor variables.
+    The primary backend is sklearn LogisticRegression with L2 regularization,
+    fold-local numeric imputation/standardization, balanced class weighting, and
+    protein-level grouped CV. Decision-tree/random-forest helpers remain
+    sensitivity or compatibility paths, not the primary reported backend.
 
 Anti p-hack rules:
   - HDBSCAN params LOCKED (from tuning, not re-tuned here)
@@ -18,8 +18,9 @@ Anti p-hack rules:
   - Default CV target is 5 folds when enough protein groups exist.
 
 Main rule:
-    - Keep cluster rows as primary modeling rows.
-    - Enzyme-level aggregation is sensitivity analysis only.
+    - Keep all rows from the same protein in the same CV fold.
+    - Treat outputs as exploratory structure-derived associations, not causal
+      activity evidence.
 """
 from __future__ import annotations
 
@@ -32,7 +33,8 @@ from typing import Any
 
 import numpy as np
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import average_precision_score, balanced_accuracy_score
+from sklearn.metrics import average_precision_score
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.tree import DecisionTreeClassifier
 
 logger = logging.getLogger(__name__)
@@ -144,6 +146,26 @@ def _recall_at_k(y_true: np.ndarray, y_score: np.ndarray, k: int) -> float:
     top_k = min(k, len(y_true))
     ranking = np.argsort(-y_score, kind="stable")[:top_k]
     return float(np.sum(y_true[ranking]) / positive_total)
+
+
+def _binary_balanced_accuracy(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    recalls = []
+    for label in (0, 1):
+        label_mask = y_true == label
+        label_total = int(np.sum(label_mask))
+        if label_total > 0:
+            recalls.append(float(np.sum(y_pred[label_mask] == label) / label_total))
+    return float(np.mean(recalls)) if recalls else 0.0
+
+
+def _label_balanced_accuracy(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    recalls = []
+    for label in sorted(set(y_true.tolist())):
+        label_mask = y_true == label
+        label_total = int(np.sum(label_mask))
+        if label_total > 0:
+            recalls.append(float(np.sum(y_pred[label_mask] == label) / label_total))
+    return float(np.mean(recalls)) if recalls else 0.0
 
 
 def build_grouped_stratified_cv(
@@ -301,7 +323,7 @@ def run_binary_predictive_baselines(
             )
             estimator.fit(x_train, y_train)
             y_pred = estimator.predict(x_test)
-            result.per_fold_scores.append(float(balanced_accuracy_score(y_test, y_pred)))
+            result.per_fold_scores.append(_binary_balanced_accuracy(y_test, y_pred))
             result.fold_test_protein_ids.append(fold.test_protein_ids)
             if hasattr(estimator, "coef_"):
                 importance_accumulator += np.abs(estimator.coef_[0])
@@ -358,14 +380,25 @@ def run_grouped_binary_logistic_cv(
         return result
 
     protein_ids = sorted({str(row[group_column]) for row in filtered_rows})
-    activity_labels = {
-        protein_id: "positive" if _as_binary_int(next(
-            row[target_column] for row in filtered_rows if str(row[group_column]) == protein_id
-        )) == 1 else "negative"
-        for protein_id in protein_ids
-    }
-    result.n_positive = sum(1 for protein_id in protein_ids if activity_labels[protein_id] == "positive")
-    result.n_negative = sum(1 for protein_id in protein_ids if activity_labels[protein_id] == "negative")
+    targets_by_protein: dict[str, list[int]] = defaultdict(list)
+    for row in filtered_rows:
+        target_value = _as_binary_int(row[target_column])
+        if target_value is not None:
+            targets_by_protein[str(row[group_column])].append(target_value)
+
+    activity_labels = {}
+    for protein_id in protein_ids:
+        protein_targets = set(targets_by_protein[protein_id])
+        if protein_targets == {1}:
+            activity_labels[protein_id] = "positive"
+        elif protein_targets == {0}:
+            activity_labels[protein_id] = "negative"
+        else:
+            activity_labels[protein_id] = "mixed"
+
+    row_targets = [target for targets in targets_by_protein.values() for target in targets]
+    result.n_positive = sum(1 for target in row_targets if target == 1)
+    result.n_negative = sum(1 for target in row_targets if target == 0)
     if result.n_positive == 0 or result.n_negative == 0:
         return result
 
@@ -376,7 +409,6 @@ def run_grouped_binary_logistic_cv(
         n_folds=n_folds,
         random_state=random_state,
     )
-    result.n_folds = len(folds)
     if not folds:
         return result
 
@@ -403,7 +435,6 @@ def run_grouped_binary_logistic_cv(
         x_test = _transform_numeric_matrix(x_test_raw, medians=medians, means=means, stds=stds)
 
         estimator = LogisticRegression(
-            penalty="l2",
             C=c_value,
             class_weight="balanced",
             solver="liblinear",
@@ -416,7 +447,7 @@ def run_grouped_binary_logistic_cv(
 
         k = int(np.sum(y_test))
         pr_auc = float(average_precision_score(y_test, y_score)) if k > 0 else 0.0
-        balanced_accuracy = float(balanced_accuracy_score(y_test, y_pred))
+        balanced_accuracy = _binary_balanced_accuracy(y_test, y_pred)
         recall_at_k = _recall_at_k(y_test, y_score, k)
         result.fold_metrics.append(
             {
@@ -445,6 +476,7 @@ def run_grouped_binary_logistic_cv(
             importance_accumulator += np.abs(estimator.coef_[0])
             n_importance_folds += 1
 
+    result.n_folds = len(result.fold_metrics)
     for metric_name in ("pr_auc", "balanced_accuracy", "recall_at_k"):
         metric_values = [float(fold_metric[metric_name]) for fold_metric in result.fold_metrics]
         if metric_values:
@@ -470,53 +502,110 @@ def run_predictive_model(
     labels: dict[str, str],             # {cluster_id: activity_class}
     cluster_to_protein: dict[str, str],  # {cluster_id: protein_id}
     folds: list[CVFold],
-    model_type: str = "random_forest",
+    model_type: str = "logistic_regression",
 ) -> CVResult:
     """Run predictive modeling with grouped CV.
-
-    PSEUDOCODE — wraps sklearn classifiers.
 
     Args:
         features: Feature vectors per cluster row.
         labels: Activity labels per cluster row.
         cluster_to_protein: Mapping to enforce grouped CV at protein level.
         folds: Pre-built protein-level CV folds.
-        model_type: "random_forest" | "logistic_regression"
+        model_type: "logistic_regression" | "decision_tree" | "random_forest"
 
     Returns:
         CVResult with per-fold scores and feature importances.
     """
-    result = CVResult(n_folds=len(folds), metric_name="balanced_accuracy")
+    result = CVResult(metric_name="balanced_accuracy", model_type=model_type)
+    valid_cluster_ids = sorted(
+        cluster_id
+        for cluster_id in cluster_to_protein
+        if cluster_id in features and cluster_id in labels
+    )
+    if not valid_cluster_ids or not folds:
+        return result
 
-    # PSEUDOCODE:
-    # from sklearn.ensemble import RandomForestClassifier
-    # from sklearn.metrics import balanced_accuracy_score
-    #
-    # importances_accumulator = np.zeros(n_features)
-    # for fold in folds:
-    #     train_clusters = [
-    #         cid for cid, protein_id in cluster_to_protein.items()
-    #         if protein_id in fold.train_protein_ids
-    #     ]
-    #     test_clusters = [
-    #         cid for cid, protein_id in cluster_to_protein.items()
-    #         if protein_id in fold.test_protein_ids
-    #     ]
-    #     X_train = np.array([features[cid] for cid in train_clusters])
-    #     y_train = np.array([labels[cid] for cid in train_clusters])
-    #     X_test = np.array([features[cid] for cid in test_clusters])
-    #     y_test = np.array([labels[cid] for cid in test_clusters])
-    #
-    #     clf = RandomForestClassifier(n_estimators=100, random_state=42)
-    #     clf.fit(X_train, y_train)
-    #     y_pred = clf.predict(X_test)
-    #     score = balanced_accuracy_score(y_test, y_pred)
-    #     result.per_fold_scores.append(score)
-    #     importances_accumulator += clf.feature_importances_
-    #
-    # result.mean_score = np.mean(result.per_fold_scores)
-    # result.std_score = np.std(result.per_fold_scores)
-    # result.feature_importances = {f"feature_{i}": v for i, v in enumerate(importances_accumulator / len(folds))}
+    n_features = len(features[valid_cluster_ids[0]])
+    if any(len(features[cluster_id]) != n_features for cluster_id in valid_cluster_ids):
+        raise ValueError("All feature vectors must have the same length")
+
+    importance_accumulator = np.zeros(n_features, dtype=float)
+    n_importance_folds = 0
+    for fold in folds:
+        train_proteins = set(fold.train_protein_ids)
+        test_proteins = set(fold.test_protein_ids)
+        train_clusters = [
+            cluster_id
+            for cluster_id in valid_cluster_ids
+            if cluster_to_protein[cluster_id] in train_proteins
+        ]
+        test_clusters = [
+            cluster_id
+            for cluster_id in valid_cluster_ids
+            if cluster_to_protein[cluster_id] in test_proteins
+        ]
+        if not train_clusters or not test_clusters:
+            continue
+
+        y_train = np.asarray([str(labels[cluster_id]) for cluster_id in train_clusters])
+        y_test = np.asarray([str(labels[cluster_id]) for cluster_id in test_clusters])
+        if len(set(y_train.tolist())) < 2:
+            continue
+
+        x_train_raw = np.asarray([features[cluster_id] for cluster_id in train_clusters], dtype=float)
+        x_test_raw = np.asarray([features[cluster_id] for cluster_id in test_clusters], dtype=float)
+        medians, means, stds = _fit_numeric_preprocessor(x_train_raw)
+        x_train = _transform_numeric_matrix(x_train_raw, medians=medians, means=means, stds=stds)
+        x_test = _transform_numeric_matrix(x_test_raw, medians=medians, means=means, stds=stds)
+
+        if model_type == "logistic_regression":
+            estimator = LogisticRegression(
+                C=1.0,
+                class_weight="balanced",
+                solver="liblinear",
+                max_iter=1000,
+                random_state=42,
+            )
+        elif model_type == "decision_tree":
+            estimator = DecisionTreeClassifier(
+                max_depth=3,
+                class_weight="balanced",
+                random_state=42,
+            )
+        elif model_type == "random_forest":
+            estimator = RandomForestClassifier(
+                n_estimators=100,
+                max_depth=3,
+                class_weight="balanced",
+                random_state=42,
+            )
+        else:
+            raise ValueError(f"Unsupported model_type: {model_type}")
+
+        estimator.fit(x_train, y_train)
+        y_pred = estimator.predict(x_test)
+        result.per_fold_scores.append(_label_balanced_accuracy(y_test, y_pred))
+        result.fold_test_protein_ids.append(fold.test_protein_ids)
+
+        if hasattr(estimator, "coef_"):
+            coefficients = np.asarray(estimator.coef_, dtype=float)
+            if coefficients.ndim == 1:
+                importance_accumulator += np.abs(coefficients)
+            else:
+                importance_accumulator += np.mean(np.abs(coefficients), axis=0)
+            n_importance_folds += 1
+        elif hasattr(estimator, "feature_importances_"):
+            importance_accumulator += estimator.feature_importances_
+            n_importance_folds += 1
+
+    result.n_folds = len(result.per_fold_scores)
+    result.mean_score = float(np.mean(result.per_fold_scores)) if result.per_fold_scores else 0.0
+    result.std_score = float(np.std(result.per_fold_scores)) if result.per_fold_scores else 0.0
+    if n_importance_folds:
+        result.feature_importances = {
+            f"feature_{index}": float(value)
+            for index, value in enumerate(importance_accumulator / n_importance_folds)
+        }
 
     logger.info(
         "Predictive model (cluster rows): %s CV score = %.3f ± %.3f",

@@ -67,12 +67,20 @@ def protonation_dir(run: Path) -> Path:
     return run / "protonated"
 
 
+def analysis_export_dir(run: Path) -> Path:
+    return run / "analysis_export"
+
+
 def posebusters_pdb_path(run: Path) -> Path:
     return protonation_dir(run) / "for_posebusters.pdb"
 
 
-def prolif_mol2_path(run: Path) -> Path:
-    return protonation_dir(run) / "ligand_for_prolif.mol2"
+def prolif_ligand_pdb_path(run: Path) -> Path:
+    return analysis_export_dir(run) / "ligand_only_for_prolif.pdb"
+
+
+def prolif_complex_pdb_path(run: Path) -> Path:
+    return analysis_export_dir(run) / "complex_for_prolif.pdb"
 
 
 def complex_h_pdb_path(run: Path) -> Path:

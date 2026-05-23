@@ -2,7 +2,7 @@
 
 This module provides the real production control path for discovery,
 normalization, hard QC, downstream geometry, ligand-resolved ProLIF IFP,
-condition-wise agglomerative Jaccard clustering, and report generation.
+condition-wise HDBSCAN Jaccard clustering, and report generation.
 """
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ import traceback
 import csv
 from time import perf_counter
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -28,6 +28,7 @@ from lpmo_pipeline.analysis.clustering_agglomerative import (
 )
 from lpmo_pipeline.analysis.clustering_hdbscan import (
     ClusteringResult,
+    HDBSCANConfig,
     HDBSCANClusterer,
     build_cluster_assignment_rows,
     build_condition_cluster_summary,
@@ -43,6 +44,7 @@ from lpmo_pipeline.analysis.clustering_pilot import (
     build_filtered_ifp_matrix,
     build_interaction_type_prevalence,
     select_main_clustering_features,
+    select_main_clustering_features_for_condition,
     summarize_condition_matrices,
 )
 from lpmo_pipeline.analysis.cluster_signatures import (
@@ -59,6 +61,7 @@ from lpmo_pipeline.analysis.condition_summary import (
     write_condition_table,
     write_protein_summary_table,
 )
+from lpmo_pipeline.analysis.predictive_postprocess import run_predictive_postprocess
 from lpmo_pipeline.analysis.convergence_metrics import (
     ConditionConvergenceSummary,
     ConvergencePoseInput,
@@ -69,6 +72,7 @@ from lpmo_pipeline.analysis.convergence_metrics import (
 )
 from lpmo_pipeline.analysis.prolif_ifp import (
     ContactEligibility,
+    IFPBatch,
     IFPResult,
     compute_ifp_batch,
     evaluate_contact_eligibility,
@@ -100,10 +104,10 @@ from lpmo_pipeline.analysis.mdanalysis_metrics import (
     write_pose_geometry_tsv,
 )
 from lpmo_pipeline.io.cif_to_pdb import convert_cif_to_pdb
+from lpmo_pipeline.io.analysis_export import export_analysis_artifacts
 from lpmo_pipeline.io.discovery import discover_work_root
 from lpmo_pipeline.io.gemmi_compat import gemmi
 from lpmo_pipeline.io.normalize_mmcif import NormalizeMMCIFRunner
-from lpmo_pipeline.io.protonate_export import protonate_and_export
 from lpmo_pipeline.qc.hard_qc_orchestrator import HardQCInput, run_hard_qc
 from lpmo_pipeline.qc.privateer_runner import prepare_privateer_input
 from lpmo_pipeline.qc.qc_report import write_qc_report
@@ -129,10 +133,31 @@ _TARGET_PREFIX_TO_SUBSTRATE = {
     ).items()
 }
 
-PRIMARY_CLUSTERING_METHOD = "agglomerative_jaccard"
+PRIMARY_CLUSTERING_METHOD = "hdbscan_jaccard"
+PRIMARY_HDBSCAN_MIN_CLUSTER_SIZE = 5
+PRIMARY_HDBSCAN_MIN_SAMPLES: int | None = None
+PRIMARY_HDBSCAN_CLUSTER_SELECTION_METHOD = "eom"
 PRIMARY_AGGLOMERATIVE_LINKAGE = "average"
 PRIMARY_AGGLOMERATIVE_DISTANCE_THRESHOLD = 0.55
-PRIMARY_AGGLOMERATIVE_MIN_CLUSTER_SIZE = 3
+PRIMARY_AGGLOMERATIVE_MIN_CLUSTER_SIZE = 5
+
+
+@dataclass(frozen=True)
+class ClusteringFeatureOptions:
+    main_include_interaction_types: tuple[str, ...] = DEFAULT_MAIN_CLUSTERING_INTERACTION_TYPES
+    extra_include_interaction_types: tuple[str, ...] = ()
+    excluded_interaction_types: tuple[str, ...] = DEFAULT_EXCLUDED_CLUSTERING_INTERACTION_TYPES
+    rare_feature_pose_prevalence_lt: float = 0.01
+    rare_feature_condition_prevalence_lt_n_conditions: int = 2
+
+
+@dataclass(frozen=True)
+class PredictiveAnalysisOptions:
+    enabled: bool = False
+    protein_metadata_path: Path | None = None
+    task: str = "all"
+    n_folds: int = 5
+    random_state: int = 42
 
 
 @dataclass(frozen=True)
@@ -149,7 +174,17 @@ class ProductionRunOptions:
     construct_type: str = "domain_only"
     run_posebusters: bool = True
     run_privateer: bool = True
+    clustering_features: ClusteringFeatureOptions = field(default_factory=ClusteringFeatureOptions)
+    minimum_clusterable_n: int = DEFAULT_MINIMUM_CLUSTERABLE_N
+    insufficient_clusterable_signal_label: str = DEFAULT_INSUFFICIENT_CLUSTERABLE_SIGNAL_LABEL
+    hdbscan_min_cluster_size: int = PRIMARY_HDBSCAN_MIN_CLUSTER_SIZE
+    hdbscan_min_samples: int | None = PRIMARY_HDBSCAN_MIN_SAMPLES
+    hdbscan_cluster_selection_method: str = PRIMARY_HDBSCAN_CLUSTER_SELECTION_METHOD
+    agglomerative_linkage: str = PRIMARY_AGGLOMERATIVE_LINKAGE
+    agglomerative_distance_threshold: float = PRIMARY_AGGLOMERATIVE_DISTANCE_THRESHOLD
+    agglomerative_min_cluster_size: int = PRIMARY_AGGLOMERATIVE_MIN_CLUSTER_SIZE
     clustering_pilot: "ClusteringPilotOptions | None" = None
+    predictive: PredictiveAnalysisOptions = field(default_factory=PredictiveAnalysisOptions)
     n_jobs: int = 1
     collect_timing_events: bool = False
 
@@ -246,6 +281,7 @@ class AnalysisCoreResult:
     crystal_anchor_tsv_path: Path | None = None
     crystal_geometry_tsv_path: Path | None = None
     crystal_ifp_diagnostic_summary_tsv_path: Path | None = None
+    predictive_summary_path: Path | None = None
     n_cluster_conditions: int = 0
     crystal_anchoring_stage_completed: bool = False
     n_crystal_anchoring_conditions: int = 0
@@ -414,6 +450,76 @@ def load_production_options(
     run_privateer = bool(production.get("run_privateer", True))
     production_n_jobs = int(production.get("n_jobs", 1) or 1)
     clustering_pilot_config = production.get("clustering_pilot") or {}
+    predictive_config = production.get("predictive") or {}
+    clustering_features_config = production.get("clustering_features") or clustering_pilot_config
+    clustering_config = production.get("clustering") or production.get("primary_clustering") or clustering_pilot_config
+    if clustering_features_config and not isinstance(clustering_features_config, dict):
+        raise TypeError("Production config field 'clustering_features' must be a mapping")
+    if clustering_config and not isinstance(clustering_config, dict):
+        raise TypeError("Production config field 'clustering' must be a mapping")
+    if predictive_config and not isinstance(predictive_config, dict):
+        raise TypeError("Production config field 'predictive' must be a mapping")
+    clustering_features = ClusteringFeatureOptions(
+        main_include_interaction_types=tuple(
+            str(value)
+            for value in clustering_features_config.get(
+                "main_include_interaction_types",
+                DEFAULT_MAIN_CLUSTERING_INTERACTION_TYPES,
+            )
+        ),
+        extra_include_interaction_types=tuple(
+            str(value)
+            for value in clustering_features_config.get("extra_include_interaction_types", ())
+        ),
+        excluded_interaction_types=tuple(
+            str(value)
+            for value in clustering_features_config.get(
+                "excluded_interaction_types",
+                DEFAULT_EXCLUDED_CLUSTERING_INTERACTION_TYPES,
+            )
+        ),
+        rare_feature_pose_prevalence_lt=float(
+            clustering_features_config.get("rare_feature_pose_prevalence_lt", 0.01)
+        ),
+        rare_feature_condition_prevalence_lt_n_conditions=int(
+            clustering_features_config.get("rare_feature_condition_prevalence_lt_n_conditions", 2)
+        ),
+    )
+    minimum_clusterable_n = int(clustering_config.get("minimum_clusterable_n", DEFAULT_MINIMUM_CLUSTERABLE_N))
+    insufficient_clusterable_signal_label = str(
+        clustering_config.get(
+            "insufficient_clusterable_signal_label",
+            DEFAULT_INSUFFICIENT_CLUSTERABLE_SIGNAL_LABEL,
+        )
+    )
+    hdbscan_min_cluster_size = int(
+        clustering_config.get("hdbscan_min_cluster_size", PRIMARY_HDBSCAN_MIN_CLUSTER_SIZE)
+    )
+    hdbscan_min_samples_raw = clustering_config.get("hdbscan_min_samples", PRIMARY_HDBSCAN_MIN_SAMPLES)
+    hdbscan_min_samples = (
+        None
+        if hdbscan_min_samples_raw in {None, "", "null"}
+        else int(hdbscan_min_samples_raw)
+    )
+    hdbscan_cluster_selection_method = str(
+        clustering_config.get(
+            "hdbscan_cluster_selection_method",
+            PRIMARY_HDBSCAN_CLUSTER_SELECTION_METHOD,
+        )
+    )
+    agglomerative_linkage = str(clustering_config.get("agglomerative_linkage", PRIMARY_AGGLOMERATIVE_LINKAGE))
+    agglomerative_distance_threshold = float(
+        clustering_config.get(
+            "agglomerative_distance_threshold",
+            PRIMARY_AGGLOMERATIVE_DISTANCE_THRESHOLD,
+        )
+    )
+    agglomerative_min_cluster_size = int(
+        clustering_config.get(
+            "agglomerative_min_cluster_size",
+            PRIMARY_AGGLOMERATIVE_MIN_CLUSTER_SIZE,
+        )
+    )
     clustering_pilot: ClusteringPilotOptions | None = None
     if bool(clustering_pilot_config.get("enabled", False)):
         clustering_pilot = ClusteringPilotOptions(
@@ -468,6 +574,24 @@ def load_production_options(
             ),
         )
 
+    predictive_enabled = bool(predictive_config.get("enabled", False))
+    predictive_metadata_path = predictive_config.get("protein_metadata_path")
+    predictive_options = PredictiveAnalysisOptions(
+        enabled=predictive_enabled,
+        protein_metadata_path=(
+            Path(predictive_metadata_path).expanduser().resolve()
+            if predictive_metadata_path
+            else None
+        ),
+        task=str(predictive_config.get("task") or "all"),
+        n_folds=int(predictive_config.get("n_folds", 5)),
+        random_state=int(predictive_config.get("random_state", 42)),
+    )
+    if predictive_options.enabled and predictive_options.protein_metadata_path is None:
+        raise ValueError(
+            "production.predictive.enabled=true requires production.predictive.protein_metadata_path"
+        )
+
     return ProductionRunOptions(
         run_id=str(production.get("run_id") or output_dir.name),
         output_dir=output_dir.resolve(),
@@ -481,7 +605,17 @@ def load_production_options(
         construct_type=construct_type,
         run_posebusters=run_posebusters,
         run_privateer=run_privateer,
+        clustering_features=clustering_features,
+        minimum_clusterable_n=minimum_clusterable_n,
+        insufficient_clusterable_signal_label=insufficient_clusterable_signal_label,
+        hdbscan_min_cluster_size=hdbscan_min_cluster_size,
+        hdbscan_min_samples=hdbscan_min_samples,
+        hdbscan_cluster_selection_method=hdbscan_cluster_selection_method,
+        agglomerative_linkage=agglomerative_linkage,
+        agglomerative_distance_threshold=agglomerative_distance_threshold,
+        agglomerative_min_cluster_size=agglomerative_min_cluster_size,
         clustering_pilot=clustering_pilot,
+        predictive=predictive_options,
         n_jobs=max(1, int(n_jobs if n_jobs is not None else production_n_jobs)),
         collect_timing_events=bool(production.get("collect_timing_events", False)),
     )
@@ -523,6 +657,44 @@ def _write_ifp_matrix_csv(
         writer.writerow(["pose_id"] + feature_names)
         for pose_id, row in zip(pose_ids, matrix, strict=True):
             writer.writerow([pose_id] + row)
+
+
+def _build_main_clustering_matrix(
+    batch: IFPBatch,
+    *,
+    selected_pose_ids: list[str],
+    feature_options: ClusteringFeatureOptions,
+):
+    selected_main_feature_names = select_main_clustering_features_for_condition(
+        batch,
+        selected_pose_ids=selected_pose_ids,
+        default_include_interaction_types=feature_options.main_include_interaction_types,
+        extra_include_interaction_types=feature_options.extra_include_interaction_types,
+        excluded_interaction_types=feature_options.excluded_interaction_types,
+        rare_feature_pose_prevalence_lt=feature_options.rare_feature_pose_prevalence_lt,
+        rare_feature_condition_prevalence_lt_n_conditions=feature_options.rare_feature_condition_prevalence_lt_n_conditions,
+    )
+    return build_filtered_ifp_matrix(
+        batch,
+        selected_pose_ids=selected_pose_ids,
+        allowed_feature_names=selected_main_feature_names,
+    )
+
+
+def _classify_primary_clustering_input(
+    *,
+    n_clusterable: int,
+    n_main_features: int,
+    minimum_clusterable_n: int,
+    insufficient_clusterable_signal_label: str,
+) -> tuple[str, bool]:
+    if n_clusterable == 0:
+        return "no_clusterable_poses", False
+    if n_clusterable < minimum_clusterable_n:
+        return insufficient_clusterable_signal_label, False
+    if n_main_features == 0:
+        return "empty_main_matrix", False
+    return "ok", True
 
 
 def _write_clustering_pilot_outputs(
@@ -1172,6 +1344,9 @@ def _write_pose_manifest_tsv(
                 "parse_status": case.get("status", "not_prepared"),
                 "qc_status": (case.get("qc_verdict") or {}).get("status", ""),
                 "analysis_status": case.get("analysis_status", ""),
+                "analysis_flags": json.dumps(case.get("analysis_flags", [])),
+                "geometry_metrics_status": case.get("geometry_metrics_status", ""),
+                "geometry_metrics_error": case.get("geometry_metrics_error", ""),
                 "case_dir": case.get("case_dir", ""),
                 "normalized_cif": case.get("normalized_cif", ""),
             }
@@ -1199,6 +1374,9 @@ def _write_pose_manifest_tsv(
             "parse_status",
             "qc_status",
             "analysis_status",
+            "analysis_flags",
+            "geometry_metrics_status",
+            "geometry_metrics_error",
             "case_dir",
             "normalized_cif",
         ],
@@ -1275,8 +1453,9 @@ def _write_structure_index_tsv(
                 "normalized_cif": case.get("normalized_cif", ""),
                 "posebusters_pdb": case.get("posebusters_pdb", ""),
                 "privateer_input_cif": case.get("privateer_input_cif", ""),
-                "complex_h_pdb": case.get("complex_h_pdb", ""),
-                "ligand_mol2": case.get("ligand_mol2", ""),
+                "complex_for_prolif_pdb": case.get("complex_for_prolif_pdb", ""),
+                "ligand_pdb": case.get("ligand_pdb", ""),
+                "analysis_export_report_path": case.get("analysis_export_report_path", ""),
                 "case_dir": case.get("case_dir", ""),
             }
         )
@@ -1290,8 +1469,9 @@ def _write_structure_index_tsv(
             "normalized_cif",
             "posebusters_pdb",
             "privateer_input_cif",
-            "complex_h_pdb",
-            "ligand_mol2",
+            "complex_for_prolif_pdb",
+            "ligand_pdb",
+            "analysis_export_report_path",
             "case_dir",
         ],
         rows,
@@ -1417,6 +1597,15 @@ def _summary_geometry_row(
         **metrics.to_legacy_geometry_dict(),
         **metrics.to_row(),
     }
+
+
+def _geometry_not_computable_metrics(pose: PoseInputRecord) -> PoseGeometryMetrics:
+    return PoseGeometryMetrics(
+        pose_id=pose.pose_id,
+        model=pose.model,
+        protein_id=pose.protein_id,
+        ligand_id=pose.ligand_id,
+    )
 
 
 def _choose_crystal_representatives(
@@ -1650,12 +1839,41 @@ def run_analysis_core(
         "run_privateer": options.run_privateer,
         "n_jobs": options.n_jobs,
         "collect_timing_events": options.collect_timing_events,
+        "predictive": {
+            "enabled": options.predictive.enabled,
+            "protein_metadata_path": (
+                str(options.predictive.protein_metadata_path)
+                if options.predictive.protein_metadata_path is not None
+                else ""
+            ),
+            "task": options.predictive.task,
+            "n_folds": options.predictive.n_folds,
+            "random_state": options.predictive.random_state,
+        },
         "primary_clustering": {
             "method": PRIMARY_CLUSTERING_METHOD,
             "metric": "jaccard",
-            "linkage": PRIMARY_AGGLOMERATIVE_LINKAGE,
-            "distance_threshold": PRIMARY_AGGLOMERATIVE_DISTANCE_THRESHOLD,
-            "min_cluster_size": PRIMARY_AGGLOMERATIVE_MIN_CLUSTER_SIZE,
+            "min_cluster_size": options.hdbscan_min_cluster_size,
+            "min_samples": options.hdbscan_min_samples,
+            "cluster_selection_method": options.hdbscan_cluster_selection_method,
+            "minimum_clusterable_n": options.minimum_clusterable_n,
+            "insufficient_clusterable_signal_label": options.insufficient_clusterable_signal_label,
+            "orthogonal_sensitivity": {
+                "method": "agglomerative_jaccard",
+                "linkage": options.agglomerative_linkage,
+                "distance_threshold": options.agglomerative_distance_threshold,
+                "min_cluster_size": options.agglomerative_min_cluster_size,
+            },
+        },
+        "primary_clustering_features": {
+            "selection_scope": "protein_condition",
+            "main_include_interaction_types": list(options.clustering_features.main_include_interaction_types),
+            "extra_include_interaction_types": list(options.clustering_features.extra_include_interaction_types),
+            "excluded_interaction_types": list(options.clustering_features.excluded_interaction_types),
+            "rare_feature_pose_prevalence_lt": options.clustering_features.rare_feature_pose_prevalence_lt,
+            "rare_feature_condition_prevalence_lt_n_conditions": (
+                options.clustering_features.rare_feature_condition_prevalence_lt_n_conditions
+            ),
         },
         "discovery_summary": discovery_summary,
         "discovery_errors": discovery_errors,
@@ -1825,6 +2043,7 @@ def run_analysis_core(
                     geometry_metrics.append(metrics)
                     geometry_row = metrics.to_row()
                     case["analysis_status"] = "analyzed"
+                    case["geometry_metrics_status"] = "ok"
                     case["geometry_row"] = geometry_row
                     n_analyzed += 1
                     _record_timing(
@@ -1835,44 +2054,52 @@ def run_analysis_core(
                         status="ok",
                     )
                 except Exception as exc:
-                    case["analysis_status"] = "analysis_error"
-                    case["analysis_error"] = f"{exc.__class__.__name__}: {exc}"
-                    case["analysis_traceback"] = traceback.format_exc()
+                    error = f"{exc.__class__.__name__}: {exc}"
+                    metrics = _geometry_not_computable_metrics(pose)
+                    geometry_metrics.append(metrics)
+                    geometry_row = metrics.to_row()
+                    case["analysis_status"] = "analyzed"
+                    case["geometry_metrics_status"] = "flagged"
+                    case["geometry_metrics_error"] = error
+                    case["geometry_metrics_traceback"] = traceback.format_exc()
+                    case.setdefault("analysis_flags", []).append("geometry_metrics_error")
+                    case["geometry_row"] = geometry_row
+                    n_analyzed += 1
                     _record_timing(
                         step="analysis.geometry_metrics",
                         start=geometry_start,
                         pose_id=pose.pose_id,
                         condition_id=condition_id,
-                        status="error",
-                        detail=f"{exc.__class__.__name__}: {exc}",
+                        status="flagged",
+                        detail=error,
                     )
 
-                protonation_dir = prepared_pose.case_dir / "protonated"
-                protonation_start = perf_counter()
-                protonate_ok, protonation_report = protonate_and_export(
+                analysis_export_dir = prepared_pose.case_dir / "analysis_export"
+                analysis_export_start = perf_counter()
+                analysis_export_ok, analysis_export_report = export_analysis_artifacts(
                     prepared_pose.normalized_cif,
-                    protonation_dir,
+                    analysis_export_dir,
                 )
                 _record_timing(
-                    step="analysis.protonation_export",
-                    start=protonation_start,
+                    step="analysis.analysis_export",
+                    start=analysis_export_start,
                     pose_id=pose.pose_id,
                     condition_id=condition_id,
-                    status="ok" if protonate_ok else "failed",
-                    detail=";".join((protonation_report or {}).get("blockers", []) or []),
+                    status="ok" if analysis_export_ok else "failed",
+                    detail=";".join((analysis_export_report or {}).get("blockers", []) or []),
                 )
-                case["protonate_ok"] = bool(protonate_ok)
-                case["protonation_report_path"] = str(protonation_dir / "protonation_report.json")
-                case["protonation_blockers"] = (protonation_report or {}).get("blockers", []) if protonation_report else []
-                case["protonation_warnings"] = (protonation_report or {}).get("warnings", []) if protonation_report else []
-                case["complex_h_pdb"] = str(protonation_dir / "complex_H.pdb")
-                case["ligand_mol2"] = str(protonation_dir / "ligand_for_prolif.mol2")
-                if protonate_ok:
+                case["analysis_export_ok"] = bool(analysis_export_ok)
+                case["analysis_export_report_path"] = str(analysis_export_dir / "analysis_export_report.json")
+                case["analysis_export_blockers"] = (analysis_export_report or {}).get("blockers", []) if analysis_export_report else []
+                case["analysis_export_warnings"] = (analysis_export_report or {}).get("warnings", []) if analysis_export_report else []
+                case["complex_for_prolif_pdb"] = str(analysis_export_dir / "complex_for_prolif.pdb")
+                case["ligand_pdb"] = str(analysis_export_dir / "ligand_only_for_prolif.pdb")
+                if analysis_export_ok:
                     ifp_pose_inputs_by_condition.setdefault(condition_id, []).append(
                         {
                             "pose_id": pose.pose_id,
-                            "complex_pdb": protonation_dir / "complex_H.pdb",
-                            "ligand_mol2": protonation_dir / "ligand_for_prolif.mol2",
+                            "complex_pdb": analysis_export_dir / "complex_for_prolif.pdb",
+                            "ligand_pdb": analysis_export_dir / "ligand_only_for_prolif.pdb",
                             "protein_id": pose.protein_id,
                             "ligand_id": pose.ligand_id,
                             "model": pose.model,
@@ -1883,13 +2110,14 @@ def run_analysis_core(
                 else:
                     failed_ifp = _make_ifp_failure_result(
                         pose.pose_id,
-                        "Protonation blockers: " + ", ".join(case["protonation_blockers"] or ["unknown"]),
+                        "Analysis export blockers: " + ", ".join(case["analysis_export_blockers"] or ["unknown"]),
                     )
                     all_ifp_results.append(failed_ifp)
                     case["ifp_generation_status"] = failed_ifp.status
                     case["ifp_error"] = failed_ifp.error
             else:
                 case["analysis_status"] = "skipped_dropped"
+                case["geometry_metrics_status"] = "skipped"
                 if options.collect_timing_events:
                     timing_events.append(
                         {
@@ -1904,7 +2132,7 @@ def run_analysis_core(
                     )
                     timing_events.append(
                         {
-                            "step": "analysis.protonation_export",
+                            "step": "analysis.analysis_export",
                             "pose_id": pose.pose_id,
                             "condition_id": condition_id,
                             "worker_count": options.n_jobs,
@@ -1945,18 +2173,22 @@ def run_analysis_core(
         condition_convergence_summaries: list[ConditionConvergenceSummary] = []
         pilot_conditions: list[PilotConditionIFP] = []
 
-        clusterer = AgglomerativeJaccardClusterer(
+        clusterer = HDBSCANClusterer(
             output_dir=options.output_dir,
-            config=AgglomerativeJaccardConfig(
-                linkage=PRIMARY_AGGLOMERATIVE_LINKAGE,
-                distance_threshold=PRIMARY_AGGLOMERATIVE_DISTANCE_THRESHOLD,
-                min_cluster_size=PRIMARY_AGGLOMERATIVE_MIN_CLUSTER_SIZE,
+            config=HDBSCANConfig(
+                min_cluster_size=options.hdbscan_min_cluster_size,
+                min_samples=options.hdbscan_min_samples,
+                metric="jaccard",
+                cluster_selection_method=options.hdbscan_cluster_selection_method,
+                locked=True,
             ),
         )
         ifp_matrix_root = options.output_dir / "ifp_matrices"
         for condition_id in sorted(n_qc_pass_by_condition):
             condition_pose_inputs = ifp_pose_inputs_by_condition.get(condition_id, [])
             clustering_result = _empty_clustering_result()
+            production_clustering_status = "no_ifp_inputs"
+            formal_clustering_allowed = False
             if condition_pose_inputs:
                 convergence_start = perf_counter()
                 convergence_metrics, convergence_summary = compute_condition_convergence(
@@ -1992,7 +2224,7 @@ def run_analysis_core(
                         {
                             "pose_id": entry["pose_id"],
                             "complex_pdb": entry["complex_pdb"],
-                            "ligand_mol2": entry["ligand_mol2"],
+                            "ligand_pdb": entry["ligand_pdb"],
                         }
                         for entry in condition_pose_inputs
                     ],
@@ -2062,42 +2294,74 @@ def run_analysis_core(
                     )
                 if clusterable_indices:
                     clustering_start = perf_counter()
-                    cluster_matrix = np.asarray([batch.matrix[index] for index in clusterable_indices], dtype=np.uint8)
                     cluster_pose_ids = [batch.results[index].pose_id for index in clusterable_indices]
-                    clustering_result = clusterer.cluster(cluster_matrix, cluster_pose_ids)
-                    distance_matrix = clusterer.compute_jaccard_distances(cluster_matrix)
-                    cluster_assignment_rows.extend(
-                        build_cluster_assignment_rows(
-                            condition_id,
-                            cluster_pose_ids,
-                            clustering_result.cluster_labels,
-                            distance_matrix=distance_matrix,
-                            medoids=clustering_result.medoids,
-                        )
+                    main_clustering_matrix = _build_main_clustering_matrix(
+                        batch,
+                        selected_pose_ids=cluster_pose_ids,
+                        feature_options=options.clustering_features,
                     )
-                    medoid_rows.extend(
-                        build_medoid_rows(
-                            condition_id,
-                            cluster_pose_ids,
-                            clustering_result.medoids,
-                            clustering_result.medoid_distance_sums,
-                            structure_paths={
-                                pose_id: normalized_path_by_pose_id.get(pose_id, "")
-                                for pose_id in cluster_pose_ids
-                            },
-                        )
+                    _write_ifp_matrix_csv(
+                        condition_ifp_dir / "main_clustering_ifp_matrix.csv",
+                        main_clustering_matrix.pose_ids,
+                        main_clustering_matrix.feature_names,
+                        main_clustering_matrix.matrix,
                     )
-                    for pose_id, label in zip(cluster_pose_ids, clustering_result.cluster_labels, strict=True):
-                        metrics_record_by_pose_id[pose_id]["cluster_id"] = int(label)
-                        case_by_pose_id[pose_id]["cluster_id"] = int(label)
+                    production_clustering_status, formal_clustering_allowed = _classify_primary_clustering_input(
+                        n_clusterable=len(clusterable_indices),
+                        n_main_features=len(main_clustering_matrix.feature_names),
+                        minimum_clusterable_n=options.minimum_clusterable_n,
+                        insufficient_clusterable_signal_label=options.insufficient_clusterable_signal_label,
+                    )
+                    if formal_clustering_allowed:
+                        cluster_matrix = np.asarray(main_clustering_matrix.matrix, dtype=np.uint8)
+                        cluster_pose_ids = main_clustering_matrix.pose_ids
+                        clustering_result = clusterer.cluster(cluster_matrix, cluster_pose_ids)
+                        distance_matrix = clusterer.compute_jaccard_distances(cluster_matrix)
+                        cluster_assignment_rows.extend(
+                            build_cluster_assignment_rows(
+                                condition_id,
+                                cluster_pose_ids,
+                                clustering_result.cluster_labels,
+                                distance_matrix=distance_matrix,
+                                medoids=clustering_result.medoids,
+                            )
+                        )
+                        medoid_rows.extend(
+                            build_medoid_rows(
+                                condition_id,
+                                cluster_pose_ids,
+                                clustering_result.medoids,
+                                clustering_result.medoid_distance_sums,
+                                structure_paths={
+                                    pose_id: normalized_path_by_pose_id.get(pose_id, "")
+                                    for pose_id in cluster_pose_ids
+                                },
+                            )
+                        )
+                        for pose_id, label in zip(cluster_pose_ids, clustering_result.cluster_labels, strict=True):
+                            metrics_record_by_pose_id[pose_id]["cluster_id"] = int(label)
+                            case_by_pose_id[pose_id]["cluster_id"] = int(label)
+                        timing_status = "ok"
+                    else:
+                        timing_status = "skipped"
                     _record_timing(
                         step="analysis.production_clustering",
                         start=clustering_start,
                         condition_id=condition_id,
-                        status="ok",
-                        detail=f"n_clusterable={len(clusterable_indices)}",
+                        status=timing_status,
+                        detail=(
+                            f"n_clusterable={len(clusterable_indices)};"
+                            f"n_main_features={len(main_clustering_matrix.feature_names)};"
+                            f"clustering_status={production_clustering_status}"
+                        ),
                     )
                 else:
+                    production_clustering_status, formal_clustering_allowed = _classify_primary_clustering_input(
+                        n_clusterable=0,
+                        n_main_features=0,
+                        minimum_clusterable_n=options.minimum_clusterable_n,
+                        insufficient_clusterable_signal_label=options.insufficient_clusterable_signal_label,
+                    )
                     if options.collect_timing_events:
                         timing_events.append(
                             {
@@ -2305,10 +2569,16 @@ def run_analysis_core(
                 n_ifp_success=len(contact_eligibility_by_condition.get(condition_id, [])),
                 contact_eligibilities=contact_eligibility_by_condition.get(condition_id, []),
             )
-            condition_summary_rows.append(condition_summary.to_row())
+            condition_summary_row = {
+                **condition_summary.to_row(),
+                "minimum_clusterable_n": options.minimum_clusterable_n,
+                "clustering_status": production_clustering_status,
+                "formal_clustering_allowed": formal_clustering_allowed,
+            }
+            condition_summary_rows.append(condition_summary_row)
             cluster_results_for_summary.append(
                 {
-                    **condition_summary.to_row(),
+                    **condition_summary_row,
                     "outlier_rate": condition_summary.noise_fraction,
                 }
             )
@@ -2400,6 +2670,9 @@ def run_analysis_core(
                     "n_ifp_success",
                     "n_contact_eligible",
                     "contact_eligible_fraction",
+                    "minimum_clusterable_n",
+                    "clustering_status",
+                    "formal_clustering_allowed",
                     "null_ifp_fraction",
                     "vdw_only_fraction",
                     "low_specific_contact_fraction",
@@ -2709,6 +2982,34 @@ def run_analysis_core(
     protein_summary_table_tsv_path = options.output_dir / "protein_summary_table.tsv"
     protein_summary_rows = build_protein_summary_rows(condition_table_rows)
     write_protein_summary_table(protein_summary_rows, protein_summary_table_tsv_path)
+    predictive_summary_path: Path | None = None
+    if options.predictive.enabled:
+        predictive_result = run_predictive_postprocess(
+            condition_table_path=condition_table_tsv_path,
+            protein_metadata_path=options.predictive.protein_metadata_path,
+            output_dir=options.output_dir,
+            task=options.predictive.task,
+            n_folds=options.predictive.n_folds,
+            random_state=options.predictive.random_state,
+        )
+        predictive_summary_path = predictive_result.summary_path
+        analysis_summary["predictive"].update(
+            {
+                "summary_path": str(predictive_result.summary_path),
+                "modeling_tables": {
+                    name: str(path)
+                    for name, path in sorted(predictive_result.modeling_table_paths.items())
+                },
+                "metrics": {
+                    name: str(path)
+                    for name, path in sorted(predictive_result.metrics_paths.items())
+                },
+                "predictions": {
+                    name: str(path)
+                    for name, path in sorted(predictive_result.predictions_paths.items())
+                },
+            }
+        )
     analysis_summary.update(
         {
             "pose_manifest_tsv": str(pose_manifest_tsv_path),
@@ -2717,6 +3018,7 @@ def run_analysis_core(
             "qc_attrition_tsv": str(qc_attrition_tsv_path),
             "condition_table_tsv": str(condition_table_tsv_path),
             "protein_summary_table_tsv": str(protein_summary_table_tsv_path),
+            "predictive_summary_path": str(predictive_summary_path) if predictive_summary_path else "",
         }
     )
 
@@ -2763,6 +3065,7 @@ def run_analysis_core(
         crystal_anchor_tsv_path=crystal_anchor_tsv_path,
         crystal_geometry_tsv_path=crystal_geometry_tsv_path,
         crystal_ifp_diagnostic_summary_tsv_path=crystal_ifp_diagnostic_summary_tsv_path,
+        predictive_summary_path=predictive_summary_path,
         n_cluster_conditions=n_cluster_conditions,
         crystal_anchoring_stage_completed=crystal_anchoring_stage_completed,
         n_crystal_anchoring_conditions=n_crystal_anchoring_conditions,

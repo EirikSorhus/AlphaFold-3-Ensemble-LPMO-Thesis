@@ -5,6 +5,7 @@ import pytest
 from lpmo_pipeline.analysis.predictive_postprocess import (
     build_c1_c4_modeling_rows,
     build_substrate_modeling_rows,
+    run_predictive_postprocess,
 )
 
 
@@ -312,3 +313,59 @@ def test_build_rows_merge_partial_preannotations_with_ec_fallback() -> None:
 
     assert len(substrate_rows) == 1
     assert substrate_rows[0]["is_active_on_substrate"] == 1
+
+
+def test_predictive_postprocess_summary_records_locked_backend_and_validation(tmp_path) -> None:
+    condition_table = tmp_path / "condition_table.tsv"
+    metadata_table = tmp_path / "metadata.tsv"
+    output_dir = tmp_path / "output"
+    condition_table.write_text(
+        "\t".join(
+            [
+                "condition_id",
+                "protein_id",
+                "construct_type",
+                "substrate_class",
+                "dp",
+                "contact_eligible_fraction",
+                "noise_fraction",
+                "top_cluster_occupancy",
+                "hbond_contact_fraction",
+                "aromatic_contact_fraction",
+                "median_n_non_vdw_interactions",
+                "occupancy_weighted_c1_plausible_fraction",
+                "occupancy_weighted_c4_plausible_fraction",
+            ]
+        )
+        + "\n"
+        + "P1__domain__cellulose_DP4\tP1\tdomain_only\tcellulose\t4\t0.8\t0.1\t0.7\t0.3\t0.2\t5\t0.7\t0.1\n"
+        + "P2__domain__cellulose_DP4\tP2\tdomain_only\tcellulose\t4\t0.4\t0.2\t0.5\t0.2\t0.1\t3\t0.2\t0.6\n"
+    )
+    metadata_table.write_text(
+        "UniProt_ID\tCAZy_family\tEC_Number\n"
+        "P1\tAA9\t1.14.99.54\n"
+        "P2\tAA9\t1.14.99.56\n"
+    )
+
+    result = run_predictive_postprocess(
+        condition_table_path=condition_table,
+        protein_metadata_path=metadata_table,
+        output_dir=output_dir,
+        task="all",
+        n_folds=2,
+        random_state=2,
+    )
+
+    import json
+
+    summary = json.loads(result.summary_path.read_text())
+    assert summary["implementation"]["primary_backend"] == "sklearn_logistic_regression_l2"
+    assert summary["implementation"]["status"] == "final_compact_exploratory_backend"
+    assert summary["validation"]["passed"] is True
+    assert summary["validation"]["n_condition_rows"] == 2
+    assert summary["validation"]["modeling_tables"]["c1_c4"]["n_rows"] == 2
+    assert summary["validation"]["models"]["c1_activity"]["status"] in {
+        "validated_cv_outputs",
+        "single_class_no_cv",
+        "no_evaluable_cv_folds",
+    }

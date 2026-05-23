@@ -91,10 +91,10 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _mol2_contains_metal(mol2_path: str) -> bool:
-    if not mol2_path:
+def _ligand_pdb_contains_metal(ligand_pdb_path: str) -> bool:
+    if not ligand_pdb_path:
         return False
-    path = Path(mol2_path)
+    path = Path(ligand_pdb_path)
     if not path.exists():
         return False
     text = path.read_text(errors="ignore").upper()
@@ -158,7 +158,7 @@ def main() -> int:
         prepared_normalized_paths: list[str] = []
         pdb_codes: list[str] = []
         comparison_ifp_artifacts: list[dict[str, str]] = []
-        metal_contaminated_mol2_paths: list[str] = []
+        metal_contaminated_ligand_pdb_paths: list[str] = []
         ligand_bound_missing_normalized_paths: list[str] = []
         for comparison in report.comparisons:
             comparison_status_counts[comparison.status] = comparison_status_counts.get(comparison.status, 0) + 1
@@ -179,13 +179,13 @@ def main() -> int:
                 ligand_bound_missing_normalized_paths.append(comparison.pdb_code)
             pdb_codes.append(comparison.pdb_code)
             if comparison.crystal_ifp_matrix_csv:
-                mol2_path = str(
+                ligand_pdb_path = str(
                     Path(comparison.crystal_ifp_matrix_csv).parent.parent
-                    / "protonated"
-                    / "ligand_for_prolif.mol2"
+                    / "analysis_export"
+                    / "ligand_only_for_prolif.pdb"
                 )
-                if _mol2_contains_metal(mol2_path):
-                    metal_contaminated_mol2_paths.append(mol2_path)
+                if _ligand_pdb_contains_metal(ligand_pdb_path):
+                    metal_contaminated_ligand_pdb_paths.append(ligand_pdb_path)
             comparison_ifp_artifacts.append(
                 {
                     "pdb_code": comparison.pdb_code,
@@ -209,7 +209,7 @@ def main() -> int:
                 "pdb_codes": pdb_codes,
                 "prepared_subset_paths": prepared_subset_paths,
                 "prepared_normalized_paths": prepared_normalized_paths,
-                "metal_contaminated_mol2_paths": metal_contaminated_mol2_paths,
+                "metal_contaminated_ligand_pdb_paths": metal_contaminated_ligand_pdb_paths,
                 "ligand_bound_missing_normalized_paths": ligand_bound_missing_normalized_paths,
                 "representative_pose_ifp_result_json": report.representative_pose_ifp_result_json,
                 "representative_pose_pose_ifp_table_tsv": report.representative_pose_pose_ifp_table_tsv,
@@ -229,8 +229,8 @@ def main() -> int:
             return 1
         crystal_failure_statuses = {
             "normalization_failed",
-            "protonation_failed",
-            "protonation_artifacts_missing",
+            "analysis_export_failed",
+            "analysis_export_artifacts_missing",
             "ifp_failed",
         }
         if any(comparison.status in crystal_failure_statuses for comparison in report.comparisons):
@@ -242,7 +242,7 @@ def main() -> int:
             return 1
         if any(not Path(path).exists() for path in prepared_normalized_paths):
             return 1
-        if metal_contaminated_mol2_paths:
+        if metal_contaminated_ligand_pdb_paths:
             return 1
         if ligand_bound_missing_normalized_paths:
             return 1

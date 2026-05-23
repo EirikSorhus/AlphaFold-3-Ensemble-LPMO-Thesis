@@ -15,7 +15,7 @@ import json
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 
 from lpmo_pipeline.io.gemmi_compat import gemmi
 from lpmo_pipeline.utils.logging import FailureLog, StructuredLogger
@@ -171,7 +171,7 @@ class CIFToPDBRunner:
         from openmm.app import PDBFile  # type: ignore[import]
 
         fixer = PDBFixer(filename=str(self.input_cif))
-        _add_name_based_glycosidic_bonds(fixer.topology)
+        _add_name_based_glycosidic_bonds(fixer.topology, fixer.positions)
         output_path = self.output_dir / "for_posebusters.pdb"
 
         with open(output_path, "w") as out_f:
@@ -371,6 +371,130 @@ def _summarize_pdb_file(pdb_path: Path) -> _PDBFileSummary:
     )
 
 
+def _parse_pdb_xyz(line: str) -> tuple[float, float, float] | None:
+    try:
+        return (
+            float(line[30:38]),
+            float(line[38:46]),
+            float(line[46:54]),
+        )
+    except ValueError:
+        return None
+
+
+def _distance_squared(
+    point_a: tuple[float, float, float],
+    point_b: tuple[float, float, float],
+) -> float:
+    dx = point_a[0] - point_b[0]
+    dy = point_a[1] - point_b[1]
+    dz = point_a[2] - point_b[2]
+    return dx * dx + dy * dy + dz * dz
+
+
+def _candidate_distance_by_serials(
+    serial_a: int | None,
+    serial_b: int | None,
+    atom_xyz: dict[int, tuple[float, float, float]],
+) -> float | None:
+    if serial_a is None or serial_b is None:
+        return None
+    point_a = atom_xyz.get(serial_a)
+    point_b = atom_xyz.get(serial_b)
+    if point_a is None or point_b is None:
+        return None
+    return _distance_squared(point_a, point_b)
+
+
+def _choose_glycosidic_serial_pair(
+    left_atoms: dict[str, int],
+    right_atoms: dict[str, int],
+    atom_xyz: dict[int, tuple[float, float, float]],
+) -> tuple[int | None, int | None]:
+    forward_pair = (left_atoms.get("O4"), right_atoms.get("C1"))
+    reverse_pair = (left_atoms.get("C1"), right_atoms.get("O4"))
+
+    forward_distance = _candidate_distance_by_serials(*forward_pair, atom_xyz)
+    reverse_distance = _candidate_distance_by_serials(*reverse_pair, atom_xyz)
+
+    if forward_distance is not None and reverse_distance is not None:
+        return forward_pair if forward_distance <= reverse_distance else reverse_pair
+    if forward_distance is not None:
+        return forward_pair
+    if reverse_distance is not None:
+        return reverse_pair
+    if forward_pair[0] is not None and forward_pair[1] is not None:
+        return forward_pair
+    if reverse_pair[0] is not None and reverse_pair[1] is not None:
+        return reverse_pair
+    return None, None
+
+
+def _position_to_xyz(position: Any) -> tuple[float, float, float] | None:
+    try:
+        from openmm import unit  # type: ignore[import]
+
+        values = position.value_in_unit(unit.angstrom)
+        return (float(values[0]), float(values[1]), float(values[2]))
+    except Exception:
+        pass
+
+    if hasattr(position, "x") and hasattr(position, "y") and hasattr(position, "z"):
+        try:
+            return (float(position.x), float(position.y), float(position.z))
+        except Exception:
+            return None
+
+    try:
+        return (float(position[0]), float(position[1]), float(position[2]))
+    except Exception:
+        return None
+
+
+def _build_topology_atom_xyz(topology, positions) -> dict[int, tuple[float, float, float]]:
+    if positions is None:
+        return {}
+
+    atom_xyz: dict[int, tuple[float, float, float]] = {}
+    for atom, position in zip(topology.atoms(), positions):
+        xyz = _position_to_xyz(position)
+        if xyz is None:
+            continue
+        atom_xyz[atom.index] = xyz
+    return atom_xyz
+
+
+def _choose_glycosidic_topology_atoms(left_residue, right_residue, atom_xyz: dict[int, tuple[float, float, float]]):
+    left_atoms = {atom.name: atom for atom in left_residue.atoms() if atom.name in {"C1", "O4"}}
+    right_atoms = {atom.name: atom for atom in right_residue.atoms() if atom.name in {"C1", "O4"}}
+
+    forward_pair = (left_atoms.get("O4"), right_atoms.get("C1"))
+    reverse_pair = (left_atoms.get("C1"), right_atoms.get("O4"))
+
+    forward_distance = _candidate_distance_by_serials(
+        None if forward_pair[0] is None else forward_pair[0].index,
+        None if forward_pair[1] is None else forward_pair[1].index,
+        atom_xyz,
+    )
+    reverse_distance = _candidate_distance_by_serials(
+        None if reverse_pair[0] is None else reverse_pair[0].index,
+        None if reverse_pair[1] is None else reverse_pair[1].index,
+        atom_xyz,
+    )
+
+    if forward_distance is not None and reverse_distance is not None:
+        return forward_pair if forward_distance <= reverse_distance else reverse_pair
+    if forward_distance is not None:
+        return forward_pair
+    if reverse_distance is not None:
+        return reverse_pair
+    if forward_pair[0] is not None and forward_pair[1] is not None:
+        return forward_pair
+    if reverse_pair[0] is not None and reverse_pair[1] is not None:
+        return reverse_pair
+    return None, None
+
+
 def _rewrite_conect_from_topology(pdb_path: Path, topology) -> None:
     """Rewrite PDB CONECT records from full topology bonds.
 
@@ -437,6 +561,7 @@ def _augment_glycan_bonds_from_names(
 ) -> None:
     """Add missing glycan bonds using explicit atom-name templates."""
     atoms: list[dict[str, object]] = []
+    atom_xyz: dict[int, tuple[float, float, float]] = {}
     for line in pdb_lines:
         if not line.startswith(("ATOM  ", "HETATM")):
             continue
@@ -447,6 +572,10 @@ def _augment_glycan_bonds_from_names(
             serial = int(serial_txt)
         except ValueError:
             continue
+
+        xyz = _parse_pdb_xyz(line)
+        if xyz is not None:
+            atom_xyz[serial] = xyz
 
         resname = line[17:20].strip()
         if resname not in _GLYCAN_LINK_RESNAMES:
@@ -505,11 +634,14 @@ def _augment_glycan_bonds_from_names(
             if right[1] != left[1] + 1:
                 continue
 
-            left_c1 = by_residue[left].get("C1")
-            right_o4 = by_residue[right].get("O4")
-            if left_c1 is None or right_o4 is None:
+            bond_a, bond_b = _choose_glycosidic_serial_pair(
+                by_residue[left],
+                by_residue[right],
+                atom_xyz,
+            )
+            if bond_a is None or bond_b is None:
                 continue
-            _add_adjacency_edge(adjacency, left_c1, right_o4)
+            _add_adjacency_edge(adjacency, bond_a, bond_b)
 
 
 def _add_adjacency_edge(adjacency: dict[int, set[int]], serial_a: int, serial_b: int) -> None:
@@ -535,14 +667,21 @@ def _residue_seq_id(residue) -> int | None:
         return None
 
 
-def _add_name_based_glycosidic_bonds(topology) -> int:
-    """Add C1(i)-O4(i+1) glycosidic bonds for NAG/BGC/GLC residues."""
+def _add_name_based_glycosidic_bonds(topology, positions=None) -> int:
+    """Add glycosidic bonds for adjacent NAG/BGC/GLC residues.
+
+    Residue numbering is not guaranteed to follow the physical left-to-right
+    order in crystal-derived subsets, so choose the shorter cross-residue
+    C1/O4 pair instead of assuming O4(i)-C1(i+1) from sequence ids alone.
+    """
     existing: set[tuple[int, int]] = set()
     for atom_a, atom_b in topology.bonds():
         idx_a, idx_b = atom_a.index, atom_b.index
         if idx_a > idx_b:
             idx_a, idx_b = idx_b, idx_a
         existing.add((idx_a, idx_b))
+
+    atom_xyz = _build_topology_atom_xyz(topology, positions)
 
     by_chain: dict[str, list] = {}
     for chain in topology.chains():
@@ -567,26 +706,17 @@ def _add_name_based_glycosidic_bonds(topology) -> int:
             if left_seq is None or right_seq is None or right_seq != left_seq + 1:
                 continue
 
-            left_c1 = None
-            right_o4 = None
-            for atom in left.atoms():
-                if atom.name == "C1":
-                    left_c1 = atom
-                    break
-            for atom in right.atoms():
-                if atom.name == "O4":
-                    right_o4 = atom
-                    break
-            if left_c1 is None or right_o4 is None:
+            bond_a, bond_b = _choose_glycosidic_topology_atoms(left, right, atom_xyz)
+            if bond_a is None or bond_b is None:
                 continue
 
-            idx_a, idx_b = left_c1.index, right_o4.index
+            idx_a, idx_b = bond_a.index, bond_b.index
             if idx_a > idx_b:
                 idx_a, idx_b = idx_b, idx_a
             if (idx_a, idx_b) in existing:
                 continue
 
-            topology.addBond(left_c1, right_o4)
+            topology.addBond(bond_a, bond_b)
             existing.add((idx_a, idx_b))
             added += 1
 

@@ -15,7 +15,7 @@ if [[ -z "${SLURM_JOB_ID:-}" ]]; then
     exit 1
 fi
 
-export PATH="/cluster/work/projects/nn1003k/eirik/conda/analyse_env/bin:$PATH"
+export PATH="/cluster/work/projects/nn1003k/eirik/conda/analyse_full_prolif_env/bin:$PATH"
 export PIP_NO_CACHE_DIR=1
 
 project_root="/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse"
@@ -106,7 +106,7 @@ echo "[INFO] Running focused contact-eligibility unit and integration tests"
 pytest tests/test_prolif_ifp.py tests/test_clustering.py tests/test_analysis_orchestrator.py -q
 
 echo "[INFO] Running contact-eligibility real-data harness on all poses for ${protein_id}/${target}"
-/cluster/work/projects/nn1003k/eirik/conda/analyse_env/bin/python \
+/cluster/work/projects/nn1003k/eirik/conda/analyse_full_prolif_env/bin/python \
     tests/run_tests_scripts/run_contact_eligibility_real_cifs.py \
     --run-dir "$run_dir" \
     --run-id "$run_id" \

@@ -2,16 +2,21 @@ analysis:
   name: full_length_vs_domain_only_cbm_paired_analysis
   version: "1.0"
   status: side_analysis_descriptive_with_limited_paired_statistics
+  prolif_runtime_note_2026_05_22: >
+    Active-site IFP/contact patterns now use implicit ProLIF H-bonds plus raw
+    VdW diagnostics. Hydrophobic interaction metrics are excluded from paired
+    analysis.
   purpose: >
-    Test whether full-length LPMO predictions, including CBM/linker regions, change ligand placement
-    relative to catalytic-domain-only predictions. The analysis focuses on changes in CBM recruitment,
-    active-site IFP/contact patterns, C1/C4 geometry annotations, QC, and clustering stability.
+    Test whether full-length LPMO predictions, including any non-core module context,
+    change ligand placement relative to catalytic-domain-only predictions. The analysis
+    focuses on changes in aggregated non-core recruitment, active-site IFP/contact patterns,
+    C1/C4 geometry annotations, QC, and clustering stability.
   main_question: >
     For the same protein and same ligand condition, does the full-length construct produce different
     AF3 ligand placement or structural summaries than the domain-only construct?
   interpretation_scope:
     - AF3-derived placement changed or did not change between constructs.
-    - CBM/linker contact patterns suggest or do not suggest ligand recruitment.
+    - Aggregated non-core contact patterns suggest or do not suggest ligand recruitment.
     - Geometry annotations shift or do not shift toward C1-like or C4-like compatibility.
     - Observed changes are computational indicators, not experimental evidence of changed activity or affinity.
 
@@ -47,15 +52,13 @@ design:
 
 region_definitions:
   required_region_labels_per_residue:
-    - catalytic_domain
-    - cbm_region
-    - linker_region
-    - other
+    - catalytic_or_core_context
+    - non_core_context
   rules:
-    - Assign each protein residue to exactly one region label before computing CBM metrics.
-    - For domain-only constructs, all mapped residues are catalytic_domain unless a more specific annotation is available.
-    - For full-length constructs, catalytic_domain, cbm_region, and linker_region must be defined from metadata or sequence/domain annotation.
-    - Use the same catalytic-domain residue mapping between domain-only and full-length constructs before comparing active-site IFP/contact summaries.
+    - Do not introduce fine-grained residue-level domain annotation for extra modules.
+    - For interpretation, collapse any CBM, linker, or other extra-module signal into one non-core bucket.
+    - For domain-only constructs, non-core context is zero by definition.
+    - Use the same catalytic/core residue mapping between domain-only and full-length constructs before comparing active-site IFP/contact summaries.
 
 condition_summary_building:
   input_level: clusters_within_each_construct_condition
@@ -70,8 +73,7 @@ condition_summary_building:
       geometry_plausible_fraction: 0
       C1_compatible_fraction: 0
       C4_compatible_fraction: 0
-      cbm_ligand_contact_fraction: 0
-      linker_ligand_contact_fraction: 0
+      non_core_ligand_contact_fraction: 0
       bridge_fraction: 0
     set_missing:
       - median_geometry_distances
@@ -102,16 +104,14 @@ derived_metrics:
     cluster_entropy: Shannon entropy of retained cluster occupancies
     occupancy_gini: Gini coefficient of retained cluster occupancies
 
-  cbm_recruitment_metrics_full_length:
-    cbm_ligand_contact_fraction: >
-      Occupancy-weighted fraction of retained clusters where the ligand contacts at least one CBM residue.
-    linker_ligand_contact_fraction: >
-      Occupancy-weighted fraction of retained clusters where the ligand contacts at least one linker residue.
+  non_core_recruitment_metrics_full_length:
+    non_core_ligand_contact_fraction: >
+      Occupancy-weighted fraction of retained clusters where the ligand contacts at least one non-core residue.
     bridge_fraction: >
-      Occupancy-weighted fraction of retained clusters where the ligand contacts catalytic-domain residue(s)
-      and CBM or linker residue(s) in the same cluster.
-    cbm_recruitment_score: >
-      max(cbm_ligand_contact_fraction, bridge_fraction). Used for descriptive ranking of proteins.
+      Occupancy-weighted fraction of retained clusters where the ligand contacts catalytic/core residue(s)
+      and non-core residue(s) in the same cluster.
+    non_core_recruitment_score: >
+      max(non_core_ligand_contact_fraction, bridge_fraction). Used for descriptive ranking of proteins.
 
   active_site_contact_change_metrics:
     active_site_ifp_weighted_vector: >
@@ -359,6 +359,7 @@ outputs:
     - cbm_stratified_summary_by_dp.tsv
     - cbm_stratified_summary_by_cbm_type.tsv
     - cbm_representative_examples.tsv
+    - cbm_figure_manifest.tsv
   figures:
     - paired_delta_plot_primary_metrics.png
     - domain_only_vs_full_length_paired_lines.png
@@ -367,16 +368,21 @@ outputs:
     - geometry_bias_delta_heatmap.png
 
 implementation_order:
-  - Define catalytic_domain, cbm_region, and linker_region residue labels for all full-length constructs.
-  - Build construct-level condition summaries separately for domain-only and full-length conditions.
-  - Create matched pairs by protein_id, substrate_class, and dp.
-  - Compute full-length CBM recruitment metrics.
-  - Compute paired active-site IFP/contact distances and paired deltas.
-  - Compute primary endpoint summaries and sample-size category for each metric.
-  - Run bootstrap, sign test, and Wilcoxon procedures according to n_pairs and n_nonzero_pairs rules.
-  - Create stratified descriptive summaries by substrate_class, dp, and cbm_type.
-  - Generate required figures and representative medoid examples.
-  - Write final interpretation using effect sizes, direction, and uncertainty rather than only p-values.
+  implemented_2026_05_22:
+    - Build construct-level condition summaries separately for domain-only and full-length conditions.
+    - Create matched pairs by protein_id, substrate_class, and dp.
+    - Compute full-length CBM recruitment metrics from current condition-level contact fractions.
+    - Compute paired active-site IFP Jaccard distance when comparable weighted IFP vectors are available.
+    - Compute paired deltas for QC, cluster stability, contact-region, and C1/C4 geometry-bias metrics.
+    - Compute primary endpoint summaries and sample-size category for each metric.
+    - Run bootstrap, sign test, Wilcoxon, rank-biserial effect size, and BH-FDR according to n_pairs and n_nonzero_pairs rules.
+    - Create stratified descriptive summaries by substrate_class, dp, and cbm_type.
+    - Create deterministic representative-example rows and a figure manifest.
+  remaining_after_real_row_validation:
+    - Define or verify catalytic_domain, cbm_region, and linker_region residue labels for all full-length constructs before biological interpretation.
+    - Generate required figures from cbm_figure_manifest.tsv.
+    - Add representative medoid structure renderings after matched real rows are validated.
+    - Write final interpretation using effect sizes, direction, and uncertainty rather than only p-values.
 
 reporting_language:
   preferred_phrasing:

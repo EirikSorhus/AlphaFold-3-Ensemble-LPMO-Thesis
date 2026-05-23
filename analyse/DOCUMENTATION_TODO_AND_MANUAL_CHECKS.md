@@ -34,8 +34,8 @@ produces condition-, cluster-, residue-, and geometry-level outputs:
   and locked predictor choices rather than a fully detailed implementation map.
 - `cbm_full_length_vs_domain_only_analysis_plan.yaml` — detailed paired-analysis
   plan for comparing full-length and domain-only constructs in CBM-containing
-  proteins. It defines matched construct-pair inclusion rules, CBM/linker
-  region requirements, condition summaries, primary paired endpoints,
+  proteins. It defines matched construct-pair inclusion rules, the binary
+  catalytic/core-versus-non-core interpretation contract, condition summaries, primary paired endpoints,
   statistics by sample size, stratified reporting, and expected CBM outputs.
 
 These files should be treated as active downstream implementation plans that
@@ -157,24 +157,29 @@ Step 7 and 7b were rewritten and verified 2026-04-23 with PDBFixer/OpenMM as pri
 
 - `io/cif_to_pdb.py`: `_convert_auto()` tries PDBFixer first; falls back to gemmi.
   New report field `backend_fallback_reason` records why fallback was used (empty = PDBFixer succeeded).
-- `io/protonate_export.py`: protonation priority is PDBFixer/OpenMM → reduce → obabel → BLOCKER.
-  No silent copy-fallback. New report field `complex_h_backend` replaces old `used_reduce`/`used_obabel_for_complex_h`.
-  Ligand extraction validates that extracted chains are not protein-only.
-  Final connectivity solution:
-  - name-based glykan-linking før protonering: C1(i)→O4(i+1) for NAG/BGC/GLC
-  - eksplisitt CONECT rewrite i `complex_H.pdb` med komplett glykan-konnektivitet
-    (intra-residue + inter-residue link)
-- Test script `test_protonation_contracts.sh` now verifies:
-  - `complex_h_backend` ≠ "none"
-  - `complex_H.pdb` atom count > `for_posebusters.pdb` atom count (hydrogens added)
-  - MOL2 has `@<TRIPOS>ATOM` and `@<TRIPOS>BOND` sections
-  - MOL2 is free of protein residue labels
+- `io/analysis_export.py`: production ProLIF/export path is now non-protonated.
+  `normalized.cif` is exported to `analysis_export/complex_for_prolif.pdb`,
+  `analysis_export/ligand_only_for_prolif.pdb`, and `analysis_export_report.json`.
+  Ligand extraction validates that exported chains are not protein-only and keeps
+  monosaccharide residue identity intact.
+- Current ProLIF export checks verify:
+  - `analysis_export_report.json` exists
+  - `complex_for_prolif.pdb` exists and is the protein+ligand PDB used by ProLIF
+  - `ligand_only_for_prolif.pdb` is ligand-only and free of protein residue labels
+  - crystal-derived exports preserve the corrected glycan-link direction after normalization
 
 Verification runs:
 - sbatch jobs: 572928, 572982, 572996, 573050
-- `complex_h_backend=pdbfixer`, hydrogen atom delta > 0
-- `ligand_for_prolif.mol2` passes TRIPOS + ligand-only checks
+- `analysis_export_report.json` written successfully for migrated runs
+- `ligand_only_for_prolif.pdb` passes ligand-only checks
 - manual PyMOL spot-check confirms expected glykan-bonding appearance
+- 2026-05-22 focused regression tests: `pytest tests/test_io_contracts.py -q -k 'glycosidic or rewrite_conect'` → 3 passed
+- 2026-05-22 real-case regeneration from normalized crystal CIFs confirms corrected `complex_for_prolif.pdb` cross-residue direction for both `5ACI` and `7PXW` (`forward=True`, `reverse=False` for every neighboring BGC pair)
+
+Resolved bug note (2026-05-22):
+- The old manual glycan repair assumed ascending residue numbering matched the physical left-to-right sugar order, which held for AF3 examples but failed for some crystal-derived subsets.
+- In `5ACI` and `7PXW`, that previously produced stretched analysis-export PDB links across neighboring sugars even though `normalized.cif` already had correct chemistry.
+- `io/cif_to_pdb.py` and `io/analysis_export.py` now choose the shorter physically plausible cross-residue C1/O4 pair instead of trusting residue-number order alone.
 
 ---
 
@@ -269,13 +274,13 @@ PoseBusters could return no usable results on the real exported `for_posebusters
 - `for_posebusters.pdb` is a PoseBusters-specific export with incompatible metal atom records removed.
 - metal-only `TER` / `LINK` / `CONECT` references are removed at the same time.
 - non-metal `CONECT` records are retained.
-- `complex_H.pdb` is still generated from a full-complex temporary export, so Cu remains present in downstream analysis artifacts.
+- `analysis_export/complex_for_prolif.pdb` is generated from the full normalized structure, so Cu remains present in downstream analysis artifacts.
 
 Implemented and verified points:
 - `io/cif_to_pdb.py` now strips incompatible metal atoms from the public PoseBusters PDB and records the stripped element/count in `cif_to_pdb_report.json`.
-- `io/protonate_export.py` now protonates a full-complex temporary export so `complex_H.pdb` retains Cu.
+- `io/analysis_export.py` now exports a full-complex non-protonated PDB so `analysis_export/complex_for_prolif.pdb` retains Cu.
 - focused regression coverage now checks both Cu removal and retention of non-metal connectivity.
-- on the real one-case validation rerun, the regenerated `for_posebusters.pdb` yields PoseBusters CSV output, while the raw full-complex export and `complex_H.pdb` still retain Cu.
+- on the real one-case validation rerun, the regenerated `for_posebusters.pdb` yields PoseBusters CSV output, while the raw full-complex export and `analysis_export/complex_for_prolif.pdb` still retain Cu.
 
 **Remaining action:**
 No separate blocker remains; the same export contract was reconfirmed in
@@ -403,73 +408,130 @@ Keep extending the same production path into the higher-level descriptive, predi
 **Status:** RESOLVED 2026-05-20 for method selection and production Stage 6 wiring.
 
 **Description:**  
-The clustering pilot and parameter-sensitivity run selected agglomerative
+The refreshed staged rerun and parameter-sensitivity review selected HDBSCAN
 Jaccard as the global primary method for full analysis:
-`linkage=average`, `distance_threshold=0.55`, `min_cluster_size=3`.
-Sensitivity settings are agglomerative Jaccard `distance_threshold=0.45`,
-`min_cluster_size=3`, and HDBSCAN Jaccard `min_cluster_size=3`,
-`min_samples=null`.
+`min_cluster_size=5`, `min_samples=null`, `cluster_selection_method=eom`.
+Sensitivity settings are HDBSCAN Jaccard `min_cluster_size=3`, agglomerative
+Jaccard `distance_threshold=0.55`, `min_cluster_size=5`, and HDBSCAN Jaccard
+`min_cluster_size=10` as a conservative negative control.
 
-Primary evidence: in the 94 formally clusterable pilot conditions,
-agglomerative `0.55/min3` recovered clusters in 84 conditions, had median noise
-fraction 0.52, and produced non-noise clusters with mean size 4.77 poses
-(SD 2.80; median 4; range 3-21).
+Primary evidence: in the refreshed 146-condition summary set, HDBSCAN min5 was
+chosen because it reduced excessive subdivision relative to HDBSCAN min3 while
+retaining lower median noise than agglomerative `0.55/min5`.
 
 **Implemented solution:**  
-1. The production full-analysis Stage 6 path now uses the selected
-   agglomerative primary method rather than the older HDBSCAN default.
-2. The `0.45/min3` agglomerative and `HDBSCAN min3` outputs remain predefined
-   sensitivity analyses.
+1. The governing documentation now treats HDBSCAN min5 as the selected global
+  primary method.
+2. HDBSCAN min3 remains the lenient sensitivity path, agglomerative `0.55/min5`
+  is the orthogonal method check, and HDBSCAN min10 is the conservative
+  high-support control.
 3. Parameter sweeps should not be re-run during the main analysis.
 
 ---
 
-### P10 — R model choice for cluster-level regioselectivity not finalized
+### P10 — Predictive backend locked; full-run interpretation still depends on effective N
 
 **Priority:** MEDIUM — needed for predictive modeling stage (Stage 14). Non-blocking for descriptive stages.
 
 **Description:**  
-OPEN_QUESTIONS.md item 9: primary model is `glmnet` (penalized logistic) with `glmer` (mixed effects) as sensitivity check. This is still a default, not a confirmed decision.
+OPEN_QUESTIONS.md item 9 originally left the final predictive backend open
+between R/glmnet, sklearn, or both. This is now resolved for the implemented
+main analysis path.
 
 Update 2026-05-16:
 Two revised compact predictive implementation plans now exist:
 - `c1_c4_predictive_analysis_plan_simplified.yaml` for C1/C4 regioactivity prediction.
 - `substrate_activity_prediction_plan.yaml` for substrate activity prediction.
 
-Update 2026-05-21:
-These plans have now been revised into less-detailed activity-prediction
-documents. They keep the current Python code in scaffold status, preserve the
-5-fold grouped CV contract by `protein_id`, and narrow the scope to compact
-exploratory models with small-effective-n predictor limits.
+Update 2026-05-22:
+The predictive backend is locked as the compact Python/sklearn implementation:
+`LogisticRegression(C=1.0, class_weight="balanced", solver="liblinear")` with
+fold-local numeric imputation/standardization and grouped CV by `protein_id`.
+`analysis/predictive_postprocess.py` builds modeling rows directly from the
+main analysis `condition_table.tsv` plus protein metadata, writes `10_predictive/`
+under the same output root, and records backend/row validation in
+`predictive_summary.json`. `run_analysis_core` can now run this as optional
+Stage 14 when `production.predictive.enabled=true`; no temporary test artifacts
+are part of the contract.
+
+The existing real-condition harness has produced a production-shaped
+`condition_table.tsv` and `10_predictive/` output, but that tiny run has too few
+rows/classes for interpretable CV metrics. Future full production runs should be
+checked through the validation block in `predictive_summary.json`; models with
+single-class or no evaluable folds are valid I/O but not interpretable
+predictive results.
 
 **Proposed solution:**  
-1. Keep the revised compact YAML plans as the current planning source for activity prediction.
-2. Confirm the primary implementation backend for the predictive models: R/glmnet, sklearn, or both with one primary.
-3. Update OPEN_QUESTIONS.md item 9 to separate resolved predictor-plan changes from unresolved backend choices.
-4. Keep 5-fold grouped CV by `protein_id` as the default plan unless a later revision records a different choice.
-5. `scripts/ec_activity_mapping.R`, the Python `predictive_cluster_table.tsv` builder, and the first grouped binary Python scaffold now exist; next validate on real predictive rows against the revised compact plans.
+1. Use the sklearn logistic-regression backend as the primary Stage 14 backend.
+2. Enable Stage 14 from production config only when protein metadata is available.
+3. Treat `predictive_summary.json["validation"]` as the run-level gate for
+   whether outputs are only I/O-valid or also model-interpretable.
+4. Add plotting/report polish later only after a full run has enough proteins
+   and both target classes for the requested tasks.
 
 ---
 
-### P10b — CBM paired-analysis detailed plan added but not implemented
+### P10b — CBM paired-analysis real-row validation completed; interpretation now uses a binary core-vs-non-core scope
 
-**Priority:** MEDIUM — needed for Stage 15 CBM side analysis after the core condition/cluster tables exist.
+**Priority:** MEDIUM — real-row validation is complete; remaining work is biological interpretation on finalized real runs.
 
 **Description:**
-`cbm_full_length_vs_domain_only_analysis_plan.yaml` has been added as the
-detailed implementation plan for paired comparison of full-length and
-domain-only constructs. It specifies the paired row unit
-`protein_id x substrate_class x dp`, required domain/CBM/linker region labels,
-condition-level summaries, primary endpoints such as `bridge_fraction`,
-`catalytic_domain_ifp_jaccard_distance`, `delta_C4_minus_C1_geometry_bias`,
-`delta_qc_pass_fraction`, and `delta_cluster_entropy`, plus small-n reporting
-rules and expected output tables.
+`cbm_full_length_vs_domain_only_analysis_plan.yaml` is the detailed
+implementation plan for paired comparison of full-length and domain-only
+constructs. It specifies the paired row unit `protein_id x substrate_class x dp`,
+binary catalytic/core-versus-non-core interpretation, condition-level summaries, primary
+endpoints such as `bridge_fraction`, `catalytic_domain_ifp_jaccard_distance`,
+`delta_C4_minus_C1_geometry_bias`, `delta_qc_pass_fraction`, and
+`delta_cluster_entropy`, plus small-n reporting rules and expected output
+tables.
 
-**Proposed solution:**
-1. Ensure the remaining upstream outputs needed by the plan exist: construct-specific condition summaries, plus verification that the current `cluster_table.tsv`, `condition_table.tsv`, `cluster_residue_signature.tsv`, and `protein_condition_residue_scores.tsv` expose the fields the plan expects on paired full-length/domain-only data.
-2. Define or import residue region annotations for catalytic domain, CBM, linker, and other regions before interpreting CBM metrics on real data.
-3. The first condition-level `analysis/cbm_comparison.py` builders now exist; extend them only after validating their paired rows on full-length/domain-only real data.
-4. Validate the paired table on a small set of proteins with both construct types before running the full CBM side analysis.
+Update 2026-05-22:
+The condition-level implementation now exists in `analysis/cbm_comparison.py`.
+It builds construct summaries, matched pair rows, primary metric summaries,
+secondary descriptive summaries, stratified summaries by substrate/DP/CBM type,
+representative example rows, and a figure manifest. Primary paired/distance
+endpoints follow the plan's sample-size rules: bootstrap median CIs for
+`n_pairs >= 8`, sign tests for `n_pairs >= 8`, Wilcoxon signed-rank and
+rank-biserial effect size for `n_nonzero_pairs >= 8`, and BH-FDR across primary
+Wilcoxon tests only. `bridge_fraction` is a full-length-only endpoint and is
+therefore descriptive, not a paired Wilcoxon test.
+
+Update 2026-05-22 (later):
+Real-row validation is now complete. Focused pytest coverage in
+`tests/test_cbm_comparison.py` plus the Slurm harness
+`tests/run_tests_scripts/test_cbm_paired_real_validation.sh` (job 1155676)
+rebuilt domain-only and full-length summary tables from the staged
+`clustering_pilot_staged` shard roots, merged the constructs, and validated 27
+matched `protein_id x substrate_class x dp` pairs. During this validation, the
+real metadata join in `analysis/cbm_comparison.py` was hardened to use
+`UniProt_ID`, `CAZy_family`, and `Binding_Modules`, which fixed the previously
+empty family/CBM labels on real paired rows.
+
+The manifest-defined CBM figures for later downstream rendering are:
+- `paired_delta_plot_primary_metrics.png` — one point per matched pair for
+  primary paired delta metrics.
+- `domain_only_vs_full_length_paired_lines.png` — construct-level paired lines
+  for selected QC, cluster, and geometry summaries.
+- `cbm_bridge_fraction_by_substrate_dp.png` — full-length bridge fraction by
+  substrate and DP.
+- `active_site_ifp_change_heatmap.png` — catalytic-domain IFP Jaccard distance
+  per protein and ligand condition when weighted IFP vectors are available.
+- `geometry_bias_delta_heatmap.png` — `delta_C4_minus_C1_geometry_bias` per
+  protein and ligand condition.
+
+Update 2026-05-22 (latest scope decision):
+The paired analysis will not introduce fine-grained domain annotation. The
+only supported interpretation split is catalytic/core versus aggregated
+non-core context. Any CBM, linker, or other extra-module contribution is
+collapsed into one non-core bucket. Figure rendering is explicitly deferred
+until the full real-data production set is complete.
+
+**Remaining work:**
+1. Run the finalized full real-data production set and review whether the
+   binary core-vs-non-core summaries remain biologically interpretable across
+   proteins and substrates.
+2. Keep figure rendering downstream of that finalized production run; do not
+   treat `cbm_figure_manifest.tsv` as an immediate implementation requirement.
 
 ---
 
@@ -488,14 +550,14 @@ table, crystal geometry table, crystal IFP diagnostic summary,
 For short smoke runs with observed contacts but zero retained non-noise
 clusters, the Stage 16b residue tables now emit explicit zero-valued residue
 rows instead of remaining header-only. Cluster-dependent tests can use
-`tests/fixtures/clustering_stage_outputs/`, which contains the selected pilot
+`tests/fixtures/clustering_stage_outputs/`, which contains the older pilot
 agglomerative Jaccard outputs (`distance_threshold=0.55`,
 `min_cluster_size=3`), instead of depending on the short one-pose real-data
 smoke to produce meaningful clusters. The following planned TSVs are still not
 implemented because their upstream analysis layers are not implemented yet:
 
 - full predictive model outputs/reports under `10_predictive/modeling_tables/`
-- downstream CBM reports/statistical summaries beyond `cbm_construct_condition_summary.tsv` and `cbm_paired_comparison_table.tsv`
+- rendered CBM figures from `cbm_figure_manifest.tsv`
 
 Update 2026-05-21:
 - Step 1 in the proposed solution below is now implemented for Stage 16b via a
@@ -563,7 +625,8 @@ Review the actual proteins in the dataset that fall into this category and check
 AF3 mmCIF inputs generally do not include `_chem_comp_bond`. The normalization code now treats missing `_chem_comp_bond` as informational (not warning/failure), but multiple docs/config fields still describe it as required.
 For deposited crystal references, crystal anchoring now preserves `_chem_comp`,
 `_chem_comp_bond`, and `_struct_conn` when those categories exist in the source
-mmCIF before normalizing/protonating the selected crystal subset. This does not
+mmCIF before normalizing and writing non-protonated analysis exports for the
+selected crystal subset. This does not
 change the AF3-input status: missing `_chem_comp_bond` remains informational for
 AF3 normalized poses.
 

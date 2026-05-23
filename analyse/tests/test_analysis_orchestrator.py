@@ -7,8 +7,11 @@ from pathlib import Path
 import numpy as np
 
 from lpmo_pipeline.analysis.analysis_orchestrator import (
+    ClusteringFeatureOptions,
     PreparedPose,
     ProductionRunOptions,
+    _build_main_clustering_matrix,
+    _classify_primary_clustering_input,
     _choose_crystal_representatives,
     _discover_pose_inputs,
     _discover_top_model_fallback_inputs,
@@ -51,6 +54,8 @@ def _make_work_root(tmp_path: Path, *, include_other_protein: bool = False) -> P
 
 def test_load_production_options_selects_work_root_from_construct_type(tmp_path: Path) -> None:
     output_dir = tmp_path / "output"
+    metadata_path = tmp_path / "metadata.tsv"
+    metadata_path.write_text("UniProt_ID\tCAZy_family\tEC_Number\nQ7SCE9\tAA10\t1.14.99.53\n")
     config = {
         "production": {
             "construct_type": "full_length",
@@ -69,6 +74,13 @@ def test_load_production_options_selects_work_root_from_construct_type(tmp_path:
                 "minimum_clusterable_n": 12,
                 "agglomerative_distance_threshold": 0.35,
             },
+            "predictive": {
+                "enabled": True,
+                "protein_metadata_path": str(metadata_path),
+                "task": "c1_c4",
+                "n_folds": 3,
+                "random_state": 7,
+            },
         }
     }
 
@@ -78,6 +90,9 @@ def test_load_production_options_selects_work_root_from_construct_type(tmp_path:
     assert options.work_root == (tmp_path / "work_full_length").resolve()
     assert options.include_targets == ("NAG4",)
     assert options.include_proteins == ("Q7SCE9",)
+    assert options.clustering_features.extra_include_interaction_types == ("Hydrophobic",)
+    assert options.minimum_clusterable_n == 12
+    assert options.agglomerative_distance_threshold == 0.35
     assert options.run_posebusters is False
     assert options.run_privateer is False
     assert options.clustering_pilot is not None
@@ -86,6 +101,98 @@ def test_load_production_options_selects_work_root_from_construct_type(tmp_path:
     assert options.clustering_pilot.extra_include_interaction_types == ("Hydrophobic",)
     assert options.clustering_pilot.minimum_clusterable_n == 12
     assert options.clustering_pilot.agglomerative_distance_threshold == 0.35
+    assert options.predictive.enabled is True
+    assert options.predictive.protein_metadata_path == metadata_path.resolve()
+    assert options.predictive.task == "c1_c4"
+    assert options.predictive.n_folds == 3
+    assert options.predictive.random_state == 7
+
+
+def test_classify_primary_clustering_input_enforces_minimum_signal() -> None:
+    assert _classify_primary_clustering_input(
+        n_clusterable=0,
+        n_main_features=0,
+        minimum_clusterable_n=10,
+        insufficient_clusterable_signal_label="insufficient_clusterable_signal",
+    ) == ("no_clusterable_poses", False)
+    assert _classify_primary_clustering_input(
+        n_clusterable=3,
+        n_main_features=2,
+        minimum_clusterable_n=10,
+        insufficient_clusterable_signal_label="insufficient_clusterable_signal",
+    ) == ("insufficient_clusterable_signal", False)
+    assert _classify_primary_clustering_input(
+        n_clusterable=10,
+        n_main_features=0,
+        minimum_clusterable_n=10,
+        insufficient_clusterable_signal_label="insufficient_clusterable_signal",
+    ) == ("empty_main_matrix", False)
+    assert _classify_primary_clustering_input(
+        n_clusterable=10,
+        n_main_features=2,
+        minimum_clusterable_n=10,
+        insufficient_clusterable_signal_label="insufficient_clusterable_signal",
+    ) == ("ok", True)
+
+
+def test_build_main_clustering_matrix_filters_raw_ifp_to_main_interactions() -> None:
+    feature_names = [
+        "NAG1.B|ASN10.A|ImplicitHBDonor",
+        "NAG1.B|ASN10.A|VdWContact",
+        "NAG2.B|TYR12.A|Hydrophobic",
+        "NAG3.B|GLU15.A|ImplicitHBAcceptor",
+    ]
+    batch = IFPBatch(
+        protein_id="P",
+        ligand_id="NAG4",
+        model="af3",
+        feature_names=feature_names,
+        matrix=[
+            [1, 1, 1, 0],
+            [0, 0, 0, 1],
+        ],
+        results=[
+            IFPResult(
+                pose_id="pose-a",
+                status="ok",
+                feature_names=feature_names,
+                flat_bitvector=[1, 1, 1, 0],
+                n_total_contacts=3,
+                interaction_counts={"ImplicitHBDonor": 1, "VdWContact": 1, "Hydrophobic": 1},
+            ),
+            IFPResult(
+                pose_id="pose-b",
+                status="ok",
+                feature_names=feature_names,
+                flat_bitvector=[0, 0, 0, 1],
+                n_total_contacts=1,
+                interaction_counts={"ImplicitHBAcceptor": 1},
+            ),
+        ],
+    )
+
+    filtered = _build_main_clustering_matrix(
+        batch,
+        selected_pose_ids=["pose-a", "pose-b"],
+        feature_options=ClusteringFeatureOptions(),
+    )
+    filtered_with_hydrophobic = _build_main_clustering_matrix(
+        batch,
+        selected_pose_ids=["pose-a", "pose-b"],
+        feature_options=ClusteringFeatureOptions(extra_include_interaction_types=("Hydrophobic",)),
+    )
+
+    assert filtered.pose_ids == ["pose-a", "pose-b"]
+    assert filtered.feature_names == [
+        "NAG1.B|ASN10.A|ImplicitHBDonor",
+        "NAG3.B|GLU15.A|ImplicitHBAcceptor",
+    ]
+    assert filtered.matrix == [[1, 0], [0, 1]]
+    assert filtered_with_hydrophobic.feature_names == [
+        "NAG1.B|ASN10.A|ImplicitHBDonor",
+        "NAG2.B|TYR12.A|Hydrophobic",
+        "NAG3.B|GLU15.A|ImplicitHBAcceptor",
+    ]
 
 
 def test_discover_pose_inputs_filters_by_include_proteins(tmp_path: Path) -> None:
@@ -305,6 +412,8 @@ def test_discover_pose_inputs_preserves_upstream_run_id_for_symlinked_stage(tmp_
 def test_run_analysis_core_writes_qc_geometry_and_reports(tmp_path, monkeypatch) -> None:
     work_root = _make_work_root(tmp_path)
     output_dir = tmp_path / "output"
+    metadata_path = tmp_path / "metadata.tsv"
+    metadata_path.write_text("UniProt_ID\tCAZy_family\tEC_Number\nQ7SCE9\tAA10\t1.14.99.53\n")
     config = {
         "pipeline_version": "2.1",
         "production": {
@@ -313,9 +422,19 @@ def test_run_analysis_core_writes_qc_geometry_and_reports(tmp_path, monkeypatch)
             "latest_only": False,
             "run_posebusters": False,
             "run_privateer": False,
+            "clustering": {
+                "minimum_clusterable_n": 1,
+            },
             "clustering_pilot": {
                 "enabled": True,
                 "label": "test-pilot",
+            },
+            "predictive": {
+                "enabled": True,
+                "protein_metadata_path": str(metadata_path),
+                "task": "all",
+                "n_folds": 2,
+                "random_state": 5,
             },
         },
     }
@@ -343,18 +462,18 @@ def test_run_analysis_core_writes_qc_geometry_and_reports(tmp_path, monkeypatch)
         output_path.write_text("data_privateer\n")
         return output_path
 
-    def _fake_protonate_and_export(normalized_path: Path, output_dir: Path):
+    def _fake_export_analysis_artifacts(normalized_path: Path, output_dir: Path):
         output_dir.mkdir(parents=True, exist_ok=True)
-        complex_h = output_dir / "complex_H.pdb"
-        ligand_mol2 = output_dir / "ligand_for_prolif.mol2"
-        complex_h.write_text("ATOM      1  CA  ALA A   1       0.0     0.0     0.0\nEND\n")
-        ligand_mol2.write_text("@<TRIPOS>ATOM\n      1 C1 0.0 0.0 0.0 C.3 1 NAG1 0.0\n@<TRIPOS>BOND\n")
-        (output_dir / "protonation_report.json").write_text("{}\n")
+        complex_pdb = output_dir / "complex_for_prolif.pdb"
+        ligand_pdb = output_dir / "ligand_only_for_prolif.pdb"
+        complex_pdb.write_text("ATOM      1  CA  ALA A   1       0.0     0.0     0.0\nEND\n")
+        ligand_pdb.write_text("HETATM    1  C1  NAG B   1       0.0     0.0     0.0\nEND\n")
+        (output_dir / "analysis_export_report.json").write_text("{}\n")
         return True, {
             "blockers": [],
             "warnings": [],
-            "complex_h_pdb": str(complex_h),
-            "ligand_mol2": str(ligand_mol2),
+            "complex_for_prolif_pdb": str(complex_pdb),
+            "ligand_pdb": str(ligand_pdb),
         }
 
     class _FakeGemmi:
@@ -445,15 +564,15 @@ def test_run_analysis_core_writes_qc_geometry_and_reports(tmp_path, monkeypatch)
                     n_residues=1,
                     n_interaction_types=2,
                     residue_names=["NAG1.B|ASN10.A"],
-                    interaction_types=["HBDonor", "HBAcceptor"],
+                    interaction_types=["ImplicitHBDonor", "ImplicitHBAcceptor"],
                     feature_names=[
-                        "NAG1.B|ASN10.A|HBDonor",
-                        "NAG1.B|ASN10.A|HBAcceptor",
+                        "NAG1.B|ASN10.A|ImplicitHBDonor",
+                        "NAG1.B|ASN10.A|ImplicitHBAcceptor",
                     ],
                     fingerprint=[[1, 1]],
                     flat_bitvector=[1, 1],
                     n_total_contacts=2,
-                    interaction_counts={"HBDonor": 1, "HBAcceptor": 1},
+                    interaction_counts={"ImplicitHBDonor": 1, "ImplicitHBAcceptor": 1},
                 )
             )
             matrix.append([1, 1])
@@ -463,7 +582,10 @@ def test_run_analysis_core_writes_qc_geometry_and_reports(tmp_path, monkeypatch)
             model=model,
             results=results,
             matrix=matrix,
-            feature_names=["NAG1.B|ASN10.A|HBDonor", "NAG1.B|ASN10.A|HBAcceptor"],
+            feature_names=[
+                "NAG1.B|ASN10.A|ImplicitHBDonor",
+                "NAG1.B|ASN10.A|ImplicitHBAcceptor",
+            ],
         )
 
     class _FakeClusterer:
@@ -534,8 +656,8 @@ def test_run_analysis_core_writes_qc_geometry_and_reports(tmp_path, monkeypatch)
         _fake_prepare_privateer_input,
     )
     monkeypatch.setattr(
-        "lpmo_pipeline.analysis.analysis_orchestrator.protonate_and_export",
-        _fake_protonate_and_export,
+        "lpmo_pipeline.analysis.analysis_orchestrator.export_analysis_artifacts",
+        _fake_export_analysis_artifacts,
     )
     monkeypatch.setattr("lpmo_pipeline.analysis.analysis_orchestrator.gemmi", _FakeGemmi())
     monkeypatch.setattr(
@@ -555,7 +677,7 @@ def test_run_analysis_core_writes_qc_geometry_and_reports(tmp_path, monkeypatch)
         _fake_compute_condition_convergence,
     )
     monkeypatch.setattr(
-        "lpmo_pipeline.analysis.analysis_orchestrator.AgglomerativeJaccardClusterer",
+        "lpmo_pipeline.analysis.analysis_orchestrator.HDBSCANClusterer",
         _FakeClusterer,
     )
     monkeypatch.setattr(
@@ -638,6 +760,7 @@ def test_run_analysis_core_writes_qc_geometry_and_reports(tmp_path, monkeypatch)
     assert result.crystal_anchoring_stage_completed is True
     assert result.n_crystal_anchoring_conditions == 1
     assert result.n_crystal_anchoring_errors == 0
+    assert result.predictive_summary_path is not None and result.predictive_summary_path.exists()
     assert hard_qc_kwargs == {
         "run_posebusters": False,
         "run_privateer": False,
@@ -679,6 +802,9 @@ def test_run_analysis_core_writes_qc_geometry_and_reports(tmp_path, monkeypatch)
     assert result.summary_json_path is not None and result.summary_json_path.exists()
     assert result.report_html_path is not None and result.report_html_path.exists()
     assert result.summary_path.exists()
+    analysis_summary = json.loads(result.summary_path.read_text())
+    assert analysis_summary["predictive"]["enabled"] is True
+    assert analysis_summary["predictive"]["summary_path"].endswith("10_predictive/predictive_summary.json")
     assert list(output_dir.rglob("geometry_debug.pdb")) == []
 
     pose_geometry_lines = result.pose_geometry_tsv_path.read_text().splitlines()
@@ -704,7 +830,8 @@ def test_run_analysis_core_writes_qc_geometry_and_reports(tmp_path, monkeypatch)
         structure_rows = list(csv.DictReader(handle, delimiter="\t"))
     assert len(structure_rows) == 2
     assert structure_rows[0]["normalized_cif"].endswith("normalized.cif")
-    assert structure_rows[0]["complex_h_pdb"].endswith("complex_H.pdb")
+    assert structure_rows[0]["complex_for_prolif_pdb"].endswith("complex_for_prolif.pdb")
+    assert structure_rows[0]["ligand_pdb"].endswith("ligand_only_for_prolif.pdb")
 
     with open(result.qc_attrition_tsv_path, newline="") as handle:
         attrition_rows = list(csv.DictReader(handle, delimiter="\t"))
@@ -797,6 +924,9 @@ def test_run_analysis_core_writes_qc_geometry_and_reports(tmp_path, monkeypatch)
     assert condition_rows[0]["n_ifp_success"] == "1"
     assert condition_rows[0]["n_contact_eligible"] == "1"
     assert condition_rows[0]["contact_eligible_fraction"] == "1.0"
+    assert condition_rows[0]["minimum_clusterable_n"] == "1"
+    assert condition_rows[0]["clustering_status"] == "ok"
+    assert condition_rows[0]["formal_clustering_allowed"] == "True"
     assert condition_rows[0]["low_specific_contact_fraction"] == "0.0"
     assert condition_rows[0]["n_ifp_clustered"] == "1"
     assert condition_rows[0]["n_noise"] == "0"
@@ -806,8 +936,8 @@ def test_run_analysis_core_writes_qc_geometry_and_reports(tmp_path, monkeypatch)
     assert len(cluster_ifp_rows) == 2
     assert cluster_ifp_rows[0]["condition_id"] == "Q7SCE9__domain_only__chitin_DP4"
     assert {row["feature_name"] for row in cluster_ifp_rows} == {
-        "NAG1.B|ASN10.A|HBDonor",
-        "NAG1.B|ASN10.A|HBAcceptor",
+        "NAG1.B|ASN10.A|ImplicitHBDonor",
+        "NAG1.B|ASN10.A|ImplicitHBAcceptor",
     }
 
     with open(result.cluster_residue_signature_tsv_path, newline="") as handle:
@@ -815,7 +945,7 @@ def test_run_analysis_core_writes_qc_geometry_and_reports(tmp_path, monkeypatch)
     assert len(cluster_residue_rows) == 1
     assert cluster_residue_rows[0]["residue_chain"] == "A"
     assert cluster_residue_rows[0]["residue_number"] == "10"
-    assert cluster_residue_rows[0]["interaction_type"] == "HBAcceptor,HBDonor"
+    assert cluster_residue_rows[0]["interaction_type"] == "ImplicitHBAcceptor,ImplicitHBDonor"
     assert cluster_residue_rows[0]["contact_frequency"] == "1.0"
 
     with open(result.protein_condition_residue_scores_tsv_path, newline="") as handle:
@@ -839,6 +969,7 @@ def test_run_analysis_core_writes_qc_geometry_and_reports(tmp_path, monkeypatch)
             "total_cluster_occupancy_with_contact": "1.0",
             "max_cluster_residue_frequency": "1.0",
             "is_catalytic_surface_region": "False",
+            "is_non_core_region": "False",
             "is_cbm_region": "False",
             "is_linker_region": "False",
         }
@@ -859,6 +990,7 @@ def test_run_analysis_core_writes_qc_geometry_and_reports(tmp_path, monkeypatch)
             "mean_c4_weighted_residue_score": "1.0",
             "c1_minus_c4_weighted_delta": "0.0",
             "is_catalytic_surface_region": "False",
+            "is_non_core_region": "False",
             "is_cbm_region": "False",
             "is_linker_region": "False",
         }
@@ -880,9 +1012,9 @@ def test_run_analysis_core_writes_qc_geometry_and_reports(tmp_path, monkeypatch)
             "aromatic_contact_fraction": "0.0",
             "polar_contact_fraction": "1.0",
             "charged_contact_fraction": "0.0",
-            "hydrophobic_contact_fraction": "0.0",
             "hbond_contact_fraction": "1.0",
             "catalytic_surface_contact_fraction": "0.0",
+            "non_core_contact_fraction": "0.0",
             "cbm_contact_fraction": "0.0",
             "linker_contact_fraction": "0.0",
         }
@@ -898,9 +1030,9 @@ def test_run_analysis_core_writes_qc_geometry_and_reports(tmp_path, monkeypatch)
             "mean_aromatic_contact_fraction": "0.0",
             "mean_polar_contact_fraction": "1.0",
             "mean_charged_contact_fraction": "0.0",
-            "mean_hydrophobic_contact_fraction": "0.0",
             "mean_hbond_contact_fraction": "1.0",
             "mean_catalytic_surface_contact_fraction": "0.0",
+            "mean_non_core_contact_fraction": "0.0",
             "mean_cbm_contact_fraction": "0.0",
             "mean_linker_contact_fraction": "0.0",
         }
@@ -912,6 +1044,8 @@ def test_run_analysis_core_writes_qc_geometry_and_reports(tmp_path, monkeypatch)
     assert condition_table_rows[0]["condition_id"] == "Q7SCE9__domain_only__chitin_DP4"
     assert condition_table_rows[0]["n_generated"] == "2"
     assert condition_table_rows[0]["n_stage1_hard_fail"] == "1"
+    assert condition_table_rows[0]["clustering_status"] == "ok"
+    assert condition_table_rows[0]["formal_clustering_allowed"] == "True"
     assert condition_table_rows[0]["n_clusters"] == "1"
     assert condition_table_rows[0]["convergence_fraction"] == "1.0"
     assert condition_table_rows[0]["any_valid_cluster"] == "True"
@@ -973,11 +1107,19 @@ def test_run_analysis_core_writes_qc_geometry_and_reports(tmp_path, monkeypatch)
     assert analysis_summary["qc_counts"]["dropped"] == 1
     assert analysis_summary["n_cluster_conditions"] == 1
     assert analysis_summary["primary_clustering"] == {
-        "method": "agglomerative_jaccard",
+        "method": "hdbscan_jaccard",
         "metric": "jaccard",
-        "linkage": "average",
-        "distance_threshold": 0.55,
-        "min_cluster_size": 3,
+        "min_cluster_size": 5,
+        "min_samples": None,
+        "cluster_selection_method": "eom",
+        "minimum_clusterable_n": 1,
+        "insufficient_clusterable_signal_label": "insufficient_clusterable_signal",
+        "orthogonal_sensitivity": {
+            "method": "agglomerative_jaccard",
+            "linkage": "average",
+            "distance_threshold": 0.55,
+            "min_cluster_size": 5,
+        },
     }
     assert analysis_summary["run_posebusters"] is False
     assert analysis_summary["run_privateer"] is False
@@ -1052,3 +1194,215 @@ def test_run_analysis_core_writes_qc_geometry_and_reports(tmp_path, monkeypatch)
     assert analyzed_case["contact_eligible"] is True
     assert analyzed_case["contact_exclusion_class"] is None
     assert analyzed_case["n_non_vdw_interactions"] == 2
+
+
+def test_downstream_geometry_error_flags_pose_without_removing_from_ifp(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    work_root = _make_work_root(tmp_path)
+    output_dir = tmp_path / "output"
+    config = {
+        "pipeline_version": "2.1",
+        "production": {
+            "work_root": str(work_root),
+            "af3_only": True,
+            "latest_only": False,
+            "max_cases": 1,
+            "run_posebusters": False,
+            "run_privateer": False,
+            "clustering": {
+                "minimum_clusterable_n": 1,
+            },
+        },
+    }
+
+    class _FakeNormalizeRunner:
+        def __init__(self, input_cif: Path, output_dir: Path, ccd_client=None) -> None:
+            self.output_dir = output_dir
+
+        def run(self):
+            self.output_dir.mkdir(parents=True, exist_ok=True)
+            normalized = self.output_dir / "normalized.cif"
+            normalized.write_text("data_test\n")
+            (self.output_dir / "normalize_report.json").write_text("{}\n")
+            return True, normalized
+
+    def _fake_convert_cif_to_pdb(normalized_path: Path, output_dir: Path):
+        output_dir.mkdir(parents=True, exist_ok=True)
+        pdb_path = output_dir / "for_posebusters.pdb"
+        pdb_path.write_text("ATOM      1  CA  ALA A   1       0.0     0.0     0.0\nEND\n")
+        (output_dir / "cif_to_pdb_report.json").write_text("{}\n")
+        return True, pdb_path
+
+    def _fake_prepare_privateer_input(normalized_path: Path, output_path: Path):
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text("data_privateer\n")
+        return output_path
+
+    def _fake_export_analysis_artifacts(normalized_path: Path, output_dir: Path):
+        output_dir.mkdir(parents=True, exist_ok=True)
+        (output_dir / "complex_for_prolif.pdb").write_text(
+            "ATOM      1  CA  ALA A   1       0.0     0.0     0.0\nEND\n"
+        )
+        (output_dir / "ligand_only_for_prolif.pdb").write_text(
+            "HETATM    1  C1  NAG B   1       0.0     0.0     0.0\nEND\n"
+        )
+        (output_dir / "analysis_export_report.json").write_text("{}\n")
+        return True, {"blockers": [], "warnings": []}
+
+    class _FakeGemmi:
+        @staticmethod
+        def read_structure(path: str):
+            return {"path": path}
+
+    def _fake_run_hard_qc(poses, run_id: str = "", **kwargs):
+        return build_qc_report(
+            run_id=run_id,
+            verdicts=[PoseQCVerdict(pose_id=pose.pose_id, status="passed") for pose in poses],
+        )
+
+    def _raise_geometry_error(*args, **kwargs):
+        raise RuntimeError("downstream geometry backend unavailable")
+
+    def _fake_compute_ifp_batch(
+        pose_data,
+        protein_id: str = "",
+        ligand_id: str = "",
+        model: str = "",
+        protein_chain: str = "A",
+        max_workers: int | None = None,
+    ) -> IFPBatch:
+        result = IFPResult(
+            pose_id=pose_data[0]["pose_id"],
+            status="ok",
+            n_residues=1,
+            n_interaction_types=2,
+            residue_names=["NAG1.B|ASN10.A"],
+            interaction_types=["HBDonor", "HBAcceptor"],
+            feature_names=["NAG1.B|ASN10.A|HBDonor", "NAG1.B|ASN10.A|HBAcceptor"],
+            fingerprint=[[1, 1]],
+            flat_bitvector=[1, 1],
+            n_total_contacts=2,
+            interaction_counts={"HBDonor": 1, "HBAcceptor": 1},
+        )
+        return IFPBatch(
+            protein_id=protein_id,
+            ligand_id=ligand_id,
+            model=model,
+            results=[result],
+            matrix=[[1, 1]],
+            feature_names=result.feature_names,
+        )
+
+    def _fake_compute_condition_convergence(pose_inputs, *, config=None):
+        pose_id = pose_inputs[0].pose_id
+        return (
+            [
+                PoseConvergenceMetrics(
+                    pose_id=pose_id,
+                    condition_id="Q7SCE9__domain_only__chitin_DP4",
+                    reference_pose_id=pose_id,
+                    ligand_rmsd_to_reference=0.0,
+                    convergent_flag=True,
+                )
+            ],
+            ConditionConvergenceSummary(
+                condition_id="Q7SCE9__domain_only__chitin_DP4",
+                reference_pose_id=pose_id,
+                n_qc_pass_poses=1,
+                convergence_fraction=1.0,
+                median_ligand_rmsd=0.0,
+                iqr_ligand_rmsd=0.0,
+                low_convergence_flag=False,
+            ),
+        )
+
+    class _FakeClusterer:
+        def __init__(self, output_dir: Path | None = None, config=None):
+            self.config = type(
+                "FakeClusterConfig",
+                (),
+                {
+                    "linkage": "average",
+                    "distance_threshold": 0.55,
+                    "min_cluster_size": 1,
+                    "min_samples": None,
+                    "cluster_selection_method": "eom",
+                },
+            )()
+
+        def cluster(self, ifp_matrix, pose_ids):
+            return ClusteringResult(
+                n_clusters=1,
+                n_outliers=0,
+                outlier_rate=0.0,
+                cluster_sizes={0: 1},
+                cluster_occupancy={0: 1.0},
+                outlier_indices=[],
+                cluster_labels=np.asarray([0], dtype=int),
+                medoids={0: 0},
+                medoid_distance_sums={0: 0.0},
+            )
+
+        def compute_jaccard_distances(self, ifp_matrix):
+            return np.zeros((len(ifp_matrix), len(ifp_matrix)), dtype=float)
+
+    monkeypatch.setattr("lpmo_pipeline.analysis.analysis_orchestrator.NormalizeMMCIFRunner", _FakeNormalizeRunner)
+    monkeypatch.setattr("lpmo_pipeline.analysis.analysis_orchestrator.convert_cif_to_pdb", _fake_convert_cif_to_pdb)
+    monkeypatch.setattr("lpmo_pipeline.analysis.analysis_orchestrator.prepare_privateer_input", _fake_prepare_privateer_input)
+    monkeypatch.setattr(
+        "lpmo_pipeline.analysis.analysis_orchestrator.export_analysis_artifacts",
+        _fake_export_analysis_artifacts,
+    )
+    monkeypatch.setattr("lpmo_pipeline.analysis.analysis_orchestrator.gemmi", _FakeGemmi())
+    monkeypatch.setattr("lpmo_pipeline.analysis.analysis_orchestrator.run_hard_qc", _fake_run_hard_qc)
+    monkeypatch.setattr(
+        "lpmo_pipeline.analysis.analysis_orchestrator.compute_pose_metrics_from_structure",
+        _raise_geometry_error,
+    )
+    monkeypatch.setattr("lpmo_pipeline.analysis.analysis_orchestrator.compute_ifp_batch", _fake_compute_ifp_batch)
+    monkeypatch.setattr(
+        "lpmo_pipeline.analysis.analysis_orchestrator.compute_condition_convergence",
+        _fake_compute_condition_convergence,
+    )
+    monkeypatch.setattr("lpmo_pipeline.analysis.analysis_orchestrator.HDBSCANClusterer", _FakeClusterer)
+    monkeypatch.setattr("lpmo_pipeline.analysis.analysis_orchestrator.validate", lambda instance, schema: None)
+    monkeypatch.setattr(
+        "lpmo_pipeline.analysis.analysis_orchestrator.run_crystal_reference_screen",
+        lambda representative_pose_cif, **kwargs: CrystalReferenceScreenReport(
+            protein_id=kwargs.get("protein_id", ""),
+            representative_pose_id=kwargs.get("representative_pose_id", ""),
+            representative_pose_cif=str(representative_pose_cif),
+            ligand_id=kwargs.get("ligand_id", ""),
+            comparisons=[],
+        ),
+    )
+    monkeypatch.setattr(
+        "lpmo_pipeline.analysis.analysis_orchestrator.write_crystal_reference_screen_report",
+        lambda report, output_path: (
+            output_path.parent.mkdir(parents=True, exist_ok=True),
+            output_path.write_text("{}\n"),
+        ),
+    )
+
+    result = run_analysis_core(config, output_dir, del_variant="del_a")
+
+    assert result.success is True
+    assert result.n_analyzed == 1
+    with open(result.pose_manifest_tsv_path, newline="") as handle:
+        manifest_rows = list(csv.DictReader(handle, delimiter="\t"))
+    assert manifest_rows[0]["analysis_status"] == "analyzed"
+    assert manifest_rows[0]["geometry_metrics_status"] == "flagged"
+    assert json.loads(manifest_rows[0]["analysis_flags"]) == ["geometry_metrics_error"]
+    assert "downstream geometry backend unavailable" in manifest_rows[0]["geometry_metrics_error"]
+
+    with open(result.pose_geometry_tsv_path, newline="") as handle:
+        geometry_rows = list(csv.DictReader(handle, delimiter="\t"))
+    assert geometry_rows[0]["pose_id"] == "Q7SCE9_NAG4_seed-1_sample-0_model"
+    assert geometry_rows[0]["geometry_status_C1"] == "geometry_not_computable"
+
+    with open(result.pose_ifp_table_tsv_path, newline="") as handle:
+        ifp_rows = list(csv.DictReader(handle, delimiter="\t"))
+    assert ifp_rows[0]["pose_id"] == "Q7SCE9_NAG4_seed-1_sample-0_model"
+    assert ifp_rows[0]["ifp_generation_status"] == "ok"

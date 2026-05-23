@@ -2,28 +2,35 @@ clustering_pilot:
   version: "1.0"
   decision_status:
     status: "resolved"
-    decision_date: "2026-05-20"
-    selected_primary_method: "agglomerative_jaccard"
+    decision_date: "2026-05-23"
+    selected_primary_method: "hdbscan_jaccard"
     selected_primary_parameters:
-      linkage: "average"
-      distance_threshold: 0.55
-      min_cluster_size: 3
+      min_cluster_size: 5
+      min_samples: null
     sensitivity_methods:
-      - method: "agglomerative_jaccard"
-        linkage: "average"
-        distance_threshold: 0.45
-        min_cluster_size: 3
       - method: "hdbscan_jaccard"
         min_cluster_size: 3
         min_samples: null
         cluster_selection_method: "eom"
+      - method: "agglomerative_jaccard"
+        linkage: "average"
+        distance_threshold: 0.55
+        min_cluster_size: 5
+      - method: "hdbscan_jaccard"
+        min_cluster_size: 10
+        min_samples: null
+        cluster_selection_method: "eom"
     evidence_summary: >
-      Parameter sensitivity on the staged clustering pilot used 94 formally
-      clusterable conditions. Agglomerative Jaccard with threshold 0.55 and
-      min_cluster_size 3 recovered clusters in 84/94 conditions, reduced median
-      noise fraction to 0.52, and produced non-noise clusters with mean size
-      4.77 poses (SD 2.80, median 4, range 3-21). The conservative 0.45/min3
-      setting and HDBSCAN min3 are retained as predefined sensitivity analyses.
+      Parameter sensitivity on the refreshed staged clustering pilot used 146
+      conditions. HDBSCAN with min_cluster_size 5 was selected as the global
+      primary method because it provides a balanced compromise between cluster
+      recovery, noise handling, and cluster granularity. Relative to the more
+      permissive HDBSCAN min_cluster_size 3 setting it avoids excessive
+      subdivision of conditions into small clusters. Relative to agglomerative
+      Jaccard at threshold 0.55 and min_cluster_size 5 it retains a similar
+      median number of clusters while giving lower median noise. HDBSCAN min3 is
+      retained as lenient sensitivity, agglomerative 0.55/min5 as orthogonal
+      sensitivity, and HDBSCAN min10 as a conservative negative control.
   purpose: >
     Predefinere en pilot-test som avgjør om hovedanalysen skal bruke
     agglomerative clustering eller HDBSCAN for condition-wise clustering
@@ -142,38 +149,34 @@ clustering_pilot:
     feature_identity:
       definition: "protein_residue_id + interaction_type + ligand_unit_id"
       examples:
-        - "A:Trp123__hbond_acceptor__ligand_unit_3"
-        - "A:Tyr45__stacking__ligand_unit_2"
+        - "A:Trp123__ImplicitHBAcceptor__ligand_unit_3"
+        - "A:Asn88__VdWContact__ligand_unit_2"
       why: >
         Clustering skal baseres på spesifikke residue/interaksjon/ligand-unit
         mønstre, ikke bare total kontaktmengde.
 
     interaction_types_initially_measured:
       for_audit_and_descriptive_tables:
-        - hbond_donor
-        - hbond_acceptor
-        - hydrophobic
-        - aromatic_or_stacking
-        - cation_pi
-        - vdw_or_close_contact
+        - ImplicitHBDonor
+        - ImplicitHBAcceptor
+        - VdWContact
       why: >
-        Et bredere audit-sett gjør det mulig å se hvilke interaksjonstyper som
-        faktisk er stabile nok til clustering, uten å miste informasjon fra
-        råtabellene.
+        Runtime-surface for ProLIF er nå låst til de tre aktive
+        interaksjonstypene i produksjonskonfigurasjonen. Råtabeller beholdes
+        for audit, men hydrophobic/aromatic/cation-pi er ikke del av aktiv
+        produksjonsoverflate uten ny kalibrering.
 
     interaction_types_allowed_for_main_clustering:
       default_include:
-        - hbond_donor
-        - hbond_acceptor
-        - aromatic_or_stacking
-      conditional_include:
-        hydrophobic:
-          include_if: >
-            Feature audit viser at hydrophobic-kontakter er residue- og
-            ligand-unit-spesifikke, ikke bare generelle nærhetskontakter.
-        cation_pi:
-          include_if: >
-            Forekommer i nok conditions og ikke bare som enkeltstående sjeldne
+        - ImplicitHBDonor
+        - ImplicitHBAcceptor
+      default_exclude:
+        - VdWContact
+      reintroduction_rule:
+        any_removed_interaction_family: >
+          Hydrophobic, aromatic/stacking, cation-pi og andre legacy-familier
+          krever en ny eksplisitt pilot/kalibrering før de kan reintroduseres
+          i main clustering.
             hendelser.
       default_exclude:
         - vdw_or_close_contact
@@ -248,10 +251,10 @@ clustering_pilot:
       metric: "precomputed_jaccard"
       min_cluster_size_values:
         - 3
-        - 4
+        - 5
+        - 10
       min_samples_values:
-        - 1
-        - 2
+        - null
       cluster_selection_method: "eom"
       run_only_on_contact_eligible_poses: true
       why: >
@@ -372,11 +375,13 @@ clustering_pilot:
           residues, ligand-unit contact patterns og lav-/høy-kontaktklasser.
 
     default_if_methods_are_similar:
-      primary_method: "agglomerative_jaccard"
-      sensitivity_method: "hdbscan_jaccard"
+      primary_method: "hdbscan_jaccard"
+      sensitivity_method: "agglomerative_jaccard"
       why: >
-        Hvis metodene gir samme kvalitative bilde, er agglomerative enklere å
-        forklare og mer transparent som hovedmetode.
+        Den oppdaterte pilotbeslutningen prioriterer balanse mellom clusterantall
+        og noise høyere enn maksimal cluster recovery alene. Hvis metodene gir
+        samme kvalitative bilde, brukes HDBSCAN med moderat `min_cluster_size`
+        som hovedmetode og agglomerative som ortogonal sensitivitet.
 
   required_sensitivity_analyses_after_pilot:
     if_primary_agglomerative:

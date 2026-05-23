@@ -9,7 +9,7 @@
 set -euo pipefail
 
 REPO_ROOT="/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse"
-PYTHON_BIN="/cluster/work/projects/nn1003k/eirik/conda/analyse_env/bin/python"
+PYTHON_BIN="/cluster/work/projects/nn1003k/eirik/conda/analyse_full_prolif_env/bin/python"
 RUN_ROOT="${RUN_ROOT:-$REPO_ROOT/tests/tests_results/clustering_pilot_staged}"
 
 if [[ $# -gt 0 ]]; then
@@ -28,7 +28,7 @@ fi
 
 cd "$REPO_ROOT"
 export PYTHONPATH="$REPO_ROOT/src:${PYTHONPATH:-}"
-export PATH="/cluster/work/projects/nn1003k/eirik/conda/analyse_env/bin:$PATH"
+export PATH="/cluster/work/projects/nn1003k/eirik/conda/analyse_full_prolif_env/bin:$PATH"
 
 echo "[INFO] Input run root: $RUN_ROOT"
 echo "[INFO] Output root:    $OUTPUT_ROOT"

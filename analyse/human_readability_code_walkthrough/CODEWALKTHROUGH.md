@@ -1,5 +1,10 @@
 # Codewalkthrough
 
+Runtime update 2026-05-22: ProLIF-facing downstream preparation now writes
+non-protonated `analysis_export/complex_for_prolif.pdb` and
+`analysis_export/ligand_only_for_prolif.pdb`. ProLIF computes implicit
+H-bonds plus VdW; main clustering uses implicit H-bonds only.
+
 ## 1. Introduksjon
 
 Denne walkthroughen dekker den produksjonsnaere analysepipen under `analyse/`, fra entrypoint og konfigurasjon via discovery og poseforberedelse videre til QC, downstream analyse, clustering, crystal anchoring og rapportering. Denne forste versjonen er bevisst en struktur- og oversiktsversjon; senere revisjoner skal fylle ut pipeline-stegene mer presist og med tettere kodeforankring (`human_readability_code_walkthrough/CODEWALKTHROUGH_STATUS.md:3-5`).
@@ -60,7 +65,7 @@ analyse/
 │       │   ├── mmcif_ingest.py                     # innlasting av mmCIF-strukturer
 │       │   ├── normalize_mmcif.py                  # normalisering av mmCIF
 │       │   ├── cif_to_pdb.py                       # eksport til PoseBusters-kompatibel PDB
-│       │   └── protonate_export.py                 # protonering og eksport for analyseverktoy
+│       │   └── protonate_export.py                 # legacy protonering; ikke aktiv ProLIF-produksjonssti
 │       ├── qc/
 │       │   ├── hard_qc_orchestrator.py             # hard-QC-rekkefolge og verdict
 │       │   ├── active_site_proximity.py            # pre-QC sjekker rundt aktivt sete
@@ -127,11 +132,11 @@ Dette steget etablerer en konkret produksjonskjoring av analysepipen. Det er her
 5. `run_analysis_core()` starter saa discovery over valgt `work_root`, bygger ogsa en separat AF3 top-model fallback-map for senere crystal anchoring, og forbereder case-mapper per pose. Dette er fortsatt en del av pipeline-starten fordi det er her den generelle produksjonskjoringen blir konkretisert til et sett poser som resten av pipen kan arbeide videre med.
 6. Videre steg velges ikke gjennom et generelt stage-register eller en eksplisitt `run_ifp/run_clustering/run_reporting`-familie av flagg. I stedet er flyten fast, mens data-tilgjengelighet og tidligere resultater gate'r hva som faktisk kjorer videre:
 - bare hvis minst en pose ble forberedt (`prepared_poses`) gaar kjoringen videre til hard QC og resten av produksjonsstien
-- bare poser som ikke er `dropped` av QC gaar videre til downstream geometri og protonering
-- bare poser som protoneres vellykket samles opp som input til condition-vis konvergens og ProLIF/IFP
+- bare poser som ikke er `dropped` av QC gaar videre til downstream geometri og non-protonated analysis export
+- bare poser med vellykket analysis export samles opp som input til condition-vis konvergens og ProLIF/IFP
 - bare hvis det finnes IFP-resultater skrives `pose_ifp_table.tsv` og `pose_residue_contact_table.tsv`
 - bare hvis det finnes QC-pass-poser per condition skrives clustering-relaterte tabeller og cluster-annotasjon
-- `clustering_pilot.enabled` legger til ekstra pilot-output, men erstatter ikke den primare agglomerative produksjonsclusteringstien
+- `clustering_pilot.enabled` legger til ekstra pilot-output, men erstatter ikke den primare HDBSCAN-produksjonsclusteringstien
 7. Feil og manglende input handteres relativt sent og pragmatisk, ikke gjennom en samlet schema-validering i starten. YAML-lesefeil stoppes i `cmd_run()`. Ugyldig `work_roots`-type eller manglende `work_root` utloser unntak i `load_production_options()`, som saa fanges av `cmd_run()` som en generell produksjonsfeil. Hvis ingen poser blir forberedt, skriver `run_analysis_core()` fortsatt en oppsummering med `qc_report_error`, men returnerer `success=False`, og CLI-en avslutter med feilstatus. Discovery-only kommandoen validerer eksplisitt at `--work-root` er en katalog.
 
 #### Hvorfor det gjoeres
@@ -160,7 +165,7 @@ Dette steget etablerer en konkret produksjonskjoring av analysepipen. Det er her
 - `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L376-L475` - `load_production_options()`, inkludert `construct_type`, `work_roots`/`work_root`, filtre, QC-toggle og `clustering_pilot`
 - `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L825-L951` - discovery av ordinare pose-inputs og separat AF3 top-model fallback-input for senere crystal anchoring
 - `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L1583-L1671` - starten av `run_analysis_core()`: option-loading, discovery, summary-oppsett og tidlig pilot-metadata
-- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L1732-L2037` - overgangen fra forberedte poser til hard QC, downstream geometri, protonering, konvergens, IFP og contact eligibility
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L1732-L2037` - overgangen fra forberedte poser til hard QC, downstream geometri, non-protonated analysis export, konvergens, IFP og contact eligibility
 - `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2302-L2466` - ekstra pilot-output, betingede IFP-/clustering-flater og cluster-annotasjon nar upstream-data finnes
 - `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2636-L2679` - fallback nar ingen poser ble forberedt, og skriving av basis-tabeller som alltid henger paa sluttfasen
 - `src/lpmo_pipeline/io/discovery.py:L62-L105` - offentlig discovery-kontrakt med `af3_only`, `latest_only` og `include_targets`
@@ -273,3 +278,151 @@ Parallelt bygger `_discover_top_model_fallback_inputs()` en egen fallback-map fo
 - Jeg kan ikke fra discovery-koden alene fastslaa om top-level `model.cif` som ordinart pose-input faktisk forekommer i dagens reelle produksjonsdata, bare at koden stotter det nar sample-CIF-er mangler.
 - `include_proteins` filtrerer paa `ut.uniprot_id` etter at manifestet allerede er bygd. Det er klart hva koden gjor, men det fremgar ikke eksplisitt av README hvorfor proteinfilteret ligger i orkestratoren og ikke i `discover_work_root()`.
 - Discovery returnerer `manifest.errors`, men de naermeste testene fokuserer mest paa vellykket traversering. Jeg har derfor ikke i denne runden kartlagt hele feilflatens praktiske variasjon utover target-mismatch, permission-feil og ugyldig work-root.
+
+### Steg 3: Per-pose forberedelse og case-bygging
+
+#### Status
+Ferdig for dagens production-path; detaljer om normaliseringens interne kjemiregler kan fortsatt walkthroughes dypere senere.
+
+#### Formaal
+Dette steget gjoer hver oppdaget `PoseInputRecord` om til en case-mappe og et `PreparedPose`-objekt som hard QC kan bruke. Det er her den raa AF3-CIF-en blir normalisert, eksportert til en PoseBusters-spesifikk PDB, kopiert/validert som Privateer-input og lest tilbake som in-memory gemmi-struktur. Steget endrer ikke hvilke poser som er QC-pass eller analysert videre; det etablerer bare de case-lokale artefaktene og markerer tidlige prep-feil.
+
+#### Input
+- `PoseInputRecord`: kommer fra discovery og inneholder resolved CIF-path, pose-ID, protein-ID, ligand/target, modell, run-ID, seed/sample og eventuell confidence-JSON.
+- output-rot: `ProductionRunOptions.output_dir` brukes til aa lage `cases/{index:04d}_{slug(pose_id)}`.
+- normalisering: `NormalizeMMCIFRunner(input_cif, case_dir / "normalize")` leser raa CIF, bygger chain remap, validerer atom-mapping og glykan-CCD, og skriver `normalized.cif` ved suksess.
+- PoseBusters-input: `convert_cif_to_pdb(normalized.cif, case_dir / "posebusters_input")` skriver `for_posebusters.pdb` og `cif_to_pdb_report.json`.
+- Privateer-input: `prepare_privateer_input(normalized.cif, case_dir / "privateer_input.cif")` validerer CCD-koder og kopierer kontrollert til case-lokal CIF.
+
+#### Hva skjer
+1. `_prepare_pose_case()` lager case-mappen og starter en case-dict med posemetadata, `case_dir` og `status="preparing"`.
+2. Normalisering kjorer forst. `NormalizeMMCIFRunner.run()` parser CIF-en med gemmi, bygger chain mapping fra `_entity`/`_struct_asym`, remapper protein/glykan/metall til canonical chain schema, sjekker atom-mapping coverage, validerer glykanresiduer mot CCD-reglene, sjekker `_struct_conn` og `_chem_comp_bond`, skriver `normalize_report.json`, og returnerer `normalized.cif` bare ved suksess.
+3. Dersom atom mapping coverage er under 100 %, eller glykanvalideringen feiler, stopper normalisering med `False, None`. Missing glycan chain er en hard normalization failure, ikke en soft downstream-warning.
+4. CIF-til-PDB-konverteringen kjorer etter normalisering. Den prover PDBFixer/OpenMM forst, faller tilbake til gemmi hvis PDBFixer ikke kan brukes, og skriver alltid en konverteringsrapport ved suksess. PoseBusters-eksporten er metall-strippet som default fordi Cu/metaller kan vaere inkompatible med PoseBusters' ligand/protein-splitting.
+5. Privateer-input bygges fra den normaliserte CIF-en. Dagens `prepare_privateer_input()` er ikke en kjemisk transformasjon; den validerer at CIF-teksten bare bruker tillatte monosakkarid-CCD-koder og kopierer filen til `privateer_input.cif`.
+6. Den normaliserte CIF-en leses inn med `gemmi.read_structure()`, og et `PreparedPose` bygges med `pose`, `case_dir`, `normalized_cif`, `posebusters_pdb`, `privateer_input_cif` og `structure`.
+7. Ved suksess oppdateres case-dicten til `status="prepared"` og faar paths til `normalized_cif`, `posebusters_pdb` og `privateer_input_cif`. Ved exception settes `status="prep_error"`, med error-string og traceback, og posen blir ikke med i `prepared_poses`.
+8. `_prepare_pose_cases()` kjorer enten seriell loop eller `ProcessPoolExecutor`, avhengig av `n_jobs` og antall poser. I parallellgrenen returnerer workerne bare path-payloads; parent-prosessen bygger `PreparedPose` pa nytt og leser gemmi-strukturen lokalt. Outputrekkefolgen beholdes etter original poseindeks.
+
+#### Hvorfor det gjoeres
+- Case-mappen samler alle per-pose artefakter paa ett sted, slik at senere hard QC, analysis export, IFP og feilsoking kan referere til samme `case_dir`.
+- Normalisering maa skje foer hard QC fordi downstream-stegene forventer canonical chain schema: protein `A`, glykaner `B..D`, metall `E`.
+- Missing glycan-chain stoppes tidlig fordi protein+metal-only CIF-er ellers ville sett ut som vellykket normalisering og feilet mye senere som "no ligand atoms".
+- `for_posebusters.pdb` er et PoseBusters-spesifikt artefakt, ikke masterstrukturen. Masterformatet for analyse er fortsatt normalisert mmCIF.
+- Privateer-input holdes case-lokalt selv om den for oyeblikket er en validert kopi; det gir en stabil kontrakt for hard-QC-orchestratoren og Privateer-batchen.
+- Parallell prepare holder de uavhengige per-pose I/O-stegene skalerbare, men rebuild i parent-prosessen gjor at `PreparedPose.structure` ikke maa serialiseres mellom prosesser.
+
+#### Output
+- per case-mappe:
+  - `normalize/normalized.cif`
+  - `normalize/normalize_report.json`
+  - eventuelle debug/failure-artefakter som `atom_map.tsv`, `rename_log.json` og `normalize_failures.json`
+  - `posebusters_input/for_posebusters.pdb`
+  - `posebusters_input/cif_to_pdb_report.json`
+  - `privateer_input.cif`
+- in-memory:
+  - `cases`: en liste med case-dicter for alle pose-inputs, inkludert prep-feil
+  - `prepared_poses`: bare de posene som faktisk fikk alle prep-artefaktene
+  - `PreparedPose`: objektet som `_hard_qc_input()` senere oversetter til `HardQCInput`
+- tabellflater senere i samme orkestrator:
+  - `pose_manifest.tsv` bruker case-status, `case_dir` og `normalized_cif`
+  - `structure_index.tsv` bruker raw path, normalized CIF, PoseBusters-PDB, Privateer-input og senere analysis-export paths
+
+#### Relevante filer og linjer
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L201-L208` - `PreparedPose`-dataklassen og feltene som hard QC bruker videre.
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L1031-L1099` - `_prepare_pose_case()` bygger case-mappe, normaliserer, konverterer til PDB, forbereder Privateer-input og handterer prep-feil.
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L1102-L1131` - worker-payload og rebuild av `PreparedPose` etter parallell prepare.
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L1134-L1194` - `_prepare_pose_cases()` velger seriell eller prosessbasert prepare og bevarer inputrekkefolgen.
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L1197-L1203` - `_hard_qc_input()` viser hvilke prepared artefakter som gaar inn i hard QC.
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L1206-L1270` - `pose_manifest.tsv` bruker case-status og normalized-CIF-path fra prepare.
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L1324-L1362` - `structure_index.tsv` samler raw, normalized, PoseBusters- og Privateer-paths.
+- `src/lpmo_pipeline/io/normalize_mmcif.py:L109-L232` - `NormalizeMMCIFRunner.run()` og normaliseringsrekkefolgen.
+- `src/lpmo_pipeline/io/normalize_mmcif.py:L244-L319` - chain mapping fra AF3/entity-layout til canonical chain IDs.
+- `src/lpmo_pipeline/io/normalize_mmcif.py:L331-L384` - remap av gemmi-struktur og relevante CIF-loop-tags.
+- `src/lpmo_pipeline/io/normalize_mmcif.py:L389-L435` - AF3 identity atom-mapping og 100 % coverage-kontrakt.
+- `src/lpmo_pipeline/io/normalize_mmcif.py:L437-L494` - glykan-CCD-validering og hard fail ved manglende glykan.
+- `src/lpmo_pipeline/io/normalize_mmcif.py:L602-L678` - debug-artefakter og `normalize_report.json`.
+- `src/lpmo_pipeline/io/cif_to_pdb.py:L81-L151` - `CIFToPDBRunner.run()` og rapportskriving.
+- `src/lpmo_pipeline/io/cif_to_pdb.py:L153-L239` - PDBFixer-primaerbackend og gemmi-fallback.
+- `src/lpmo_pipeline/io/cif_to_pdb.py:L717-L728` - `convert_cif_to_pdb()` wrapperen som orkestratoren kaller.
+- `src/lpmo_pipeline/qc/privateer_runner.py:L241-L258` - `prepare_privateer_input()` validerer og kopierer normalized CIF til case-lokal Privateer-input.
+- `tests/test_analysis_orchestrator.py:L305-L394` - fake prepare/QC-harness som bekrefter orkestratorens case-byggingskontrakt.
+- `tests/test_normalize.py:L278-L480` - normaliseringsregresjoner for success, remap, invalid glykan og missing glykan.
+- `tests/test_io_contracts.py:L147-L288` - CIF-to-PDB-kontrakter og PDBFixer/gemmi-fallbackrelaterte forventninger.
+
+#### Samsvar med stottedokumenter
+
+| Stottedokument | Hva dokumentet sier | Hva koden viser | Vurdering | Relevante linjer |
+|---|---|---|---|---|
+| `IMPLEMENTATION_PLAYBOOK.md` | Normalisering, mapping, non-protonated analysis export og CIF-to-PDB er implementert/verifisert, og rutinemessig atom-map debug-output er redusert | Koden skriver `normalize_report.json` alltid, men skriver atom-map/rename debug bare ved mapping- eller CCD-failure | Bekreftet | doc: `IMPLEMENTATION_PLAYBOOK.md:L42-L46`; kode: `src/lpmo_pipeline/io/normalize_mmcif.py:L602-L678` |
+| `MASTERPLAN.md` | Canonical chain schema er protein `A`, glycans `B..D`, metal `E`; missing glycan etter remap skal hard-faile | `_build_chain_mapping()` og `_validate_glycan_residues()` implementerer dette i prepare-steget | Bekreftet | doc: `MASTERPLAN.md:L44-L47`; kode: `src/lpmo_pipeline/io/normalize_mmcif.py:L244-L319`, `src/lpmo_pipeline/io/normalize_mmcif.py:L437-L494` |
+| `DOCUMENTATION_TODO_AND_MANUAL_CHECKS.md` | Missing-glycan normalization false-success path er resolved, og no-glycan inputs skal stoppe ved normalisering | `_validate_glycan_residues()` returnerer `MISSING_GLYCAN_CHAIN` som hard fail, og `run()` returnerer `False, None` | Bekreftet | doc: `DOCUMENTATION_TODO_AND_MANUAL_CHECKS.md:L43-L81`; kode: `src/lpmo_pipeline/io/normalize_mmcif.py:L179-L207`, `src/lpmo_pipeline/io/normalize_mmcif.py:L450-L463` |
+| `IMPLEMENTATION_PLAYBOOK.md` | CIF-to-PDB bruker PDBFixer som primaer backend og gemmi som fallback | `_convert_auto()` prover PDBFixer og faller tilbake til gemmi med `backend_fallback_reason` | Bekreftet | doc: `IMPLEMENTATION_PLAYBOOK.md:L46-L46`; kode: `src/lpmo_pipeline/io/cif_to_pdb.py:L153-L239` |
+| `README.md` | Production-run skriver `pose_manifest.tsv`, `structure_index.tsv` og QC-/analysis-artefakter fra samme production-path | Orkestratoren skriver manifest og structure index fra case-dictene etter prepare | Bekreftet | doc: `README.md:L156-L214`; kode: `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L1206-L1362` |
+
+#### Usikkerheter
+- Normaliseringens topologi- og CIF-remap-detaljer er bare walket paa kontrollflytnivaa her. En egen modulgjennomgang av `gemmi_compat.py`, atom-map-debugging og CCD-oppslag kan fortsatt vaere nyttig.
+- `prepare_privateer_input()` er i dag en validert kopi, men navnet gir rom for mer transformasjon senere. Hvis Privateer-input senere divergerer fra `normalized.cif`, maa denne seksjonen oppdateres.
+- `convert_cif_to_pdb()` stripper metaller for PoseBusters som default. Det er riktig for dette artefaktet, men maa ikke forveksles med analyse-/geometri-strukturen, som fortsatt bruker normalisert CIF og non-protonated `analysis_export/complex_for_prolif.pdb`.
+
+### Steg 4: Hard QC og kvalitetsgrenser
+
+#### Status
+Ferdig
+
+#### Formaal
+Hard QC bestemmer hvilke forberedte poser som kan gaa videre til downstream geometri, analysis export, IFP og clustering. Steget er en hard gate, men det sletter ikke maalinger: pre-QC- og geometriavstander bevares i verdict-data selv naar posen droppes. Koden er fasit for rekkefolgen: aktiv-sete-proximity, Cu-His/substratgeometri, PoseBusters og deretter Privateer-batch for eligible poser.
+
+#### Input
+- `PreparedPose` fra steg 3, oversatt til `HardQCInput` med `pose_id`, `for_posebusters.pdb`, in-memory struktur og `privateer_input.cif`.
+- QC-flagg fra production-config: `run_posebusters`, `run_privateer`, `n_jobs` og `collect_timing_events`.
+- Terskler fra `configs/thresholds.yaml`, lastet via `load_gate_config_from_yaml()`: aktiv-sete hard cutoff, Cu-His hard/soft band, Cu-C soft flag og his-brace search radius.
+
+#### Hva skjer
+1. `run_analysis_core()` bygger en liste `HardQCInput` og kaller `run_hard_qc()` for alle prepared poser. Rapporten skrives til `qc_report.json`, valideres mot schema, og verdicts legges tilbake paa `case_by_pose_id`.
+2. `run_hard_qc()` kjorer `check_active_site_proximity()` for hver pose. Manglende Cu, manglende glykanatomer eller `min_cu_ligand_distance` over hard cutoff dropper posen foer geometri, PoseBusters og Privateer.
+3. Hvis pre-QC passerer, kjorer `check_geometry()`. Cu-His hard range er `1.5-3.0 A`; preferred/soft band er `1.8-2.6 A`. Hard range-feil dropper posen. Preferred-band-feil blir soft warning dersom hard range fortsatt passerer.
+4. Bare poser som passerer pre-QC og geometri er `qc_eligible` for PoseBusters og Privateer. PoseBusters kjorer per pose hvis `run_posebusters=True`. Uventet PoseBusters-exception blir naa en eksplisitt hard fail med `posebusters_runner_error`.
+5. Privateer kjorer som batch for eligible poser med `privateer_input.cif` hvis `run_privateer=True`. Batch-exception eller manglende resultat for en eligible pose failer lukket med `privateer_batch_runner_error` eller `privateer_missing_result`.
+6. `compute_verdict()` samler proximity, PoseBusters, Privateer og geometri til `passed`, `flagged` eller `dropped`. `flagged` teller som beholdt pose videre; bare `dropped` stoppes foer downstream analyse.
+
+#### Hvorfor det gjoeres
+- Aktiv-sete-proximity ligger forst for aa unngaa dyre og misvisende kjemiverktoy paa poser der ligand/Cu allerede er fysisk for langt unna.
+- Cu-His-geometri kjorer foer PoseBusters i dagens kode fordi det er en LPMO-spesifikk hard gate og avgjor `qc_eligible` for resten av hard-QC-stakken.
+- Fail-closed for aktive backendfeil er viktig for hovedanalysen: en manglende PoseBusters- eller Privateer-kjoring skal ikke se ut som en kjemisk pass.
+- `run_posebusters=False` og `run_privateer=False` er fortsatt bevisste deaktiveringer, ikke fail-closed-feil.
+
+#### Output
+- `qc_report.json` med `poses` og `verdicts`, validert mot `schemas/qc_report_schema.json`.
+- `analysis_summary["qc_counts"]` med total/pass/flagged/dropped.
+- `case["qc_verdict"]` per pose, som senere brukes av `pose_manifest.tsv`, `qc_attrition_table.tsv` og downstream-gating.
+- `qc_attrition_table.tsv` aggregerer hard-fail og soft-flag reasons per condition.
+- Timing-events for hard-QC-delsteg hvis `collect_timing_events=True`.
+
+#### Relevante filer og linjer
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L1246-L1252` - oversetter `PreparedPose` til `HardQCInput`.
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L1871-L1907` - kjorer hard QC, skriver/validerer `qc_report.json` og lagrer `qc_counts`.
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L1925-L1940` - legger verdict paa case og stopper bare `dropped` poser fra downstream geometri.
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L1414-L1495` - bygger `qc_attrition_table.tsv` fra verdict-status, drop reasons og warnings.
+- `src/lpmo_pipeline/qc/hard_qc_orchestrator.py:L113-L152` - offentlig hard-QC-kontrakt og fail-closed-dokumentasjon.
+- `src/lpmo_pipeline/qc/hard_qc_orchestrator.py:L183-L301` - per-pose proximity, geometri og PoseBusters-rekkefolge.
+- `src/lpmo_pipeline/qc/hard_qc_orchestrator.py:L350-L415` - Privateer-batch, missing-result og batch-exception-policy.
+- `src/lpmo_pipeline/qc/qc_report.py:L71-L180` - verdict-aggregasjon og endelig status.
+- `src/lpmo_pipeline/qc/active_site_proximity.py:L62-L164` - pre-QC proximity-metrikker og hard cutoff.
+- `src/lpmo_pipeline/qc/custom_geometry_checks.py:L100-L294` - Cu-His hard/soft geometri og Cu-C1/C4-maalinger.
+- `src/lpmo_pipeline/qc/gates.py:L243-L280` - faktisk YAML-mapping for hard/soft QC-terskler.
+- `tests/test_hard_qc_orchestrator.py:L194-L337` - dekker soft geometri, config-overstyring og fail-closed backendfeil.
+
+#### Samsvar med stottedokumenter
+
+| Dokument/kommentar | Hva den sier | Bekreftet i kode? | Avvik/usikkerhet | Linjereferanser |
+|---|---|---|---|---|
+| `README.md` | Hard QC har aktiv-sete pre-gate, PoseBusters dock-mode og fail-closed backendfeil | Ja | README beskriver ikke alle verdictfeltene; schema/kode er fasit | `README.md`; `src/lpmo_pipeline/qc/hard_qc_orchestrator.py:L113-L152` |
+| `MASTERPLAN.md` | Pre-QC, PoseBusters, Privateer og Cu-His er hard/soft gates med metrics beholdt | Ja | Stage-navnene er grovere enn dagens kode, men policyen stemmer etter oppdatering | `MASTERPLAN.md`; `src/lpmo_pipeline/qc/qc_report.py:L71-L180` |
+| `IMPLEMENTATION_PLAYBOOK.md` | Pre-QC, PoseBusters, Privateer og QC-report er implementert og real-data-verifisert | Ja | Eldre stoppunkt om pose-manifest for droppede metrics er delvis avklart av dagens `qc_report`/attrition-flater, men final rapportflate kan fortsatt diskuteres | `IMPLEMENTATION_PLAYBOOK.md`; `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L1414-L1495` |
+| `schemas/qc_report_schema.json` | `qc_report.json` krever per-pose PoseBusters, Privateer, Cu-geometri og overall status | Ja | Schemaet er bredt og tillater ikke alle interne verdict-detaljer; `verdicts`-delen er runtime-ekstra | `schemas/qc_report_schema.json`; `src/lpmo_pipeline/qc/qc_report.py:L224-L287` |
+
+#### Usikkerheter
+- Privateer-input er fortsatt en validert kopi av normalized CIF. Hvis dette senere blir en reell transformasjon, maa hard-QC-beskrivelsen oppdateres.
+- `qc_report_schema.json` beskriver den offentlige rapportflaten, men de rikeste interne feltene ligger i `verdicts` og case-metadata. En endelig rapporteringskontrakt for alle droppede-pose-metrikker kan fortsatt strammes.
+- Hard-QC-rekkefolgen er naa dokumentert som kode faktisk kjorer den. Eventuelle eldre dokumenter som sier PoseBusters foer geometri er utdaterte.

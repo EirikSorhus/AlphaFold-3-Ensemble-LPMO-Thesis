@@ -1,8 +1,8 @@
-"""Utilities for clustering-pilot feature audits and filtered IFP matrices.
+"""Utilities for IFP feature audits and filtered clustering matrices.
 
-This module is intentionally additive: it builds pilot-specific summaries and
-clustering inputs from the existing ``IFPBatch`` contract without changing the
-standard production path.
+The pilot path uses the prevalence summaries to audit and compare feature
+sets. The production path reuses the same main-feature policy to build the
+condition-local matrix that enters Stage 6 clustering.
 """
 from __future__ import annotations
 
@@ -13,9 +13,8 @@ from typing import Collection, Iterable, Sequence
 from lpmo_pipeline.analysis.prolif_ifp import ContactEligibility, IFPBatch, parse_ifp_feature_name
 
 DEFAULT_MAIN_CLUSTERING_INTERACTION_TYPES = (
-    "HBDonor",
-    "HBAcceptor",
-    "PiStacking",
+    "ImplicitHBAcceptor",
+    "ImplicitHBDonor",
 )
 DEFAULT_EXCLUDED_CLUSTERING_INTERACTION_TYPES = ("VdWContact",)
 DEFAULT_MINIMUM_CLUSTERABLE_N = 10
@@ -83,7 +82,7 @@ class FeaturePrevalence:
 
 @dataclass(frozen=True)
 class FilteredIFPMatrix:
-    """Pilot-specific clustering matrix built from a filtered feature set."""
+    """Clustering matrix built from a pose subset and optional feature subset."""
 
     pose_ids: list[str]
     feature_names: list[str]
@@ -283,6 +282,39 @@ def select_main_clustering_features(
         selected_feature_names.append(feature.feature_name)
 
     return sorted(selected_feature_names)
+
+
+def select_main_clustering_features_for_condition(
+    batch: IFPBatch,
+    *,
+    selected_pose_ids: Sequence[str] | None = None,
+    default_include_interaction_types: Collection[str] = DEFAULT_MAIN_CLUSTERING_INTERACTION_TYPES,
+    extra_include_interaction_types: Collection[str] = (),
+    excluded_interaction_types: Collection[str] = DEFAULT_EXCLUDED_CLUSTERING_INTERACTION_TYPES,
+    rare_feature_pose_prevalence_lt: float = 0.01,
+    rare_feature_condition_prevalence_lt_n_conditions: int = 2,
+) -> list[str]:
+    """Select main clustering features from one condition's observed IFP signal.
+
+    The selected residue-level columns can differ by protein-condition because
+    different residues contact the ligand. The interaction-type policy stays
+    fixed unless the production config explicitly allows extra interaction
+    types.
+    """
+
+    condition = PilotConditionIFP(
+        condition_id=f"{batch.protein_id}__{batch.ligand_id}",
+        batch=batch,
+        selected_pose_ids=tuple(selected_pose_ids) if selected_pose_ids is not None else None,
+    )
+    return select_main_clustering_features(
+        build_feature_prevalence([condition]),
+        default_include_interaction_types=default_include_interaction_types,
+        extra_include_interaction_types=extra_include_interaction_types,
+        excluded_interaction_types=excluded_interaction_types,
+        rare_feature_pose_prevalence_lt=rare_feature_pose_prevalence_lt,
+        rare_feature_condition_prevalence_lt_n_conditions=rare_feature_condition_prevalence_lt_n_conditions,
+    )
 
 
 def build_filtered_ifp_matrix(

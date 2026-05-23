@@ -193,6 +193,21 @@ def test_load_crystal_reference_records_returns_both_a0a0s2gkz1_references() -> 
     assert all(record.source_cif.exists() for record in records)
 
 
+def test_filter_crystal_reference_records_matches_same_ligand_and_dp() -> None:
+    records = crystal_anchoring.load_crystal_reference_records(
+        "A0A0S2GKZ1",
+        reference_index_csv=REFERENCE_INDEX_CSV,
+        crystal_root=CRYSTAL_ROOT,
+    )
+
+    cel4_records = crystal_anchoring.filter_crystal_reference_records(records, ligand_id="CEL4")
+    cel6_records = crystal_anchoring.filter_crystal_reference_records(records, ligand_id="CEL6")
+
+    assert [record.pdb_code for record in cel4_records] == ["7PXW"]
+    assert [record.pdb_code for record in cel6_records] == ["5ACI"]
+    assert all(record.expected_ligand for record in cel4_records + cel6_records)
+
+
 def test_select_crystal_reference_site_prefers_chain_a_for_real_5aci() -> None:
     source_cif = CRYSTAL_ROOT / "A0A0S2GKZ1" / "5ACI_A0A0S2GKZ1_ligand.cif"
     selection = crystal_anchoring.select_crystal_reference_site(
@@ -323,17 +338,17 @@ def test_prepare_crystal_reference_protonates_normalized_subset(
             captured["normalized_cif"] = normalized_cif.resolve()
             return True, normalized_cif
 
-    def fake_protonate_and_export(input_cif: Path, output_dir: Path) -> tuple[bool, dict[str, str]]:
-        captured["protonate_input"] = Path(input_cif).resolve()
+    def fake_export_analysis_artifacts(input_cif: Path, output_dir: Path) -> tuple[bool, dict[str, str]]:
+        captured["analysis_export_input"] = Path(input_cif).resolve()
         output_dir.mkdir(parents=True, exist_ok=True)
-        complex_pdb = output_dir / "complex_H.pdb"
-        ligand_mol2 = output_dir / "ligand_for_prolif.mol2"
+        complex_pdb = output_dir / "complex_for_prolif.pdb"
+        ligand_pdb = output_dir / "ligand_only_for_prolif.pdb"
         complex_pdb.write_text("END\n")
-        ligand_mol2.write_text("@<TRIPOS>MOLECULE\nmock\n")
-        return True, {"complex_h_pdb": str(complex_pdb), "ligand_mol2": str(ligand_mol2)}
+        ligand_pdb.write_text("END\n")
+        return True, {"complex_for_prolif_pdb": str(complex_pdb), "ligand_pdb": str(ligand_pdb)}
 
     monkeypatch.setattr(crystal_anchoring, "NormalizeMMCIFRunner", FakeNormalizeRunner)
-    monkeypatch.setattr(crystal_anchoring, "protonate_and_export", fake_protonate_and_export)
+    monkeypatch.setattr(crystal_anchoring, "export_analysis_artifacts", fake_export_analysis_artifacts)
     monkeypatch.setattr(
         crystal_anchoring,
         "compute_ifp_single",
@@ -345,7 +360,7 @@ def test_prepare_crystal_reference_protonates_normalized_subset(
 
     assert prepared.status == "prepared"
     assert captured["normalize_input"].name == "selected_reference.cif"
-    assert captured["protonate_input"] == captured["normalized_cif"]
+    assert captured["analysis_export_input"] == captured["normalized_cif"]
     assert prepared.normalized_cif == captured["normalized_cif"]
 
 
@@ -380,12 +395,12 @@ def test_crystal_ifp_contact_eligibility_uses_non_vdw_rule() -> None:
         n_residues=1,
         n_interaction_types=2,
         residue_names=["BGC1|ASN10"],
-        interaction_types=["HBDonor", "HBAcceptor"],
-        feature_names=["BGC1|ASN10|HBDonor", "BGC1|ASN10|HBAcceptor"],
+        interaction_types=["ImplicitHBDonor", "ImplicitHBAcceptor"],
+        feature_names=["BGC1|ASN10|ImplicitHBDonor", "BGC1|ASN10|ImplicitHBAcceptor"],
         fingerprint=[[1, 1]],
         flat_bitvector=[1, 1],
         n_total_contacts=2,
-        interaction_counts={"HBDonor": 1, "HBAcceptor": 1},
+        interaction_counts={"ImplicitHBDonor": 1, "ImplicitHBAcceptor": 1},
     )
 
     vdw_eligibility = crystal_anchoring._contact_eligibility_for_ifp(vdw_only)
@@ -447,15 +462,15 @@ def test_write_ifp_artifacts_persists_full_ifp_result(tmp_path: Path) -> None:
         n_residues=2,
         n_interaction_types=2,
         residue_names=["ASP10", "TYR24"],
-        interaction_types=["HBDonor", "Hydrophobic"],
+        interaction_types=["ImplicitHBDonor", "VdWContact"],
         feature_names=[
-            "BGC1|ASP10|HBDonor",
-            "BGC1|TYR24|Hydrophobic",
+            "BGC1|ASP10|ImplicitHBDonor",
+            "BGC1|TYR24|VdWContact",
         ],
         fingerprint=[[1, 0], [0, 1]],
         flat_bitvector=[1, 0],
         n_total_contacts=1,
-        interaction_counts={"HBDonor": 1, "Hydrophobic": 0},
+        interaction_counts={"ImplicitHBDonor": 1, "VdWContact": 0},
     )
 
     output_dir = tmp_path / "ifp"
@@ -472,7 +487,7 @@ def test_write_ifp_artifacts_persists_full_ifp_result(tmp_path: Path) -> None:
     assert pose_ifp_table_tsv_path == output_dir / "pose_ifp_table.tsv"
     assert ifp_matrix_csv_path == output_dir / "ifp_matrix.csv"
     assert result_json["pose_id"] == "5ACI"
-    assert result_json["active_feature_names"] == ["BGC1|ASP10|HBDonor"]
+    assert result_json["active_feature_names"] == ["BGC1|ASP10|ImplicitHBDonor"]
     assert set(result_json) == {
         "pose_id",
         "status",
@@ -484,7 +499,7 @@ def test_write_ifp_artifacts_persists_full_ifp_result(tmp_path: Path) -> None:
         "interaction_counts",
         "active_feature_names",
     }
-    assert matrix_lines[0] == "pose_id,BGC1|ASP10|HBDonor,BGC1|TYR24|Hydrophobic"
+    assert matrix_lines[0] == "pose_id,BGC1|ASP10|ImplicitHBDonor,BGC1|TYR24|VdWContact"
     assert "ifp_feature_names" in table_text
 
 
@@ -607,11 +622,11 @@ def test_real_pocket_rmsd_for_best_ranked_a0a0s2gkz1_cel4_pose(tmp_path: Path) -
     comparison = _comparison_by_pdb(report, "7PXW")
 
     assert ranking_score == pytest.approx(0.87, abs=1e-6)
-    assert comparison.status == "crystal_ifp_not_contact_eligible"
-    assert comparison.crystal_ifp_contact_eligible is False
-    assert comparison.crystal_ifp_exclusion_class in {"vdw_only", "low_specific_contact"}
-    assert comparison.ifp_tanimoto is None
-    assert comparison.ifp_comparison_eligible is False
+    assert comparison.status == "ok"
+    assert comparison.crystal_ifp_contact_eligible is True
+    assert comparison.crystal_ifp_exclusion_class == ""
+    assert comparison.ifp_tanimoto is not None
+    assert comparison.ifp_comparison_eligible is True
     assert comparison.pocket_residues
     assert 1 in comparison.pocket_residues
     assert comparison.pocket_rmsd is not None

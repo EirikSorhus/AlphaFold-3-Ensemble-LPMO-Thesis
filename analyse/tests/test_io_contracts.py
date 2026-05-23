@@ -256,9 +256,137 @@ HETATM 3 CU CU . CU B 2 . ? 5.0 0.0 0.0 1.00 10.0 301 B 1
         assert 1 in conect_map
         assert 2 in conect_map[1]
         assert 8 in conect_map[1]
-        assert 15 in conect_map[1]
-        assert 7 not in conect_map[1]
+        assert 15 not in conect_map[1]
         assert 4 in conect_map[7]
+        assert 9 in conect_map[7]
+
+    def test_rewrite_conect_from_topology_uses_nearest_pair_when_residue_order_is_reversed(self, tmp_path: Path) -> None:
+        """Crystal subsets with reversed residue numbering must not get stretched glycosidic bonds."""
+        from lpmo_pipeline.io.cif_to_pdb import _rewrite_conect_from_topology
+
+        class _FakeAtom:
+            def __init__(self, index: int) -> None:
+                self.index = index
+
+        class _FakeTopology:
+            def __init__(self, atom_count: int) -> None:
+                self._atoms = [_FakeAtom(index) for index in range(atom_count)]
+
+            def atoms(self):
+                return iter(self._atoms)
+
+            def bonds(self):
+                return iter(())
+
+        pdb_path = tmp_path / "reversed_numbering.pdb"
+        pdb_path.write_text(
+            "\n".join(
+                [
+                    "HETATM    1  C1  BGC B   1       1.400   0.000   0.000  1.00  0.00           C",
+                    "HETATM    2  C2  BGC B   1       2.400   0.000   0.000  1.00  0.00           C",
+                    "HETATM    3  C3  BGC B   1       3.400   0.000   0.000  1.00  0.00           C",
+                    "HETATM    4  C4  BGC B   1       4.400   0.000   0.000  1.00  0.00           C",
+                    "HETATM    5  C5  BGC B   1       5.400   0.000   0.000  1.00  0.00           C",
+                    "HETATM    6  C6  BGC B   1       6.400   0.000   0.000  1.00  0.00           C",
+                    "HETATM    7  O4  BGC B   1       8.500   0.000   0.000  1.00  0.00           O",
+                    "HETATM    8  O5  BGC B   1       0.400   1.000   0.000  1.00  0.00           O",
+                    "HETATM    9  C1  BGC B   2      10.000   0.000   0.000  1.00  0.00           C",
+                    "HETATM   10  C2  BGC B   2       0.400   2.000   0.000  1.00  0.00           C",
+                    "HETATM   11  C3  BGC B   2      -0.600   2.000   0.000  1.00  0.00           C",
+                    "HETATM   12  C4  BGC B   2      -1.600   2.000   0.000  1.00  0.00           C",
+                    "HETATM   13  C5  BGC B   2      -2.600   2.000   0.000  1.00  0.00           C",
+                    "HETATM   14  C6  BGC B   2      -3.600   2.000   0.000  1.00  0.00           C",
+                    "HETATM   15  O4  BGC B   2       0.000   0.000   0.000  1.00  0.00           O",
+                    "HETATM   16  O5  BGC B   2       0.400   3.000   0.000  1.00  0.00           O",
+                    "END",
+                ]
+            )
+            + "\n"
+        )
+
+        _rewrite_conect_from_topology(pdb_path, _FakeTopology(atom_count=16))
+
+        conect_map: dict[int, set[int]] = {}
+        for line in pdb_path.read_text().splitlines():
+            if not line.startswith("CONECT"):
+                continue
+            serials = [int(token) for token in line[6:].split()]
+            if len(serials) < 2:
+                continue
+            conect_map.setdefault(serials[0], set()).update(serials[1:])
+
+        assert 15 in conect_map[1]
+        assert 9 not in conect_map.get(7, set())
+
+    def test_add_name_based_glycosidic_bonds_uses_nearest_pair_when_residue_order_is_reversed(self) -> None:
+        """Topology repair must pick the short cross-residue bond, not the renumbered direction."""
+        from lpmo_pipeline.io.cif_to_pdb import _add_name_based_glycosidic_bonds
+
+        class _FakeAtom:
+            def __init__(self, index: int, name: str) -> None:
+                self.index = index
+                self.name = name
+
+        class _FakeResidue:
+            def __init__(self, name: str, residue_id: str, atoms: list[_FakeAtom]) -> None:
+                self.name = name
+                self.id = residue_id
+                self._atoms = atoms
+
+            def atoms(self):
+                return iter(self._atoms)
+
+        class _FakeChain:
+            def __init__(self, chain_id: str, residues: list[_FakeResidue]) -> None:
+                self.id = chain_id
+                self._residues = residues
+
+            def residues(self):
+                return iter(self._residues)
+
+        class _FakeTopology:
+            def __init__(self, chains: list[_FakeChain], atoms: list[_FakeAtom]) -> None:
+                self._chains = chains
+                self._atoms = atoms
+                self.added_bonds: list[tuple[int, int]] = []
+
+            def chains(self):
+                return iter(self._chains)
+
+            def bonds(self):
+                return iter(())
+
+            def atoms(self):
+                return iter(self._atoms)
+
+            def addBond(self, atom_a: _FakeAtom, atom_b: _FakeAtom) -> None:
+                self.added_bonds.append((atom_a.index, atom_b.index))
+
+        residue_1_atoms = [_FakeAtom(0, "C1"), _FakeAtom(1, "O4")]
+        residue_2_atoms = [_FakeAtom(2, "C1"), _FakeAtom(3, "O4")]
+        topology = _FakeTopology(
+            [
+                _FakeChain(
+                    "B",
+                    [
+                        _FakeResidue("BGC", "1", residue_1_atoms),
+                        _FakeResidue("BGC", "2", residue_2_atoms),
+                    ],
+                )
+            ],
+            residue_1_atoms + residue_2_atoms,
+        )
+        positions = [
+            (1.4, 0.0, 0.0),
+            (8.5, 0.0, 0.0),
+            (10.0, 0.0, 0.0),
+            (0.0, 0.0, 0.0),
+        ]
+
+        added = _add_name_based_glycosidic_bonds(topology, positions)
+
+        assert added == 1
+        assert topology.added_bonds == [(0, 3)]
 
     def test_cif_to_pdb_report_has_required_fields(self, tmp_path: Path) -> None:
         """cif_to_pdb_report.json must record backend and fallback reason."""

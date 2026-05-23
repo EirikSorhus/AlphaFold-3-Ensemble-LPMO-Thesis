@@ -4,11 +4,20 @@ Version: 1.1
 Status: Recommended main-analysis design; clustering method selected from pilot
 Scope: AF3-only pipeline for LPMO–oligosaccharide complexes with pose-level QC, IFP-based clustering, geometry annotation, residue-level interpretation, and limited exploratory prediction.
 
-Clustering update: the 2026-05-20 pilot decision selected agglomerative Jaccard
-as primary method (`distance_threshold=0.55`, `min_cluster_size=3`) with
-agglomerative `0.45/min3` and HDBSCAN `min3` retained as sensitivity settings.
+Clustering update: the 2026-05-23 refreshed pilot decision selected HDBSCAN
+Jaccard as primary method (`min_cluster_size=5`, `min_samples=null`) with
+HDBSCAN `min_cluster_size=3` retained as lenient sensitivity, agglomerative
+`0.55/min5` as orthogonal sensitivity, and HDBSCAN `min_cluster_size=10` as
+conservative negative control.
 
 Runtime update 2026-05-19: production execution now passes `n_jobs` into independent per-pose preparation, hard-QC/Privateer dispatch, and ProLIF batch work. Routine successful normalization keeps only `normalize_report.json`; atom-map/rename debug files are written only for unexpected mapping or validation failures. CIF loop remapping in normalization now rewrites each affected mmCIF loop once instead of once per tag, which removes the previous dominant `gemmi_compat.py` bottleneck. The full clustering pilot should be launched through the staged Slurm-array wrapper, which splits domain-only and full-length selections into independent protein-level shards and runs them across multiple jobs/nodes. The legacy single-job wrapper is retained only as a stable fallback.
+
+Runtime update 2026-05-22: ProLIF no longer depends on protonation. It runs in
+`/cluster/work/projects/nn1003k/eirik/conda/analyse_full_prolif_env` on
+non-protonated `analysis_export/complex_for_prolif.pdb` and
+`analysis_export/ligand_only_for_prolif.pdb`. The raw interaction set is
+`ImplicitHBAcceptor`, `ImplicitHBDonor`, and `VdWContact`; clustering excludes
+VdW and uses implicit H-bonds only.
 
 \---
 
@@ -38,7 +47,7 @@ This is not a strong-validation pipeline. It is a structured computational inter
   - Full-length: `/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work_full_length`
 * Main pose ensemble per protein–ligand condition: **15 seeds x 5 samples = 75 poses** (AF3 `num_diffusion_samples=5`, runs completed).
 * Main clustering input: **ProLIF binary IFP only**.
-* Primary clustering method: **locked from pilot** to agglomerative Jaccard clustering on contact-eligible IFP rows with `linkage=average`, `distance_threshold=0.55`, and `min_cluster_size=3`. HDBSCAN `min_cluster_size=3`, `min_samples=null`, `cluster_selection_method=eom` is retained as a sensitivity path.
+* Primary clustering method: **locked from refreshed pilot review** to HDBSCAN Jaccard clustering on contact-eligible IFP rows with `min_cluster_size=5`, `min_samples=null`, and `cluster_selection_method=eom`. The main rationale is a better compromise between cluster granularity and noise than both HDBSCAN `min_cluster_size=3` and agglomerative Jaccard `distance_threshold=0.55`, `min_cluster_size=5`.
 * Main descriptive unit: **cluster**.
 * Main biological repeated-measures unit: **protein**.
 * Main inferential caution: **poses and seeds are not independent biological replicates**.
@@ -53,30 +62,31 @@ This is not a strong-validation pipeline. It is a structured computational inter
 
 ### 2.3 Current clustering decision state
 
-The pipeline previously treated HDBSCAN on binary IFPs as the recommended
-default. That was superseded by the clustering pilot and parameter-sensitivity
-run completed on 2026-05-20.
+The pipeline previously treated agglomerative Jaccard `0.55/min3` as the
+recommended default. That was superseded by the refreshed clustering pilot
+review and parameter-sensitivity rerun completed on 2026-05-23.
 
 Current decision:
 
 * use one global primary method for all protein-ligand conditions, not a separate method per condition
-* primary method: agglomerative Jaccard clustering on contact-eligible IFP rows
-* primary parameters: `linkage=average`, `distance_threshold=0.55`, `min_cluster_size=3`
-* pilot selection evidence used `main_contact_eligible_ifp_matrix.csv`
-* conservative agglomerative sensitivity: `distance_threshold=0.45`, `min_cluster_size=3`
-* HDBSCAN sensitivity: `min_cluster_size=3`, `min_samples=null`, `cluster_selection_method=eom`
+* primary method: HDBSCAN Jaccard clustering on contact-eligible IFP rows
+* primary parameters: `min_cluster_size=5`, `min_samples=null`, `cluster_selection_method=eom`
+* pilot selection evidence used the refreshed staged rerun under `clustering_pilot_full_20260522_224240`
+* lenient HDBSCAN sensitivity: `min_cluster_size=3`, `min_samples=null`
+* orthogonal agglomerative sensitivity: `distance_threshold=0.55`, `min_cluster_size=5`
+* conservative negative control: HDBSCAN `min_cluster_size=10`, `min_samples=null`
 * conditions below the contact-eligible/formal clustering threshold remain reported as insufficient signal rather than interpreted as binding-mode clusters
 
 Pilot rationale:
 
-* In the 94 formally clusterable pilot conditions, agglomerative `0.55/min3`
-  recovered clusters in 84 conditions, versus 79 for `0.45/min3` and 53 for
-  HDBSCAN `min3`.
-* The selected primary setting reduced median noise fraction to 0.52, compared
-  with 0.68 for the conservative `0.45/min3` setting.
-* Mean non-noise cluster size was 4.77 poses (SD 2.80; median 4; range 3-21),
-  which improved coverage without collapsing the pilot into a few large
-  clusters.
+* HDBSCAN `min_cluster_size=5` was selected because it reduces excessive
+  subdivision relative to HDBSCAN `min_cluster_size=3` while keeping a lower
+  median noise burden than agglomerative `0.55/min5`.
+* The choice now explicitly balances cluster recovery against cluster
+  granularity and noise rather than maximizing recovered cluster count alone.
+* HDBSCAN `min_cluster_size=3` remains useful for asking whether additional
+  low-support modes are reproducible, while agglomerative `0.55/min5` checks
+  whether dominant modes survive an orthogonal deterministic method.
 
 \---
 
@@ -486,30 +496,23 @@ Do not:
 For each pose:
 
 * make a copy of pose
-* add hydrogens to copy if needed by the IFP engine
+* export non-protonated `analysis_export/complex_for_prolif.pdb` and `analysis_export/ligand_only_for_prolif.pdb`
 * use the same residue and ligand selection masks for every pose in the same sub-analysis
 * generate binary IFP over a fixed set of interaction types
 * preserve each monosaccharide as a separate ligand residue in the feature space
 
-The broad audit interaction set, matching the current `configs/prolif_features.yaml` validation surface, includes:
+The current runtime interaction set, matching `configs/prolif_features.yaml`, includes:
 
-* Hbond donor
-* Hbond acceptor
-* hydrophobic
-* aromatic / stacking
-* anionic
-* cationic
-* cation-pi
-* pi-cation
-* van der Waals contact
+* `ImplicitHBAcceptor`
+* `ImplicitHBDonor`
+* `VdWContact`
 
-This broad set is retained for audit and descriptive tables. The pilot-defined
-main clustering feature set is narrower unless the feature audit justifies
-additional interaction types:
+This set is retained in the raw ProLIF audit/descriptive tables. The current
+pilot-defined main clustering feature set is narrower:
 
-* default include for main clustering: Hbond donor, Hbond acceptor, aromatic / stacking
-* conditional include: hydrophobic if it is residue- and ligand-unit-specific; cation-pi if it occurs in enough conditions to be informative
-* default exclude for main clustering: van der Waals / close-contact features
+* default include for main clustering: `ImplicitHBAcceptor`, `ImplicitHBDonor`
+* default exclude for main clustering: `VdWContact`
+* hydrophobic and other legacy interaction families are not part of the active runtime surface and must be recalibrated explicitly before any reintroduction
 
 Feature identity for clustering is:
 
@@ -544,10 +547,11 @@ they are uninformative for binding-mode separation.
 * `ifp\_feature\_names`
 * feature names use `ligand_residue|protein_residue|interaction`
 * `n\_total\_contacts`
-* `n\_hbond\_donor`
-* `n\_hbond\_acceptor`
-* `n\_hydrophobic`
-* `n\_aromatic`
+* `n\_implicit\_hbond\_acceptor`
+* `n\_implicit\_hbond\_donor`
+* `n\_vdw\_contact`
+* `ifp\_interaction\_counts`
+* `ifp\_interaction\_occurrence\_counts`
 
 Current standalone implementation note (validated 2026-05-04):
 
@@ -1087,7 +1091,6 @@ Store:
 * `contact\_frequency`
 * `dominant\_interaction\_type`
 * `contact\_frequency\_hbond`
-* `contact\_frequency\_hydrophobic`
 * `contact\_frequency\_aromatic`
 * `is\_cbm\_region`
 * `is\_linker\_region`
@@ -1132,7 +1135,6 @@ Columns:
 * `residue\_name`
 * `occupancy\_weighted\_contact\_score`
 * `occupancy\_weighted\_hbond\_score`
-* `occupancy\_weighted\_hydrophobic\_score`
 * `occupancy\_weighted\_aromatic\_score`
 * `top\_cluster\_contact\_flag`
 * `geometry\_weighted\_C1\_contact\_score`
@@ -1351,14 +1353,13 @@ ligand-bound crystal references. `crystal\_ifp\_diagnostic\_summary.tsv` stores
 eligibility/exclusion counts and percentages by unique crystal reference and by
 medoid/fallback comparison row.
 
-Current implementation detail (2026-05-21): ligand-bound crystal references are
+Current implementation detail (2026-05-23): ligand-bound crystal references are
 first written as chemistry-preserving selected mmCIFs, remapped to the canonical
 `A` protein / `B-C-D` glycan / `E` Cu scheme, then normalized before
-protonation. The full crystal complex keeps Cu for geometry and pocket RMSD, but
-the ProLIF ligand MOL2 is glycan-only and excludes Cu, water, ions, and common
-buffer/solvent residues. ProLIF resolves ligand residue IDs from the companion
-`ligand_only_for_prolif.pdb` when available, preserving distinct glycan chains
-even when Obabel MOL2 substructure labels repeat as `BGC1`, `BGC2`, and so on.
+non-protonated analysis export. The full crystal `complex_for_prolif.pdb` keeps
+Cu for geometry and pocket RMSD, while `ligand_only_for_prolif.pdb` is
+glycan-only and excludes Cu, water, ions, and common buffer/solvent residues.
+ProLIF resolves ligand residue IDs directly from this ligand-only PDB.
 A crystal IFP that remains `vdw_only`,
 `null_ifp`, or `low_specific_contact` after this prep is treated as a
 non-comparable contact-signal outcome, not as known prep contamination.

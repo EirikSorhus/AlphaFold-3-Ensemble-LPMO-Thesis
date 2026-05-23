@@ -27,6 +27,7 @@ PROTEIN_CONDITION_RESIDUE_SCORE_COLUMNS = [
     "total_cluster_occupancy_with_contact",
     "max_cluster_residue_frequency",
     "is_catalytic_surface_region",
+    "is_non_core_region",
     "is_cbm_region",
     "is_linker_region",
 ]
@@ -43,6 +44,7 @@ PROTEIN_RESIDUE_REGIO_DELTA_COLUMNS = [
     "mean_c4_weighted_residue_score",
     "c1_minus_c4_weighted_delta",
     "is_catalytic_surface_region",
+    "is_non_core_region",
     "is_cbm_region",
     "is_linker_region",
 ]
@@ -60,9 +62,9 @@ CONDITION_PATCH_SUMMARY_COLUMNS = [
     "aromatic_contact_fraction",
     "polar_contact_fraction",
     "charged_contact_fraction",
-    "hydrophobic_contact_fraction",
     "hbond_contact_fraction",
     "catalytic_surface_contact_fraction",
+    "non_core_contact_fraction",
     "cbm_contact_fraction",
     "linker_contact_fraction",
 ]
@@ -74,15 +76,14 @@ PROTEIN_PATCH_SUMMARY_COLUMNS = [
     "mean_aromatic_contact_fraction",
     "mean_polar_contact_fraction",
     "mean_charged_contact_fraction",
-    "mean_hydrophobic_contact_fraction",
     "mean_hbond_contact_fraction",
     "mean_catalytic_surface_contact_fraction",
+    "mean_non_core_contact_fraction",
     "mean_cbm_contact_fraction",
     "mean_linker_contact_fraction",
 ]
 
-_HBOND_INTERACTIONS = {"HBDonor", "HBAcceptor"}
-_HYDROPHOBIC_INTERACTIONS = {"Hydrophobic"}
+_HBOND_INTERACTIONS = {"ImplicitHBAcceptor", "ImplicitHBDonor"}
 _AROMATIC_RESIDUES = {"PHE", "TRP", "TYR", "HIS"}
 _POLAR_RESIDUES = {"SER", "THR", "ASN", "GLN", "CYS"}
 _CHARGED_RESIDUES = {"ASP", "GLU", "LYS", "ARG"}
@@ -164,6 +165,10 @@ def _merge_region_flags(existing: dict[str, bool], row: dict[str, Any]) -> dict[
     return {
         "is_catalytic_surface_region": existing["is_catalytic_surface_region"]
         or _as_bool(row.get("is_catalytic_surface_region", False)),
+        "is_non_core_region": existing["is_non_core_region"]
+        or _as_bool(row.get("is_non_core_region", False))
+        or _as_bool(row.get("is_cbm_region", False))
+        or _as_bool(row.get("is_linker_region", False)),
         "is_cbm_region": existing["is_cbm_region"] or _as_bool(row.get("is_cbm_region", False)),
         "is_linker_region": existing["is_linker_region"]
         or _as_bool(row.get("is_linker_region", False)),
@@ -173,6 +178,7 @@ def _merge_region_flags(existing: dict[str, bool], row: dict[str, Any]) -> dict[
 def _empty_region_flags() -> dict[str, bool]:
     return {
         "is_catalytic_surface_region": False,
+        "is_non_core_region": False,
         "is_cbm_region": False,
         "is_linker_region": False,
     }
@@ -184,9 +190,9 @@ def _empty_patch_totals() -> dict[str, float]:
         "aromatic": 0.0,
         "polar": 0.0,
         "charged": 0.0,
-        "hydrophobic": 0.0,
         "hbond": 0.0,
         "catalytic_surface": 0.0,
+        "non_core": 0.0,
         "cbm": 0.0,
         "linker": 0.0,
     }
@@ -196,6 +202,7 @@ def _empty_region_totals() -> dict[str, float]:
     return {
         "total": 0.0,
         "catalytic_surface": 0.0,
+        "non_core": 0.0,
         "cbm": 0.0,
         "linker": 0.0,
     }
@@ -373,6 +380,12 @@ def compute_residue_importance_outputs(
             region_totals["total"] += weighted_residue_contact
             if _as_bool(row.get("is_catalytic_surface_region", False)):
                 region_totals["catalytic_surface"] += weighted_residue_contact
+            if (
+                _as_bool(row.get("is_non_core_region", False))
+                or _as_bool(row.get("is_cbm_region", False))
+                or _as_bool(row.get("is_linker_region", False))
+            ):
+                region_totals["non_core"] += weighted_residue_contact
             if _as_bool(row.get("is_cbm_region", False)):
                 region_totals["cbm"] += weighted_residue_contact
             if _as_bool(row.get("is_linker_region", False)):
@@ -402,8 +415,6 @@ def compute_residue_importance_outputs(
             weighted_totals["polar"] += weighted_contact
         if residue_name in _CHARGED_RESIDUES:
             weighted_totals["charged"] += weighted_contact
-        if interaction_type in _HYDROPHOBIC_INTERACTIONS:
-            weighted_totals["hydrophobic"] += weighted_contact
         if interaction_type in _HBOND_INTERACTIONS:
             weighted_totals["hbond"] += weighted_contact
 
@@ -486,9 +497,9 @@ def compute_residue_importance_outputs(
                 "aromatic_contact_fraction": _fraction("aromatic"),
                 "polar_contact_fraction": _fraction("polar"),
                 "charged_contact_fraction": _fraction("charged"),
-                "hydrophobic_contact_fraction": _fraction("hydrophobic"),
                 "hbond_contact_fraction": _fraction("hbond"),
                 "catalytic_surface_contact_fraction": _region_fraction("catalytic_surface"),
+                "non_core_contact_fraction": _region_fraction("non_core"),
                 "cbm_contact_fraction": _region_fraction("cbm"),
                 "linker_contact_fraction": _region_fraction("linker"),
             }
@@ -525,6 +536,7 @@ def compute_residue_importance_outputs(
                 "sum_c1_weighted_residue_score": 0.0,
                 "sum_c4_weighted_residue_score": 0.0,
                 "is_catalytic_surface_region": _as_bool(row["is_catalytic_surface_region"]),
+                "is_non_core_region": _as_bool(row.get("is_non_core_region", False)),
                 "is_cbm_region": _as_bool(row["is_cbm_region"]),
                 "is_linker_region": _as_bool(row["is_linker_region"]),
             }
@@ -566,6 +578,7 @@ def compute_residue_importance_outputs(
                 "mean_c4_weighted_residue_score": mean_c4,
                 "c1_minus_c4_weighted_delta": mean_c1 - mean_c4,
                 "is_catalytic_surface_region": aggregate["is_catalytic_surface_region"],
+                "is_non_core_region": aggregate["is_non_core_region"],
                 "is_cbm_region": aggregate["is_cbm_region"],
                 "is_linker_region": aggregate["is_linker_region"],
             }
@@ -587,9 +600,9 @@ def compute_residue_importance_outputs(
                 "mean_aromatic_contact_fraction": _mean("aromatic_contact_fraction"),
                 "mean_polar_contact_fraction": _mean("polar_contact_fraction"),
                 "mean_charged_contact_fraction": _mean("charged_contact_fraction"),
-                "mean_hydrophobic_contact_fraction": _mean("hydrophobic_contact_fraction"),
                 "mean_hbond_contact_fraction": _mean("hbond_contact_fraction"),
                 "mean_catalytic_surface_contact_fraction": _mean("catalytic_surface_contact_fraction"),
+                "mean_non_core_contact_fraction": _mean("non_core_contact_fraction"),
                 "mean_cbm_contact_fraction": _mean("cbm_contact_fraction"),
                 "mean_linker_contact_fraction": _mean("linker_contact_fraction"),
             }

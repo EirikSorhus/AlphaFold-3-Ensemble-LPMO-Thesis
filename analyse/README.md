@@ -9,15 +9,25 @@ This pipeline takes predicted structures (mmCIF), normalizes them,
 runs quality control (PoseBusters, Privateer, custom Cu-geometry),
 generates interaction fingerprints (ProLIF) and residue-level contact tables,
 and clusters binding modes through the shared production clustering interface
-(primary pilot-selected method: agglomerative Jaccard with `distance_threshold=0.55`
-and `min_cluster_size=3`; predefined agglomerative/HDBSCAN sensitivity paths retained).
+(primary pilot-selected method: HDBSCAN Jaccard with `min_cluster_size=5`,
+`min_samples=null`; retained sensitivity paths are HDBSCAN `min_cluster_size=3`,
+agglomerative Jaccard `distance_threshold=0.55`, `min_cluster_size=5`, and
+HDBSCAN `min_cluster_size=10` as conservative negative control).
 Performs residue importance analysis and produces summary reports.
+
+Runtime update 2026-05-22: ProLIF now runs in
+`/cluster/work/projects/nn1003k/eirik/conda/analyse_full_prolif_env` and uses
+non-protonated PDB/PDB artifacts from `analysis_export/`. The active raw IFP
+surface is `ImplicitHBAcceptor`, `ImplicitHBDonor`, and `VdWContact`; main
+clustering uses only the two implicit H-bond types, while VdW remains in raw
+IFP and diagnostics. ProLIF no longer consumes `complex_H.pdb` or
+`ligand_for_prolif.mol2`.
 
 Primary governing document: [AF3_LPMO_pipeline_detailed_plan.md](AF3_LPMO_pipeline_detailed_plan.md) (v1.1, primary source; clustering method decision recorded in [DECISIONS.md](DECISIONS.md) and [clustering_pilot_plan.yaml](clustering_pilot_plan.yaml)).
 
 Current implementation status: steps 1-7b are verified. Stage 8 pre-QC
 active-site proximity is now wired into hard QC, and targeted QC tests pass
-in the existing `analyse_env` environment. Stage 10 Privateer wrapper parsing
+in the existing `analyse_full_prolif_env` environment. Stage 10 Privateer wrapper parsing
 and integration scaffolding are implemented and unit-tested. Stage 12 now has
 schema-backed QC report tests passing on synthetic three-pose batches. Stages
 8-12 hard QC are now also verified on real AF3 data via
@@ -42,15 +52,15 @@ Crystal anchoring is now also verified as a standalone real-data slice via
 `tests/run_tests_scripts/test_crystal_anchoring_real_cifs.sh`; that slice
 resolves crystal references from `input_data/pdb_structure_data.csv`, verifies
 both `5ACI` and `7PXW` for `A0A0S2GKZ1`, prepares chemistry-preserving crystal
-subsets, normalizes ligand-bound crystal references before protonation, and
+subsets, normalizes ligand-bound crystal references before non-protonated analysis export, and
 writes compact `ifp_result.json` summaries plus detailed `pose_ifp_table.tsv`
 and `ifp_matrix.csv` artifacts for the representative pose and each prepared
 crystal reference. Crystal subsets use the same canonical chain scheme as AF3
-poses (`A` protein, `B/C/D` glycans, `E` Cu). Cu stays in `complex_H.pdb` for
-geometry/RMSD, but is excluded from `ligand_for_prolif.mol2` so ProLIF receives
-the glycan ligand only. During ProLIF loading, ligand atom residue identities are
-resolved against the sibling `ligand_only_for_prolif.pdb` when available, so
-multiple glycan chains with repeated residue numbers remain distinct
+poses (`A` protein, `B/C/D` glycans, `E` Cu). Cu stays in
+`analysis_export/complex_for_prolif.pdb` for geometry/RMSD, but is excluded from
+`analysis_export/ligand_only_for_prolif.pdb` so ProLIF receives the glycan
+ligand only. During ProLIF loading, ligand atom residue identities come directly
+from that ligand PDB, so multiple glycan chains with repeated residue numbers remain distinct
 (`BGC1.B`, `BGC1.C`, etc.) instead of collapsing to a single chain. In
 production, crystal anchoring compares every retained
 cluster medoid; conditions with no retained clusters may use the top-level AF3
@@ -65,7 +75,11 @@ contact-eligibility rule as pose clustering; pocket RMSD and crystal geometry
 remain reportable when the crystal IFP is VdW-only, zero-contact, or otherwise
 low-specific-contact. After the crystal-prep hardening, those non-comparable IFP
 classes should be interpreted as data/contact signal outcomes rather than known
-Cu/ligand-export contamination. Ligand-bound crystal references also emit C1/C4
+Cu/ligand-export contamination. In practice, when a prepared crystal IFP still
+ends up empty or non-comparable, the current working interpretation is that this
+most likely reflects weak or non-specific biological-structural contact signal
+under the shared non-vdW eligibility rule, not a known technical artifact in
+the crystal-prep/IFP path. Ligand-bound crystal references also emit C1/C4
 geometry for comparison against pose geometries. The same crystal-anchoring slice is now
 also wired into `run_analysis_core`, writes an explicit
 `crystal_anchoring_stage_completed` gate in `run_manifest.json`, and has passed
@@ -81,26 +95,33 @@ C1/C4 computable/plausible/highly-plausible fractions, pose-confidence
 aggregates, and convergence aggregates. This export is wired through
 `run_analysis_core` and the CLI artifact listing, and focused pytest covering
 `tests/test_cluster_signatures.py`, `tests/test_analysis_orchestrator.py`, and
-`tests/test_cli_run.py` passes in `analyse_env`.
+`tests/test_cli_run.py` passes in `analyse_full_prolif_env`.
 
 `analysis/activity_mapping.py` now has a separate postprocess builder for
 `predictive_cluster_table.tsv` from enriched `cluster_table.tsv`, protein
 metadata, and EC/activity labels. It is intentionally not part of the core
 `lpmo-pipeline run` path.
 
-`analysis/predictive_models.py` currently provides a tested provisional scaffold:
-leakage-safe grouped folds on `protein_id` with a 5-fold default when enough
-protein groups exist, plus two narrow baseline runners. These are not final
-model choices. The predictive-analysis plans are explicitly marked for revision
-before final model implementation. The current C1/C4 and substrate plans have
-been revised into smaller, less-detailed activity-prediction plans that lock
-compact predictor sets and keep the implementation scope narrow.
+`analysis/predictive_models.py` is the compact exploratory predictive backend:
+sklearn logistic regression with balanced class weights, fold-local numeric
+preprocessing, and grouped CV on `protein_id`. `analysis/predictive_postprocess.py`
+builds modeling rows from the main `condition_table.tsv` plus protein metadata
+and writes `10_predictive/` under the same output root. Production runs can
+enable this Stage 14 path with `production.predictive.enabled=true`; the
+resulting `predictive_summary.json` records whether the rows/classes/folds are
+model-interpretable or only I/O-valid.
 
 `analysis/cbm_comparison.py` now has a condition-level CBM paired-analysis
 builder for `cbm_construct_condition_summary.tsv` and
 `cbm_paired_comparison_table.tsv`, using `condition_table.tsv`,
 `cluster_table.tsv`, and protein metadata. Pose-level CBM dual-IFP remains a
-later side analysis.
+later side analysis. This condition-level CBM layer is now also validated on
+staged real paired rows derived from the stored `clustering_pilot_staged`
+domain-only and full-length shard outputs: focused pytest plus
+`tests/run_tests_scripts/test_cbm_paired_real_validation.sh` (job 1155676)
+rebuilt the required summary tables, merged both construct sets, and verified
+27 matched `protein_id x substrate_class x dp` pairs with non-empty metadata
+joins for family and CBM type.
 
 Stage 16b residue importance is implemented and wired into the production
 analysis-core path against the Stage 16 signature contract
@@ -111,7 +132,20 @@ header-only Stage 16b residue tables. Loop fraction is not part of the current
 contract; patch summaries use residue class, hydrogen-bond contacts, and
 explicit region flags where present.
 
-**⚠️ Known open conflict: see [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md) item 11 (geometric planarity thresholds not yet operationalized).**
+The downstream geometry contract is operational for Cu-C1/C4, virtual oxyl/H
+distances, attack angles, sugar-face orientation, and ring-normal orientation.
+Separate geometric planarity thresholds are not an active gate or report field.
+
+The CBM paired side analysis is condition-level. `analysis/cbm_comparison.py`
+builds matched domain-only/full-length rows by
+`protein_id x substrate_class x dp`, primary and secondary endpoint summaries,
+stratified summaries, representative example rows, and a CBM figure manifest.
+The active interpretation contract is now binary: catalytic/core context versus
+aggregated non-core context. The analysis does not attempt residue-level
+attribution of which extra domain type interacts with the ligand; any CBM,
+linker, or other extra-module signal is collapsed into one non-core bucket.
+The figure manifest remains a planning artifact only. Actual CBM figure
+rendering is deferred until the full real-data production runs are complete.
 
 See [MASTERPLAN.md](MASTERPLAN.md) for full integrated specification.
 
@@ -131,12 +165,16 @@ These directories contain the organized AF3 prediction artifacts (mmCIF files an
 - Main analyses are run first; parameter tuning is optional and done after baseline analysis.
 - Main analysis is cluster-primary (not enzyme-aggregated) for descriptive and predictive modeling.
 - Operative sub-analyses are substrate x DP combinations for DP4, DP6, DP8.
-- Primary IFP clustering method is locked to agglomerative Jaccard with `linkage=average`, `distance_threshold=0.55`, and `min_cluster_size=3`, based on the completed clustering pilot.
+- Primary IFP clustering method is locked to HDBSCAN Jaccard with `min_cluster_size=5`, `min_samples=null`, based on the refreshed clustering pilot review. HDBSCAN `min_cluster_size=3` is the lenient sensitivity path; agglomerative Jaccard `distance_threshold=0.55`, `min_cluster_size=5` is the orthogonal method check; HDBSCAN `min_cluster_size=10` is the conservative high-support control.
 - A pre-QC active-site proximity gate runs before PoseBusters and Privateer.
+- Hard QC fails closed for enabled backend infrastructure errors: an unexpected
+  PoseBusters exception becomes a PoseBusters hard fail, and a Privateer batch
+  exception marks all Privateer-eligible poses as hard fails.
 - PoseBusters is run in built-in `dock` mode on auto-split ligand/protein inputs. The pipeline does not override PoseBusters' intermolecular-distance defaults, so `protein-ligand_maximum_distance` uses `max_distance=5.0 Å`, while `minimum_distance_to_protein` is the separate no-clashes check.
+- Downstream `pose_geometry.tsv` metrics are descriptive, not a hard QC gate. A geometry-metric error after hard QC pass is flagged as `geometry_metrics_error`, writes a `geometry_not_computable` row, and the pose still proceeds to analysis export/IFP.
 - Production `--n-jobs` is now used for independent per-pose prepare work, hard-QC/Privateer dispatch, and ProLIF batch work. The full clustering-pilot wrapper defaults it from `SLURM_CPUS_PER_TASK` so requested cores are actually used.
 - Routine normalization keeps `normalize_report.json` as the normal audit surface. `atom_map.tsv` and `rename_log.json` are now debug/failure artifacts only, because writing them for every successful pose produced heavy I/O without adding useful signal.
-- Detailed geometric planarity requirements are currently missing and must be specified before final reporting.
+- Downstream geometry reports the implemented orientation/plausibility fields; separate planarity thresholds are not an active analysis gate.
 - R is preferred for descriptive/predictive statistics where practical.
 
 ## Method And Downstream Plans
@@ -235,6 +273,12 @@ Verified 2026-05-03 on 3 staged real AF3 CIFs (`analysis_core_real_cifs_613251`)
 1 `pass`, 1 `soft_flag`, 1 `hard_fail`; 2 poses were analyzed downstream, and
 no production `geometry_debug.pdb` files were written.
 
+Stage 6 smoke validation was refreshed 2026-05-21. Run
+`analysis_core_real_cifs_1152258` verified `no_clusterable_poses`; run
+`analysis_core_real_cifs_1152273` verified a contact-eligible but
+insufficient-support condition with a condition-local
+`main_clustering_ifp_matrix.csv`.
+
 Use [configs/production.analysis_core.example.yaml](configs/production.analysis_core.example.yaml)
 as the starting point.
 
@@ -287,7 +331,7 @@ Select which to run via `construct_type: "domain_only"` or `construct_type: "ful
 configs/       – YAML configs (defaults, thresholds, tuning grids)
 schemas/       – JSON schemas and contract docs for I/O validation
 src/lpmo_pipeline/
-  io/          – mmCIF ingest, normalization, protonation, CCD lookup
+  io/          – mmCIF ingest, normalization, analysis export, CCD lookup
   mapping/     – Cross-model atom mapping and renaming
   qc/          – PoseBusters, Privateer, Cu-geometry, QC report
                 and pre-QC active-site proximity gate
@@ -307,9 +351,9 @@ scripts/       – Helper scripts (including R-based EC activity mapping)
 - **Active-site proximity pre-gate** before PoseBusters/Privateer
 - **atom_mapping_coverage = 100%** — all atoms must be mapped
 - **Chain convention**: protein=A, glycans=B-D, metal=E
-- **Cu-His distance**: 1.9–2.6 Å hard gate evaluated on selected coordinating nitrogens only (`His1:N`, `His1:ND1`, and one non-His1 histidine N; `His1:NE2` excluded)
+- **Cu-His distance**: 1.5–3.0 Å hard gate evaluated on selected coordinating nitrogens only (`His1:N`, `His1:ND1`, and one non-His1 histidine N; `His1:NE2` excluded); 1.8–2.6 Å is retained as the soft/preferred QC band
 - **Cluster rows are primary** for main descriptive and predictive analyses
-- **Clustering primary method selected from pilot**: agglomerative Jaccard on contact-eligible IFP rows, `linkage=average`, `distance_threshold=0.55`, `min_cluster_size=3`. The pilot selection evidence used `main_contact_eligible_ifp_matrix.csv`. Sensitivity settings are agglomerative `distance_threshold=0.45`, `min_cluster_size=3`, and HDBSCAN Jaccard `min_cluster_size=3`, `min_samples=null`.
+- **Clustering primary method selected from refreshed pilot review**: HDBSCAN Jaccard on contact-eligible IFP rows with `min_cluster_size=5`, `min_samples=null`. The updated rationale is that this gives a better compromise between cluster recovery, noise handling, and cluster granularity than both HDBSCAN `min_cluster_size=3` and agglomerative Jaccard `distance_threshold=0.55`, `min_cluster_size=5`. Sensitivity settings are HDBSCAN `min_cluster_size=3`, agglomerative Jaccard `distance_threshold=0.55`, `min_cluster_size=5`, and HDBSCAN `min_cluster_size=10` as a conservative negative control.
 
 ## Implementation Order
 

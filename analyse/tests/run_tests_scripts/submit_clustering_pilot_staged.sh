@@ -3,7 +3,7 @@ set -euo pipefail
 
 REPO_ROOT="/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse"
 SCRIPT_DIR="$REPO_ROOT/tests/run_tests_scripts"
-PYTHON_BIN="/cluster/work/projects/nn1003k/eirik/conda/analyse_env/bin/python"
+PYTHON_BIN="/cluster/work/projects/nn1003k/eirik/conda/analyse_full_prolif_env/bin/python"
 OVERVIEW_TSV="$REPO_ROOT/input_data/clustering_pilot_protein_overview.tsv"
 RUN_ROOT="$REPO_ROOT/tests/tests_results/clustering_pilot_staged"
 ACCOUNT="nn1003k"
@@ -16,6 +16,7 @@ EXECUTE_TIME="24:00:00"
 SUMMARY_CPUS=1
 SUMMARY_MEM="4G"
 SUMMARY_TIME="00:30:00"
+SUBMISSION_METADATA_JSON=""
 DRY_RUN=false
 
 usage() {
@@ -35,6 +36,8 @@ Options:
     --summary-cpus N        CPUs for aggregate summary job (default: 1).
     --summary-mem VALUE     Memory for aggregate summary job (default: 4G).
     --summary-time VALUE    Walltime for aggregate summary job (default: 00:30:00).
+    --submission-metadata-json PATH
+                            Optional JSON file describing submitted job ids.
     --dry-run               Write manifests/job scripts and print sbatch commands only.
 
 This is the multi-node Slurm wrapper for the clustering pilot. It builds the
@@ -88,6 +91,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --summary-time)
             SUMMARY_TIME="$2"
+            shift 2
+            ;;
+        --submission-metadata-json)
+            SUBMISSION_METADATA_JSON=$(realpath -m "$2")
             shift 2
             ;;
         --dry-run)
@@ -169,7 +176,7 @@ TASK_ID=\"\${SLURM_ARRAY_TASK_ID:?SLURM_ARRAY_TASK_ID is required}\"
 
 cd \"\$REPO_ROOT\"
 export PYTHONPATH=\"\$REPO_ROOT/src:\${PYTHONPATH:-}\"
-export PATH=\"/cluster/work/projects/nn1003k/eirik/conda/analyse_env/bin:\$PATH\"
+export PATH=\"/cluster/work/projects/nn1003k/eirik/conda/analyse_full_prolif_env/bin:\$PATH\"
 
 read -r SHARD_ID MANIFEST_PATH < <(awk -F '\\t' -v task=\"\$TASK_ID\" 'NR > 1 && \$1 == task {print \$2, \$5}' \"\$INDEX_TSV\")
 if [[ -z \"\${SHARD_ID:-}\" || -z \"\${MANIFEST_PATH:-}\" ]]; then
@@ -235,10 +242,12 @@ submit_or_print_array() {
     )
 
     if [[ "$DRY_RUN" == true ]]; then
-        printf '[DRY-RUN]'
-        printf ' %q' "${cmd[@]}"
-        printf '\n'
-        echo ""
+        {
+            printf '[DRY-RUN]'
+            printf ' %q' "${cmd[@]}"
+            printf '\n'
+        } >&2
+        echo "dry_run_${construct_type}"
     else
         "${cmd[@]}"
     fi
@@ -280,12 +289,31 @@ summary_cmd=(
 )
 
 if [[ "$DRY_RUN" == true ]]; then
-    printf '[DRY-RUN]'
-    printf ' %q' "${summary_cmd[@]}"
-    printf '\n'
+    {
+        printf '[DRY-RUN]'
+        printf ' %q' "${summary_cmd[@]}"
+        printf '\n'
+    } >&2
     SUMMARY_JOB="dry_run"
 else
     SUMMARY_JOB=$("${summary_cmd[@]}")
+fi
+
+if [[ -n "$SUBMISSION_METADATA_JSON" ]]; then
+        mkdir -p "$(dirname "$SUBMISSION_METADATA_JSON")"
+        cat > "$SUBMISSION_METADATA_JSON" <<EOF
+{
+    "run_root": "$RUN_ROOT",
+    "shard_size": $SHARD_SIZE,
+    "domain_shards": $domain_shards,
+    "full_shards": $full_shards,
+    "execute_cpus": $EXECUTE_CPUS,
+    "domain_array_job": "${DOMAIN_ARRAY_JOB:-}",
+    "full_array_job": "${FULL_ARRAY_JOB:-}",
+    "summary_job": "$SUMMARY_JOB",
+    "dry_run": $([[ "$DRY_RUN" == true ]] && echo true || echo false)
+}
+EOF
 fi
 
 cat <<EOF

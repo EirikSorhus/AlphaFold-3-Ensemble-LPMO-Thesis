@@ -15,7 +15,7 @@ if [[ -z "${SLURM_JOB_ID:-}" ]]; then
     exit 1
 fi
 
-export PATH="/cluster/work/projects/nn1003k/eirik/conda/analyse_env/bin:$PATH"
+export PATH="/cluster/work/projects/nn1003k/eirik/conda/analyse_full_prolif_env/bin:$PATH"
 export PIP_NO_CACHE_DIR=1
 
 project_root="/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse"
@@ -140,7 +140,7 @@ if [[ "$fail_on_screen_error" -eq 1 ]]; then
     python_args+=(--fail-on-screen-error)
 fi
 
-/cluster/work/projects/nn1003k/eirik/conda/analyse_env/bin/python "${python_args[@]}"
+/cluster/work/projects/nn1003k/eirik/conda/analyse_full_prolif_env/bin/python "${python_args[@]}"
 
 echo "[INFO] Crystal anchoring fixture-medoid run completed"
 echo "[INFO] Results directory: $run_dir"

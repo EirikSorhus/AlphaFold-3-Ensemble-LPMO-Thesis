@@ -3,6 +3,10 @@ analysis:
   version: 1.0
   status: locked_predictor_set_for_small_effective_n
   revision_date: 2026-05-21
+  prolif_runtime_note_2026_05_22: >
+    ProLIF-derived H-bond predictors now refer to implicit H-bond interactions
+    (ImplicitHBAcceptor and ImplicitHBDonor). Hydrophobic interaction
+    predictors are excluded.
 
 purpose:
   objective: >

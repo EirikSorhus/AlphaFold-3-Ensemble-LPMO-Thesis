@@ -4,41 +4,26 @@
 # ──────────────────────────────────────────────────────────
 
 # ── Interaction types ──
-# Early production validation keeps the full supported ProLIF interaction surface
-# so downstream clustering can decide later whether any interaction types should
-# be pruned for sparsity or noise reasons.
+# Production ProLIF uses implicit hydrogen bonds on non-protonated PDB inputs.
+# VdWContact is retained in the raw IFP for diagnostics, but excluded from the
+# main clustering feature policy.
 interaction_types:
   primary:               # Always included in IFP
-    - HBDonor            # protein residue is H-bond donor
-    - HBAcceptor         # protein residue is H-bond acceptor
-    - Hydrophobic        # hydrophobic contact
-    - PiStacking         # aromatic / stacking
-    - Anionic            # anion / anion interactions
-    - Cationic
-    - CationPi
-    - PiCation
+    - ImplicitHBAcceptor # ligand acceptor, protein residue donor
+    - ImplicitHBDonor    # ligand donor, protein residue acceptor
     - VdWContact
 
 # Default active set for all sub-analyses.
 active_interaction_types:
-  - HBDonor
-  - HBAcceptor
-  - Hydrophobic
-  - PiStacking
-  - Anionic
-  - Cationic
-  - CationPi
-  - PiCation
+  - ImplicitHBAcceptor
+  - ImplicitHBDonor
   - VdWContact
 
 # ── Cutoff distances (Å) ──
 # ProLIF defaults; override only if domain-specific tuning is needed.
 cutoffs:
-  HBDonor:    3.5    # H…acceptor distance
-  HBAcceptor: 3.5    # H…donor distance
-  Hydrophobic: 4.5   # C…C distance
-  PiStacking: 5.5    # ring centroid distance
-  PiCation:   4.5    # ring centroid to cation
+  ImplicitHBAcceptor: 3.5
+  ImplicitHBDonor:    3.5
   # Other interactions use the installed ProLIF defaults.
 
 # ── Molecular selections ──
@@ -60,7 +45,7 @@ selection:
 # IFP column labels; must be consistent within and across sub-analyses.
 # Format in the flattened feature vector:
 # {ligand_residue}|{protein_residue}|{interaction_type}
-# Example: NAG4.B|ASN88.A|HBDonor
+# Example: NAG4.B|ASN88.A|ImplicitHBAcceptor
 feature_naming:
   format: "{ligand_residue}|{protein_residue}|{interaction}"
   include_chain: true

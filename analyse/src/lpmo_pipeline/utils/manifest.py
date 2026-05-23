@@ -70,9 +70,10 @@ def _probe_prolif() -> str:
     try:
         import prolif as plf
 
-        fingerprint = plf.Fingerprint(["HBDonor", "HBAcceptor"])
+        expected = {"ImplicitHBAcceptor", "ImplicitHBDonor", "VdWContact"}
+        fingerprint = plf.Fingerprint(sorted(expected), count=True)
         interaction_names = set(fingerprint.interactions.keys())
-        if {"HBDonor", "HBAcceptor"} - interaction_names:
+        if expected - interaction_names:
             return "unexpected_probe_result"
     except Exception as exc:
         return f"{exc.__class__.__name__}: {exc}"

@@ -15,7 +15,7 @@ if [[ -z "${SLURM_JOB_ID:-}" ]]; then
     exit 1
 fi
 
-export PATH="/cluster/work/projects/nn1003k/eirik/conda/analyse_env/bin:$PATH"
+export PATH="/cluster/work/projects/nn1003k/eirik/conda/analyse_full_prolif_env/bin:$PATH"
 export PIP_NO_CACHE_DIR=1
 
 project_root="/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse"
@@ -55,7 +55,7 @@ echo "[INFO] Running focused downstream geometry tests"
 pytest tests/test_mdanalysis_metrics.py -q
 
 echo "[INFO] Running downstream geometry probe on ${#cif_paths[@]} CIFs"
-/cluster/work/projects/nn1003k/eirik/conda/analyse_env/bin/python \
+/cluster/work/projects/nn1003k/eirik/conda/analyse_full_prolif_env/bin/python \
     tests/run_tests_scripts/run_geometry_real_cifs.py \
     --run-dir "$run_dir" \
     --run-id "geometry_real_cifs_${job_suffix}" \

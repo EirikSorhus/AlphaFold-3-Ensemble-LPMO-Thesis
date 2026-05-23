@@ -15,7 +15,7 @@ if [[ -z "${SLURM_JOB_ID:-}" ]]; then
     exit 1
 fi
 
-export PATH="/cluster/work/projects/nn1003k/eirik/conda/analyse_env/bin:$PATH"
+export PATH="/cluster/work/projects/nn1003k/eirik/conda/analyse_full_prolif_env/bin:$PATH"
 export PIP_NO_CACHE_DIR=1
 
 project_root="/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse"
@@ -49,11 +49,11 @@ for cif_path in "${cif_paths[@]}"; do
     fi
 done
 
-echo "[INFO] Running focused production analysis-core tests; cluster-dependent checks use tests/fixtures/clustering_stage_outputs"
-pytest tests/test_cluster_signatures.py tests/test_residue_importance.py tests/test_analysis_orchestrator.py tests/test_cli_run.py -q
+echo "[INFO] Running focused production analysis-core tests and Stage 6 validation checks"
+pytest tests/test_cluster_signatures.py tests/test_analysis_core_real_cifs_validation.py tests/test_analysis_orchestrator.py tests/test_cli_run.py -q
 
 echo "[INFO] Running production analysis-core path on ${#cif_paths[@]} real CIFs"
-/cluster/work/projects/nn1003k/eirik/conda/analyse_env/bin/python \
+/cluster/work/projects/nn1003k/eirik/conda/analyse_full_prolif_env/bin/python \
     tests/run_tests_scripts/run_analysis_core_real_cifs.py \
     --run-dir "$run_dir" \
     --run-id "analysis_core_real_cifs_${job_suffix}" \

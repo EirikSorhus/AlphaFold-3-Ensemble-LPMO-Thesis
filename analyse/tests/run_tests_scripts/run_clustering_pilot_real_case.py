@@ -18,7 +18,7 @@ DEFAULT_SELECTION_MANIFEST_PATH = Path(__file__).with_name(
     "clustering_pilot_real_case_selection.yaml"
 )
 DEFAULT_ANALYSE_ENV_PYTHON = Path(
-    "/cluster/work/projects/nn1003k/eirik/conda/analyse_env/bin/python"
+    "/cluster/work/projects/nn1003k/eirik/conda/analyse_full_prolif_env/bin/python"
 )
 
 

@@ -241,8 +241,10 @@ def compute_pose_metrics(
 ) -> PoseGeometryMetrics:
     """Compute a downstream geometry row from a structure file.
 
-    Alignment-derived metrics remain optional placeholders until the
-    RMSD-specific branch is implemented.
+    This function owns the pose-local virtual oxyl/H geometry fields in
+    ``pose_geometry.tsv``. Alignment-derived RMSD values are populated by the
+    convergence and crystal-anchoring stages when those comparisons are
+    available; they are intentionally left ``None`` here.
     """
     try:
         import gemmi

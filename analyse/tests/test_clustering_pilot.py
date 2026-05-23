@@ -8,6 +8,7 @@ from lpmo_pipeline.analysis.clustering_pilot import (
     build_filtered_ifp_matrix,
     build_interaction_type_prevalence,
     select_main_clustering_features,
+    select_main_clustering_features_for_condition,
     summarize_condition_matrices,
 )
 from lpmo_pipeline.analysis.prolif_ifp import IFPBatch, IFPResult
@@ -53,26 +54,26 @@ def test_build_interaction_type_prevalence_uses_selected_pose_subsets() -> None:
         "cond-a",
         pose_ids=["a0", "a1"],
         feature_names=[
-            "NAG1.B|ASN10.A|HBDonor",
+            "NAG1.B|ASN10.A|ImplicitHBDonor",
             "NAG1.B|ASN10.A|VdWContact",
-            "NAG2.B|SER11.A|HBAcceptor",
+            "NAG2.B|SER11.A|ImplicitHBAcceptor",
         ],
         matrix=[[1, 1, 0], [0, 0, 1]],
         interaction_counts=[
-            {"HBDonor": 1, "VdWContact": 1},
-            {"HBAcceptor": 1},
+            {"ImplicitHBDonor": 1, "VdWContact": 1},
+            {"ImplicitHBAcceptor": 1},
         ],
     )
     condition_b = _make_condition(
         "cond-b",
         pose_ids=["b0", "b1"],
         feature_names=[
-            "NAG1.B|ASN10.A|HBDonor",
+            "NAG1.B|ASN10.A|ImplicitHBDonor",
             "NAG2.B|TYR12.A|Hydrophobic",
         ],
         matrix=[[1, 1], [0, 0]],
         interaction_counts=[
-            {"HBDonor": 2, "Hydrophobic": 1},
+            {"ImplicitHBDonor": 2, "Hydrophobic": 1},
             {},
         ],
         selected_pose_ids=("b0",),
@@ -83,11 +84,11 @@ def test_build_interaction_type_prevalence_uses_selected_pose_subsets() -> None:
         for row in build_interaction_type_prevalence([condition_a, condition_b])
     }
 
-    assert rows["HBDonor"].n_selected_poses_with_type == 2
-    assert rows["HBDonor"].pose_prevalence == pytest.approx(2 / 3)
-    assert rows["HBDonor"].n_conditions_with_type == 2
-    assert rows["HBDonor"].condition_prevalence == pytest.approx(1.0)
-    assert rows["HBDonor"].median_count_per_pose_when_present == pytest.approx(1.5)
+    assert rows["ImplicitHBDonor"].n_selected_poses_with_type == 2
+    assert rows["ImplicitHBDonor"].pose_prevalence == pytest.approx(2 / 3)
+    assert rows["ImplicitHBDonor"].n_conditions_with_type == 2
+    assert rows["ImplicitHBDonor"].condition_prevalence == pytest.approx(1.0)
+    assert rows["ImplicitHBDonor"].median_count_per_pose_when_present == pytest.approx(1.5)
     assert rows["Hydrophobic"].n_selected_poses_with_type == 1
     assert rows["Hydrophobic"].condition_prevalence == pytest.approx(0.5)
 
@@ -97,26 +98,26 @@ def test_build_feature_prevalence_tracks_pose_and_condition_prevalence() -> None
         "cond-a",
         pose_ids=["a0", "a1"],
         feature_names=[
-            "NAG1.B|ASN10.A|HBDonor",
+            "NAG1.B|ASN10.A|ImplicitHBDonor",
             "NAG1.B|ASN10.A|VdWContact",
-            "NAG2.B|SER11.A|HBAcceptor",
+            "NAG2.B|SER11.A|ImplicitHBAcceptor",
         ],
         matrix=[[1, 1, 0], [0, 0, 1]],
         interaction_counts=[
-            {"HBDonor": 1, "VdWContact": 1},
-            {"HBAcceptor": 1},
+            {"ImplicitHBDonor": 1, "VdWContact": 1},
+            {"ImplicitHBAcceptor": 1},
         ],
     )
     condition_b = _make_condition(
         "cond-b",
         pose_ids=["b0", "b1"],
         feature_names=[
-            "NAG1.B|ASN10.A|HBDonor",
+            "NAG1.B|ASN10.A|ImplicitHBDonor",
             "NAG2.B|TYR12.A|Hydrophobic",
         ],
         matrix=[[1, 1], [0, 0]],
         interaction_counts=[
-            {"HBDonor": 1, "Hydrophobic": 1},
+            {"ImplicitHBDonor": 1, "Hydrophobic": 1},
             {},
         ],
         selected_pose_ids=("b0",),
@@ -127,8 +128,8 @@ def test_build_feature_prevalence_tracks_pose_and_condition_prevalence() -> None
         for row in build_feature_prevalence([condition_a, condition_b])
     }
 
-    donor = rows["NAG1.B|ASN10.A|HBDonor"]
-    assert donor.interaction_type == "HBDonor"
+    donor = rows["NAG1.B|ASN10.A|ImplicitHBDonor"]
+    assert donor.interaction_type == "ImplicitHBDonor"
     assert donor.n_selected_poses_with_feature == 2
     assert donor.pose_prevalence == pytest.approx(2 / 3)
     assert donor.n_conditions_with_feature == 2
@@ -146,10 +147,10 @@ def test_select_main_clustering_features_applies_interaction_and_rarity_rules() 
         "cond-a",
         pose_ids=["a0", "a1", "a2"],
         feature_names=[
-            "NAG1.B|ASN10.A|HBDonor",
+            "NAG1.B|ASN10.A|ImplicitHBDonor",
             "NAG1.B|ASN10.A|VdWContact",
             "NAG2.B|TYR12.A|Hydrophobic",
-            "NAG3.B|GLU15.A|HBAcceptor",
+            "NAG3.B|GLU15.A|ImplicitHBAcceptor",
         ],
         matrix=[
             [1, 1, 1, 0],
@@ -157,9 +158,9 @@ def test_select_main_clustering_features_applies_interaction_and_rarity_rules() 
             [0, 0, 0, 1],
         ],
         interaction_counts=[
-            {"HBDonor": 1, "VdWContact": 1, "Hydrophobic": 1},
-            {"HBDonor": 1, "VdWContact": 1, "Hydrophobic": 1},
-            {"HBAcceptor": 1},
+            {"ImplicitHBDonor": 1, "VdWContact": 1, "Hydrophobic": 1},
+            {"ImplicitHBDonor": 1, "VdWContact": 1, "Hydrophobic": 1},
+            {"ImplicitHBAcceptor": 1},
         ],
     )
 
@@ -176,10 +177,10 @@ def test_select_main_clustering_features_applies_interaction_and_rarity_rules() 
         rare_feature_condition_prevalence_lt_n_conditions=1,
     )
 
-    assert "NAG1.B|ASN10.A|HBDonor" in default_selected
+    assert "NAG1.B|ASN10.A|ImplicitHBDonor" in default_selected
     assert "NAG1.B|ASN10.A|VdWContact" not in default_selected
     assert "NAG2.B|TYR12.A|Hydrophobic" not in default_selected
-    assert "NAG3.B|GLU15.A|HBAcceptor" not in default_selected
+    assert "NAG3.B|GLU15.A|ImplicitHBAcceptor" not in default_selected
     assert "NAG2.B|TYR12.A|Hydrophobic" in hydrophobic_selected
 
 
@@ -188,14 +189,14 @@ def test_build_filtered_ifp_matrix_subsets_poses_and_preserves_feature_order() -
         "cond-a",
         pose_ids=["a0", "a1"],
         feature_names=[
-            "NAG1.B|ASN10.A|HBDonor",
+            "NAG1.B|ASN10.A|ImplicitHBDonor",
             "NAG1.B|ASN10.A|VdWContact",
-            "NAG2.B|SER11.A|HBAcceptor",
+            "NAG2.B|SER11.A|ImplicitHBAcceptor",
         ],
         matrix=[[1, 1, 0], [0, 0, 1]],
         interaction_counts=[
-            {"HBDonor": 1, "VdWContact": 1},
-            {"HBAcceptor": 1},
+            {"ImplicitHBDonor": 1, "VdWContact": 1},
+            {"ImplicitHBAcceptor": 1},
         ],
     )
 
@@ -203,17 +204,51 @@ def test_build_filtered_ifp_matrix_subsets_poses_and_preserves_feature_order() -
         condition.batch,
         selected_pose_ids=("a1",),
         allowed_feature_names={
-            "NAG2.B|SER11.A|HBAcceptor",
-            "NAG1.B|ASN10.A|HBDonor",
+            "NAG2.B|SER11.A|ImplicitHBAcceptor",
+            "NAG1.B|ASN10.A|ImplicitHBDonor",
         },
     )
 
     assert filtered.pose_ids == ["a1"]
     assert filtered.feature_names == [
-        "NAG1.B|ASN10.A|HBDonor",
-        "NAG2.B|SER11.A|HBAcceptor",
+        "NAG1.B|ASN10.A|ImplicitHBDonor",
+        "NAG2.B|SER11.A|ImplicitHBAcceptor",
     ]
     assert filtered.matrix == [[0, 1]]
+
+
+def test_select_main_clustering_features_for_condition_uses_selected_pose_signal() -> None:
+    condition = _make_condition(
+        "cond-a",
+        pose_ids=["a0", "a1"],
+        feature_names=[
+            "NAG1.B|ASN10.A|ImplicitHBDonor",
+            "NAG1.B|ASN10.A|VdWContact",
+            "NAG2.B|TYR12.A|Hydrophobic",
+            "NAG3.B|GLU15.A|ImplicitHBAcceptor",
+        ],
+        matrix=[[1, 1, 1, 0], [0, 0, 0, 1]],
+        interaction_counts=[
+            {"ImplicitHBDonor": 1, "VdWContact": 1, "Hydrophobic": 1},
+            {"ImplicitHBAcceptor": 1},
+        ],
+    )
+
+    selected = select_main_clustering_features_for_condition(
+        condition.batch,
+        selected_pose_ids=("a0",),
+    )
+    selected_with_hydrophobic = select_main_clustering_features_for_condition(
+        condition.batch,
+        selected_pose_ids=("a0",),
+        extra_include_interaction_types={"Hydrophobic"},
+    )
+
+    assert selected == ["NAG1.B|ASN10.A|ImplicitHBDonor"]
+    assert selected_with_hydrophobic == [
+        "NAG1.B|ASN10.A|ImplicitHBDonor",
+        "NAG2.B|TYR12.A|Hydrophobic",
+    ]
 
 
 def test_summarize_condition_matrices_marks_insufficient_clusterable_signal() -> None:

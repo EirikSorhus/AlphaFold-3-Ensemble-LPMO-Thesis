@@ -28,6 +28,29 @@ C1_C4_FEATURE_COLUMNS = [
     "occupancy_weighted_C1_minus_C4_plausibility",
 ]
 
+PREDICTIVE_BACKEND = {
+    "status": "final_compact_exploratory_backend",
+    "primary_backend": "sklearn_logistic_regression_l2",
+    "model": "LogisticRegression(C=1.0, class_weight='balanced', solver='liblinear')",
+    "cv_group": "protein_id",
+    "row_source": "condition_table.tsv",
+    "interpretation": "exploratory_structure_activity_association_only",
+}
+
+REQUIRED_CONDITION_COLUMNS = [
+    "protein_id",
+    "construct_type",
+    "substrate_class",
+    "contact_eligible_fraction",
+    "noise_fraction",
+    "top_cluster_occupancy",
+    "hbond_contact_fraction",
+    "aromatic_contact_fraction",
+    "median_n_non_vdw_interactions",
+    "occupancy_weighted_c1_plausible_fraction",
+    "occupancy_weighted_c4_plausible_fraction",
+]
+
 SUBSTRATE_FEATURE_COLUMNS = [
     "contact_eligible_fraction",
     "noise_fraction",
@@ -504,6 +527,83 @@ def _write_metrics_files(
         ])
 
 
+def validate_predictive_postprocess_outputs(
+    *,
+    condition_rows: list[dict[str, Any]],
+    modeling_rows_by_name: dict[str, list[dict[str, Any]]],
+    cv_results_by_name: dict[str, BinaryClassificationCVResult],
+) -> dict[str, Any]:
+    """Validate predictive inputs/outputs against the locked compact backend contract."""
+
+    warnings: list[str] = []
+    errors: list[str] = []
+    condition_columns = set(condition_rows[0]) if condition_rows else set()
+    missing_condition_columns = sorted(set(REQUIRED_CONDITION_COLUMNS) - condition_columns)
+    if not condition_rows:
+        errors.append("condition_table_has_no_rows")
+    if missing_condition_columns:
+        errors.append("condition_table_missing_required_columns")
+
+    modeling_tables: dict[str, Any] = {}
+    for table_name, rows in sorted(modeling_rows_by_name.items()):
+        protein_ids = {
+            str(row.get("protein_id", "")).strip()
+            for row in rows
+            if str(row.get("protein_id", "")).strip()
+        }
+        target_columns = [
+            column
+            for column in ("has_C1_activity", "has_C4_activity", "is_active_on_substrate")
+            if rows and column in rows[0]
+        ]
+        target_counts: dict[str, dict[str, int]] = {}
+        for target_column in target_columns:
+            positives = sum(1 for row in rows if str(row.get(target_column)) in {"1", "True", "true"})
+            negatives = sum(1 for row in rows if str(row.get(target_column)) in {"0", "False", "false"})
+            target_counts[target_column] = {"positive": positives, "negative": negatives}
+        if not rows:
+            warnings.append(f"{table_name}: no modeling rows")
+        modeling_tables[table_name] = {
+            "n_rows": len(rows),
+            "n_proteins": len(protein_ids),
+            "target_counts": target_counts,
+        }
+
+    models: dict[str, Any] = {}
+    for model_name, result in sorted(cv_results_by_name.items()):
+        if result.n_rows == 0:
+            status = "no_modeling_rows"
+            warnings.append(f"{model_name}: no modeling rows")
+        elif result.n_positive == 0 or result.n_negative == 0:
+            status = "single_class_no_cv"
+            warnings.append(f"{model_name}: only one target class after filtering")
+        elif not result.fold_metrics:
+            status = "no_evaluable_cv_folds"
+            warnings.append(f"{model_name}: no fold had both training classes")
+        else:
+            status = "validated_cv_outputs"
+        models[model_name] = {
+            "status": status,
+            "n_rows": result.n_rows,
+            "n_positive": result.n_positive,
+            "n_negative": result.n_negative,
+            "n_evaluated_folds": len(result.fold_metrics),
+            "n_predictions": len(result.predictions),
+        }
+
+    return {
+        "passed": not errors,
+        "validation_scope": "real_or_production_shaped_condition_rows",
+        "backend_locked": PREDICTIVE_BACKEND["primary_backend"],
+        "n_condition_rows": len(condition_rows),
+        "missing_condition_columns": missing_condition_columns,
+        "modeling_tables": modeling_tables,
+        "models": models,
+        "warnings": warnings,
+        "errors": errors,
+    }
+
+
 def run_predictive_postprocess(
     *,
     condition_table_path: Path,
@@ -528,10 +628,13 @@ def run_predictive_postprocess(
         "task": task,
         "condition_table": str(condition_table_path),
         "protein_metadata": str(protein_metadata_path),
+        "implementation": dict(PREDICTIVE_BACKEND),
         "modeling_tables": {},
         "metrics": {},
         "predictions": {},
     }
+    modeling_rows_by_name: dict[str, list[dict[str, Any]]] = {}
+    cv_results_by_name: dict[str, BinaryClassificationCVResult] = {}
 
     if task in {"all", "c1_c4"}:
         c1_c4_rows = build_c1_c4_modeling_rows(condition_rows, protein_metadata_rows)
@@ -547,6 +650,7 @@ def run_predictive_postprocess(
             *C1_C4_FEATURE_COLUMNS,
         ]
         _write_tsv(c1_c4_modeling_table, c1_c4_rows, c1_c4_columns)
+        modeling_rows_by_name["c1_c4"] = c1_c4_rows
         result.modeling_table_paths["c1_c4"] = c1_c4_modeling_table
         summary_data["modeling_tables"]["c1_c4"] = str(c1_c4_modeling_table)
 
@@ -564,6 +668,7 @@ def run_predictive_postprocess(
                 n_folds=n_folds,
                 random_state=random_state,
             )
+            cv_results_by_name[model_name] = cv_result
             metrics_path = cv_results_dir / f"{model_name}_metrics.tsv"
             fold_metrics_path = cv_results_dir / f"{model_name}_fold_metrics.tsv"
             predictions_path = cv_results_dir / f"{model_name}_predictions.tsv"
@@ -597,6 +702,7 @@ def run_predictive_postprocess(
                 *SUBSTRATE_FEATURE_COLUMNS,
             ]
             _write_tsv(modeling_table_path, substrate_rows, modeling_columns)
+            modeling_rows_by_name[model_name] = substrate_rows
             result.modeling_table_paths[model_name] = modeling_table_path
             summary_data["modeling_tables"][model_name] = str(modeling_table_path)
 
@@ -610,6 +716,7 @@ def run_predictive_postprocess(
                 n_folds=n_folds,
                 random_state=random_state,
             )
+            cv_results_by_name[model_name] = cv_result
             metrics_path = cv_results_dir / f"{model_name}_metrics.tsv"
             fold_metrics_path = cv_results_dir / f"{model_name}_fold_metrics.tsv"
             predictions_path = cv_results_dir / f"{model_name}_predictions.tsv"
@@ -623,6 +730,12 @@ def run_predictive_postprocess(
             result.predictions_paths[model_name] = predictions_path
             summary_data["metrics"][model_name] = str(metrics_path)
             summary_data["predictions"][model_name] = str(predictions_path)
+
+    summary_data["validation"] = validate_predictive_postprocess_outputs(
+        condition_rows=condition_rows,
+        modeling_rows_by_name=modeling_rows_by_name,
+        cv_results_by_name=cv_results_by_name,
+    )
 
     summary_path.parent.mkdir(parents=True, exist_ok=True)
     with summary_path.open("w") as handle:

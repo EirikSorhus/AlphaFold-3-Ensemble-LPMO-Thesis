@@ -62,8 +62,8 @@ We need a reproducible pipeline that:
 - Generates complex structures with **AF3 only** (RF3 og Boltz-2 er ekskludert)
 - Runs **active-site proximity pre-QC** before chemistry validators
 - Performs **hard QC** with **PoseBusters + Privateer**
-- Creates **ProLIF interaction fingerprints (IFP)**
-- Clusters binding modes with **HDBSCAN** (Jaccard/Tanimoto on binary IFP)
+- Creates **ProLIF interaction fingerprints (IFP)** from non-protonated `analysis_export` PDB artifacts
+- Clusters binding modes with **agglomerative Jaccard** as primary method; **HDBSCAN** brukes kun som sensitivitet/comparison
 - Measures mechanistic geometry with **MDAnalysis**
 - Produces combined reporting artifacts:
   - `summary.json`, `metrics.csv`, `report.html`
@@ -152,9 +152,10 @@ Output:
 - `privateer_input/*.cif`
 
 ### step_4_ifp_and_geometry
-Input: `normalized/*.cif` (QC-passed poses, AF3 directly)
+Input: QC-passed `normalized/*.cif` plus non-protonated `analysis_export/*.pdb` derivatives for ProLIF
 Programs:
-- ProLIF (IFP — no Cu repositioning or virtual atoms)
+- `io/analysis_export.py` for `complex_for_prolif.pdb` + `ligand_only_for_prolif.pdb`
+- ProLIF (IFP — no Cu repositioning or virtual atoms; active interaction set `ImplicitHBAcceptor`, `ImplicitHBDonor`, `VdWContact`)
 - MDAnalysis (geometry metrics)
 Output:
 - `analysis/ifp/*.csv`
@@ -163,7 +164,8 @@ Output:
 ### step_5_clustering
 Input: IFP vectors from step_4
 Programs:
-- HDBSCAN (Jaccard metric on binary IFP only)
+- HDBSCAN clustering (Jaccard distance on binary IFP, primary production target `min_cluster_size=5`, `min_samples=null`, `cluster_selection_method=eom`)
+- agglomerative clustering as orthogonal sensitivity/comparison workflow (`linkage=average`, `distance_threshold=0.55`, `min_cluster_size=5`)
 Output:
 - `analysis/clusters/*.json`
 - Medoid pose references
@@ -203,7 +205,7 @@ Implement scripts to run tuning on a defined tuning subset and compare settings 
 - PoseBusters: pass-rate + error types
 - Privateer: ring/anomer/stereo validity
 - MDAnalysis “light”: align on core, measure Cu–C1 and Cu–C4 (flag if within 7 Å), pocket RMSD vs crystal when available
-- ProLIF IFP + HDBSCAN: outlier-rate, #clusters, occupancy stability
+- ProLIF IFP + agglomerative primary metrics (with optional HDBSCAN sensitivity): outlier-rate, #clusters, occupancy stability
 - Optional: compare IFP similarity vs crystal (moderate threshold to be decided empirically)
 
 AF3 tuning:
@@ -308,7 +310,7 @@ Adapters should:
 - mmCIF master: derivations must cite source file + transformation in metadata.
 
 ### Cluster policy (anti p-hacking)
-- Lock HDBSCAN hyperparameters for each analysis run (and document origin if imported from optional tuning).
+- Lock primary HDBSCAN parameters for each analysis run, and document agglomerative Jaccard only as the orthogonal sensitivity path.
 - Do not “search” cluster params during main runs.
 
 ---
@@ -324,8 +326,8 @@ Adapters should:
 ## Notes on common pitfalls
 
 - PoseBusters complex mode often needs ligand `HETATM` + `CONECT` for robust checks.
-- ProLIF requires correct bond orders/atom types/charges → prefer MOL2/SDF via OpenBabel before fingerprints.
-- Reduce may alter histidine flips; verify Cu-coordinating His after protonation.
+- Active ProLIF runtime in `analyse/` uses non-protonated `analysis_export/complex_for_prolif.pdb` and `analysis_export/ligand_only_for_prolif.pdb`; do not reintroduce `complex_H.pdb`/`ligand_for_prolif.mol2` as production inputs.
+- Geometry and PoseBusters can still use their own derived structures, but that must not be confused with the active ProLIF input contract.
 - mmCIF bond/conn categories must be populated for downstream correctness; use Gemmi editing to ensure `_struct_conn` and CCD completeness.
 
 ---

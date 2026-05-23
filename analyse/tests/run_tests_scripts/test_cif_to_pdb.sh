@@ -9,7 +9,7 @@
 
 set -euo pipefail
 # Activate conda environment
-export PATH="/cluster/work/projects/nn1003k/eirik/conda/analyse_env/bin:$PATH"
+export PATH="/cluster/work/projects/nn1003k/eirik/conda/analyse_full_prolif_env/bin:$PATH"
 
 cd /cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse
 

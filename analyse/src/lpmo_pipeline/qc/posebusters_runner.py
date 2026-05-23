@@ -1,6 +1,6 @@
 # src/lpmo_pipeline/qc/posebusters_runner.py
 """
-Responsibility: Run PoseBusters on AF3 poses (after normalization + protonation).
+Responsibility: Run PoseBusters on AF3 poses after normalization.
 Input:  AF3 PoseBusters PDB export. Combined protein+glycan exports are
     auto-split into ligand-only ``mol_pred`` and protein ``mol_cond``
     so PoseBusters is invoked with the documented ``dock``/``redock``

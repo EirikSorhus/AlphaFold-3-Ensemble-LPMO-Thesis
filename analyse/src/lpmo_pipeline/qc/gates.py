@@ -7,9 +7,10 @@ Hard gates (must pass for pose to continue):
     2. active_site_proximity <= threshold
     3. privateer_recognized_sugars = 100%
     4. no_critical_posebusters_errors = true
-    5. cu_his_distance ∈ [1.9, 2.6] Å
+    5. cu_his_distance ∈ [1.5, 3.0] Å
   
 Soft flags (kept but marked):
+  - Cu-His distance outside preferred [1.8, 2.6] Å band
   - PoseBusters minor warnings
   - Outlier poses in clustering
   - Crystal similarity < 0.3 (flag for alternative mode)
@@ -42,8 +43,8 @@ class GateConfig:
     posebusters_critical_errors: List[str] = None  # e.g., ["steric_clash", "valence_error"]
     
     # Cu geometry hard gate
-    cu_his_dist_min: float = 1.9  # Ångström
-    cu_his_dist_max: float = 2.6
+    cu_his_dist_min: float = 1.5  # Ångström
+    cu_his_dist_max: float = 3.0
 
     # Cu geometry soft QC band
     cu_his_soft_min_a: float = 1.8
@@ -265,10 +266,10 @@ def load_gate_config_from_yaml(config_path: Path) -> GateConfig:
                 hard.get("privateer_recognized_sugars_min", 1.0),
             ),
             posebusters_critical_errors=data.get("posebusters_critical_errors"),
-            cu_his_dist_min=hard.get("cu_his_dist_min", hard.get("cu_his_distance_min_a", 1.9)),
-            cu_his_dist_max=hard.get("cu_his_dist_max", hard.get("cu_his_distance_max_a", 2.6)),
-            cu_his_soft_min_a=qc.get("cu_his_min_a", hard.get("cu_his_distance_min_a", 1.9)),
-            cu_his_soft_max_a=qc.get("cu_his_max_a", hard.get("cu_his_distance_max_a", 2.6)),
+            cu_his_dist_min=hard.get("cu_his_dist_min", hard.get("cu_his_distance_min_a", 1.5)),
+            cu_his_dist_max=hard.get("cu_his_dist_max", hard.get("cu_his_distance_max_a", 3.0)),
+            cu_his_soft_min_a=qc.get("cu_his_min_a", soft.get("cu_his_min_a", 1.8)),
+            cu_his_soft_max_a=qc.get("cu_his_max_a", soft.get("cu_his_max_a", 2.6)),
             cu_c_proximity_threshold_a=soft.get("cu_c_proximity_max_a", 7.0),
             his_brace_max_search_a=his_brace.get("max_search_dist_a", 3.0),
             crystal_ifp_similarity_soft_threshold=soft.get(

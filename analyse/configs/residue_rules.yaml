@@ -82,7 +82,10 @@ atom_name_map:
 #   - pose_residue_contact_table.tsv
 #   - cluster_residue_signature.tsv
 #   - protein_condition_residue_scores.tsv
-# Regions are mutually exclusive; priority: catalytic_surface > cbm > linker > other
+# Downstream interpretation is now binary: catalytic/core context versus
+# aggregated non-core context. Legacy CBM/linker flags may still appear in
+# intermediate tables for compatibility, but they are collapsed into one
+# non-core bucket before CBM side-analysis summaries are interpreted.
 region_labels:
   - catalytic_surface_region   # residues near Cu active site
   - cbm_region                 # carbohydrate-binding module (CBM) domain residues
@@ -97,10 +100,11 @@ catalytic_surface_region:
   max_dist_a: 8.0
   include_his_brace_always: true    # His brace residues always tagged even if > 8 Å
 
-# ── CBM and linker region definition ──
-# Defined per-protein from protein_metadata.tsv fields:
-#   cbm_start_resnum, cbm_end_resnum, linker_start_resnum, linker_end_resnum
-# If those fields are absent, the region is not tagged (tagged as "other").
+# ── Non-core region source metadata ──
+# If protein_metadata.tsv provides CBM/linker residue ranges they can still be
+# read here, but downstream analysis collapses them into one non-core bucket.
+# No fine-grained extra-domain interpretation should be built on top of these
+# ranges.
 cbm_linker_region:
   source: "protein_metadata"        # read residue ranges from protein_metadata.tsv
   chain: "A"                        # apply to protein chain only

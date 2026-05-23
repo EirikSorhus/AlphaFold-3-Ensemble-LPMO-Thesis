@@ -16,8 +16,8 @@ from lpmo_pipeline.analysis.prolif_ifp import (
     write_ifp_matrix,
     write_pose_ifp_table,
 )
+from lpmo_pipeline.io.analysis_export import export_analysis_artifacts
 from lpmo_pipeline.io.normalize_mmcif import NormalizeMMCIFRunner
-from lpmo_pipeline.io.protonate_export import protonate_and_export
 
 
 DEFAULT_CIF_PATHS: tuple[Path, ...] = (
@@ -49,7 +49,7 @@ def _expected_interaction_types() -> list[str]:
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Run normalization, protonation, and ProLIF on three real AF3 CIF cases.",
+        description="Run normalization, non-protonating analysis export, and ProLIF on real AF3 CIF cases.",
     )
     parser.add_argument(
         "--run-dir",
@@ -192,22 +192,22 @@ def main() -> int:
             normalized_path = Path(normalized_path).resolve()
             case_summary["normalized_cif"] = str(normalized_path)
 
-            protonation_dir = case_dir / "protonated"
-            ok_prot, report = protonate_and_export(normalized_path, protonation_dir)
-            case_summary["protonate_ok"] = bool(ok_prot)
-            case_summary["protonation_report_path"] = str(protonation_dir / "protonation_report.json")
-            case_summary["protonation_blockers"] = (report or {}).get("blockers", []) if report else []
-            case_summary["protonation_warnings"] = (report or {}).get("warnings", []) if report else []
-            case_summary["complex_h_pdb"] = str(protonation_dir / "complex_H.pdb")
-            case_summary["ligand_mol2"] = str(protonation_dir / "ligand_for_prolif.mol2")
-            if not ok_prot:
-                case_summary["status"] = "protonation_failed"
+            analysis_export_dir = case_dir / "analysis_export"
+            ok_export, report = export_analysis_artifacts(normalized_path, analysis_export_dir)
+            case_summary["analysis_export_ok"] = bool(ok_export)
+            case_summary["analysis_export_report_path"] = str(analysis_export_dir / "analysis_export_report.json")
+            case_summary["analysis_export_blockers"] = (report or {}).get("blockers", []) if report else []
+            case_summary["analysis_export_warnings"] = (report or {}).get("warnings", []) if report else []
+            case_summary["complex_for_prolif_pdb"] = str(analysis_export_dir / "complex_for_prolif.pdb")
+            case_summary["ligand_pdb"] = str(analysis_export_dir / "ligand_only_for_prolif.pdb")
+            if not ok_export:
+                case_summary["status"] = "analysis_export_failed"
                 summary["cases"].append(case_summary)
                 continue
 
             result = compute_ifp_single(
-                complex_pdb=protonation_dir / "complex_H.pdb",
-                ligand_mol2=protonation_dir / "ligand_for_prolif.mol2",
+                complex_pdb=analysis_export_dir / "complex_for_prolif.pdb",
+                ligand_pdb=analysis_export_dir / "ligand_only_for_prolif.pdb",
                 pose_id=pose_id,
             )
             results.append(result)
@@ -248,7 +248,7 @@ def main() -> int:
                 "pose_ifp_rows": _count_table_rows(pose_ifp_table_path),
                 "ifp_matrix_rows": _count_table_rows(ifp_matrix_path),
                 "n_normalize_ok": sum(1 for case in summary["cases"] if case.get("normalize_ok")),
-                "n_protonate_ok": sum(1 for case in summary["cases"] if case.get("protonate_ok")),
+                "n_analysis_export_ok": sum(1 for case in summary["cases"] if case.get("analysis_export_ok")),
                 "n_ifp_results": len(results),
                 "n_with_contacts": sum(1 for result in results if result.n_total_contacts > 0),
                 "n_with_ligand_resolved_features": sum(
@@ -266,7 +266,7 @@ def main() -> int:
 
         if summary["n_normalize_ok"] != len(cif_paths):
             return 1
-        if summary["n_protonate_ok"] != len(cif_paths):
+        if summary["n_analysis_export_ok"] != len(cif_paths):
             return 1
         if len(results) != len(cif_paths):
             return 1

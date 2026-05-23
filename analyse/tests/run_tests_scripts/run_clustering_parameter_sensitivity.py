@@ -20,6 +20,7 @@ from typing import Any, Iterable
 
 import numpy as np
 
+from lpmo_pipeline.analysis.cluster_signatures import write_cluster_table_tsv
 from lpmo_pipeline.analysis.clustering_agglomerative import (
     AgglomerativeJaccardClusterer,
     AgglomerativeJaccardConfig,
@@ -30,12 +31,53 @@ from lpmo_pipeline.analysis.clustering_hdbscan import (
     build_cluster_assignment_rows,
     build_medoid_rows,
 )
+from lpmo_pipeline.analysis.condition_summary import build_condition_table_rows, write_condition_table
 
 
 DEFAULT_INPUT_RUN_ROOT = Path("tests/tests_results/clustering_pilot_staged")
 DEFAULT_HDBSCAN_MIN_CLUSTER_SIZES = (3, 5, 10)
 DEFAULT_AGGLOMERATIVE_DISTANCE_THRESHOLDS = (0.35, 0.45, 0.55)
 DEFAULT_AGGLOMERATIVE_MIN_CLUSTER_SIZES = (3, 5, 10)
+
+CONDITION_CLUSTER_SUMMARY_COLUMNS = [
+    "method",
+    "parameter_label",
+    "condition_id",
+    "n_selected_poses",
+    "raw_feature_count",
+    "main_feature_count",
+    "minimum_clusterable_n",
+    "clustering_status",
+    "formal_clustering_allowed",
+    "n_qc_pass_poses",
+    "n_ifp_success",
+    "n_contact_eligible",
+    "contact_eligible_fraction",
+    "null_ifp_fraction",
+    "vdw_only_fraction",
+    "low_specific_contact_fraction",
+    "median_n_non_vdw_interactions",
+    "median_n_non_vdw_contact_residues",
+    "n_ifp_clustered",
+    "n_noise",
+    "noise_fraction",
+    "n_clusters",
+    "top_cluster_occupancy",
+    "cluster_entropy",
+    "occupancy_gini",
+    "cluster_assignments_tsv",
+    "medoid_manifest_tsv",
+]
+
+PARAMETER_RUN_INDEX_COLUMNS = [
+    "method",
+    "parameter_label",
+    "cluster_assignments_tsv",
+    "medoid_manifest_tsv",
+    "condition_cluster_summary_tsv",
+    "cluster_table_tsv",
+    "condition_table_tsv",
+]
 
 
 @dataclass(frozen=True)
@@ -49,6 +91,16 @@ class MatrixInput:
     feature_names: list[str]
     matrix: np.ndarray
     original_summary: dict[str, str]
+
+
+@dataclass(frozen=True)
+class ConditionOutputBundle:
+    grid_row: dict[str, Any]
+    assignment_rows: list[dict[str, Any]]
+    medoid_rows: list[dict[str, Any]]
+    condition_cluster_summary_row: dict[str, Any]
+    cluster_table_rows: list[dict[str, Any]]
+    qc_attrition_row: dict[str, Any]
 
 
 def _parse_args() -> argparse.Namespace:
@@ -221,6 +273,145 @@ def _gini(values: list[int]) -> float:
     return float((2.0 * np.sum(ranks * sorted_values) / (n_values * total)) - ((n_values + 1) / n_values))
 
 
+def _as_int(value: Any, default: int = 0) -> int:
+    if value in {None, ""}:
+        return default
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return default
+
+
+def _as_float(value: Any, default: float = 0.0) -> float:
+    if value in {None, ""}:
+        return default
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return default
+    if math.isnan(numeric):
+        return default
+    return numeric
+
+
+def _condition_identity(matrix_input: MatrixInput) -> dict[str, Any]:
+    match = re.match(r"(?P<substrate>.+)_DP(?P<dp>[0-9]+)$", matrix_input.target)
+    substrate_class = match.group("substrate") if match else ""
+    dp = int(match.group("dp")) if match else ""
+    return {
+        "condition_id": matrix_input.condition_id,
+        "protein_id": matrix_input.protein_id,
+        "construct_type": matrix_input.construct_type,
+        "ligand_id": matrix_input.target,
+        "substrate_class": substrate_class,
+        "dp": dp,
+    }
+
+
+def _clustering_status(metrics: dict[str, Any]) -> str:
+    n_ifp_clustered = int(metrics["n_ifp_clustered"])
+    n_clusters = int(metrics["n_clusters"])
+    n_noise = int(metrics["n_noise"])
+    if n_ifp_clustered == 0:
+        return "empty_matrix"
+    if n_clusters > 0:
+        return "clustered"
+    if n_noise == n_ifp_clustered:
+        return "all_noise"
+    return "no_clusters"
+
+
+def _build_condition_cluster_summary_row(
+    matrix_input: MatrixInput,
+    metadata: dict[str, Any],
+    metrics: dict[str, Any],
+    *,
+    assignment_path: Path,
+    medoid_path: Path,
+) -> dict[str, Any]:
+    original = matrix_input.original_summary
+    n_selected_poses = len(matrix_input.pose_ids)
+    n_qc_pass_poses = _as_int(original.get("n_qc_pass_poses"), n_selected_poses)
+    n_ifp_success = _as_int(original.get("n_ifp_success"), n_selected_poses)
+    n_contact_eligible = _as_int(original.get("n_contact_eligible"), n_selected_poses)
+    contact_eligible_fraction = _as_float(
+        original.get("contact_eligible_fraction"),
+        (n_contact_eligible / n_ifp_success) if n_ifp_success else 0.0,
+    )
+    return {
+        "method": metadata["method"],
+        "parameter_label": metadata["parameter_label"],
+        "condition_id": matrix_input.condition_id,
+        "n_selected_poses": n_selected_poses,
+        "raw_feature_count": _as_int(original.get("raw_feature_count"), len(matrix_input.feature_names)),
+        "main_feature_count": len(matrix_input.feature_names),
+        "minimum_clusterable_n": original.get("minimum_clusterable_n", ""),
+        "clustering_status": _clustering_status(metrics),
+        "formal_clustering_allowed": original.get("formal_clustering_allowed", ""),
+        "n_qc_pass_poses": n_qc_pass_poses,
+        "n_ifp_success": n_ifp_success,
+        "n_contact_eligible": n_contact_eligible,
+        "contact_eligible_fraction": contact_eligible_fraction,
+        "null_ifp_fraction": _as_float(original.get("null_ifp_fraction"), 0.0),
+        "vdw_only_fraction": _as_float(original.get("vdw_only_fraction"), 0.0),
+        "low_specific_contact_fraction": _as_float(original.get("low_specific_contact_fraction"), 0.0),
+        "median_n_non_vdw_interactions": _as_float(original.get("median_n_non_vdw_interactions"), 0.0),
+        "median_n_non_vdw_contact_residues": _as_float(original.get("median_n_non_vdw_contact_residues"), 0.0),
+        "n_ifp_clustered": metrics["n_ifp_clustered"],
+        "n_noise": metrics["n_noise"],
+        "noise_fraction": metrics["noise_fraction"],
+        "n_clusters": metrics["n_clusters"],
+        "top_cluster_occupancy": metrics["top_cluster_occupancy"],
+        "cluster_entropy": metrics["cluster_entropy"],
+        "occupancy_gini": metrics["occupancy_gini"],
+        "cluster_assignments_tsv": str(assignment_path),
+        "medoid_manifest_tsv": str(medoid_path),
+    }
+
+
+def _build_cluster_table_rows(matrix_input: MatrixInput, result: Any) -> list[dict[str, Any]]:
+    identity = _condition_identity(matrix_input)
+    total_poses = len(matrix_input.pose_ids)
+    rows: list[dict[str, Any]] = []
+    for cluster_id in sorted(result.cluster_sizes):
+        medoid_pose_id = ""
+        if cluster_id in result.medoids:
+            medoid_pose_id = matrix_input.pose_ids[result.medoids[cluster_id]]
+        cluster_size = int(result.cluster_sizes[cluster_id])
+        occupancy = result.cluster_occupancy.get(cluster_id)
+        if occupancy is None:
+            occupancy = (cluster_size / total_poses) if total_poses else 0.0
+        rows.append(
+            {
+                **identity,
+                "cluster_id": cluster_id,
+                "cluster_type": "",
+                "n_poses": cluster_size,
+                "occupancy": occupancy,
+                "medoid_pose_id": medoid_pose_id,
+                "cluster_size": cluster_size,
+            }
+        )
+    return rows
+
+
+def _build_qc_attrition_row(matrix_input: MatrixInput) -> dict[str, Any]:
+    identity = _condition_identity(matrix_input)
+    n_generated = len(matrix_input.pose_ids)
+    n_stage1_pass = _as_int(matrix_input.original_summary.get("n_qc_pass_poses"), n_generated)
+    n_stage1_hard_fail = max(n_generated - n_stage1_pass, 0)
+    return {
+        **identity,
+        "n_generated": n_generated,
+        "n_prepared": n_generated,
+        "n_prep_error": 0,
+        "n_stage1_hard_fail": n_stage1_hard_fail,
+        "n_stage1_soft_flag": 0,
+        "n_stage1_pass": n_stage1_pass,
+        "hard_fail_rate": (n_stage1_hard_fail / n_generated) if n_generated else 0.0,
+    }
+
+
 def _cluster_metrics(labels: np.ndarray) -> dict[str, Any]:
     total = int(len(labels))
     n_noise = int(np.sum(labels == -1))
@@ -346,7 +537,7 @@ def _write_condition_outputs(
     result: Any,
     distance_matrix: np.ndarray,
     metadata: dict[str, Any],
-) -> dict[str, Any]:
+) -> ConditionOutputBundle:
     labels = result.cluster_labels
     assignment_rows = build_cluster_assignment_rows(
         matrix_input.condition_id,
@@ -390,6 +581,31 @@ def _write_condition_outputs(
 
     metrics = _cluster_metrics(labels)
     seed_metrics = _seed_mixing(labels, matrix_input.pose_ids)
+    condition_cluster_summary_row = _build_condition_cluster_summary_row(
+        matrix_input,
+        metadata,
+        metrics,
+        assignment_path=assignment_path,
+        medoid_path=medoid_path,
+    )
+    cluster_table_rows = _build_cluster_table_rows(matrix_input, result)
+    qc_attrition_row = _build_qc_attrition_row(matrix_input)
+    condition_table_rows = build_condition_table_rows(
+        qc_attrition_rows=[qc_attrition_row],
+        condition_cluster_summary_rows=[condition_cluster_summary_row],
+        cluster_table_rows=cluster_table_rows,
+    )
+    condition_cluster_summary_path = method_output_dir / "condition_cluster_summary.tsv"
+    cluster_table_path = method_output_dir / "cluster_table.tsv"
+    condition_table_path = method_output_dir / "condition_table.tsv"
+    _write_tsv(
+        condition_cluster_summary_path,
+        CONDITION_CLUSTER_SUMMARY_COLUMNS,
+        [condition_cluster_summary_row],
+    )
+    write_cluster_table_tsv(cluster_table_rows, cluster_table_path)
+    write_condition_table(condition_table_rows, condition_table_path)
+
     top_cluster_id = metrics["top_cluster_id"]
     top_medoid_pose_id = ""
     if top_cluster_id != "" and int(top_cluster_id) in result.medoids:
@@ -401,10 +617,20 @@ def _write_condition_outputs(
         "top_medoid_pose_id": top_medoid_pose_id,
         "cluster_assignments_tsv": str(assignment_path),
         "medoid_manifest_tsv": str(medoid_path),
+        "condition_cluster_summary_tsv": str(condition_cluster_summary_path),
+        "cluster_table_tsv": str(cluster_table_path),
+        "condition_table_tsv": str(condition_table_path),
     }
     summary_path = method_output_dir / "clustering_summary.json"
     summary_path.write_text(json.dumps(row, indent=2))
-    return row
+    return ConditionOutputBundle(
+        grid_row=row,
+        assignment_rows=assignment_rows,
+        medoid_rows=medoid_rows,
+        condition_cluster_summary_row=condition_cluster_summary_row,
+        cluster_table_rows=cluster_table_rows,
+        qc_attrition_row=qc_attrition_row,
+    )
 
 
 def _metadata_for(matrix_input: MatrixInput, *, method: str, parameter_label: str, **params: Any) -> dict[str, Any]:
@@ -429,6 +655,75 @@ def _metadata_for(matrix_input: MatrixInput, *, method: str, parameter_label: st
         "original_n_ifp_success": original.get("n_ifp_success", ""),
         "original_n_contact_eligible": original.get("n_contact_eligible", ""),
     }
+
+
+def _write_parameter_run_outputs(
+    output_root: Path,
+    bundles_by_parameter_label: dict[str, list[ConditionOutputBundle]],
+) -> list[dict[str, Any]]:
+    index_rows: list[dict[str, Any]] = []
+    for parameter_label, bundles in sorted(bundles_by_parameter_label.items()):
+        parameter_dir = output_root / "parameter_runs" / _slug(parameter_label)
+        assignment_path = parameter_dir / "cluster_assignments.tsv"
+        medoid_path = parameter_dir / "medoid_manifest.tsv"
+        condition_cluster_summary_path = parameter_dir / "condition_cluster_summary.tsv"
+        cluster_table_path = parameter_dir / "cluster_table.tsv"
+        condition_table_path = parameter_dir / "condition_table.tsv"
+
+        assignment_rows = [row for bundle in bundles for row in bundle.assignment_rows]
+        medoid_rows = [row for bundle in bundles for row in bundle.medoid_rows]
+        condition_cluster_summary_rows = [bundle.condition_cluster_summary_row for bundle in bundles]
+        cluster_table_rows = [row for bundle in bundles for row in bundle.cluster_table_rows]
+        qc_attrition_rows = [bundle.qc_attrition_row for bundle in bundles]
+        condition_table_rows = build_condition_table_rows(
+            qc_attrition_rows=qc_attrition_rows,
+            condition_cluster_summary_rows=condition_cluster_summary_rows,
+            cluster_table_rows=cluster_table_rows,
+        )
+
+        _write_tsv(
+            assignment_path,
+            [
+                "pose_id",
+                "condition_id",
+                "cluster_id",
+                "cluster_member_flag",
+                "noise_flag",
+                "distance_to_cluster_representative",
+            ],
+            assignment_rows,
+        )
+        _write_tsv(
+            medoid_path,
+            [
+                "condition_id",
+                "cluster_id",
+                "medoid_pose_id",
+                "medoid_structure_path",
+                "medoid_ifp_distance_sum",
+            ],
+            medoid_rows,
+        )
+        _write_tsv(
+            condition_cluster_summary_path,
+            CONDITION_CLUSTER_SUMMARY_COLUMNS,
+            condition_cluster_summary_rows,
+        )
+        write_cluster_table_tsv(cluster_table_rows, cluster_table_path)
+        write_condition_table(condition_table_rows, condition_table_path)
+
+        index_rows.append(
+            {
+                "method": bundles[0].grid_row["method"],
+                "parameter_label": parameter_label,
+                "cluster_assignments_tsv": str(assignment_path),
+                "medoid_manifest_tsv": str(medoid_path),
+                "condition_cluster_summary_tsv": str(condition_cluster_summary_path),
+                "cluster_table_tsv": str(cluster_table_path),
+                "condition_table_tsv": str(condition_table_path),
+            }
+        )
+    return index_rows
 
 
 def _summary_rows(grid_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -468,9 +763,9 @@ used to interpret the grid without picking parameters condition-by-condition.
 1. Choose one global primary clustering method and one global parameter set.
 2. Do not choose the parameter set that simply maximizes the number of clusters.
 3. Reject parameter sets with very high noise in many conditions, many tiny/seed-specific clusters, or strong instability across adjacent parameter values.
-4. Prefer agglomerative Jaccard if dominant clusters are stable across distance thresholds and HDBSCAN does not provide clearer dense modes.
-5. Prefer HDBSCAN if substantial residual noise remains after contact filtering and HDBSCAN finds stable dense clusters across min_cluster_size values.
-6. If methods are qualitatively similar, use agglomerative Jaccard as the primary method and HDBSCAN as sensitivity, matching the pilot plan default.
+4. Prefer HDBSCAN min_cluster_size=5 if it balances cluster recovery, noise handling, and cluster granularity.
+5. Use HDBSCAN min_cluster_size=3 as lenient sensitivity for low-support modes.
+6. Use agglomerative Jaccard 0.55/min5 as the orthogonal method check.
 7. Treat conditions with empty main IFP matrices or too few contact-eligible poses as weak evidence even if a small min_cluster_size creates clusters.
 """
     (output_root / "parameter_selection_criteria.md").write_text(text)
@@ -500,6 +795,7 @@ def main() -> int:
         raise RuntimeError(f"No main_contact_eligible_ifp_matrix.csv files found under {input_run_root}")
 
     grid_rows: list[dict[str, Any]] = []
+    bundles_by_parameter_label: dict[str, list[ConditionOutputBundle]] = defaultdict(list)
     for matrix_input in matrices:
         condition_dir = output_root / "conditions" / _slug(matrix_input.condition_id)
 
@@ -515,21 +811,21 @@ def main() -> int:
                 min_samples=min_samples,
                 output_dir=method_output_dir,
             )
-            grid_rows.append(
-                _write_condition_outputs(
-                    matrix_input=matrix_input,
-                    method_output_dir=method_output_dir,
-                    result=result,
-                    distance_matrix=distance_matrix,
-                    metadata=_metadata_for(
-                        matrix_input,
-                        method="hdbscan_jaccard",
-                        parameter_label=parameter_label,
-                        min_cluster_size=min_cluster_size,
-                        min_samples=("none" if min_samples is None else min_samples),
-                    ),
-                )
+            bundle = _write_condition_outputs(
+                matrix_input=matrix_input,
+                method_output_dir=method_output_dir,
+                result=result,
+                distance_matrix=distance_matrix,
+                metadata=_metadata_for(
+                    matrix_input,
+                    method="hdbscan_jaccard",
+                    parameter_label=parameter_label,
+                    min_cluster_size=min_cluster_size,
+                    min_samples=("none" if min_samples is None else min_samples),
+                ),
             )
+            grid_rows.append(bundle.grid_row)
+            bundles_by_parameter_label[parameter_label].append(bundle)
 
         for distance_threshold in args.agglomerative_distance_thresholds:
             for min_cluster_size in args.agglomerative_min_cluster_sizes:
@@ -545,21 +841,24 @@ def main() -> int:
                     min_cluster_size=min_cluster_size,
                     output_dir=method_output_dir,
                 )
-                grid_rows.append(
-                    _write_condition_outputs(
-                        matrix_input=matrix_input,
-                        method_output_dir=method_output_dir,
-                        result=result,
-                        distance_matrix=distance_matrix,
-                        metadata=_metadata_for(
-                            matrix_input,
-                            method="agglomerative_jaccard",
-                            parameter_label=parameter_label,
-                            distance_threshold=distance_threshold,
-                            min_cluster_size=min_cluster_size,
-                        ),
-                    )
+                bundle = _write_condition_outputs(
+                    matrix_input=matrix_input,
+                    method_output_dir=method_output_dir,
+                    result=result,
+                    distance_matrix=distance_matrix,
+                    metadata=_metadata_for(
+                        matrix_input,
+                        method="agglomerative_jaccard",
+                        parameter_label=parameter_label,
+                        distance_threshold=distance_threshold,
+                        min_cluster_size=min_cluster_size,
+                    ),
                 )
+                grid_rows.append(bundle.grid_row)
+                bundles_by_parameter_label[parameter_label].append(bundle)
+
+    parameter_run_index_rows = _write_parameter_run_outputs(output_root, bundles_by_parameter_label)
+    _write_tsv(output_root / "parameter_run_index.tsv", PARAMETER_RUN_INDEX_COLUMNS, parameter_run_index_rows)
 
     grid_fieldnames = [
         "condition_id",
@@ -595,6 +894,9 @@ def main() -> int:
         "matrix_path",
         "cluster_assignments_tsv",
         "medoid_manifest_tsv",
+        "condition_cluster_summary_tsv",
+        "cluster_table_tsv",
+        "condition_table_tsv",
     ]
     _write_tsv(output_root / "pilot_clustering_parameter_grid_results.tsv", grid_fieldnames, grid_rows)
 
@@ -624,7 +926,9 @@ def main() -> int:
         "agglomerative_min_cluster_sizes": list(args.agglomerative_min_cluster_sizes),
         "grid_results_tsv": str(output_root / "pilot_clustering_parameter_grid_results.tsv"),
         "grid_summary_tsv": str(output_root / "pilot_clustering_parameter_grid_summary.tsv"),
+        "parameter_run_index_tsv": str(output_root / "parameter_run_index.tsv"),
         "parameter_selection_criteria": str(output_root / "parameter_selection_criteria.md"),
+        "derived_ligand_id_source": "condition target token from condition_id",
     }
     (output_root / "run_summary.json").write_text(json.dumps(run_summary, indent=2))
     print(json.dumps(run_summary, indent=2))

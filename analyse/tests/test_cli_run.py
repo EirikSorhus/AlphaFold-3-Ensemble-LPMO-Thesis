@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 from lpmo_pipeline.analysis.analysis_orchestrator import AnalysisCoreResult
-from lpmo_pipeline.cli import cmd_family_enrichment, cmd_predictive, cmd_run
+from lpmo_pipeline.cli import cmd_cbm_paired, cmd_family_enrichment, cmd_predictive, cmd_run
 
 
 def test_cmd_run_calls_analysis_core_and_writes_manifest(tmp_path, monkeypatch) -> None:
@@ -183,6 +183,63 @@ def test_cmd_predictive_calls_postprocess(tmp_path, monkeypatch) -> None:
     assert called["task"] == "c1_c4"
     assert called["n_folds"] == 3
     assert called["random_state"] == 11
+
+
+def test_cmd_cbm_paired_calls_postprocess(tmp_path, monkeypatch) -> None:
+    condition_table = tmp_path / "condition_table.tsv"
+    cluster_table = tmp_path / "cluster_table.tsv"
+    protein_metadata = tmp_path / "protein_metadata.tsv"
+    output_dir = tmp_path / "cbm_results"
+    condition_table.write_text("condition_id\tprotein_id\n")
+    cluster_table.write_text("condition_id\tcluster_type\n")
+    protein_metadata.write_text("protein_id\tcbm_type\n")
+
+    called = {}
+
+    def _fake_run_cbm_paired_analysis(
+        *,
+        condition_table_path: Path,
+        output_dir: Path,
+        cluster_table_path: Path | None,
+        protein_metadata_path: Path | None,
+        random_state: int,
+    ):
+        called["condition_table_path"] = condition_table_path
+        called["cluster_table_path"] = cluster_table_path
+        called["protein_metadata_path"] = protein_metadata_path
+        called["output_dir"] = output_dir
+        called["random_state"] = random_state
+        summary_path = output_dir / "15_cbm_paired_analysis" / "cbm_paired_analysis_summary.json"
+        summary_path.parent.mkdir(parents=True, exist_ok=True)
+        summary_path.write_text("{}\n")
+
+        class _Result:
+            def __init__(self) -> None:
+                self.summary_path = summary_path
+                self.table_paths = {
+                    "paired_comparison": output_dir / "15_cbm_paired_analysis" / "cbm_paired_comparison_table.tsv"
+                }
+
+        return _Result()
+
+    monkeypatch.setattr("lpmo_pipeline.cli.run_cbm_paired_analysis", _fake_run_cbm_paired_analysis)
+
+    args = argparse.Namespace(
+        condition_table=condition_table,
+        cluster_table=cluster_table,
+        protein_metadata=protein_metadata,
+        output=output_dir,
+        random_state=13,
+    )
+
+    exit_code = cmd_cbm_paired(args)
+
+    assert exit_code == 0
+    assert called["condition_table_path"] == condition_table
+    assert called["cluster_table_path"] == cluster_table
+    assert called["protein_metadata_path"] == protein_metadata
+    assert called["output_dir"] == output_dir
+    assert called["random_state"] == 13
 
 
 def test_cmd_family_enrichment_calls_postprocess(tmp_path, monkeypatch) -> None:

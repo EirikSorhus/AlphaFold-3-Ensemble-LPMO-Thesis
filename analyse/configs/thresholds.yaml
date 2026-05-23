@@ -84,12 +84,6 @@ geometry_plausibility:
   #   geometry_highly_plausible:       d within [oxyl_h_highly_plausible_min_a, _max_a]
   locked: true                 # set true once values are confirmed before full run
 
-# ── Cluster inclusion (from AF3_LPMO_pipeline_detailed_plan.md v1.0) ──
-# Minimum cluster occupancy for inclusion in main summaries.
-# Small clusters retained in raw output even if excluded from summaries.
-cluster_inclusion:
-  min_occupancy: 0.05           # clusters below 5 % occupancy excluded from summaries
-
 # ── Convergence ──
 # Source: plan section 13. Descriptive only — not used to drop poses.
 convergence:
@@ -105,11 +99,10 @@ convergence:
                                         # low_convergence_flag = True on condition row;
                                         # geometric scores from top pose unreliable
 
-# ── HDBSCAN sensitivity configuration (selected 2026-05-20) ──
-# HDBSCAN is no longer the primary clustering method, but the selected
-# sensitivity path remains documented here for reproducible reruns.
+# ── HDBSCAN primary clustering configuration (selected 2026-05-23) ──
+# Primary Stage 6 clustering uses contact-eligible implicit-H-bond IFP rows.
 hdbscan:
-  min_cluster_size: 3
+  min_cluster_size: 5
   min_samples: null
   metric: jaccard
   cluster_selection_epsilon: 0.0
@@ -159,14 +152,17 @@ geometry_rules:
     c_h_bond_length_a: 1.1
 
 clustering:
-  # Mirrors the selected HDBSCAN sensitivity settings for checklist compatibility
-  min_cluster_size: 3
+  # Active production clustering settings. Stage 6/16 do not apply a
+  # cluster-occupancy inclusion threshold; all non-noise clusters that pass the
+  # formal clustering gate flow into summaries and signatures.
+  min_cluster_size: 5
   min_samples: null
   distance_metric: jaccard
-  min_occupancy_for_main_summary: 0.05
 
 qc:
-  # Mirrors hard_gates names used in checklist language
+  # Legacy/checklist aliases used by hard-QC loaders.
   pre_qc_active_site_max_a: 10.0
+  # Preferred Cu-His soft-QC band; hard drop limits are
+  # hard_gates.cu_his_distance_min_a/max_a above.
   cu_his_min_a: 1.8
   cu_his_max_a: 2.6

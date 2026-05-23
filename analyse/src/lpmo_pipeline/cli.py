@@ -4,8 +4,9 @@ Responsibility: Main command-line interface with production run mode and optiona
 
 Usage:
   python -m lpmo_pipeline run --mode production --config configs/production.yaml --output results/del_a/
-    python -m lpmo_pipeline tune --config configs/tuning_af3.yaml --output results/tuning_af3/
-    python -m lpmo_pipeline predictive --condition-table results/condition_table.tsv --protein-metadata metadata/protein_metadata.tsv --output results/
+  python -m lpmo_pipeline tune --config configs/tuning_af3.yaml --output results/tuning_af3/
+  python -m lpmo_pipeline predictive --condition-table results/condition_table.tsv --protein-metadata metadata/protein_metadata.tsv --output results/
+  python -m lpmo_pipeline cbm-paired --condition-table results/condition_table.tsv --cluster-table results/cluster_table.tsv --output results/
 """
 
 import argparse
@@ -14,6 +15,7 @@ import sys
 from pathlib import Path
 
 from lpmo_pipeline.analysis.analysis_orchestrator import run_analysis_core
+from lpmo_pipeline.analysis.cbm_comparison import run_cbm_paired_analysis
 from lpmo_pipeline.analysis.family_enrichment_postprocess import run_family_enrichment_postprocess
 from lpmo_pipeline.analysis.predictive_postprocess import run_predictive_postprocess
 from lpmo_pipeline.io.discovery import discover_work_root
@@ -96,6 +98,31 @@ def main():
         help="Random seed for grouped CV and logistic regression",
     )
 
+    cbm_parser = subparsers.add_parser(
+        "cbm-paired",
+        help="Run condition-level CBM full-length vs domain-only paired analysis",
+    )
+    cbm_parser.add_argument(
+        "--condition-table", type=Path, required=True,
+        help="Path to condition_table.tsv",
+    )
+    cbm_parser.add_argument(
+        "--cluster-table", type=Path,
+        help="Optional path to cluster_table.tsv for C1/C4 compatible fractions",
+    )
+    cbm_parser.add_argument(
+        "--protein-metadata", type=Path,
+        help="Optional path to protein metadata TSV",
+    )
+    cbm_parser.add_argument(
+        "--output", type=Path, required=True,
+        help="Output directory for CBM paired-analysis artifacts",
+    )
+    cbm_parser.add_argument(
+        "--random-state", type=int, default=42,
+        help="Random seed for bootstrap confidence intervals",
+    )
+
     family_parser = subparsers.add_parser(
         "family-enrichment",
         help="Run optional AA9/AA10 family residue enrichment postprocess",
@@ -156,6 +183,8 @@ def main():
         return cmd_discover(args)
     elif args.command == "predictive":
         return cmd_predictive(args)
+    elif args.command == "cbm-paired":
+        return cmd_cbm_paired(args)
     elif args.command == "family-enrichment":
         return cmd_family_enrichment(args)
     else:
@@ -276,6 +305,11 @@ def cmd_run(args):
             "crystal_anchoring_stage_completed",
             result.crystal_anchoring_stage_completed,
         )
+        if ((config.get("production") or {}).get("predictive") or {}).get("enabled", False):
+            manifest_builder.record_gate(
+                "predictive_stage_completed",
+                result.predictive_summary_path is not None,
+            )
         manifest_builder.write(manifest_path)
 
         if not result.success:
@@ -317,6 +351,8 @@ def cmd_run(args):
             print(f"  Protein summary table: {result.protein_summary_table_tsv_path}")
         if result.crystal_anchor_tsv_path is not None:
             print(f"  Crystal anchor table: {result.crystal_anchor_tsv_path}")
+        if result.predictive_summary_path is not None:
+            print(f"  Predictive summary: {result.predictive_summary_path}")
         if result.metrics_csv_path is not None:
             print(f"  Metrics CSV: {result.metrics_csv_path}")
         if result.summary_json_path is not None:
@@ -365,6 +401,35 @@ def cmd_predictive(args):
         print(f"  Metrics ({name}): {path}")
     for name, path in sorted(result.predictions_paths.items()):
         print(f"  Predictions ({name}): {path}")
+    return 0
+
+
+def cmd_cbm_paired(args):
+    """Execute CBM paired postprocess subcommand."""
+    print("[CBM] Starting CBM paired postprocess...")
+    print(f"  Condition table: {args.condition_table}")
+    print(f"  Cluster table: {args.cluster_table}")
+    print(f"  Protein metadata: {args.protein_metadata}")
+    print(f"  Output: {args.output}")
+
+    args.output.mkdir(parents=True, exist_ok=True)
+
+    try:
+        result = run_cbm_paired_analysis(
+            condition_table_path=args.condition_table,
+            cluster_table_path=args.cluster_table,
+            protein_metadata_path=args.protein_metadata,
+            output_dir=args.output,
+            random_state=args.random_state,
+        )
+    except Exception as exc:
+        print(f"[ERROR] CBM paired postprocess failed: {exc}", file=sys.stderr)
+        return 1
+
+    print("[CBM] CBM paired postprocess completed")
+    print(f"  Summary JSON: {result.summary_path}")
+    for name, path in sorted(result.table_paths.items()):
+        print(f"  Table ({name}): {path}")
     return 0
 
 

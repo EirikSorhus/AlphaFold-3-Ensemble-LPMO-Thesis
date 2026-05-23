@@ -31,12 +31,15 @@ description: "Use for analyse/ work: AF3-only LPMO analysis pipeline, governing 
 - Hovedanalyse er cluster-primary; ikke kollaps cluster-rader til protein som primar analyseenhet.
 - Hovedinput er AF3-artefakter i mmCIF-format.
 - Kjedeoppsett i normaliserte strukturer er protein `A`, glykaner `B..D`, metall `E`.
+- Aktiv ProLIF-produksjonssti bruker non-protonated `analysis_export/complex_for_prolif.pdb` og `analysis_export/ligand_only_for_prolif.pdb`, ikke `complex_H.pdb` eller `ligand_for_prolif.mol2`.
+- Aktivt raw ProLIF-sett er `ImplicitHBAcceptor`, `ImplicitHBDonor` og `VdWContact`; main clustering bruker som default bare de to implicit H-bond-typene.
+- Gjeldende dokumentert primary clustering policy er HDBSCAN Jaccard med `min_cluster_size=5`, `min_samples=null`; HDBSCAN `min_cluster_size=3` er lenient sensitivitet, agglomerative Jaccard `distance_threshold=0.55`, `min_cluster_size=5` er ortogonal metodekontroll, og HDBSCAN `min_cluster_size=10` er konservativ negativ kontroll.
 - Pre-QC aktivt sete-proximity gate korer foran PoseBusters og Privateer.
 - IFP-clustering bruker IFP-features; geometri legges pa etter clustering.
 - Hardcoded site-spesifikke paths skal unngas i kildekode.
 
 ## Environment And Validation
-- Bruk dokumentert analysemiljo under `/cluster/work/projects/nn1003k/eirik/conda/` for Python-kjoring.
+- Bruk dokumentert analysemiljo under `/cluster/work/projects/nn1003k/eirik/conda/` for Python-kjoring. For aktivt `analyse/`-arbeid er dette `analyse_full_prolif_env` med mindre styrende dokumentasjon sier noe annet.
 - For `python`/`pytest` i terminal: eksporter riktig env-bin i `PATH` en gang per terminalsession forst.
 - Ikke installer pakker som del av vanlig kodearbeid.
 - Foretrekk smale tester eller kontraktvalidering fremfor tunge end-to-end-kjoringer.

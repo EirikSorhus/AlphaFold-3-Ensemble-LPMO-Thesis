@@ -191,43 +191,43 @@ class TestHardQCOrchestrator:
         assert report.flagged == 1
         assert report.dropped == 0
 
-        @patch("lpmo_pipeline.qc.hard_qc_orchestrator.run_posebusters_single")
-        @patch("lpmo_pipeline.qc.hard_qc_orchestrator.check_geometry")
-        def test_geometry_soft_warning_flags_pose(self, mock_geom, mock_pb) -> None:
-                """Preferred QC band miss should flag, not drop."""
-                mock_pb.return_value = PoseBustersSingleResult(
-                        pose_id="pose_001", passed=True,
-                )
-                mock_geom.return_value = GeometryResult(
-                        pose_id="pose_001",
-                        cu_found=True,
-                        cu_his_all_in_range=True,
-                        cu_his_all_in_soft_range=False,
-                        passed=True,
-                        warnings=["Cu-His distance outside preferred QC range"],
-                )
+    @patch("lpmo_pipeline.qc.hard_qc_orchestrator.run_posebusters_single")
+    @patch("lpmo_pipeline.qc.hard_qc_orchestrator.check_geometry")
+    def test_geometry_soft_warning_flags_pose(self, mock_geom, mock_pb) -> None:
+        """Preferred QC band miss should flag, not drop."""
+        mock_pb.return_value = PoseBustersSingleResult(
+            pose_id="pose_001", passed=True,
+        )
+        mock_geom.return_value = GeometryResult(
+            pose_id="pose_001",
+            cu_found=True,
+            cu_his_all_in_range=True,
+            cu_his_all_in_soft_range=False,
+            passed=True,
+            warnings=["Cu-His distance outside preferred QC range"],
+        )
 
-                report = run_hard_qc([_make_input()], run_id="test_run")
+        report = run_hard_qc([_make_input()], run_id="test_run")
 
-                assert report.flagged == 1
-                assert report.dropped == 0
-                assert any(
-                        warning.startswith("geometry_soft:")
-                        for warning in report.verdicts[0].warnings
-                )
+        assert report.flagged == 1
+        assert report.dropped == 0
+        assert any(
+            warning.startswith("geometry_soft:")
+            for warning in report.verdicts[0].warnings
+        )
 
-        @patch("lpmo_pipeline.qc.hard_qc_orchestrator.run_posebusters_single")
-        @patch("lpmo_pipeline.qc.hard_qc_orchestrator.check_geometry")
-        def test_threshold_config_is_passed_into_qc_checks(
-                self,
-                mock_geom,
-                mock_pb,
-                _mock_proximity_gate,
-                tmp_path: Path,
-        ) -> None:
-                config_path = tmp_path / "thresholds.yaml"
-                config_path.write_text(
-                        """
+    @patch("lpmo_pipeline.qc.hard_qc_orchestrator.run_posebusters_single")
+    @patch("lpmo_pipeline.qc.hard_qc_orchestrator.check_geometry")
+    def test_threshold_config_is_passed_into_qc_checks(
+        self,
+        mock_geom,
+        mock_pb,
+        _mock_proximity_gate,
+        tmp_path: Path,
+    ) -> None:
+        config_path = tmp_path / "thresholds.yaml"
+        config_path.write_text(
+            """
 hard_gates:
     active_site_proximity_max_a: 9.5
     cu_his_distance_min_a: 1.5
@@ -242,26 +242,26 @@ qc:
     cu_his_min_a: 1.8
     cu_his_max_a: 2.6
 """.lstrip()
-                )
+        )
 
-                mock_pb.return_value = PoseBustersSingleResult(pose_id="pose_001", passed=True)
-                mock_geom.return_value = GeometryResult(
-                        pose_id="pose_001", cu_found=True, cu_his_all_in_range=True, passed=True,
-                )
+        mock_pb.return_value = PoseBustersSingleResult(pose_id="pose_001", passed=True)
+        mock_geom.return_value = GeometryResult(
+            pose_id="pose_001", cu_found=True, cu_his_all_in_range=True, passed=True,
+        )
 
-                run_hard_qc([_make_input()], run_id="test_run", config_path=config_path)
+        run_hard_qc([_make_input()], run_id="test_run", config_path=config_path)
 
-                proximity_kwargs = _mock_proximity_gate.call_args.kwargs
-                assert proximity_kwargs["hard_cutoff_a"] == pytest.approx(9.5)
-                assert proximity_kwargs["cu_c_soft_flag_a"] == pytest.approx(6.2)
+        proximity_kwargs = _mock_proximity_gate.call_args.kwargs
+        assert proximity_kwargs["hard_cutoff_a"] == pytest.approx(9.5)
+        assert proximity_kwargs["cu_c_soft_flag_a"] == pytest.approx(6.2)
 
-                geometry_kwargs = mock_geom.call_args.kwargs
-                assert geometry_kwargs["hard_cu_his_min_a"] == pytest.approx(1.5)
-                assert geometry_kwargs["hard_cu_his_max_a"] == pytest.approx(3.0)
-                assert geometry_kwargs["soft_cu_his_min_a"] == pytest.approx(1.8)
-                assert geometry_kwargs["soft_cu_his_max_a"] == pytest.approx(2.6)
-                assert geometry_kwargs["cu_c_soft_flag_a"] == pytest.approx(6.2)
-                assert geometry_kwargs["his_brace_max_search_a"] == pytest.approx(3.4)
+        geometry_kwargs = mock_geom.call_args.kwargs
+        assert geometry_kwargs["hard_cu_his_min_a"] == pytest.approx(1.5)
+        assert geometry_kwargs["hard_cu_his_max_a"] == pytest.approx(3.0)
+        assert geometry_kwargs["soft_cu_his_min_a"] == pytest.approx(1.8)
+        assert geometry_kwargs["soft_cu_his_max_a"] == pytest.approx(2.6)
+        assert geometry_kwargs["cu_c_soft_flag_a"] == pytest.approx(6.2)
+        assert geometry_kwargs["his_brace_max_search_a"] == pytest.approx(3.4)
 
     @patch("lpmo_pipeline.qc.hard_qc_orchestrator.run_posebusters_single")
     @patch("lpmo_pipeline.qc.hard_qc_orchestrator.check_geometry")
@@ -291,17 +291,50 @@ qc:
 
     @patch("lpmo_pipeline.qc.hard_qc_orchestrator.run_posebusters_single")
     @patch("lpmo_pipeline.qc.hard_qc_orchestrator.check_geometry")
-    def test_pb_infrastructure_failure_returns_none(self, mock_geom, mock_pb) -> None:
-        """If PB throws an unexpected exception, pose is still processed."""
+    def test_pb_infrastructure_failure_drops_pose(self, mock_geom, mock_pb) -> None:
+        """If PB throws an unexpected exception, the pose fails closed."""
         mock_pb.side_effect = RuntimeError("unexpected PB crash")
         mock_geom.return_value = GeometryResult(
             pose_id="pose_001", cu_found=True, cu_his_all_in_range=True, passed=True,
         )
         report = run_hard_qc([_make_input()], run_id="test_run")
-        # PB returned None, so posebusters_passed defaults True in verdict
         assert report.total == 1
         verdict = report.verdicts[0]
-        assert verdict.posebusters_passed is True  # None result -> default
+        assert verdict.status == "dropped"
+        assert verdict.posebusters_passed is False
+        assert "posebusters_critical:posebusters_runner_error" in verdict.drop_reasons
+
+    @patch("lpmo_pipeline.qc.hard_qc_orchestrator.run_privateer_batch")
+    @patch("lpmo_pipeline.qc.hard_qc_orchestrator.run_posebusters_single")
+    @patch("lpmo_pipeline.qc.hard_qc_orchestrator.check_geometry")
+    def test_privateer_batch_failure_drops_eligible_pose(
+        self,
+        mock_geom,
+        mock_pb,
+        mock_privateer_batch,
+    ) -> None:
+        """If Privateer batch crashes, eligible poses fail closed."""
+        mock_pb.return_value = PoseBustersSingleResult(pose_id="pose_001", passed=True)
+        mock_geom.return_value = GeometryResult(
+            pose_id="pose_001", cu_found=True, cu_his_all_in_range=True, passed=True,
+        )
+        mock_privateer_batch.side_effect = RuntimeError("privateer crashed")
+        pose = HardQCInput(
+            pose_id="pose_001",
+            mol_pred_path=Path("/fake/pose.pdb"),
+            structure=MagicMock(),
+            privateer_cif_path=Path("/fake/privateer.cif"),
+        )
+
+        report = run_hard_qc([pose], run_id="test_run")
+
+        verdict = report.verdicts[0]
+        assert verdict.status == "dropped"
+        assert verdict.privateer_passed is False
+        assert any(
+            reason.startswith("privateer_runner_error:privateer_batch_runner_error:")
+            for reason in verdict.drop_reasons
+        )
 
     @patch("lpmo_pipeline.qc.hard_qc_orchestrator.run_posebusters_single")
     @patch("lpmo_pipeline.qc.hard_qc_orchestrator.check_geometry")

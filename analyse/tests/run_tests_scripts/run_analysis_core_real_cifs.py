@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import re
 import traceback
@@ -130,6 +131,178 @@ def _count_table_rows(path: Path) -> int:
     return max(len(lines) - 1, 0)
 
 
+def _read_tsv(path: Path) -> list[dict[str, str]]:
+    if not path.exists():
+        return []
+    with open(path, newline="") as handle:
+        return list(csv.DictReader(handle, delimiter="\t"))
+
+
+def _read_matrix_shape(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {
+            "exists": False,
+            "n_rows": 0,
+            "n_features": 0,
+        }
+    with open(path, newline="") as handle:
+        reader = csv.reader(handle)
+        header = next(reader, [])
+        rows = list(reader)
+    return {
+        "exists": True,
+        "n_rows": len(rows),
+        "n_features": max(len(header) - 1, 0),
+    }
+
+
+def _as_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(float(str(value)))
+    except (TypeError, ValueError):
+        return default
+
+
+def _as_bool(value: Any) -> bool:
+    return str(value).strip().lower() == "true"
+
+
+def _slug(value: str) -> str:
+    return re.sub(r"[^A-Za-z0-9_.-]+", "_", value)
+
+
+def _validate_stage6_outputs(production_output: Path) -> dict[str, Any]:
+    condition_rows = _read_tsv(production_output / "condition_cluster_summary.tsv")
+    condition_table_rows = _read_tsv(production_output / "condition_table.tsv")
+    assignment_rows = _read_tsv(production_output / "cluster_assignments.tsv")
+    medoid_rows = _read_tsv(production_output / "medoid_manifest.tsv")
+
+    table_by_condition = {
+        str(row.get("condition_id", "")): row
+        for row in condition_table_rows
+        if str(row.get("condition_id", ""))
+    }
+    assignments_by_condition: dict[str, list[dict[str, str]]] = {}
+    for row in assignment_rows:
+        assignments_by_condition.setdefault(str(row.get("condition_id", "")), []).append(row)
+    medoids_by_condition: dict[str, list[dict[str, str]]] = {}
+    for row in medoid_rows:
+        medoids_by_condition.setdefault(str(row.get("condition_id", "")), []).append(row)
+
+    errors: list[str] = []
+    entries: list[dict[str, Any]] = []
+    status_counts: dict[str, int] = {}
+
+    for row in condition_rows:
+        condition_id = str(row.get("condition_id", ""))
+        if not condition_id:
+            errors.append("condition_cluster_summary.tsv contains a row without condition_id")
+            continue
+
+        n_contact_eligible = _as_int(row.get("n_contact_eligible"))
+        minimum_clusterable_n = _as_int(row.get("minimum_clusterable_n"), default=10)
+        n_ifp_clustered = _as_int(row.get("n_ifp_clustered"))
+        n_clusters = _as_int(row.get("n_clusters"))
+        clustering_status = str(row.get("clustering_status", ""))
+        formal_clustering_allowed = _as_bool(row.get("formal_clustering_allowed"))
+
+        condition_ifp_dir = production_output / "ifp_matrices" / _slug(condition_id)
+        raw_matrix_path = condition_ifp_dir / "ifp_matrix.csv"
+        main_matrix_path = condition_ifp_dir / "main_clustering_ifp_matrix.csv"
+        raw_matrix_shape = _read_matrix_shape(raw_matrix_path)
+        main_matrix_shape = _read_matrix_shape(main_matrix_path)
+
+        if not raw_matrix_shape["exists"]:
+            errors.append(f"{condition_id}: missing raw ifp_matrix.csv")
+
+        if n_contact_eligible > 0:
+            if not main_matrix_shape["exists"]:
+                errors.append(f"{condition_id}: missing main_clustering_ifp_matrix.csv")
+            if main_matrix_shape["n_rows"] != n_contact_eligible:
+                errors.append(
+                    f"{condition_id}: main matrix rows {main_matrix_shape['n_rows']} "
+                    f"!= n_contact_eligible {n_contact_eligible}"
+                )
+
+        if n_contact_eligible == 0:
+            expected_status = "no_clusterable_poses"
+        elif n_contact_eligible < minimum_clusterable_n:
+            expected_status = "insufficient_clusterable_signal"
+        elif main_matrix_shape["n_features"] == 0:
+            expected_status = "empty_main_matrix"
+        else:
+            expected_status = "ok"
+
+        expected_formal_allowed = expected_status == "ok"
+        if clustering_status != expected_status:
+            errors.append(
+                f"{condition_id}: clustering_status {clustering_status!r} "
+                f"!= expected {expected_status!r}"
+            )
+        if formal_clustering_allowed is not expected_formal_allowed:
+            errors.append(
+                f"{condition_id}: formal_clustering_allowed {formal_clustering_allowed} "
+                f"!= expected {expected_formal_allowed}"
+            )
+
+        table_row = table_by_condition.get(condition_id)
+        if table_row is None:
+            errors.append(f"{condition_id}: missing condition_table.tsv row")
+        else:
+            for field in ("minimum_clusterable_n", "clustering_status", "formal_clustering_allowed"):
+                if str(table_row.get(field, "")) != str(row.get(field, "")):
+                    errors.append(
+                        f"{condition_id}: condition_table {field}={table_row.get(field)!r} "
+                        f"!= condition_cluster_summary {row.get(field)!r}"
+                    )
+
+        n_assignment_rows = len(assignments_by_condition.get(condition_id, []))
+        n_medoid_rows = len(medoids_by_condition.get(condition_id, []))
+        if expected_formal_allowed:
+            if n_ifp_clustered != n_contact_eligible:
+                errors.append(
+                    f"{condition_id}: n_ifp_clustered {n_ifp_clustered} "
+                    f"!= n_contact_eligible {n_contact_eligible}"
+                )
+            if n_assignment_rows != n_ifp_clustered:
+                errors.append(
+                    f"{condition_id}: cluster assignment rows {n_assignment_rows} "
+                    f"!= n_ifp_clustered {n_ifp_clustered}"
+                )
+        else:
+            if n_ifp_clustered != 0:
+                errors.append(f"{condition_id}: non-formal condition has n_ifp_clustered={n_ifp_clustered}")
+            if n_assignment_rows != 0:
+                errors.append(f"{condition_id}: non-formal condition has {n_assignment_rows} assignment rows")
+            if n_medoid_rows != 0:
+                errors.append(f"{condition_id}: non-formal condition has {n_medoid_rows} medoid rows")
+
+        status_counts[clustering_status] = status_counts.get(clustering_status, 0) + 1
+        entries.append(
+            {
+                "condition_id": condition_id,
+                "n_contact_eligible": n_contact_eligible,
+                "minimum_clusterable_n": minimum_clusterable_n,
+                "clustering_status": clustering_status,
+                "formal_clustering_allowed": formal_clustering_allowed,
+                "raw_matrix": raw_matrix_shape,
+                "main_matrix": main_matrix_shape,
+                "n_ifp_clustered": n_ifp_clustered,
+                "n_clusters": n_clusters,
+                "cluster_assignment_rows": n_assignment_rows,
+                "medoid_rows": n_medoid_rows,
+            }
+        )
+
+    return {
+        "passed": not errors,
+        "errors": errors,
+        "n_conditions_checked": len(entries),
+        "status_counts": status_counts,
+        "conditions": entries,
+    }
+
+
 def main() -> int:
     args = _parse_args()
     run_dir = Path(args.run_dir).resolve()
@@ -185,6 +358,8 @@ def main() -> int:
         protein_residue_regio_delta_path = production_output / "protein_residue_regio_delta.tsv"
         condition_patch_summary_path = production_output / "condition_patch_summary.tsv"
         protein_patch_summary_path = production_output / "protein_patch_summary.tsv"
+        condition_table_path = production_output / "condition_table.tsv"
+        protein_summary_table_path = production_output / "protein_summary_table.tsv"
         crystal_anchor_path = production_output / "crystal_anchor_table.tsv"
         metrics_csv_path = production_output / "metrics.csv"
         summary_json_path = production_output / "summary.json"
@@ -217,6 +392,8 @@ def main() -> int:
                 "protein_residue_regio_delta_tsv": str(protein_residue_regio_delta_path),
                 "condition_patch_summary_tsv": str(condition_patch_summary_path),
                 "protein_patch_summary_tsv": str(protein_patch_summary_path),
+                "condition_table_tsv": str(condition_table_path),
+                "protein_summary_table_tsv": str(protein_summary_table_path),
                 "crystal_anchor_tsv": str(crystal_anchor_path),
                 "metrics_csv": str(metrics_csv_path),
                 "summary_json": str(summary_json_path),
@@ -238,6 +415,8 @@ def main() -> int:
                 "protein_residue_regio_delta_rows": _count_table_rows(protein_residue_regio_delta_path),
                 "condition_patch_summary_rows": _count_table_rows(condition_patch_summary_path),
                 "protein_patch_summary_rows": _count_table_rows(protein_patch_summary_path),
+                "condition_table_rows": _count_table_rows(condition_table_path),
+                "protein_summary_table_rows": _count_table_rows(protein_summary_table_path),
                 "crystal_anchor_rows": _count_table_rows(crystal_anchor_path),
                 "metrics_rows": _count_table_rows(metrics_csv_path),
                 "debug_pdb_paths": debug_pdb_paths,
@@ -250,8 +429,10 @@ def main() -> int:
             summary["manifest"] = json.loads(manifest_path.read_text())
         if cluster_signatures_json_path.exists():
             summary["cluster_signatures"] = json.loads(cluster_signatures_json_path.read_text())
+        stage6_validation = _validate_stage6_outputs(production_output)
 
         summary_path = run_dir / "analysis_core_real_cifs_summary.json"
+        summary["stage6_validation"] = stage6_validation
         summary_path.write_text(json.dumps(summary, indent=2))
         print(json.dumps(summary, indent=2))
 
@@ -286,6 +467,8 @@ def main() -> int:
                     protein_residue_regio_delta_path,
                     condition_patch_summary_path,
                     protein_patch_summary_path,
+                    condition_table_path,
+                    protein_summary_table_path,
                     metrics_csv_path,
                 ]
             )
@@ -313,6 +496,11 @@ def main() -> int:
             or summary["protein_patch_summary_rows"] == 0
         ):
             return 1
+        if summary.get("analysis_core_summary", {}).get("n_analyzed", 0) > 0:
+            if not stage6_validation["passed"]:
+                return 1
+            if stage6_validation["n_conditions_checked"] == 0:
+                return 1
         return 0
     except Exception as exc:
         summary["error"] = f"{exc.__class__.__name__}: {exc}"

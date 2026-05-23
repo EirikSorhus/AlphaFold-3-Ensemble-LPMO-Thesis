@@ -15,7 +15,7 @@ if [[ -z "${SLURM_JOB_ID:-}" ]]; then
     exit 1
 fi
 
-export PATH="/cluster/work/projects/nn1003k/eirik/conda/analyse_env/bin:$PATH"
+export PATH="/cluster/work/projects/nn1003k/eirik/conda/analyse_full_prolif_env/bin:$PATH"
 export PIP_NO_CACHE_DIR=1
 
 project_root="/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse"
@@ -133,13 +133,13 @@ predictive_summary_path="$predictive_output_root/10_predictive/predictive_summar
 generated_condition_table_path="$summary_validation_dir/generated_condition_table.tsv"
 
 echo "[INFO] Running crystal anchoring real-case harness with persistent artifacts"
-/cluster/work/projects/nn1003k/eirik/conda/analyse_env/bin/python \
+/cluster/work/projects/nn1003k/eirik/conda/analyse_full_prolif_env/bin/python \
     tests/run_tests_scripts/run_crystal_anchoring_real_cifs.py \
     --run-dir "$crystal_run_dir" \
     --run-id "crystal_anchoring_real_cifs_${job_suffix}"
 
 echo "[INFO] Running analysis-core real-CIF harness to produce a persistent production_output/condition_table.tsv"
-/cluster/work/projects/nn1003k/eirik/conda/analyse_env/bin/python \
+/cluster/work/projects/nn1003k/eirik/conda/analyse_full_prolif_env/bin/python \
     tests/run_tests_scripts/run_analysis_core_real_cifs.py \
     --run-dir "$analysis_run_dir" \
     --run-id "analysis_core_real_cifs_${job_suffix}" \
@@ -154,7 +154,7 @@ fi
 echo "[INFO] Running summary-table validation to leave a generated_condition_table.tsv artifact"
 summary_validation_exit_code=0
 set +e
-/cluster/work/projects/nn1003k/eirik/conda/analyse_env/bin/python \
+/cluster/work/projects/nn1003k/eirik/conda/analyse_full_prolif_env/bin/python \
     tests/run_tests_scripts/run_summary_table_validation.py \
     --production-output "$production_output" \
     --output-dir "$summary_validation_dir"
@@ -171,7 +171,7 @@ if [[ "$summary_validation_exit_code" -ne 0 ]]; then
 fi
 
 echo "[INFO] Running predictive postprocess on the real condition_table.tsv"
-/cluster/work/projects/nn1003k/eirik/conda/analyse_env/bin/python \
+/cluster/work/projects/nn1003k/eirik/conda/analyse_full_prolif_env/bin/python \
     -m lpmo_pipeline.cli predictive \
     --condition-table "$condition_table_path" \
     --protein-metadata "$metadata_path" \

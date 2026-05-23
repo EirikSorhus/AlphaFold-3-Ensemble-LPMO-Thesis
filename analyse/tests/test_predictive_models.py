@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from lpmo_pipeline.analysis.predictive_models import (
     build_grouped_stratified_cv,
+    CVFold,
+    run_predictive_model,
     run_grouped_binary_logistic_cv,
     run_binary_predictive_baselines,
 )
@@ -119,3 +121,48 @@ def test_grouped_binary_logistic_cv_emits_predictions_and_metrics() -> None:
     assert 0.0 <= result.mean_metrics["balanced_accuracy"] <= 1.0
     assert 0.0 <= result.mean_metrics["pr_auc"] <= 1.0
     assert 0.0 <= result.mean_metrics["recall_at_k"] <= 1.0
+
+
+def test_grouped_binary_logistic_cv_counts_target_balance_by_modeling_row() -> None:
+    rows = [
+        {"model_row_id": "P1__cellulose", "protein_id": "P1", "target": 1, "f1": 2.0},
+        {"model_row_id": "P1__chitin", "protein_id": "P1", "target": 0, "f1": -0.5},
+        {"model_row_id": "P2__cellulose", "protein_id": "P2", "target": 1, "f1": 1.7},
+        {"model_row_id": "P3__cellulose", "protein_id": "P3", "target": 0, "f1": -1.8},
+    ]
+
+    result = run_grouped_binary_logistic_cv(
+        rows,
+        feature_columns=["f1"],
+        target_column="target",
+        model_name="multi_row_per_protein",
+        n_folds=2,
+        random_state=3,
+    )
+
+    assert result.n_rows == 4
+    assert result.n_positive == 2
+    assert result.n_negative == 2
+
+
+def test_run_predictive_model_is_real_grouped_sklearn_backend() -> None:
+    result = run_predictive_model(
+        features={
+            "c1": [2.0, 1.0],
+            "c2": [1.7, 0.8],
+            "c3": [-2.0, -1.0],
+            "c4": [-1.8, -0.7],
+        },
+        labels={"c1": "C1", "c2": "C1", "c3": "C4", "c4": "C4"},
+        cluster_to_protein={"c1": "P1", "c2": "P2", "c3": "P3", "c4": "P4"},
+        folds=[
+            CVFold(fold_id=0, train_protein_ids=["P1", "P3"], test_protein_ids=["P2", "P4"]),
+            CVFold(fold_id=1, train_protein_ids=["P2", "P4"], test_protein_ids=["P1", "P3"]),
+        ],
+        model_type="logistic_regression",
+    )
+
+    assert result.model_type == "logistic_regression"
+    assert result.n_folds == 2
+    assert len(result.per_fold_scores) == 2
+    assert set(result.feature_importances) == {"feature_0", "feature_1"}
