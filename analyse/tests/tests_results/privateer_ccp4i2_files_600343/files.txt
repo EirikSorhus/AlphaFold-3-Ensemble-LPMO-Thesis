@@ -1,9 +1,0 @@
-/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/privateer_ccp4i2_files_600343/files.txt
-/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/privateer_ccp4i2_files_600343/NAG1-[C]_[C]-.svg
-/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/privateer_ccp4i2_files_600343/privateer-results.py
-/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/privateer_ccp4i2_files_600343/privateer-results.scm
-/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/privateer_ccp4i2_files_600343/returncode.txt
-/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/privateer_ccp4i2_files_600343/scored
-/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/privateer_ccp4i2_files_600343/stderr.txt
-/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/privateer_ccp4i2_files_600343/stdout.txt
-/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/tests/tests_results/privateer_ccp4i2_files_600343/validation_data-privateer

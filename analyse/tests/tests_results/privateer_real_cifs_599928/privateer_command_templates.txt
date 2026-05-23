@@ -1,2 +1,0 @@
-apptainer run --cleanenv /cluster/projects/nn1003k/prog/privateer/privateer.sif -pdbin {input}
-apptainer run --cleanenv /cluster/projects/nn1003k/prog/privateer/privateer.sif -pdbin {input} -mode ccp4i2
