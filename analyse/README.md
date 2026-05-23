@@ -83,9 +83,10 @@ the crystal-prep/IFP path. Ligand-bound crystal references also emit C1/C4
 geometry for comparison against pose geometries. The same crystal-anchoring slice is now
 also wired into `run_analysis_core`, writes an explicit
 `crystal_anchoring_stage_completed` gate in `run_manifest.json`, and has passed
-focused pytest plus production smoke validation. Remaining gap: a production
-real-data run that reaches non-empty medoid-vs-crystal comparisons in the
-integrated path still needs to be exercised explicitly.
+focused pytest plus production smoke validation. Integrated-path medoid-vs-
+crystal comparisons are now also verified on real-data test runs (non-empty
+comparison tables observed), while broader production orchestration/merge
+coverage remains the main remaining operational gap.
 
 Stage 16 cluster annotation now also writes `cluster_table.tsv` as a flat,
 backward-compatible TSV export of the retained non-noise `cluster_summaries`
@@ -223,6 +224,9 @@ lpmo-pipeline tune \
   --config configs/tuning_af3.yaml \
   --output results/tuning_af3
 
+# Config-first hybrid mode (shared base + command section overrides)
+lpmo-pipeline run --run-config configs/pipeline_run.example.yaml
+
 # Optional AA9/AA10 family residue enrichment postprocess
 lpmo-pipeline family-enrichment \
   --protein-condition-residue-scores results/del_a/protein_condition_residue_scores.tsv \
@@ -261,9 +265,10 @@ raw clustering/convergence/IFP tables, `cluster_table.tsv`,
 `cluster_ifp_signature.tsv`, `cluster_residue_signature.tsv`,
 `cluster_signatures.json`, `condition_table.tsv`, `protein_summary_table.tsv`,
 `crystal_anchor_table.tsv`,
-`crystal_geometry_table.tsv`, and `crystal_ifp_diagnostic_summary.tsv`. The crystal-anchoring stage gate in this
-production path is smoke-validated, but a real-data production run that reaches
-actual medoid-vs-crystal comparisons still remains.
+`crystal_geometry_table.tsv`, and `crystal_ifp_diagnostic_summary.tsv`. The
+crystal-anchoring stage gate in this production path is smoke-validated, and
+real-data test runs have already demonstrated non-empty medoid-vs-crystal
+comparisons in the integrated path.
 
 The optional family enrichment layer is not part of this production contract.
 It is a separate postprocess over Stage 16b outputs and currently targets only

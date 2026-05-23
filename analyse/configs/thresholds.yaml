@@ -109,6 +109,13 @@ hdbscan:
   cluster_selection_method: eom # excess-of-mass
   locked: true
 
+# ── Agglomerative Jaccard clustering defaults (orthogonal sensitivity control) ──
+# Used as fallback defaults when production config does not override these values.
+agglomerative:
+  linkage: "average"
+  distance_threshold: 0.55
+  min_cluster_size: 5
+
 # ── Residue importance reporting ──
 # Source: user decision 2026-04-21
 # Plan section 16; controls which residues appear in output tables and plots.

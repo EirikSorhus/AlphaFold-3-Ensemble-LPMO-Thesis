@@ -20,7 +20,8 @@ PREPARE_ONLY=false
 SKIP_SENSITIVITY=false
 ACCOUNT="nn1003k"
 PARTITION="small"
-SHARD_SIZE=1
+SHARD_SIZE=5
+BALANCE_BY="estimated_pose_count"
 ARRAY_LIMIT=""
 EXECUTE_CPUS=8
 EXECUTE_MEM="24G"
@@ -52,7 +53,8 @@ Options:
     --skip-sensitivity         Submit only the staged pilot, not the parameter sensitivity phase.
     --account NAME             Slurm account (default: nn1003k).
     --partition NAME           Slurm partition (default: small).
-    --shard-size N             Protein selections per staged shard task (default: 1).
+    --shard-size N             Protein selections per staged shard task (default: 5).
+    --balance-by MODE          Shard balancing: protein_count|estimated_pose_count (default: estimated_pose_count).
     --array-limit N            Optional staged array concurrency cap.
     --n-jobs N                 Alias for --execute-cpus.
     --execute-cpus N           CPUs per staged shard task (default: 8).
@@ -94,6 +96,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --shard-size)
       SHARD_SIZE="$2"
+      shift 2
+      ;;
+    --balance-by)
+      BALANCE_BY="$2"
       shift 2
       ;;
     --array-limit)
@@ -173,6 +179,7 @@ staged_cmd=(
   --account "$ACCOUNT"
   --partition "$PARTITION"
   --shard-size "$SHARD_SIZE"
+  --balance-by "$BALANCE_BY"
   --execute-cpus "$EXECUTE_CPUS"
   --execute-mem "$EXECUTE_MEM"
   --execute-time "$EXECUTE_TIME"
@@ -221,6 +228,7 @@ if [[ "$PREPARE_ONLY" == true ]]; then
   cat > "$ORCHESTRATOR_METADATA_JSON" <<EOF
 {
   "run_root": "$RUN_ROOT",
+  "balance_by": "$BALANCE_BY",
   "prepare_only": true,
   "skip_sensitivity": $([[ "$SKIP_SENSITIVITY" == true ]] && echo true || echo false),
   "staged_submission_metadata_json": "$STAGED_METADATA_JSON",
@@ -274,6 +282,7 @@ fi
 cat > "$ORCHESTRATOR_METADATA_JSON" <<EOF
 {
   "run_root": "$RUN_ROOT",
+  "balance_by": "$BALANCE_BY",
   "prepare_only": false,
   "skip_sensitivity": $([[ "$SKIP_SENSITIVITY" == true ]] && echo true || echo false),
   "staged_submission_metadata_json": "$STAGED_METADATA_JSON",

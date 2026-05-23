@@ -25,6 +25,7 @@ from lpmo_pipeline.config import load_defaults_config, load_runtime_paths_config
 from lpmo_pipeline.analysis.clustering_agglomerative import (
     AgglomerativeJaccardClusterer,
     AgglomerativeJaccardConfig,
+    load_agglomerative_config,
 )
 from lpmo_pipeline.analysis.clustering_hdbscan import (
     ClusteringResult,
@@ -33,6 +34,7 @@ from lpmo_pipeline.analysis.clustering_hdbscan import (
     build_cluster_assignment_rows,
     build_condition_cluster_summary,
     build_medoid_rows,
+    load_hdbscan_config,
 )
 from lpmo_pipeline.analysis.clustering_pilot import (
     DEFAULT_EXCLUDED_CLUSTERING_INTERACTION_TYPES,
@@ -134,12 +136,14 @@ _TARGET_PREFIX_TO_SUBSTRATE = {
 }
 
 PRIMARY_CLUSTERING_METHOD = "hdbscan_jaccard"
-PRIMARY_HDBSCAN_MIN_CLUSTER_SIZE = 5
-PRIMARY_HDBSCAN_MIN_SAMPLES: int | None = None
-PRIMARY_HDBSCAN_CLUSTER_SELECTION_METHOD = "eom"
-PRIMARY_AGGLOMERATIVE_LINKAGE = "average"
-PRIMARY_AGGLOMERATIVE_DISTANCE_THRESHOLD = 0.55
-PRIMARY_AGGLOMERATIVE_MIN_CLUSTER_SIZE = 5
+_PRIMARY_HDBSCAN_CONFIG = load_hdbscan_config()
+_PRIMARY_AGGLOMERATIVE_CONFIG = load_agglomerative_config()
+PRIMARY_HDBSCAN_MIN_CLUSTER_SIZE = _PRIMARY_HDBSCAN_CONFIG.min_cluster_size
+PRIMARY_HDBSCAN_MIN_SAMPLES = _PRIMARY_HDBSCAN_CONFIG.min_samples
+PRIMARY_HDBSCAN_CLUSTER_SELECTION_METHOD = _PRIMARY_HDBSCAN_CONFIG.cluster_selection_method
+PRIMARY_AGGLOMERATIVE_LINKAGE = _PRIMARY_AGGLOMERATIVE_CONFIG.linkage
+PRIMARY_AGGLOMERATIVE_DISTANCE_THRESHOLD = _PRIMARY_AGGLOMERATIVE_CONFIG.distance_threshold
+PRIMARY_AGGLOMERATIVE_MIN_CLUSTER_SIZE = _PRIMARY_AGGLOMERATIVE_CONFIG.min_cluster_size
 
 
 @dataclass(frozen=True)

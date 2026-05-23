@@ -16,6 +16,7 @@ import yaml
 
 
 _RUNTIME_PATHS_ENV_VAR = "LPMO_PIPELINE_RUNTIME_PATHS_CONFIG"
+_PIPELINE_RUN_CONFIG_ENV_VAR = "LPMO_PIPELINE_RUN_CONFIG"
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _DEFAULT_RUNTIME_PATHS_CONFIG = _PROJECT_ROOT / "configs" / "runtime_paths.yaml"
 
@@ -34,6 +35,7 @@ class RuntimeSettingsConfig:
     """Configured runtime defaults for external tool wrappers."""
 
     privateer_default_mode: str
+    python_executable: str
 
 
 @dataclass(frozen=True)
@@ -113,6 +115,61 @@ def load_defaults_config(config_path: str | Path | None = None) -> dict[str, Any
     return _load_defaults_config_cached(cache_key)
 
 
+def load_pipeline_run_config(config_path: str | Path | None = None) -> dict[str, Any]:
+    """Load hybrid pipeline run config YAML.
+
+    Resolution order:
+    1. explicit ``config_path``
+    2. ``LPMO_PIPELINE_RUN_CONFIG`` environment variable
+
+    The config must define a top-level mapping. Optional sections are:
+    - ``base``: shared defaults across command groups
+    - ``commands``: per-command overrides, keyed by command name
+      (for example ``run``, ``predictive``, ``cbm_paired``,
+      ``family_enrichment``, ``tune``).
+    """
+
+    cache_key = str(config_path) if config_path is not None else None
+    return _load_pipeline_run_config_cached(cache_key)
+
+
+def resolve_pipeline_command_config(
+    pipeline_run_config: dict[str, Any],
+    command_name: str,
+) -> dict[str, Any]:
+    """Resolve merged command config from ``base`` + ``commands.<name>``.
+
+    ``command_name`` accepts CLI names (for example ``cbm-paired``) and will
+    be normalized to underscore keys (for example ``cbm_paired``).
+    """
+
+    if not isinstance(pipeline_run_config, dict):
+        raise TypeError(
+            "Pipeline run config must be a mapping, got "
+            f"{type(pipeline_run_config).__name__}"
+        )
+
+    base = pipeline_run_config.get("base") or {}
+    commands = pipeline_run_config.get("commands") or {}
+    if not isinstance(base, dict):
+        raise TypeError(
+            "Pipeline run config field 'base' must be a mapping"
+        )
+    if not isinstance(commands, dict):
+        raise TypeError(
+            "Pipeline run config field 'commands' must be a mapping"
+        )
+
+    normalized_name = command_name.replace("-", "_").strip()
+    command_section = commands.get(normalized_name) or {}
+    if not isinstance(command_section, dict):
+        raise TypeError(
+            "Pipeline run config field "
+            f"'commands.{normalized_name}' must be a mapping"
+        )
+    return _deep_merge_mappings(base, command_section)
+
+
 @lru_cache(maxsize=4)
 def _load_runtime_paths_config_cached(config_path: str | None) -> RuntimePathsConfig:
     raw_config_path = config_path or os.environ.get(_RUNTIME_PATHS_ENV_VAR) or str(
@@ -155,7 +212,11 @@ def _load_runtime_paths_config_cached(config_path: str | None) -> RuntimePathsCo
         runtime_settings=RuntimeSettingsConfig(
             privateer_default_mode=str(
                 runtime_settings.get("privateer_default_mode") or "ccp4i2"
-            )
+            ),
+            python_executable=_resolve_command(
+                str(runtime_settings.get("python_executable") or "python"),
+                base_dir=project_root,
+            ),
         ),
         pipeline_assets=PipelineAssetConfig(
             thresholds_config=_resolve_path(
@@ -199,6 +260,7 @@ def clear_runtime_paths_cache() -> None:
 
     _load_runtime_paths_config_cached.cache_clear()
     _load_defaults_config_cached.cache_clear()
+    _load_pipeline_run_config_cached.cache_clear()
 
 
 @lru_cache(maxsize=4)
@@ -209,3 +271,43 @@ def _load_defaults_config_cached(config_path: str | None) -> dict[str, Any]:
         else load_runtime_paths_config().pipeline_assets.defaults_config
     )
     return yaml.safe_load(path.read_text()) or {}
+
+
+@lru_cache(maxsize=4)
+def _load_pipeline_run_config_cached(config_path: str | None) -> dict[str, Any]:
+    raw_config_path = config_path or os.environ.get(_PIPELINE_RUN_CONFIG_ENV_VAR)
+    if raw_config_path is None:
+        raise FileNotFoundError(
+            "Pipeline run config path is not set. "
+            f"Pass config_path or set {_PIPELINE_RUN_CONFIG_ENV_VAR}."
+        )
+
+    resolved_config_path = _resolve_path(raw_config_path, base_dir=_PROJECT_ROOT)
+    if not resolved_config_path.exists():
+        raise FileNotFoundError(
+            "Pipeline run config not found: "
+            f"{resolved_config_path}. Pass config_path or set {_PIPELINE_RUN_CONFIG_ENV_VAR}."
+        )
+
+    payload = yaml.safe_load(resolved_config_path.read_text()) or {}
+    if not isinstance(payload, dict):
+        raise TypeError(
+            "Pipeline run config root must be a mapping"
+        )
+    return payload
+
+
+def _deep_merge_mappings(
+    base: dict[str, Any],
+    override: dict[str, Any],
+) -> dict[str, Any]:
+    merged: dict[str, Any] = dict(base)
+    for key, value in override.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = _deep_merge_mappings(
+                merged[key],
+                value,
+            )
+        else:
+            merged[key] = value
+    return merged

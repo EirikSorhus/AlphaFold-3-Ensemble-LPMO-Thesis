@@ -24,6 +24,8 @@ runtime_paths:
   runtime_settings:
     # Default Privateer execution mode for the installed container build.
     privateer_default_mode: "ccp4i2"
+    # Default Python interpreter for analysis scripts that launch subprocess commands.
+    python_executable: "/cluster/work/projects/nn1003k/eirik/conda/analyse_full_prolif_env/bin/python"
 
   pipeline_assets:
     # Central references to in-repo configs and schemas used across modules.

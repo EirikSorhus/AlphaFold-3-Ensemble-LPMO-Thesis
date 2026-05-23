@@ -1,0 +1,49 @@
+protein_id	pdb_code	chain	has_ligand	family	regio_label	notes
+A0A223GEC9	6YDC	A,B,C,D	true	AA9	CEL_DP6	
+Q4WP32	6HAQ	A,B	false	AA9	apo_or_unspecified	
+M2RAI8	7EXK	A,B,C,D,E,F	false	AA9	apo_or_unspecified	
+W4KMP1	5NNS	A,B	false	AA9	apo_or_unspecified	
+A0A0S2GKZ1	5ACI	A	true	AA9	CEL_DP6	
+A0A0S2GKZ1	7PXW	A	true	AA9	CEL_DP4	
+Q1K8B6__Q8WZQ2	4EIR	A,B	false	AA9	apo_or_unspecified	
+Q1K4Q1__Q873G1	4QI8	A,B	false	AA9	apo_or_unspecified	
+Q7SA19	4EIS	A,B	false	AA9	apo_or_unspecified	
+Q7SHI8	4D7U	A,B	false	AA9	apo_or_unspecified	
+Q7S439	5FOH	A	false	AA9	apo_or_unspecified	
+H1AE14	4B5Q	A,B	false	AA9	apo_or_unspecified	
+G3XAP7	3ZUD	A	false	AA9	apo_or_unspecified	
+G2Q7A5	9BJQ	A,B	false	AA9	apo_or_unspecified	
+G2Q9F7	9FDL	A,B,C	false	AA9	apo_or_unspecified	
+G2QAB5	5UFV	A,B,C,D,E,F	false	AA9	apo_or_unspecified	
+D0VWZ9__G2RGE5	3EJA	A,B,C,D	false	AA9	apo_or_unspecified	
+G0R6T8__O14405	5O2X	A	false	AA9	apo_or_unspecified	Ikke for DP5-6 (2017), men for DP3 (2002), men lite
+B6EQJ6	7OKR	A	false	AA10	apo_or_unspecified	Resolution missing
+A0A9P1NI18__E1UUV3	2YOY	A,B	false	AA10	apo_or_unspecified	
+D0EW67__Q62YN7__Q65N87	6TWE	A	false	AA10	apo_or_unspecified	
+A0A0C5K362__A0A0F6FRT6	5WSZ	A,B,C,D	false	AA10	apo_or_unspecified	
+B3PJ79	5FJQ	A,B,C	false	AA10	apo_or_unspecified	
+B3PDT6	9I1U	A,B,C,D,E,F,G,H	false	AA10	apo_or_unspecified	
+Q838S1	4A02	A	false	AA10	apo_or_unspecified	
+C7R4I0	5VG0	A,B	false	AA10	apo_or_unspecified	
+A0A285DJD7__A0A329CVF1__A0A4P7DN87__A0A8D3WFW9	6NDQ	A,B	false	AA10	apo_or_unspecified	Ikke aktiv pa cello-oligo, men usikker pa de andre
+Q7N4I5	6T5Z	A,B,C	false	AA10	apo_or_unspecified	
+Q02I11__Q9I589	8C5N	A	false	AA10	apo_or_unspecified	
+O83009__P9WEM3	8RRY	A,B	false	AA10	apo_or_unspecified	
+Q9S296	7ZJB	A	false	AA10	apo_or_unspecified	forsokt
+Q9RJC1	4OY6	A	false	AA10	apo_or_unspecified	Not to a significant extent
+Q9RJY2__V5N5H9	4OY7	A,B,C,D,E,F,G,H	false	AA10	apo_or_unspecified	
+A0A7U9DRA2__D6EWM4	5FTZ	A	false	AA10	apo_or_unspecified	
+C5BKQ9	6RW7	A	false	AA10	apo_or_unspecified	
+Q47QG3	5UIZ	A,B	false	AA10	apo_or_unspecified	
+A7N3J0	8GUM	A,B	false	AA10	apo_or_unspecified	
+A6XA54__A9Y370__Q9KLD5	8CC3	A,B	false	AA10	apo_or_unspecified	Binder til chitin oligo, ikke aktivitet
+W5QLL4	6IF7	A	false	AA10	apo_or_unspecified	
+O70709	4YN1	A	false	AA10	apo_or_unspecified	Virus med Uniprot
+B0XZD3	7P3U	A	false	AA11	apo_or_unspecified	
+Q2UA85	4MAI	A	false	AA11	apo_or_unspecified	
+Q2U8Y3	5T7N	A	true	AA13	GLC_DP4	Starch product, but the first suger is 1-6 binding. Alternativt bruke 5T7K[A], 1.30
+A0A2I6QB00	5NO7	A,B	true	AA14	beta-D-Manp_DP1	
+A0A2N8U5K6__A0A2R2JFH0	5MSZ	A	false	AA15	apo_or_unspecified	
+D0N2F7	6Z5Y	A,B	false	AA17	apo_or_unspecified	
+G4YSM7	8S71	A,B	false	AA17	apo_or_unspecified	
+G4YSM3	8S6S	A,B	false	AA17	apo_or_unspecified	

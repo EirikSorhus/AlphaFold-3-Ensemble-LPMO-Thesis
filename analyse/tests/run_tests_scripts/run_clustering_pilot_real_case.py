@@ -12,14 +12,25 @@ from lpmo_pipeline.analysis.clustering_pilot_real_case import (
     summarize_pilot_execution,
 )
 from lpmo_pipeline.cli import cmd_run
+from lpmo_pipeline.config import load_runtime_paths_config
 
 
 DEFAULT_SELECTION_MANIFEST_PATH = Path(__file__).with_name(
     "clustering_pilot_real_case_selection.yaml"
 )
-DEFAULT_ANALYSE_ENV_PYTHON = Path(
-    "/cluster/work/projects/nn1003k/eirik/conda/analyse_full_prolif_env/bin/python"
-)
+
+
+def _resolve_default_python_executable() -> Path:
+    """Resolve default Python interpreter from runtime paths config."""
+
+    try:
+        configured = Path(load_runtime_paths_config().runtime_settings.python_executable)
+    except Exception:
+        return Path(sys.executable).resolve()
+
+    if configured.is_absolute() and not configured.exists():
+        return Path(sys.executable).resolve()
+    return configured
 
 
 def _parse_args() -> argparse.Namespace:
@@ -85,11 +96,7 @@ def main() -> int:
             manifest_path=manifest_path,
             run_id=run_id,
             del_branch=args.del_branch,
-            python_executable=(
-                DEFAULT_ANALYSE_ENV_PYTHON
-                if DEFAULT_ANALYSE_ENV_PYTHON.exists()
-                else Path(sys.executable).resolve()
-            ),
+            python_executable=_resolve_default_python_executable(),
             script_path=Path(__file__).resolve(),
             force_steps=args.force_step,
             n_jobs=max(1, int(args.n_jobs)),

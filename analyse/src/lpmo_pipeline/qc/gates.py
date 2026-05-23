@@ -54,7 +54,7 @@ class GateConfig:
     his_brace_max_search_a: float = 3.0
     
     # Crystal anchoring (soft threshold)
-    crystal_ifp_similarity_soft_threshold: float = 0.3
+    crystal_ifp_similarity_soft_threshold: float = 0.5
     
     # Clustering
     hdbscan_min_cluster_size: int = 10
@@ -274,7 +274,7 @@ def load_gate_config_from_yaml(config_path: Path) -> GateConfig:
             his_brace_max_search_a=his_brace.get("max_search_dist_a", 3.0),
             crystal_ifp_similarity_soft_threshold=soft.get(
                 "crystal_ifp_similarity_soft_threshold",
-                soft.get("crystal_ifp_similarity_min", 0.3),
+                soft.get("crystal_ifp_similarity_min", 0.5),
             ),
             hdbscan_min_cluster_size=clustering.get("min_cluster_size", 10),
         )

@@ -1,0 +1,8 @@
+family	residue_number	residue_name	source	notes
+AA9	*	dynamic_pocket	proximity_fallback	Use residues within 5 A of ligand or Cu in holo references; apo references inherit sequence-projected pocket from representative; cellulose-active interpretation only if crystal IFP remains contact-eligible.
+AA10	*	dynamic_pocket	proximity_fallback	Use residues within 5 A of ligand or Cu where present; most current references are apo/unspecified, so anchoring is geometry-first and sequence-projected for apo references.
+AA11	*	dynamic_pocket	proximity_fallback	No frozen literature residue set in this analysis; keep dynamic 5 A pocket heuristic and annotate as apo-capable fallback.
+AA13	*	dynamic_pocket	proximity_fallback	Use dynamic 5 A pocket heuristic; starch/product reference interpretation remains geometry-plus-eligible-IFP only, with no family-specific override in the frozen study.
+AA14	*	dynamic_pocket	proximity_fallback	Use dynamic 5 A pocket heuristic around ligand or Cu; mannose reference retained as curated family exemplar without extra residue override.
+AA15	*	dynamic_pocket	proximity_fallback	Use dynamic 5 A pocket heuristic and sequence projection for apo references; no literature residue freeze is required for the current analysis release.
+AA17	*	dynamic_pocket	proximity_fallback	Use dynamic 5 A pocket heuristic; current reference interpretation is geometry-focused because curated substrate-side literature residues are not frozen here.

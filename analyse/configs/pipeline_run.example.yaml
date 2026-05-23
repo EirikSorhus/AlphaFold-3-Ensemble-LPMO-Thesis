@@ -1,0 +1,55 @@
+# Hybrid config-first run contract for analyse CLI.
+#
+# Layout:
+# - base: shared values available to all command groups
+# - commands.<name>: command-specific overrides
+#
+# Command keys use underscore names matching CLI commands:
+# - run
+# - tune
+# - predictive
+# - cbm_paired
+# - family_enrichment
+
+base:
+  output: "results"
+  n_jobs: 4
+
+commands:
+  run:
+    mode: "production"
+    config: "configs/production.analysis_core.example.yaml"
+    output: "results/del_a"
+    del: "del_a"
+    n_jobs: 8
+
+  tune:
+    model: "AF3"
+    config: "configs/tuning_af3.yaml"
+    output: "results/tuning_af3"
+    n_jobs: 4
+
+  predictive:
+    condition_table: "results/del_a/condition_table.tsv"
+    protein_metadata: "input_data/metadata_final_ec_fixed.tsv"
+    output: "results/del_a"
+    task: "all"
+    n_folds: 5
+    random_state: 42
+
+  cbm_paired:
+    condition_table: "results/combined/condition_table.tsv"
+    cluster_table: "results/combined/cluster_table.tsv"
+    protein_metadata: "input_data/metadata_final_ec_fixed.tsv"
+    output: "results/combined"
+    random_state: 42
+
+  family_enrichment:
+    protein_condition_residue_scores: "results/del_a/protein_condition_residue_scores.tsv"
+    protein_residue_regio_delta: "results/del_a/protein_residue_regio_delta.tsv"
+    protein_metadata: "input_data/metadata_final_ec_fixed.tsv"
+    core_fasta: "input_data/lpmo_core_domain_2026-03-14_06-52-15_deduplicated.fasta"
+    output: "results/del_a"
+    alignment_dir: null
+    families: ["AA9", "AA10"]
+    mafft_executable: "mafft"

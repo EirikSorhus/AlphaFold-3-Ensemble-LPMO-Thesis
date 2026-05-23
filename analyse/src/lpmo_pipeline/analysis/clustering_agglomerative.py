@@ -12,6 +12,7 @@ from pathlib import Path
 import numpy as np
 
 from lpmo_pipeline.analysis.clustering_hdbscan import ClusteringResult
+from lpmo_pipeline.config import load_runtime_paths_config
 from lpmo_pipeline.utils.logging import StructuredLogger
 
 try:
@@ -27,6 +28,25 @@ class AgglomerativeJaccardConfig:
     linkage: str = "average"
     distance_threshold: float = 0.5
     min_cluster_size: int = 10
+
+
+_RUNTIME_PATHS = load_runtime_paths_config()
+_THRESHOLDS_PATH = _RUNTIME_PATHS.pipeline_assets.thresholds_config
+
+
+def load_agglomerative_config(config_path: Path | None = None) -> AgglomerativeJaccardConfig:
+    """Load agglomerative clustering defaults from thresholds.yaml."""
+    import yaml
+
+    path = config_path or _THRESHOLDS_PATH
+    raw_config = yaml.safe_load(path.read_text()) or {}
+    agg_config = raw_config.get("agglomerative") or {}
+
+    return AgglomerativeJaccardConfig(
+        linkage=str(agg_config.get("linkage", "average")),
+        distance_threshold=float(agg_config.get("distance_threshold", 0.55)),
+        min_cluster_size=int(agg_config.get("min_cluster_size", 5)),
+    )
 
 
 class AgglomerativeJaccardClusterer:

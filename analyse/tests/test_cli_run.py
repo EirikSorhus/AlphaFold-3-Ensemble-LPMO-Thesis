@@ -5,7 +5,56 @@ import json
 from pathlib import Path
 
 from lpmo_pipeline.analysis.analysis_orchestrator import AnalysisCoreResult
-from lpmo_pipeline.cli import cmd_cbm_paired, cmd_family_enrichment, cmd_predictive, cmd_run
+from lpmo_pipeline.cli import cmd_cbm_paired, cmd_family_enrichment, cmd_predictive, cmd_run, cmd_tune
+
+
+def test_cmd_tune_calls_run_tuning_and_writes_manifest(tmp_path, monkeypatch) -> None:
+    output_dir = tmp_path / "tune_results"
+    config_path = tmp_path / "tuning.yaml"
+    config_path.write_text("model: AF3\n")
+
+    called = {}
+
+    def _fake_run_tuning(
+        *,
+        model: str,
+        tuning_config_path: Path,
+        test_cases,
+        output_dir: Path,
+        pipeline_config,
+        max_parallel: int,
+    ):
+        called["model"] = model
+        called["tuning_config_path"] = tuning_config_path
+        called["test_cases"] = test_cases
+        called["output_dir"] = output_dir
+        called["pipeline_config"] = pipeline_config
+        called["max_parallel"] = max_parallel
+        return {"model": model, "best_params": {}}
+
+    monkeypatch.setattr("lpmo_pipeline.cli.run_tuning", _fake_run_tuning)
+    monkeypatch.setattr("lpmo_pipeline.cli.ToolVersionFetcher.get_versions", lambda: {})
+
+    args = argparse.Namespace(
+        model="AF3",
+        config=config_path,
+        output=output_dir,
+        n_jobs=2,
+        run_config=None,
+    )
+
+    exit_code = cmd_tune(args)
+
+    assert exit_code == 0
+    assert called["model"] == "AF3"
+    assert called["tuning_config_path"] == config_path
+    assert called["test_cases"] == []
+    assert called["output_dir"] == output_dir
+    assert called["pipeline_config"] == {"model": "AF3"}
+    assert called["max_parallel"] == 2
+
+    manifest = json.loads((output_dir / "run_manifest.json").read_text())
+    assert manifest["gates_passed"]["tuning_completed"] is True
 
 
 def test_cmd_run_calls_analysis_core_and_writes_manifest(tmp_path, monkeypatch) -> None:
@@ -318,3 +367,144 @@ def test_cmd_family_enrichment_calls_postprocess(tmp_path, monkeypatch) -> None:
     assert called["alignment_dir"] is None
     assert called["families"] == ("AA9", "AA10")
     assert called["mafft_executable"] == "mafft"
+
+
+def test_cmd_predictive_resolves_values_from_run_config(tmp_path, monkeypatch) -> None:
+    condition_table = tmp_path / "condition_table.tsv"
+    protein_metadata = tmp_path / "protein_metadata.tsv"
+    output_dir = tmp_path / "predictive_results"
+    run_config = tmp_path / "pipeline_run.yaml"
+    condition_table.write_text("condition_id\tprotein_id\n")
+    protein_metadata.write_text("protein_id\texperimental_regio_label\n")
+    run_config.write_text(
+        f"""
+commands:
+  predictive:
+    condition_table: {condition_table}
+    protein_metadata: {protein_metadata}
+    output: {output_dir}
+    task: substrate
+    n_folds: 7
+    random_state: 99
+""".lstrip()
+    )
+
+    called = {}
+
+    def _fake_run_predictive_postprocess(
+        *,
+        condition_table_path: Path,
+        protein_metadata_path: Path,
+        output_dir: Path,
+        task: str,
+        n_folds: int,
+        random_state: int,
+    ):
+        called["condition_table_path"] = condition_table_path
+        called["protein_metadata_path"] = protein_metadata_path
+        called["output_dir"] = output_dir
+        called["task"] = task
+        called["n_folds"] = n_folds
+        called["random_state"] = random_state
+        summary_path = output_dir / "10_predictive" / "predictive_summary.json"
+        summary_path.parent.mkdir(parents=True, exist_ok=True)
+        summary_path.write_text("{}\n")
+
+        class _Result:
+            def __init__(self) -> None:
+                self.summary_path = summary_path
+                self.modeling_table_paths = {}
+                self.metrics_paths = {}
+                self.predictions_paths = {}
+
+        return _Result()
+
+    monkeypatch.setattr("lpmo_pipeline.cli.run_predictive_postprocess", _fake_run_predictive_postprocess)
+
+    args = argparse.Namespace(
+        run_config=run_config,
+        condition_table=None,
+        protein_metadata=None,
+        output=None,
+        task=None,
+        n_folds=None,
+        random_state=None,
+    )
+
+    exit_code = cmd_predictive(args)
+    assert exit_code == 0
+    assert called["condition_table_path"] == condition_table
+    assert called["protein_metadata_path"] == protein_metadata
+    assert called["output_dir"] == output_dir
+    assert called["task"] == "substrate"
+    assert called["n_folds"] == 7
+    assert called["random_state"] == 99
+
+
+def test_cmd_run_resolves_values_from_run_config(tmp_path, monkeypatch) -> None:
+    output_dir = tmp_path / "results"
+    production_config = tmp_path / "production.yaml"
+    run_config = tmp_path / "pipeline_run.yaml"
+    production_config.write_text("pipeline_version: '2.1'\nproduction:\n  work_root: /tmp/work\n")
+    run_config.write_text(
+        f"""
+commands:
+  run:
+    mode: production
+    config: {production_config}
+    output: {output_dir}
+    del: del_b
+    n_jobs: 2
+""".lstrip()
+    )
+
+    called = {}
+
+    def _fake_run_analysis_core(
+        config,
+        output_dir: Path,
+        del_variant: str,
+        n_jobs: int | None = None,
+    ) -> AnalysisCoreResult:
+        called["output_dir"] = output_dir
+        called["del_variant"] = del_variant
+        called["n_jobs"] = n_jobs
+        output_dir.mkdir(parents=True, exist_ok=True)
+        summary = output_dir / "analysis_core_summary.json"
+        summary.write_text("{}\n")
+        return AnalysisCoreResult(
+            run_id="cfg",
+            output_dir=output_dir,
+            summary_path=summary,
+            qc_report_path=None,
+            pose_manifest_tsv_path=None,
+            pose_confidence_tsv_path=None,
+            structure_index_tsv_path=None,
+            qc_attrition_tsv_path=None,
+            pose_geometry_tsv_path=None,
+            metrics_csv_path=None,
+            summary_json_path=None,
+            report_html_path=None,
+            n_discovered=0,
+            n_prepared=0,
+            n_analyzed=0,
+            success=False,
+        )
+
+    monkeypatch.setattr("lpmo_pipeline.cli.run_analysis_core", _fake_run_analysis_core)
+    monkeypatch.setattr("lpmo_pipeline.cli.ToolVersionFetcher.get_versions", lambda: {})
+
+    args = argparse.Namespace(
+        run_config=run_config,
+        mode=None,
+        config=None,
+        output=None,
+        del_branch=None,
+        n_jobs=None,
+    )
+
+    exit_code = cmd_run(args)
+    assert exit_code == 1
+    assert called["output_dir"] == output_dir
+    assert called["del_variant"] == "del_b"
+    assert called["n_jobs"] == 2

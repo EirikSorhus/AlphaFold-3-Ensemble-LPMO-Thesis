@@ -21,58 +21,40 @@ kun implicit H-bonds. VdW-only/low-specific-contact-diagnostikk beholdes.
    `qc/privateer_runner.py` bygger bind-aware SIF-kjøring, parser `validation_data-privateer`, henter versjon via `-list`, og beholder rå stdout/stderr kun ved feil eller eksplisitt debug-flag.
    Gjenstående arbeid er ikke outputformat-avklaring, men full hard-QC-verifikasjon på ekte poser.
 
-3. **Reduce-versjon** — MolProbity Reduce vs AmberTools reduce?
-   *Default: AmberTools `reduce` (mest tilgjengelig via conda).*
+3. ~~**Reduce-versjon**~~ — **AVKLART 2026-05-23.**
+   Endelig valg: AmberTools `reduce`.
 
 4. ~~**Pre-QC aktiv-sete terskel**~~ — **AVKLART 2026-04-21.**
    Hard cutoff for `min_cu_ligand_distance` foran PoseBusters/Privateer er
    `<= 10.0 A` (permissiv pre-QC gate). `<= 8.0 A` beholdes kun som mulig
    rapporterings-/soft-flag terskel ved behov.
 
-5. **Kristallstrukturer for anchoring** — Hvilke PDB-koder skal brukes
-   som referanse på tvers av familier? Dagens operative referansesett kommer
-   fra `input_data/pdb_structure_data.csv` + filer under `crystal_structures/`.
-   Gjenstående spørsmål er om listen skal kurateres/utvides videre per familie,
-   ikke hvordan dagens kode velger referanser.
-   *Default: bruk dagens CSV + `crystal_structures/` som autoritativt
-   referansesett. Eventuell utvidelse skjer som eksplisitt dataoppdatering.*
+5. ~~**Kristallstrukturer for anchoring**~~ — **AVKLART 2026-05-23.**
+   Autoritativt referansesett for aktiv analyse fryses til
+   `input_data/pdb_structure_data.csv` + filer under `crystal_structures/`, med
+   kuratert metadata skrevet til `metadata/crystal_reference_list.tsv`.
+   Nye/endrede referanser skjer kun som eksplisitt dataoppdatering i disse
+   filene (ikke via kodeendring).
 
-6. **CBM-varianter (DEL A / DEL B)** — Skal begge CBM-deletions kjøres
-   for alle systemer, eller bare for CBM-bærende LPMOer?
-   *Default: kun for systemer der full-length har annotert CBM.*
+6. ~~**CBM-varianter (DEL A / DEL B)**~~ — **AVKLART 2026-05-23.**
+   Endelig scope: kun for systemer der full-length har annotert CBM.
 
-7. **DP-scope for aktiv implementasjon** — Skal andre DP enn 4/6/8 inn i
-   samme hovedpipeline, eller beholdes de som egne sideanalyser?
-   *Default: hovedpipeline = DP4/DP6/DP8 (9 uavhengige delanalyser).* 
+7. ~~**DP-scope for aktiv implementasjon**~~ — **AVKLART 2026-05-23.**
+   Endelig scope: kun DP4/DP6/DP8 i hovedpipeline (9 uavhengige delanalyser).
 
-8. **Tanimoto-terskel for crystal anchoring** — Hvilken cutoff for
-   "biologically plausible"? *Default: Tanimoto >= 0.3 (IFP), og dagens kode
-   bruker `pocket_rmsd < 2.5 A` som soft flag; endelig biologisk cutoff må
-   fortsatt signeres eksplisitt.*
-   Status 2026-05-08: dagens integrerte analysis-core smoke-tester fullforer,
-   men den testede crystal-anchoring-kjoringen ender forelopig med
-   `comparison_count = 0`. Det ser ogsa ut som de testede crystal-IFP-ene kan
-   vaere dominert av VdW-interaksjoner. Etter senere crystal-prep-hardening og
-   standalone real-data-validering regnes dette ikke lenger som et prima facie
-   teknisk prep-problem; hvis crystal-IFP i praksis blir tom eller
-   non-comparable er den mest sannsynlige forklaringen for tiden for svak eller
-   for lite spesifikk biologisk-strukturell kontakt under den delte non-vdW
-   contact-eligibility-regelen. Dette skal fortsatt kvantifiseres bredere, men
-   skal ikke lenger default-tolkes som kjent Cu-/normaliseringskontaminasjon.
-   Status 2026-05-16: standalone real-data-harnessen for `A0A0S2GKZ1` gir nå
-   ikke-tomme sammenligninger mot `5ACI` og `7PXW` og lave pocket-RMSD-er.
-   Det som fortsatt mangler er en integrert produksjonskjøring der en faktisk
-   medoid-backed betingelse med crystal-referanser når crystal-anchoring-steget,
-   samt en eksplisitt vurdering av om crystal-IFP-ene blir for VdW-dominerte.
-   Status 2026-05-20: produksjonskoden sammenligner nå alle beholdte medoids,
-   bruker top-level AF3 model CIF som hard-QC-gated fallback for no-cluster
-   conditions, blokkerer IFP-Tanimoto når crystal-IFP ikke passerer non-vdW
-   contact-eligibility, og skriver `crystal_ifp_diagnostic_summary.tsv` for å
-   kvantifisere VdW-/low-specific-contact-problemet. Spørsmålet som gjenstår er
-   biologisk cutoff/tolkning, ikke selve comparability-gaten. Arbeidshypotesen
-   er nå at crystal-IFP som fortsatt blir tom eller non-comparable oftest
-   reflekterer reell biologisk-strukturell kontaktsparsomhet i de preparerte
-   deposited ligandene, ikke en kjent implementasjonsfeil i crystal-IFP-laget.
+8. ~~**Tanimoto-terskel for crystal anchoring**~~ — **AVKLART 2026-05-23.**
+    Endelig biologisk tolkning i aktiv analyse:
+    - Sammenligning er bare IFP-tolkbar når `ifp_comparison_eligible=True`.
+    - `ifp_tanimoto >= 0.50` tolkes som moderat/stottende crystal-IFP-overlapp.
+    - `0.30 <= ifp_tanimoto < 0.50` tolkes som svak/stoyutsatt stotte.
+    - `ifp_tanimoto < 0.30` tolkes som lav overlapp.
+    - `local_pocket_rmsd < 2.5 A` beholdes som binding-region-stotteflagg,
+       ikke alene som biologisk bevis.
+    - VdW-dominans vurderes via `crystal_ifp_diagnostic_summary.tsv`:
+       hvis `contact_eligible_fraction < 0.50` eller `n_vdw_only > n_contact_eligible`,
+       nedgraderes crystal-IFP-tolkning til "geometry-first, IFP-limited".
+   Historisk kontekst: tidligere statusnotater (2026-05-08/16/20) er nå
+   overstyrt av denne avklarte policyen.
 
 9. ~~**Predictive modellvalg og prediksjonsvariabler**~~ — **AVKLART
    2026-05-22 for aktiv implementasjon.**
@@ -85,9 +67,10 @@ kun implicit H-bonds. VdW-only/low-specific-contact-diagnostikk beholdes.
    `predictive_summary.json["validation"]` viser nok rader, begge targetklasser
    og evaluerbare folds, ikke valg av backend.
 
-10. **EC 1.14.99.- ikke-AA17 mapping** — Hvilken endelig tekstetikett og
-    hvilket standardsubstrat for "xylan ol"-tilfeller?
-    *Default: substrate_class=`xylan_or_other`, regio_class=`unknown`, aktivitet=`xylan_like_oxidative`.*
+10. ~~**EC 1.14.99.- ikke-AA17 mapping**~~ — **AVKLART 2026-05-23.**
+   Endelig mapping for "xylan ol"-tilfeller:
+   `substrate_class=xylan_or_other`, `regio_class=unknown`,
+   `aktivitet=xylan_like_oxidative`.
 
 11. **Geometri-planaritet** — Avklart 2026-05-22: separat planaritetsgate er
     ikke del av aktiv analysekontrakt. Sluttbrukerflaten bruker de implementerte
@@ -121,18 +104,23 @@ kun implicit H-bonds. VdW-only/low-specific-contact-diagnostikk beholdes.
     - AVKLART (2026-05-22): Primær predictive backend er compact sklearn
       logistic regression, kjørt som valgfri Stage 14 fra main analysis output
       når metadata er konfigurert.
+      - AVKLART (2026-05-23): Reduce-versjon er AmberTools `reduce`.
+      - AVKLART (2026-05-23): CBM DEL A/DEL B kjøres kun for systemer der
+         full-length har annotert CBM.
+      - AVKLART (2026-05-23): DP-scope i hovedpipeline er kun DP4/DP6/DP8.
+      - AVKLART (2026-05-23): EC 1.14.99.- ikke-AA17 "xylan ol" mapping er
+         `substrate_class=xylan_or_other`, `regio_class=unknown`,
+         `aktivitet=xylan_like_oxidative`.
+      - AVKLART (2026-05-23): Endelig ProLIF interaction-type utvalg i aktiv
+         analyse er implicit H-bond og VdW-interaksjoner (implementert i kode).
 
-13. **Substrat-recognition/pocket-residuer for crystal anchoring** — Skal dagens
-   operative pocket-heuristikk beholdes, eller erstattes/utvides med
-   familie-spesifikke litteraturresiduer?
-   Dagens implementasjon bruker proteinrester innen 5 A fra ligand eller Cu i
-   holo-referanser. For apo-referanser projiseres pocket fra representant/medoid
-   over på crystal-sekvensen med residunavn-normalisering (f.eks. `HIC -> HIS`).
-   Foretrukket videre arbeid: litteratursøk for kjente LPMO-substrat-bindende
-   residuer per familie, og beslutning om disse skal erstatte eller bare annotere
-   dagens proximity-baserte pocket.
-   *Status: dagens heuristic fungerer operativt, men familie-spesifikk
-   litteraturforankring er fortsatt uavklart og krever manuelt arbeid.*
+13. ~~**Substrat-recognition/pocket-residuer for crystal anchoring**~~ —
+   **AVKLART 2026-05-23.**
+   Aktiv analyse fryser dagens operative pocket-heuristikk (5 A fra ligand/Cu,
+   med apo-sekvensprojeksjon og residunavn-normalisering) som beslutningsgrunnlag.
+   Familievis residue-kilde dokumenteres eksplisitt i
+   `metadata/alignment_residue_definitions.tsv`.
+   I denne release er kilden satt til `proximity_fallback` for alle familier.
 
 ---
 
@@ -158,7 +146,7 @@ kun implicit H-bonds. VdW-only/low-specific-contact-diagnostikk beholdes.
     - `pose_residue_contact_table.tsv`
     - `pose_geometry.tsv`
 
-18. **PoseBusters hard-fail policy** — Hvilke PoseBusters-feil skal telle som hard QC fail vs soft flag/pass?
+18. ~~**PoseBusters hard-fail policy**~~ — **AVKLART 2026-05-23.**
    Bakgrunn: Etter korrigert PoseBusters-kontrakt for kombinerte AF3-eksporter
    (auto-splitt til ligand `mol_pred` + protein `mol_cond` i `dock`-modus)
    forsvant de tidligere falske real-case feilene `all_atoms_connected` og
@@ -170,13 +158,12 @@ kun implicit H-bonds. VdW-only/low-specific-contact-diagnostikk beholdes.
    med standard `max_distance=5.0 A` og `search_distance=6.0 A`.
    `minimum_distance_to_protein` er derimot den renamed `no_clashes`-utgangen,
    ikke selve avstandsterskelen.
-   *Default: behold PoseBusters sine innebygde `dock`-defaults uendret.
-   Gjenstående avklaring er bare severity-policyen for pocket-/distance-relaterte
-   PoseBusters-feil: om de skal gi `hard_fail`, `soft_flag` eller kun rapporteres.*
+   Endelig severity-policy i aktiv analyse:
+   - behold PoseBusters `dock`-defaults uendret,
+   - behold `minimum_distance_to_protein` som hard-fail (`posebusters_critical:*`),
+   - behold kun eksplisitte soft-typer som `posebusters_soft:*`,
+   - ukjente PoseBusters-feil forblir konservativt hard-fail.
 
-19. **ProLIF interaction-type pruning** — Skal endelig utvalg av ProLIF-interaksjonstyper
-   bestemmes bare ved enkel sparsity-/nyttevurdering, eller er det verdt å lage en
-   form for statistisk analyse/test for dette?
-   *Default: ikke blokker på dette. Behold enkel manuell vurdering senere som første
-   steg. Eventuell statistisk analyse er lav prioritet, ikke spesielt viktig akkurat nå,
-   og kan ta tid å designe og teste på en meningsfull måte.*
+19. ~~**ProLIF interaction-type pruning**~~ — **AVKLART 2026-05-23.**
+   Endelig utvalg i aktiv analyse: implicit H-bond og VdW-interaksjoner.
+   Dette er implementert i koden.

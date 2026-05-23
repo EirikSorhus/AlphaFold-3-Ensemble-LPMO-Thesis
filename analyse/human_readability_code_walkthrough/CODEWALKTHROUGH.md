@@ -7,7 +7,9 @@ H-bonds plus VdW; main clustering uses implicit H-bonds only.
 
 ## 1. Introduksjon
 
-Denne walkthroughen dekker den produksjonsnaere analysepipen under `analyse/`, fra entrypoint og konfigurasjon via discovery og poseforberedelse videre til QC, downstream analyse, clustering, crystal anchoring og rapportering. Denne forste versjonen er bevisst en struktur- og oversiktsversjon; senere revisjoner skal fylle ut pipeline-stegene mer presist og med tettere kodeforankring (`human_readability_code_walkthrough/CODEWALKTHROUGH_STATUS.md:3-5`).
+Denne walkthroughen dekker den produksjonsnaere analysepipen under `analyse/`, fra entrypoint og konfigurasjon via discovery og poseforberedelse videre til hard QC, downstream analyse, clustering, crystal anchoring, rapportering og sidegrener (tune/pilot).
+
+Dokumentet er konsolidert for sluttkontroll: det beskriver flyt paa pipeline-/fase-/stegniva, med fokus paa input, behandling, output, begrunnelse (der kode/stottekilder faktisk viser den), relevante fil/linje-referanser og eksplisitt markerte usikkerheter.
 
 Gjennomgangen er kodebasert. Runtime-kode under `src/` og config-filer som faktisk lastes av koden prioriteres, mens README, TODO, dokumentasjon og planer brukes som stotte bare der de stemmer med implementasjonen (`DECISIONS.md:3-8`; `human_readability_code_walkthrough/CODEWALKTHROUGH_STATUS.md:31-33`).
 
@@ -25,6 +27,45 @@ For hvert pipeline-steg skal teksten etter hvert beskrive:
 Alle viktige paastander skal forankres med fil- og linjehenvisninger. Hvis dokumentasjon, config-kommentarer og kode peker i ulike retninger, skal avviket sies eksplisitt i stedet for aa glattes over (`DECISIONS.md:6-8`; `human_readability_code_walkthrough/CODEWALKTHROUGH_STATUS.md:31-33`).
 
 Usikkerheter markeres eksplisitt. Der walkthroughen forelopig bygger paa en arbeidsantakelse, skal det staa at det er en arbeidsantakelse og hva som maa verifiseres i kode senere.
+
+## Overordnet flyt (konsolidert)
+
+Standard navnekonvensjon i dette dokumentet:
+
+- Steg 1-13 brukes konsekvent for sekvensen i production-stien + sidegrener.
+- Faseoverskrifter grupperer steg uten aa introdusere alternativ stegnummerering.
+- "Production-sti" betyr `lpmo-pipeline run --mode production ...`.
+
+```mermaid
+flowchart TD
+  A[Steg 1: CLI + konfig] --> B[Steg 2: Discovery]
+  B --> C[Steg 3: Per-pose prepare]
+  C --> D[Steg 4: Hard QC]
+  D --> E[Steg 5: Downstream geometri]
+  E --> F[Steg 6: Analysis export]
+  F --> G[Steg 7: Konvergens per condition]
+  F --> H[Steg 8: ProLIF + residue contacts]
+  G --> I[Steg 9: Eligibility + clustering]
+  H --> I
+  I --> J[Steg 10: Cluster-annotasjon + residue importance + condition/protein summary]
+  J --> K[Steg 11: Crystal anchoring]
+  K --> L[Steg 12: Sluttrapportering og outputflater]
+  X[Steg X: Validering, QC, feilhaandtering og logging] -. tverrgaaende styring .-> A
+  X -. tverrgaaende styring .-> L
+  A -. sidegren .-> M[Steg 13: Tune]
+  I -. sidegren .-> N[Steg 13: Clustering pilot]
+```
+
+Kort fasekart:
+
+| Fase | Dekker steg | Kjerneleveranse |
+|---|---|---|
+| Oppstart og discovery | 1-2 | Kjoerbar produksjonskontekst og valgt posegrunnlag |
+| Case-prep og hard QC | 3-4 | `PreparedPose` + QC-verdict med fail-closed policy |
+| Downstream signalbygging | 5-8 | geometri, analysis_export, konvergens, IFP og residue contacts |
+| Clustering og annotasjon | 9-10 | cluster assignments/medoids, signaturtabeller, residue/patch-score, condition/protein summary |
+| Crystal + rapportering | 11-12 | crystal-sammenligning og sluttflater (`metrics.csv`, `summary.json`, `report.html`) |
+| Sidegrener | 13 | tune + pilotorkestrering (ikke erstatning for production-sti) |
 
 ## 3. Kildegrunnlag
 
@@ -52,11 +93,12 @@ analyse/
 │       ├── config.py                               # lasting av runtime paths og felles assets
 │       ├── analysis/
 │       │   ├── analysis_orchestrator.py            # hovedorkestrator for produksjonsflyten
+│       │   ├── mdanalysis_metrics.py               # downstream pose-geometri etter hard QC
 │       │   ├── convergence_metrics.py              # konvergensberegning per condition
 │       │   ├── prolif_ifp.py                       # ProLIF/IFP-bygging og featureflate
 │       │   ├── residue_contact_extraction.py       # residue-level contact-tabeller
-│       │   ├── clustering_agglomerative.py         # naavaerende produksjonsclustering
-│       │   ├── clustering_hdbscan.py               # sensitivitetsspor og delt clusteringlogikk
+│       │   ├── clustering_hdbscan.py               # naavaerende produksjonsclustering (HDBSCAN/Jaccard)
+│       │   ├── clustering_agglomerative.py         # eldre/alternativ metode, ikke primaer production-sti
 │       │   ├── cluster_signatures.py               # clusterannotasjon og signaturtabeller
 │       │   ├── residue_importance.py               # residue- og patch-scorer
 │       │   └── crystal_anchoring.py                # screening mot crystal references
@@ -64,6 +106,7 @@ analyse/
 │       │   ├── discovery.py                        # discovery av poser fra work-root
 │       │   ├── mmcif_ingest.py                     # innlasting av mmCIF-strukturer
 │       │   ├── normalize_mmcif.py                  # normalisering av mmCIF
+│       │   ├── analysis_export.py                  # non-protonated PDB-eksport for ProLIF og konvergens
 │       │   ├── cif_to_pdb.py                       # eksport til PoseBusters-kompatibel PDB
 │       │   └── protonate_export.py                 # legacy protonering; ikke aktiv ProLIF-produksjonssti
 │       ├── qc/
@@ -74,6 +117,9 @@ analyse/
 │       │   ├── posebusters_runner.py               # PoseBusters-wrapper
 │       │   ├── privateer_runner.py                 # Privateer-wrapper
 │       │   └── qc_report.py                        # bygging av QC-rapport
+│       ├── utils/
+│       │   ├── logging.py                          # strukturert JSONL-logging + failure logs
+│       │   └── manifest.py                         # run-manifest, gates og tool-versioner
 │       └── report/
 │           ├── build_metrics_csv.py                # skriver metrics.csv
 │           ├── build_summary_json.py               # skriver summary.json
@@ -104,7 +150,7 @@ analyse/
 └── OPEN_QUESTIONS.md                               # eksplisitte apne usikkerheter
 ```
 
-Dette treet vil bli strammet inn eller utvidet etter hvert som walkthroughen gaar dypere i de enkelte delene av pipen.
+Dette treet er bevisst filtrert til filer som brukes direkte i walkthroughen. Urelaterte hjelpefiler, mellomlag og historiske artefakter er utelatt.
 
 ## 5. Pipeline-steg
 
@@ -203,7 +249,7 @@ Discovery-steget gjoer produksjonskonfigens `work_root` om til et konkret sett p
 
 #### Input
 - arbeidsrot/work root: `ProductionRunOptions.work_root` resolves fra produksjonsconfigen og sendes inn til `discover_work_root()` som rotnode for traverseringen. README og eksempelconfigen beskriver dette som AF3-/structure_pipeline-work-rooten valgt via `work_roots.domain_only` eller `work_roots.full_length`.
-- CLI-argumenter eller config: discovery bruker ikke egne CLI-flagg i production-pathen, men arver `af3_only`, `latest_only`, `max_cases`, `include_targets`, `include_proteins` og `construct_type` fra `ProductionRunOptions`.
+- CLI-argumenter eller config: discovery bruker ikke egne CLI-flagg i production-pathen, men arver `af3_only`, `latest_only`, `max_cases`, `include_targets`, `include_proteins` og `construct_type` fra `ProductionRunOptions`. Av disse er `include_proteins` kodeforankret i orkestratoren og testene, men ikke tydelig dokumentert i README-eksempelet.
 - mapper/filer som skannes: koden forventer et tre paa formen `TARGET/model/runs/run_id/UNIPROT_TARGET/`, med eventuell top-level `*_model.cif`, top-level JSON-filer og `seed-N_sample-M/`-mapper med CIF/JSON. Regexene i `io/discovery.py` er den faktiske kontrakten for target-navn, run-ID-er og uniprot-target-kataloger.
 - pose-/modellkandidater: ordinare kandidater er CIF-filer inne i `seed-*_sample-*`-mapper. Hvis en uniprot-target-mappe ikke har noen sample-CIF-er, men har en top-level `model.cif`, kan denne top-level modellen brukes som ordinart pose-input for akkurat den katalogen.
 - fallback-input: `_discover_top_model_fallback_inputs()` kjores separat og ser bare etter top-level AF3 `model.cif` per uniprot-target, uten aa blande disse inn i den ordinare poselista.
@@ -248,31 +294,33 @@ Parallelt bygger `_discover_top_model_fallback_inputs()` en egen fallback-map fo
 - `src/lpmo_pipeline/io/discovery.py:L214-L283` - run- og uniprot-target-discovery, inkludert top-level `model.cif`, confidence-JSON og seed/sample-kataloger.
 - `src/lpmo_pipeline/io/discovery.py:L285-L316` - `_discover_sample()` klassifiserer sample-status fra filinnholdet.
 - `src/lpmo_pipeline/utils/data_models.py:L398-L436` - `WorkRootManifest` eksponerer `iter_all_uniprot_targets()` og `summary`, som analysis-orchestratoren bygger videre paa.
-- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L825-L907` - `_discover_pose_inputs()` bygger den ordinare poselista fra sample-CIF-er, med top-level `model.cif` bare som lokal fallback nar sample-CIF-er mangler.
-- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L909-L953` - `_discover_top_model_fallback_inputs()` bygger separat AF3-only fallback per condition.
-- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L1619-L1658` - `run_analysis_core()` kobler discovery-resultatet inn i `analysis_summary` og lagrer fallback-kandidater separat.
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L1008-L1090` - `_discover_pose_inputs()` bygger den ordinare poselista fra sample-CIF-er, med top-level `model.cif` bare som lokal fallback nar sample-CIF-er mangler.
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L1092-L1137` - `_discover_top_model_fallback_inputs()` bygger separat AF3-only fallback per condition.
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L1818-L1888` - `run_analysis_core()` kombinerer discovery-feil, legger `discovery_summary` i `analysis_summary` og lagrer fallback-kandidater separat.
 - `tests/test_discovery.py:L264-L291` - tester at `latest_only` bruker `latest`-symlink eller faller tilbake til hoyeste numeriske run-ID.
 - `tests/test_discovery.py:L520-L565` - bekrefter at `latest_only`, `af3_only` og `include_targets` faktisk avgrenser discovery-scope.
-- `tests/test_analysis_orchestrator.py:L91-L112` - viser at `include_proteins` filtrerer bort andre UniProt-kandidater i den ordinare poselista.
-- `tests/test_analysis_orchestrator.py:L115-L138` - viser at top-level AF3-modellen holdes separat fra vanlige sample-poser som crystal-fallback.
-- `tests/test_analysis_orchestrator.py:L260-L299` - viser at discovery bevarer upstream `source_run_id` gjennom symlinket staging-work-root.
+- `tests/test_analysis_orchestrator.py:L198-L214` - viser at `include_proteins` filtrerer bort andre UniProt-kandidater i den ordinare poselista.
+- `tests/test_analysis_orchestrator.py:L222-L243` - viser at top-level AF3-modellen holdes separat fra vanlige sample-poser som crystal-fallback.
+- `tests/test_analysis_orchestrator.py:L390-L407` - viser at discovery bevarer upstream `source_run_id` gjennom symlinket staging-work-root.
 - `tests/run_tests_scripts/run_analysis_core_real_cifs.py:L110-L118` - harnessen skriver produksjonsconfig med `work_root`, `af3_only`, `latest_only` og `include_targets`.
 - `tests/run_tests_scripts/run_analysis_core_real_cifs.py:L155-L158` - harnessen lager en staged work-root og lar discovery jobbe mot denne strukturen.
-- `README.md:L156-L189` - README beskriver discovery som del av production-run og dokumenterer `work_roots`, `af3_only`, `latest_only` og `include_targets`.
+- `README.md:L290-L303` - README beskriver discovery-relevant production-config med `work_roots`, `af3_only`, `latest_only` og `include_targets`.
+- `README.md:L312-L312` - README beskriver at top-level AF3 model-CIF bare brukes som fallback nar en condition ikke har beholdte clusters.
 - `IMPLEMENTATION_PLAYBOOK.md:L40-L40` - playbooken oppsummerer `io/discovery.py` som ferdig og verifisert med `af3_only` og `latest_only`.
 - `DOCUMENTATION_TODO_AND_MANUAL_CHECKS.md:L77-L81` - dokumenterer samme `latest_only`-oppstramming som testene dekker.
-- `DECISIONS.md:L592-L606` - dokumenterer at top-level AF3 fallback er separat fra generated-pose- og clustering-denominatorer.
+- `DECISIONS.md:L671-L681` - dokumenterer at top-level AF3 fallback er separat fra generated-pose-, QC-, IFP-, clustering- og medoid-denominatorer.
 
 #### Samsvar med stottedokumenter
 
 | Stottedokument | Hva dokumentet sier | Hva koden viser | Vurdering | Relevante linjer |
 |---|---|---|---|---|
-| `README.md` | Production-run bruker discovery over `work_roots`, med `af3_only`, `latest_only` og `include_targets` som discovery-kontroller | `load_production_options()` leser disse feltene, og discovery-funksjonene bruker dem direkte | Bekreftet | doc: `README.md:L156-L189`; kode: `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L376-L475`, `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L825-L953` |
+| `README.md` | Production-run bruker discovery over `work_roots`, med `af3_only`, `latest_only` og `include_targets` som discovery-kontroller | `load_production_options()` leser disse feltene, og discovery-funksjonene bruker dem direkte | Bekreftet | doc: `README.md:L290-L303`; kode: `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L376-L475`, `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L1008-L1137` |
+| `README.md` | README beskriver discovery-kontrollene, men nevner ikke `include_proteins` | Koden filtrerer ogsaa paa `include_proteins` i baade vanlig discovery og top-model fallback | Delvis bekreftet | doc: `README.md:L290-L303`; kode: `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L1018-L1019`, `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L1111-L1112`; test: `tests/test_analysis_orchestrator.py:L198-L214` |
 | `configs/production.analysis_core.example.yaml` | Eksempelconfigen viser `work_roots`, `af3_only`, `latest_only`, `max_cases` og `include_targets` som discovery-scope | Disse nodene matcher faktisk feltene som loaderen og discovery-koden leser | Bekreftet | doc: `configs/production.analysis_core.example.yaml:L24-L40`; kode: `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L376-L475` |
 | `IMPLEMENTATION_PLAYBOOK.md` | `io/discovery.py` er ferdig og verifisert med `af3_only` + `latest_only` | Testene og implementasjonen bekrefter at begge filtrene er operative | Bekreftet | doc: `IMPLEMENTATION_PLAYBOOK.md:L40-L40`; kode/test: `src/lpmo_pipeline/io/discovery.py:L62-L108`, `src/lpmo_pipeline/io/discovery.py:L138-L201`, `tests/test_discovery.py:L520-L549` |
 | `DOCUMENTATION_TODO_AND_MANUAL_CHECKS.md` | `latest_only=True` skal respektere `latest` og ellers falle tilbake til hoyeste numeriske run-ID | Discovery-koden gjor akkurat dette, og testene dekker begge grenene | Bekreftet | doc: `DOCUMENTATION_TODO_AND_MANUAL_CHECKS.md:L77-L81`; kode: `src/lpmo_pipeline/io/discovery.py:L152-L180`, `src/lpmo_pipeline/io/discovery.py:L203-L208`; test: `tests/test_discovery.py:L264-L291` |
-| `DECISIONS.md` | Top-level AF3 fallback skal oppdages separat og ikke inngaa i generated-pose, QC, IFP, clustering eller medoid-denominatorer | `_discover_top_model_fallback_inputs()` bygger en separat map, og den ordinare pose discovery bruker sample-CIF-er som hovedkilde | Bekreftet | doc: `DECISIONS.md:L592-L606`; kode: `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L825-L953`, `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L1619-L1658` |
-| `README.md` | Production-pathen beskriver naa at alle beholdte cluster-medoider screenes, og at no-cluster conditions bare kan bruke top-level AF3 model-CIF etter hard QC | Dette matcher discovery- og crystal-anchoring-koden, der fallbacken holdes i en separat map og ikke blandes inn i ordinare pose-/clustering-denominatorer | Bekreftet etter doc-oppdatering 2026-05-20 | doc: `README.md:L41-L59`; kode: `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L909-L953`, `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2106-L2113`; doc2: `DECISIONS.md:L592-L606` |
+| `DECISIONS.md` | Top-level AF3 fallback skal oppdages separat og ikke inngaa i generated-pose, QC, IFP, clustering eller medoid-denominatorer | `_discover_top_model_fallback_inputs()` bygger en separat map, og den ordinare pose discovery bruker sample-CIF-er som hovedkilde | Bekreftet | doc: `DECISIONS.md:L671-L681`; kode: `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L1008-L1137`, `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L1818-L1888` |
+| `README.md` | Production-pathen beskriver at alle beholdte cluster-medoider screenes, og at no-cluster conditions bare kan bruke top-level AF3 model-CIF etter hard QC | Dette matcher discovery- og crystal-anchoring-koden, der fallbacken holdes i en separat map og ikke blandes inn i ordinare pose-/clustering-denominatorer | Bekreftet | doc: `README.md:L65-L67`, `README.md:L312-L312`; kode: `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L1092-L1137`, `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L1819-L1888` |
 
 #### Usikkerheter
 - Jeg kan ikke fra discovery-koden alene fastslaa om top-level `model.cif` som ordinart pose-input faktisk forekommer i dagens reelle produksjonsdata, bare at koden stotter det nar sample-CIF-er mangler.
@@ -426,3 +474,965 @@ Hard QC bestemmer hvilke forberedte poser som kan gaa videre til downstream geom
 - Privateer-input er fortsatt en validert kopi av normalized CIF. Hvis dette senere blir en reell transformasjon, maa hard-QC-beskrivelsen oppdateres.
 - `qc_report_schema.json` beskriver den offentlige rapportflaten, men de rikeste interne feltene ligger i `verdicts` og case-metadata. En endelig rapporteringskontrakt for alle droppede-pose-metrikker kan fortsatt strammes.
 - Hard-QC-rekkefolgen er naa dokumentert som kode faktisk kjorer den. Eventuelle eldre dokumenter som sier PoseBusters foer geometri er utdaterte.
+
+## Fase: Downstream analyseforberedelse og signalbygging per condition
+
+### Dekker steg
+- Steg 5: Downstream geometri
+- Steg 6: Analysis export for ProLIF
+- Steg 7: Konvergens per condition
+- Steg 8: ProLIF og residue contacts
+
+### Formaal
+Denne fasen tar poser som hard QC har beholdt, og gjoer dem om til de downstream-artefaktene som senere clustering, cluster-annotasjon og crystal anchoring bygger paa. I koden er dette ikke fire uavhengige sidegreiner, men en sammenhengende dataflyt: forst beregnes pose-lokal geometri direkte fra den normaliserte strukturen, deretter eksporteres non-protonated PDB-artefakter, og bare poser med vellykket analysis export gaar videre til condition-lokal konvergens, ProLIF og residue-contact-tabellen. Fasen er derfor baade en analyseforberedelse og et signalbyggende mellomlag mellom hard QC og clustering.
+
+### Input
+- beholdte poser: bare `PreparedPose` med QC-verdict ulik `dropped` gaar inn i denne fasen; `dropped`-poser blir staende i manifest/QC-flater, men faar ikke downstream analyse.
+- normalisert struktur og case-paths: downstream geometri bruker in-memory `prepared_pose.structure`, mens analysis export bruker `prepared_pose.normalized_cif` og skriver til `case_dir/analysis_export/`.
+- terskler og regler: geometri laster `geometry_plausibility` og `geometry_rules` fra `configs/thresholds.yaml`; konvergens laster `convergence` fra samme fil; ProLIF laster interaksjons- og contact-eligibility-regler fra `configs/prolif_features.yaml`.
+- condition-lokal gruppering: orkestratoren bygger `condition_id` tidlig i loopen og samler bare analysis-export-vellykkede poser i `ifp_pose_inputs_by_condition` for senere konvergens og ProLIF.
+- posemetadata: `pose_id`, `protein_id`, `ligand_id`, `model`, `seed`, `sample`, QC-status og paths viderefoeres inn i metrics-records, convergence-input og IFP-input.
+- tester og harnesser: focused pytest for `mdanalysis_metrics`, `convergence_metrics`, `prolif_ifp`, `residue_contact_extraction` og integrasjonstester i `test_analysis_orchestrator.py` viser den forventede runtime-bruken; real-data-harnessen `run_analysis_core_real_cifs.py` bekrefter at minst `pose_geometry.tsv` og `pose_ifp_table.tsv` faktisk forventes i produksjonsoutput.
+
+### Hva skjer
+Fasen starter per pose, ikke per condition. Nar orkestratoren gaar gjennom `prepared_poses`, sjekker den foerst QC-verdict. Hvis posen er `dropped`, blir downstream geometri og analysis export eksplisitt markert som `skipped`, og posen stopper der. Hvis posen er beholdt, beregnes downstream geometri direkte fra den normaliserte, in-memory strukturen. Dette bruker samme grunnleggende Cu/his-brace-logikk som hard QC, men beregner en separat, ikke-gatende geometri-rad for `pose_geometry.tsv`. Dersom geometri-backenden feiler etter hard QC-pass, erstattes resultatet med en `geometry_not_computable`-rad, og posen blir flagget med `geometry_metrics_error` i stedet for a bli fjernet fra videre analyse.
+
+Etter geometri kjorer analysis export per pose. Her blir den normaliserte CIF-en gjort om til to non-protonated PDB-flater: ett komplett `complex_for_prolif.pdb` og ett ligand-only `ligand_only_for_prolif.pdb`. Exporten er en reell gate for resten av fasen: bare poser uten analysis-export-blockers legges inn i de condition-lokale inputlistene for konvergens og ProLIF. Hvis analysis export feiler, lager orkestratoren i stedet en eksplisitt feilet IFP-record for posen, slik at sluttabellen fortsatt viser at denne posen kom saa langt men stoppet foer faktisk IFP-generering.
+
+Nar per-pose-laget er ferdig, skifter fasen til condition-nivaa. For hver condition med minst ett analysis-export-vellykket pose-input beregnes konvergens foerst. Koden aligner proteinstrukturen paa `complex_for_prolif.pdb` og maaler deretter ligand-RMSD mot en fast referansepose innen samme condition. Referansen velges ikke bare ved hoyeste score; koden prioriterer seed-1-poser hvis de finnes, og bruker ranking score, mean pLDDT, seed, sample og `pose_id` som deterministisk tie-break innen kandidatsettet. Per-pose convergence-metrics skrives tilbake paa case-nivaa og brukes senere i summary-lagene.
+
+Deretter kjorer ProLIF per condition-batch over de samme analysis-export-artefaktene. `compute_ifp_batch()` standardiserer alle pose-resultatene til en felles feature-union, slik at hver condition faar en sammenlignbar `ifp_matrix.csv` selv om enkeltposer ikke observerer de samme kontaktfeature-ne. Resultatene holdes samtidig i en flat liste `all_ifp_results` for global TSV-skriving senere.
+
+Etter IFP-beregningen klassifiseres hver brukbar IFP med contact-eligibility-regelen, allerede i denne fasen. Det betyr at orkestratoren skiller mellom null-signal, vdw-only, low-specific-contact og faktisk clusterable kontaktmønster foer clustering-steget begynner. Denne klassifiseringen legges baade paa case-records og metrics-records, slik at senere clustering og rapportering kan bruke samme grunnlag.
+
+Residue-contact-tabellen bygges ikke fra en egen strukturanalyse, men direkte fra ProLIF-feature-navnene og bitvektoren. Bare `ok`-resultater med gyldig feature-shape blir tatt med. Hver rad i `pose_residue_contact_table.tsv` speiler derfor en konkret feature-bit, inkludert `0`-biter, og beholder ligandresiduetiketten fra ProLIF-formatet. Dette holder residue-contact-tabellen synkron med `pose_ifp_table.tsv` i stedet for a innfoere en separat mappinglogikk.
+
+Selve TSV-skrivingen skjer samlet sent i orkestratoren, etter at alle condition-looper er ferdige. Da skrives `pose_ifp_table.tsv`, `pose_residue_contact_table.tsv`, `pose_convergence.tsv`, `condition_convergence_summary.tsv` og til slutt `pose_geometry.tsv`, og pathene legges inn i `analysis_summary`. Det betyr at downstream-fasen baade produserer artefakter per case/per condition underveis og kondenserer dem til globale run-flater helt mot slutten av produksjonskjoringen.
+
+### Hvorfor det gjores
+- bekreftet av kode: downstream geometri er en beskrivende analyseflate, ikke en ny hard gate. Nar geometri-kalkulasjonen feiler etter hard QC-pass, skriver koden fortsatt `geometry_not_computable`, setter `geometry_metrics_error`, og lar analysis export og IFP fortsette.
+- bekreftet av kode: analysis export er nodvendig fordi baade konvergens og ProLIF jobber paa non-protonated PDB-artefakter, ikke direkte paa mmCIF. Dette er ogsaa grunnen til at analysis export ligger foer konvergens og IFP i den faktiske kontrollflyten.
+- bekreftet av kode: ProLIF-batchen aligner alle feature-navn til en union per condition foer matrisa brukes videre. Uten dette ville clustering-input og residue-contact-avledninger variere med hvilke features den enkelte pose tilfeldigvis observerte.
+- bekreftet av kode: residue-contact-tabellen avledes direkte fra IFP-feature-navnene for a unngaa divergens mellom `pose_ifp_table.tsv` og `pose_residue_contact_table.tsv`.
+- bekreftet av kode: konvergens bruker seed-1-foerst referansevalg, med ranking score og mean pLDDT bare som senere sorteringskriterier. Dette er viktig fordi noen stoettedokumenter beskriver referansen grovere som topprangert pose.
+- stoettet av dokumentasjon: README og playbook beskriver non-protonated analysis export, aktivt ProLIF-feature-sett, geometry-not-computable som ikke-gatende feiltilstand, residue-contact-tabellen og convergence-outputene. Dette stemmer i hovedsak med koden.
+- usikkert: den naermeste integrerte real-data-harnessen `run_analysis_core_real_cifs.py` forventer eksplisitt `pose_geometry.tsv` og `pose_ifp_table.tsv`, men den oppsummerer ikke eksplisitt convergence-outputene. Koden skriver dem, og focused tester bekrefter dem, men den brede integrerte real-data-oppsummeringen i denne harnessen ser ikke ut til a vaere fullt oppdatert for hele fasen.
+
+### Output
+- per pose:
+  - geometri-rad i `pose_geometry.tsv`
+  - `analysis_export/complex_for_prolif.pdb`
+  - `analysis_export/ligand_only_for_prolif.pdb`
+  - `analysis_export/analysis_export_report.json`
+  - oppdaterte casefelt som `analysis_status`, `geometry_metrics_status`, `analysis_export_ok`, `ifp_generation_status`, `contact_eligible`, `contact_exclusion_class`, `ligand_rmsd_to_reference` og `convergent_flag`
+- per condition:
+  - `ifp_matrices/<condition>/ifp_matrix.csv`
+  - condition-lokal convergence-summary i `condition_convergence_summary.tsv`
+  - contact-eligibility-grunnlag for neste clustering-fase
+- per run:
+  - `pose_geometry.tsv`
+  - `pose_ifp_table.tsv`
+  - `pose_residue_contact_table.tsv`
+  - `pose_convergence.tsv`
+  - `condition_convergence_summary.tsv`
+  - oppdaterte `metrics_record_by_pose_id` og `analysis_summary`-paths som neste fase bruker videre til clustering, summary-lag og rapportering
+
+### Relevante filer og linjer
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2036-L2114` - beholdte poser faar downstream geometri og analysis export; geometri-feil flagger, men stopper ikke analysis export.
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2194-L2233` - condition-lokal konvergens kjorer foer ProLIF-batch paa analysis-export-vellykkede poser.
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2239-L2277` - contact eligibility beregnes direkte fra IFP-resultatene og skrives tilbake paa case-/metrics-nivaa.
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2603-L2633` - globale TSV-er for IFP, residue contacts og konvergens skrives etter condition-loopene.
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2880-L2913` - `pose_geometry.tsv` og summary-pathene skrives sent i outputfasen.
+- `src/lpmo_pipeline/analysis/mdanalysis_metrics.py:L198-L205` - downstream geometri laster terskler fra `thresholds.yaml`.
+- `src/lpmo_pipeline/analysis/mdanalysis_metrics.py:L272-L356` - `compute_pose_metrics_from_structure()` beregner pose-lokal geometri fra in-memory struktur.
+- `src/lpmo_pipeline/analysis/mdanalysis_metrics.py:L301-L321` - downstream geometri gjenbruker `check_geometry()` som grunnlag, men bygger egen analyseflate.
+- `src/lpmo_pipeline/analysis/mdanalysis_metrics.py:L398-L408` - `write_pose_geometry_tsv()` skriver den kanoniske pose-geometritabellen.
+- `src/lpmo_pipeline/analysis/mdanalysis_metrics.py:L727-L741` - `_assign_geometry_status()` viser hvordan `geometry_not_computable` og plausibilitetsnivaa settes.
+- `src/lpmo_pipeline/io/analysis_export.py:L57-L81` - analysis export lager non-protonated complex- og ligand-PDB og blokkerer videre bruk hvis ligand-only blir tom.
+- `src/lpmo_pipeline/io/analysis_export.py:L132-L133` - `export_analysis_artifacts()` er orkestratorens wrapper.
+- `src/lpmo_pipeline/analysis/convergence_metrics.py:L127-L145` - `select_reference_pose()` prioriterer seed 1 og bruker ranking/plddt som senere sortering.
+- `src/lpmo_pipeline/analysis/convergence_metrics.py:L151-L186` - `compute_condition_convergence()` aligner protein og beregner ligand-RMSD og `convergent_flag`.
+- `src/lpmo_pipeline/analysis/convergence_metrics.py:L227-L247` - writerne for `pose_convergence.tsv` og `condition_convergence_summary.tsv`.
+- `src/lpmo_pipeline/analysis/prolif_ifp.py:L133-L149` - contact-eligibility-regelen lastes fra `prolif_features.yaml`.
+- `src/lpmo_pipeline/analysis/prolif_ifp.py:L162-L209` - `evaluate_contact_eligibility()` klassifiserer `null_ifp`, `vdw_only`, `low_specific_contact` eller clusterable signal.
+- `src/lpmo_pipeline/analysis/prolif_ifp.py:L487-L540` - `compute_ifp_batch()` kjorer per-pose IFP og aligner dem til en feature-union per condition.
+- `src/lpmo_pipeline/analysis/prolif_ifp.py:L552-L575` - `write_ifp_matrix()` og `write_pose_ifp_table()` skriver condition- og run-flatene.
+- `src/lpmo_pipeline/analysis/residue_contact_extraction.py:L110-L157` - residue-contact-rader bygges direkte fra IFP-feature-navn og bitvektor.
+- `src/lpmo_pipeline/analysis/residue_contact_extraction.py:L127-L133` - bare `ok`-resultater med samsvarende feature-shape tas med.
+- `src/lpmo_pipeline/analysis/residue_contact_extraction.py:L167-L175` - writeren for `pose_residue_contact_table.tsv`.
+- `tests/test_analysis_orchestrator.py:L777-L895` - integrasjonstesten bekrefter at geometri, IFP, residue contacts og konvergens skrives i samme production-path.
+- `tests/test_analysis_orchestrator.py:L1397-L1408` - bekrefter at `geometry_metrics_error` ikke stopper analysis export eller IFP.
+- `tests/test_mdanalysis_metrics.py:L162-L234` - focused tester for pose-geometri og TSV-kontrakt.
+- `tests/test_convergence_metrics.py:L70-L204` - focused tester for seed-1-foerst referansevalg, proteinalignment og convergence-summary.
+- `tests/test_prolif_ifp.py:L31-L301` - focused tester for feature-union, aktivt featureformat og contact eligibility.
+- `tests/test_residue_contact_extraction.py:L15-L113` - focused tester for at residue-contact-tabellen speiler IFP-features direkte.
+- `tests/test_io_contracts.py:L135-L143` - bekrefter at ligand-only PDB ekskluderer Cu og andre ikke-ligandrester.
+- `README.md:L20-L21` - beskriver non-protonated analysis export og aktivt ProLIF-feature-sett.
+- `README.md:L34-L49` - oppsummerer status for downstream geometri, residue contacts og konvergens.
+- `README.md:L60-L61` - beskriver skillet mellom `complex_for_prolif.pdb` og `ligand_only_for_prolif.pdb`.
+- `README.md:L175-L175` - sier eksplisitt at downstream geometri ikke er en hard QC-gate.
+- `IMPLEMENTATION_PLAYBOOK.md:L53-L60` - playbook-status for analysis export, residue contacts, downstream geometri og konvergens.
+- `IMPLEMENTATION_PLAYBOOK.md:L228-L228` - dokumenterer at `geometry_metrics_error` ikke stopper analysis export / IFP.
+- `IMPLEMENTATION_PLAYBOOK.md:L248-L253` - dokumenterer seed-1-foerst convergence-referanse og TSV-outputene.
+- `MASTERPLAN.md:L146-L157` - stoetter dagens ProLIF-feature-sett og geometry-not-computable-policy, men beskriver fasen med en grovere stage-inndeling.
+- `MASTERPLAN.md:L163-L165` - beskriver convergence-outputene, men ikke helt dagens referansevalg.
+
+### Samsvar med stottedokumenter
+
+| Stottedokument | Hva dokumentet sier | Hva koden viser | Vurdering | Relevante linjer |
+|---|---|---|---|---|
+| `README.md` | ProLIF bruker non-protonated `analysis_export/`-artefakter med `ImplicitHBAcceptor`, `ImplicitHBDonor` og `VdWContact` | Analysis export lager disse PDB-flisene, og ProLIF bruker samme aktive interaksjonstyper | Bekreftet | doc: `README.md:L20-L21`, `README.md:L60-L61`; kode: `src/lpmo_pipeline/io/analysis_export.py:L57-L81`, `src/lpmo_pipeline/analysis/prolif_ifp.py:L133-L149`, `src/lpmo_pipeline/analysis/prolif_ifp.py:L487-L540` |
+| `README.md` | Downstream geometri er ikke en hard QC-gate; feil skal gi `geometry_not_computable` men la posen gaa videre | Orkestratoren flagger `geometry_metrics_error`, skriver fallback-geometri og fortsetter til analysis export / IFP | Bekreftet | doc: `README.md:L175-L175`; kode: `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2036-L2114`; test: `tests/test_analysis_orchestrator.py:L1397-L1408` |
+| `IMPLEMENTATION_PLAYBOOK.md` | Analysis export, residue contacts, downstream geometri og konvergens er implementert; convergence bruker seed-1-foerst referansevalg | Koden matcher dette og skriver de forventede TSV-flatene | Bekreftet | doc: `IMPLEMENTATION_PLAYBOOK.md:L53-L60`, `IMPLEMENTATION_PLAYBOOK.md:L228-L228`, `IMPLEMENTATION_PLAYBOOK.md:L248-L253`; kode: `src/lpmo_pipeline/io/analysis_export.py:L57-L81`, `src/lpmo_pipeline/analysis/convergence_metrics.py:L127-L186`, `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2603-L2633` |
+| `MASTERPLAN.md` | ProLIF-feature-sett og geometry-not-computable-policy er som i dagens kode | Dette stemmer i hovedsak, men stage-rekkefolgen er grovere enn dagens orkestrator | Delvis bekreftet | doc: `MASTERPLAN.md:L146-L157`; kode: `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2036-L2233`, `src/lpmo_pipeline/analysis/prolif_ifp.py:L162-L209` |
+| `MASTERPLAN.md` | Convergence bruker topprangert QC-pass-pose som fast referansepose | Koden prioriterer seed 1 foerst, og bruker ranking/plDDT bare innen kandidatsettet | Motsagt av kode | doc: `MASTERPLAN.md:L163-L165`; kode: `src/lpmo_pipeline/analysis/convergence_metrics.py:L127-L166`; test: `tests/test_convergence_metrics.py:L70-L113` |
+| `MASTERPLAN.md` | `pose_residue_contact_table.tsv` er fortsatt planlagt | Produksjonskoden bygger og skriver tabellen direkte fra ProLIF-resultatene | Motsagt av kode | doc: `MASTERPLAN.md:L149-L149`; kode: `src/lpmo_pipeline/analysis/residue_contact_extraction.py:L110-L175`, `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2616-L2623` |
+
+### Usikkerheter
+- Konvergens-inputen `ConvergencePoseInput` har felter for `ranking_score` og `mean_plddt`, men i den naermeste orkestratorstien fylles bare `pose_id`, `condition_id`, `complex_pdb`, `seed` og `sample`. Det betyr at referansevalget i praksis kan bli seed/sample-drevet oftere enn dokumentene antyder, men hvor ofte dette skjer i ekte produksjonsdata kan ikke fastslaas sikkert herfra alene.
+- `run_analysis_core_real_cifs.py` ser ut til a oppsummere `pose_geometry.tsv` og `pose_ifp_table.tsv`, men ikke eksplisitt convergence-flatene. Det kan vaere et harmlost hull i harnessen, men jeg kan ikke ut fra denne runden avgjore om det er tilsiktet eller bare ikke oppdatert.
+- Residue-contact-tabellen skriver en rad per feature-bit, inkludert `0`-biter. Det er tydelig i koden og testene, men stoettedokumentene beskriver som regel bare tabellen som observed contacts, ikke som en full feature-avledning.
+
+## Fase: Clustering, cluster-annotasjon og condition/protein-aggregering
+
+### Dekker steg
+- Steg 9: Contact eligibility og clustering
+- Steg 10: Cluster annotation og residue importance
+- Steg 10 (tilgrensende aggregasjonslag): condition- og protein-summary (`condition_table.tsv`, `protein_summary_table.tsv`)
+
+### Formaal
+Denne fasen tar condition-lokale IFP-resultater fra forrige fase og gjor dem om til tre ting: (1) formell condition-wise clustering av contact-eligible signal, (2) cluster-nivaa annotasjon/signaturer og residue-importance-tabeller, og (3) samledokumenterte condition/protein-tabeller som fungerer som stabilt grensesnitt videre mot crystal anchoring, rapportering og senere postprocess/analyse. I runtime-koden er dette en sammenhengende kjede i `run_analysis_core()`, ikke separate, manuelt sammensatte ettersteg.
+
+### Input
+- condition-lokale IFP-batcher: `IFPBatch` med feature-union, bitmatrise og per-pose IFP-status fra steg 8.
+- contact eligibility per pose: klassifisering fra `evaluate_contact_eligibility()` med `eligible` og exclusion-klasser (`null_ifp`, `vdw_only`, `low_specific_contact`).
+- clustering-policy fra produksjonsopsjoner: `minimum_clusterable_n`, `insufficient_clusterable_signal_label`, HDBSCAN-parametre, og main-feature-policy (`ImplicitHBAcceptor` + `ImplicitHBDonor` som default).
+- per-pose metadata: `pose_id`, `condition_id`, `protein_id`, `ligand_id`, `seed`, `sample`, geometri-/confidence-/convergence-rader og residue-contact-rader.
+- terskler for cluster type: `cluster_type`-blokken i `configs/thresholds.yaml`.
+
+### Hva skjer
+Fasen starter condition for condition etter at IFP-resultatene foreligger. Først oppdateres case- og metrics-lag med IFP-status og antall kontakter. Deretter brukes contact-eligibility direkte til aa splitte resultatene i clusterable og ikke-clusterable signal. Bare `status == ok` og `eligible == True` blir kandidater for formell clustering.
+
+For disse kandidatene bygges en condition-lokal `main_clustering_ifp_matrix.csv` ved aa filtrere IFP-feature-unionen til aktiv main-feature-policy. Samtidig klassifiseres conditionen til en eksplisitt clustering-status (`no_clusterable_poses`, `insufficient_clusterable_signal`, `empty_main_matrix`, `ok`) via antall clusterable poser og antall main-features. Formell clustering skjer kun i `ok`-grenen.
+
+Nar formell clustering er tillatt, kjorer produksjonsstien HDBSCAN paa Jaccard-avstand. Resultatet materialiseres direkte til `cluster_assignments.tsv` og `medoid_manifest.tsv`, og condition-oppsummering bygges med noise-/entropi-/occupancy-metrikker i `condition_cluster_summary.tsv`. Ikke-formelt-clusterte conditions far fortsatt condition-summary-rad med samme statusfelt, men uten assignments/medoids.
+
+Etter Stage 6-tabellene bygges Stage 7/16-annotasjon uten ny clustering. `build_cluster_signature_tables()` rekonstruerer cluster-medlemskap fra assignment-radene, ekskluderer noise (`cluster_id=-1`), henter medoids, beregner occupancy, cluster-type (fra geometry-plausibility + occupancy-terskler), geometri median/IQR, confidence-/convergence-aggregater, og avleder IFP-/residue-signaturfrekvenser. Dette skrives til `cluster_table.tsv`, `cluster_ifp_signature.tsv`, `cluster_residue_signature.tsv` og `cluster_signatures.json`.
+
+Deretter bygger Stage 16b residue-importance videre paa Stage 16-signaturene. Koden vekter residue-scorer med `cluster_occupancy * contact_frequency`, beregner C1-vs-C4-delta, lager condition-patch-fraksjoner, og aggregerer videre til proteinnivaa. Viktig: conditions med observerte residue-kontakter men uten retained clusters faar eksplisitte nullrader (ikke bare header-only) i Stage 16b-output.
+
+Til slutt bygges condition- og protein-tabellene som et separat sammendragslag over allerede skrevne tabeller. `condition_table.tsv` bruker `qc_attrition_table.tsv` som masterradsett og joiner inn cluster/convergence/patch/confidence/cluster_table-felter. `protein_summary_table.tsv` er et rent groupby-lag over condition-tabellen.
+
+### Hvorfor det gjores
+- bekreftet av kode:
+  - Contact-eligibility brukes som hard input-gate for clustering-matrisa, men ikke som sletting av posehistorikk; ikke-eligible poser bevares i case-/summaryfelter.
+  - Main clustering matrix filtreres til main-interaksjonstyper foer clustering, slik at deskriptive VdW-/andre signal fortsatt finnes i ra IFP-flater uten aa drive hovedklyngingen.
+  - `minimum_clusterable_n` og `empty_main_matrix` styres som eksplisitte condition-statuser i stedet for stille no-op, og disse statusene baeres videre til `condition_cluster_summary.tsv` og `condition_table.tsv`.
+  - Stage 7/16 gjor annotasjon paa Stage 6-medlemskap og medoids; den re-clustrer ikke.
+  - Stage 16b bruker cluster-signaturflater, ikke ra Stage 6-tabeller direkte, og bevarer no-valid-cluster-conditions via nullrad-backfill.
+  - Condition/protein-summary bygges sent som tabellaggregering over allerede materialiserte run-tabeller.
+- stoettet av dokumentasjon:
+  - README, playbook og masterplan beskriver condition-wise clustering, main-feature-policy, Stage 7-signaturflater og condition/protein-tabeller som kjerneoutput i production-slicen.
+  - DECISIONS forklarer eligibility-denominatorer, cluster-type-logikk og Stage 16/16b-kontrakter i detalj.
+- usikkert:
+  - `DECISIONS.md` inneholder baade eldre og nyere metodebeskrivelser i ulike seksjoner; enkelte linjer peker paa agglomerative som produksjon, mens orkestratoren naa instansierer HDBSCAN i primaerstien.
+  - Klassifiseringen av cluster-type er terskelstyrt og dokumentert, men biologisk tolkning av terskelverdiene er ikke fullstendig forankret i kodekommentarer alene.
+
+### Output
+- Stage 6 primaarclustering:
+  - `ifp_matrices/<condition>/main_clustering_ifp_matrix.csv`
+  - `cluster_assignments.tsv`
+  - `medoid_manifest.tsv`
+  - `condition_cluster_summary.tsv`
+- Stage 7/16 annotasjon:
+  - `cluster_table.tsv`
+  - `cluster_ifp_signature.tsv`
+  - `cluster_residue_signature.tsv`
+  - `cluster_signatures.json`
+  - `cluster_annotation_stage_completed` i `analysis_core_summary.json`
+- Stage 16b residue-importance:
+  - `protein_condition_residue_scores.tsv`
+  - `protein_residue_regio_delta.tsv`
+  - `condition_patch_summary.tsv`
+  - `protein_patch_summary.tsv`
+- aggregasjonslag:
+  - `condition_table.tsv`
+  - `protein_summary_table.tsv`
+
+### Relevante filer og linjer
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2176-L2369` - condition-loop for primaarclustering: eligibility, `main_clustering_ifp_matrix.csv`, statusklassifisering og formell HDBSCAN-greining.
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2298-L2353` - bygging av main matrix, kjoring av clusterer, assignment/medoid-skriving og tilbakefoering av `cluster_id`.
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2565-L2689` - skriving av `condition_cluster_summary.tsv`, `cluster_assignments.tsv`, `medoid_manifest.tsv` med statusfelt.
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L662-L699` - helpere for main-feature-matrise og `clustering_status`/`formal_clustering_allowed`.
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2729-L2808` - Stage 16/16b-kall og skriving av cluster-signatur- og residue-importance-tabeller.
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2973-L2984` - bygging av `condition_table.tsv` og `protein_summary_table.tsv`.
+- `src/lpmo_pipeline/analysis/clustering_hdbscan.py:L197-L296` - `build_condition_cluster_summary()`-konvensjoner for eligibility-fraksjoner, noise og occupancy-fordeling.
+- `src/lpmo_pipeline/analysis/clustering_hdbscan.py:L299-L476` - HDBSCAN-klynging paa precomputet Jaccard og eksakt medoidvalg med minimum summed distance.
+- `src/lpmo_pipeline/analysis/clustering_pilot.py:L14-L18` - default main/excluded interaksjonstyper for clustering-policy.
+- `src/lpmo_pipeline/analysis/cluster_signatures.py:L326-L413` - terskellasting og cluster-type-klassifisering.
+- `src/lpmo_pipeline/analysis/cluster_signatures.py:L414-L541` - rekonstruksjon av cluster-medlemmer og frekvensbygging for IFP/residue-signaturer.
+- `src/lpmo_pipeline/analysis/cluster_signatures.py:L544-L727` - `build_cluster_signature_tables()` som bygger Stage 16 summary-rader.
+- `src/lpmo_pipeline/analysis/cluster_signatures.py:L739-L751` - skrivere for `cluster_table.tsv` og `cluster_signatures.json`.
+- `src/lpmo_pipeline/analysis/residue_importance.py:L280-L457` - Stage 16b residue score-formler og C1/C4-vekting.
+- `src/lpmo_pipeline/analysis/residue_importance.py:L460-L615` - condition patch summary, protein-regio-delta og nullrad-backfill ved no-valid-cluster.
+- `src/lpmo_pipeline/analysis/condition_summary.py:L261-L361` - condition-table builder med `qc_attrition_rows` som master og join av cluster/convergence/patch/confidence.
+- `src/lpmo_pipeline/analysis/condition_summary.py:L365-L439` - protein-summary som groupby over condition-tabellen.
+- `configs/thresholds.yaml:L135-L162` - `cluster_type`-terskler og aktiv clustering-konfig.
+- `tests/test_analysis_orchestrator.py:L784-L805` - integrasjon forventer at clustering- og annotasjonsflater faktisk skrives.
+- `tests/test_analysis_orchestrator.py:L919-L955` - kontrakt for `condition_cluster_summary.tsv`, cluster-signaturfiler og nøkkelfelt.
+- `tests/test_analysis_orchestrator.py:L1041-L1071` - kontrakt for `condition_table.tsv` og `protein_summary_table.tsv`.
+- `tests/test_clustering.py:L18-L36` - lastepolicy for HDBSCAN-config og produksjonsclusterer.
+- `tests/test_clustering.py:L54-L95` - noise/outlier-oppforsel og condition summary-konvensjoner.
+- `tests/test_clustering.py:L119-L137` - medoidvalg ved minimum summed Jaccard distance.
+- `tests/test_cluster_signatures.py:L37-L232` - Stage 16-aggregasjon av cluster_type, geometri og signaturfrekvenser.
+- `tests/test_condition_summary.py:L18-L136` - `qc_attrition` som masterradsett og occupancy-vektede clusteraggregater.
+- `tests/test_condition_summary.py:L145-L193` - protein-summary som ren groupby over condition-tabellen.
+- `tests/test_residue_importance.py:L89-L259` - Stage 16b scorekontrakter for residue-contact, C1/C4-vekting og regio-delta.
+
+### Samsvar med stottedokumenter
+
+| Stottedokument | Hva dokumentet sier | Hva koden viser | Vurdering | Relevante linjer |
+|---|---|---|---|---|
+| `README.md` | Production bruker condition-wise clustering med main-feature-policy og skriver cluster/signature/condition/protein-tabeller | Orkestratoren bygger `main_clustering_ifp_matrix.csv`, cluster-tabeller, signaturer og summary-tabeller i samme produksjonssti | Bekreftet | doc: `README.md:22`, `README.md:91`, `README.md:264`, `README.md:266`; kode: `src/lpmo_pipeline/analysis/analysis_orchestrator.py:2298`, `src/lpmo_pipeline/analysis/analysis_orchestrator.py:2729`, `src/lpmo_pipeline/analysis/analysis_orchestrator.py:2973` |
+| `IMPLEMENTATION_PLAYBOOK.md` | Stage 6 er HDBSCAN Jaccard (min_cluster_size=5), Stage 16/16b skriver cluster-signatur- og residue-importance-flater, og condition/protein-summary er koblet inn | Dette matcher aktiv kode i orkestrator, clustering_hdbscan, cluster_signatures, residue_importance og condition_summary | Bekreftet | doc: `IMPLEMENTATION_PLAYBOOK.md:61`, `IMPLEMENTATION_PLAYBOOK.md:62`, `IMPLEMENTATION_PLAYBOOK.md:63`, `IMPLEMENTATION_PLAYBOOK.md:530`; kode: `src/lpmo_pipeline/analysis/analysis_orchestrator.py:2176`, `src/lpmo_pipeline/analysis/analysis_orchestrator.py:2772`, `src/lpmo_pipeline/analysis/analysis_orchestrator.py:2973` |
+| `DECISIONS.md` | Eligibility gate, denominator-konvensjoner, Stage 16/16b-logikk og flat `cluster_table.tsv`-eksport er presisert | Koden følger dette: eligible-gating, statusfelter, non-noise Stage 16-medlemskap, og Stage 16b scoreformler/nullrad-backfill | Delvis bekreftet | doc: `DECISIONS.md:106`, `DECISIONS.md:131`, `DECISIONS.md:340`, `DECISIONS.md:346`, `DECISIONS.md:427`, `DECISIONS.md:480`; kode: `src/lpmo_pipeline/analysis/analysis_orchestrator.py:2290`, `src/lpmo_pipeline/analysis/analysis_orchestrator.py:2309`, `src/lpmo_pipeline/analysis/cluster_signatures.py:414`, `src/lpmo_pipeline/analysis/residue_importance.py:367` |
+| `DECISIONS.md` | Enkelte eldre seksjoner omtaler agglomerative som aktiv produksjonssti | Aktiv produksjonssti instansierer HDBSCAN-clusterer i condition-loop | Delvis motsagt (dokumentblanding over tid) | doc: `DECISIONS.md:117`; kode: `src/lpmo_pipeline/analysis/analysis_orchestrator.py:2176` |
+| `MASTERPLAN.md` | Stage 6-7 beskriver HDBSCAN-basert condition-clustering, `minimum_clusterable_n`-gate, og Stage 7-annotasjon uten re-clustering | Dette samsvarer med helper-logikk og Stage 16-builderen | Bekreftet | doc: `MASTERPLAN.md:169`, `MASTERPLAN.md:175`, `MASTERPLAN.md:183`, `MASTERPLAN.md:201`, `MASTERPLAN.md:207`; kode: `src/lpmo_pipeline/analysis/analysis_orchestrator.py:684`, `src/lpmo_pipeline/analysis/analysis_orchestrator.py:2298`, `src/lpmo_pipeline/analysis/cluster_signatures.py:544` |
+
+### Usikkerheter
+- `DECISIONS.md` har historiske avsnitt med ulike metodebeskrivelser; det er ikke alltid entydig uten aa lese dato/kontekst hvilke avsnitt som er nyest.
+- `condition_table.tsv` er et aggregasjonslag over tabeller skrevet tidligere i samme run. Hvis noen upstream-tabeller mangler eller er tomme, vil tomverdier flyte videre; dette er forventet av kode, men ikke alltid eksplisitt forklart i dokumentasjonen.
+- Stage 16 legacy-hjelperen `compute_cluster_signatures()` finnes fortsatt i `cluster_signatures.py`, men brukes ikke i den aktive produksjonsstien. Potensiell forvirring i kodebasen bestaar selv om DECISIONS dokumenterer hvilket API som er aktivt.
+
+## Fase: Crystal anchoring og sluttmaterialisering av output/rapport
+
+### Dekker steg
+- Steg 11: Crystal anchoring
+- Steg 12: Rapportering og eksportflater
+
+### Formaal
+Denne fasen kobler condition-lokale representanter fra clustering til deposited crystal references, og materialiserer deretter en samlet runflate for videre analyse og lesbar rapportering. I praksis er dette siste produksjonskjede i `run_analysis_core()`: representative poser velges (medoid eller kontrollert fallback), crystal-sammenligning kjores med sporbar status per sammenligning, og resultatene skrives videre til crystal-tabeller, `metrics.csv`, `summary.json`, `report.html`, `analysis_core_summary.json` og slutt-tabellene for pose/condition/protein.
+
+### Input
+- representanter per condition:
+  - primaert: medoid-poser fra `clustering_result.medoids`
+  - fallback: top-level AF3 model-CIF per condition, men bare hvis ingen representanter finnes og fallback-posen passerer en egen hard-QC.
+- representative pose-CIF og condition-metadata (`protein_id`, `ligand_id`, `condition_id`, cluster-id).
+- crystal reference index + crystal-rot for `run_crystal_reference_screen()`.
+- tidligere produserte runflater som brukes i sluttaggregering: blant annet `qc_attrition_table.tsv`, `condition_cluster_summary.tsv`, `condition_convergence_summary.tsv`, `condition_patch_summary.tsv`, `pose_confidence.tsv` og `cluster_table.tsv`.
+
+### Hva skjer
+Fasen starter condition-vis i orkestratorens hovedloop. For hver condition velges crystal-representanter i prioritert rekkefolge. Forst hentes medoid-indeksene fra clusteringresultatet og mapes tilbake til `pose_id`/`PreparedPose` via `cluster_pose_ids` og `prepared_pose_by_id`. Hvis dette ikke gir noen representanter, prover koden top-model fallback for samme condition. Denne fallbacken er ikke automatisk beholdt: `_prepare_hard_qc_passing_top_model_fallback()` kjorer en separat prepare + hard-QC og slipper bare gjennom fallback-kandidater som ikke blir `dropped`.
+
+For hver valgt representant kjores `run_crystal_reference_screen()`, og resultatet skrives umiddelbart til `crystal_reference_screen.json` under en representantspesifikk outputmappe. Inne i crystal-modulen skjer sammenligningen per crystal-reference i en eksplisitt statuskjede:
+- representative pose forberedes for IFP
+- crystal-reference forberedes (site-seleksjon, subset, normalisering, analysis-export, crystal-IFP)
+- pocket-RMSD beregnes nar residuepar kan mappes
+- IFP-sammenligning tillates bare hvis baade representant-IFP er `ok` og crystal-IFP er contact-eligible (ikke `vdw_only`/annen ekskludert klasse)
+- selve IFP-likhet beregnes som feature-aligned Tanimoto over union-feature-rommet, ikke via antatt identisk bitvektorlayout.
+
+Orkestratoren tar deretter crystal-reporten og projiserer den til runflatene:
+- oppdaterer representative posers metrics/case-felt med beste tanimoto og beste pocket-RMSD
+- bygger `crystal_anchor_rows` (en rad per representant x crystal-sammenligning) med eligibility-/exclusion-felter, geometriutdrag og sammenligningsstatus
+- bygger `crystal_geometry_rows` for crystal-geometri
+- registrerer separate error-entries ved exceptions, inkludert en eksplisitt `comparison_status=error`-rad i anchor-tabellen slik at sporbarheten beholdes selv om en representant feiler.
+
+Etter condition-loop materialiseres crystal-flatene:
+- `crystal_anchor_table.tsv`
+- `crystal_geometry_table.tsv` (deduplisert per `(protein_id, pdb_code, source_cif)`)
+- `crystal_ifp_diagnostic_summary.tsv` med to scope-rader: `unique_crystal_reference` og `medoid_or_fallback_comparison`.
+
+Rapporteringsdelen kjorer i samme output-skriveblokk. `metrics.csv` bygges fra `metrics_record_by_pose_id` via `build_metrics_csv()`, som default ekskluderer `qc_status=dropped`. Deretter aggregeres `summary.json` via `build_summary()` over QC-, cluster-, geometri- og crystal-inndata. Til slutt rendres `report.html` fra summary + metrics med faste seksjoner for Dataset, QC, Cluster Landscape, Geometry og Crystal Comparison.
+
+Uavhengig av hvor langt crystal-/reportgrenen kom, skrives sluttabellene i den avsluttende delen av `run_analysis_core()`: `pose_manifest.tsv`, `pose_confidence.tsv`, `structure_index.tsv`, `qc_attrition_table.tsv`, `condition_table.tsv` og `protein_summary_table.tsv`. Samtidig oppdateres `analysis_summary` med path-felter, stage-flagg og crystal-aggregater, og hele objektet serialiseres til `analysis_core_summary.json`.
+
+### Hvorfor det gjores
+- bekreftet av kode:
+  - Medoid er primaarrepresentant fordi crystal-anchoring bygger videre paa conditionens formelle clusteringresultat; fallback aktiveres bare i no-representative-grenen.
+  - Fallbacken hard-gates med egen hard-QC for aa unngaa at top-model CIF uten kvalitetspass blir brukt som crystal-representant.
+  - Crystal-IFP comparability er eksplisitt gate'et via contact-eligibility, slik at `vdw_only`/lav-spesifikk kontakt ikke bidrar med misvisende tanimoto.
+  - Feature-aligned Tanimoto over union-feature-rommet beskytter mot feillikhet nar pose- og crystal-IFP har ulik feature-layout.
+  - Exception-rader i `crystal_anchor_table.tsv` bevarer sporbarhet i stedet for stille bortfall.
+  - `metrics.csv` ekskluderer droppede poser med vilje, mens `summary.json` aggregerer over de innmatede QC/cluster/geometry/crystal-flatene.
+  - Sluttabellene for pose/condition/protein skrives i en felles sluttmaterialisering for aa gi en stabil runflate uansett variasjon i mellomsteg.
+- stottet av dokumentasjon:
+  - README beskriver medoid-basert crystal-screening med hard-QC-fallback for no-cluster conditions, samt sluttflater som `metrics.csv`, `summary.json` og `report.html`.
+  - DECISIONS/Open-questions peker paa contact-eligibility og crystal-comparability som sentral beslutningsflate.
+- usikkert:
+  - Dokumentasjonen beskriver intensjon og kontrakt, men reell andel conditions som gaar via fallback versus medoid i stor-skala run maa fortsatt bekreftes gjennom bred real-data kjoring.
+
+### Output
+- crystal-anchoringflater:
+  - `crystal_anchoring/<condition>/<representative_pose>/crystal_reference_screen.json`
+  - `crystal_anchor_table.tsv`
+  - `crystal_geometry_table.tsv`
+  - `crystal_ifp_diagnostic_summary.tsv`
+- rapportflater:
+  - `metrics.csv`
+  - `summary.json`
+  - `report.html`
+  - `analysis_core_summary.json` med crystal/report paths, stageflagg og tellerfelt
+- slutt-tabeller/materialisering:
+  - `pose_manifest.tsv`
+  - `pose_confidence.tsv`
+  - `structure_index.tsv`
+  - `qc_attrition_table.tsv`
+  - `condition_table.tsv`
+  - `protein_summary_table.tsv`
+
+### Relevante filer og linjer
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L1611-L1665` - medoid-representantvalg og hard-QC-gatet top-model fallback.
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2378-L2510` - condition-loop for crystal anchoring: kjoring, case/metrics-berikning og feilhandtering.
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2809-L2916` - skriving av `crystal_anchor_table.tsv`, `crystal_geometry_table.tsv`, `crystal_ifp_diagnostic_summary.tsv`, `metrics.csv`, `summary.json`, `report.html`.
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2942-L3140` - sluttmaterialisering av `pose_manifest.tsv`, `pose_confidence.tsv`, `structure_index.tsv`, `qc_attrition_table.tsv`, `condition_table.tsv`, `protein_summary_table.tsv`, og returfelter i `AnalysisCoreResult`.
+- `src/lpmo_pipeline/analysis/crystal_anchoring.py:L1260-L1283` - feature-aligned Tanimoto over union-feature-sett.
+- `src/lpmo_pipeline/analysis/crystal_anchoring.py:L1322-L1324` - contact-eligibility-avledning for crystal-IFP.
+- `src/lpmo_pipeline/analysis/crystal_anchoring.py:L1400-L1579` - crystal-reference prepare-linje (site-seleksjon, normalisering, export, IFP, geometri).
+- `src/lpmo_pipeline/analysis/crystal_anchoring.py:L1582-L1762` - `run_crystal_reference_screen()` og statuskjeden for comparability.
+- `src/lpmo_pipeline/analysis/crystal_anchoring.py:L1764-L1835` - serialisering av representant-vs-crystal-report.
+- `src/lpmo_pipeline/report/build_metrics_csv.py:L56-L86` - `metrics.csv`-bygging og ekskludering av droppede poser.
+- `src/lpmo_pipeline/report/build_summary_json.py:L30-L157` - aggregering til `summary.json`, inkludert crystal-stats.
+- `src/lpmo_pipeline/report/build_report_html.py:L104-L257` - HTML-rapportseksjoner og metrics-drevne fordelinger.
+- `tests/test_crystal_anchoring.py:L367-L410` - tester feature-aligned tanimoto og non-vdW contact-eligibility.
+- `tests/test_crystal_anchoring.py:L626-L629` - tester at crystal-comparison blir eligible og får tanimoto i positiv case.
+- `tests/test_analysis_orchestrator.py:L760-L803` - integrasjon forventer crystal/report/sluttflater skrevet og stageflagg satt.
+- `tests/test_analysis_orchestrator.py:L1069-L1104` - validerer feltinnhold i crystal-tabeller og `summary.json` crystal-stats.
+- `tests/test_analysis_orchestrator.py:L1127-L1130` - validerer paths for slutt-tabeller i `analysis_core_summary`.
+- `tests/test_analysis_orchestrator.py:L1170-L1176` - validerer crystal paths + best_tanimoto/pocket_rmsd i summary.
+- `tests/test_build_summary_json.py:L6-L22` - verifiserer at manglende tanimoto ignoreres korrekt i mean-beregning.
+- `tests/test_report_html.py:L11-L77` - verifiserer at HTML-rapport rendrer konkrete seksjoner uten placeholder.
+
+### Samsvar med stottedokumenter
+
+| Stottedokument | Hva dokumentet sier | Hva koden viser | Vurdering | Relevante linjer |
+|---|---|---|---|---|
+| `README.md` | Beholdte medoid-representanter screenes mot crystal references; no-cluster conditions kan bruke hard-QC-passert top-model fallback | Orkestratoren velger medoid-representanter foerst og aktiverer fallback bare nar ingen representanter finnes | Bekreftet | doc: `README.md:156`; kode: `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2378-L2466`, `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L1611-L1665` |
+| `README.md` | Sluttflater inkluderer `metrics.csv`, `summary.json`, `report.html` i production-run | Disse skrives eksplisitt i output-skriveblokken | Bekreftet | doc: `README.md:214`; kode: `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2886-L2912` |
+| `DECISIONS.md` / `OPEN_QUESTIONS.md` | Contact-eligibility og crystal-comparability er sentrale beslutningspunkter | Crystal-modulen gate'r comparability paa contact-eligibility og markerer exclusion-klasser per sammenligning | Delvis bekreftet | doc: `OPEN_QUESTIONS.md:66`; kode: `src/lpmo_pipeline/analysis/crystal_anchoring.py:L1648-L1743` |
+| `IMPLEMENTATION_PLAYBOOK.md` | Crystal anchoring og rapportflater er del av aktiv production-slice | Aktiv orkestrator skriver crystal-tabeller, metrics/summary/report og returnerer disse pathene i resultatobjektet | Bekreftet | doc: `IMPLEMENTATION_PLAYBOOK.md:63`; kode: `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2809-L3140` |
+
+### Usikkerheter
+- I integrert flyt leser `condition_table`-byggingen flere tabeller fra disk. I de naermeste testene er disse flatene tilstede, men fallbackoppforsel ved delvis manglende tabeller i store, avbrutte run er ikke dypverifisert her.
+- `report.html` er en deskriptiv overflate over summary+metrics; biologisk tolkning av fordelingene ligger utenfor kodekontrakten og maa valideres i domeneanalyse.
+- Crystal-modulen har ogsaa en eldre `run_crystal_anchoring()`-APIflate, men aktiv production-sti bruker `run_crystal_reference_screen()` gjennom orkestratoren.
+
+## Fase: Tuning og pilotorkestrering
+
+### Dekker steg
+- Steg 13: Tuning og pilotorkestrering
+
+### Formaal
+Denne fasen beskriver sidegrenene ved siden av den ordinare production-runnen: (1) en dedikert `tune`-kommando for parameter-tuning, og (2) en production-naer clustering-pilotsti med resume/checkpoints, staged shard-kjoring og aggregering av outputs. I dagens kodebase er dette ikke ett enkelt runtime-steg i `run_analysis_core()`, men et sett med orchestreringsflater som gjenbruker deler av samme analysekjerne.
+
+### Input
+- tuning-CLI:
+  - `lpmo-pipeline tune --model --config --output [--n-jobs]`
+  - tuning-YAML + eventuelle run-config-overstyringer.
+- production-integrert pilot:
+  - `production.clustering_pilot.enabled=true` i production-config
+  - conditionvise IFP-batcher/contact-eligibility fra ordinart run.
+- real-case pilot wrappers:
+  - seleksjonsmanifest (`selection.yaml`) med `work_root`, construct-type og protein/target-par
+  - `run_clustering_pilot_real_case.py` for prepare/execute/resume
+  - staged Slurm-wrapper `submit_clustering_pilot_staged.sh` som bygger manifests, splitter i shards, submitter arrays og samler resultater.
+
+### Hva skjer
+Steg 13 deler seg i tre operative spor i kode:
+
+Forst finnes en dedikert `tune`-entrypoint i CLI (`cmd_tune`). Denne laster config, initialiserer manifest, og kaller `run_tuning(...)`. Selve tuning-orkestratoren i `tune_orchestrator.py` er fasebasert: laster parametergrid, hash-merker punkter, kjorer refinement sweep, velger beste punkt med beslutningsregel, resolver avhengigheter for diversity-fasen, kjorer ny sweep, merger beste params, og skriver laaste parametre + `tuning_summary.json`.
+
+Deretter finnes en production-integrert pilotgren i `run_analysis_core()`. Hvis `options.clustering_pilot` er aktiv, samles `PilotConditionIFP` per condition under den vanlige analysen. Etter condition-loopen skrives pilot-output separat via `_write_clustering_pilot_outputs(...)`: prevalence-tabeller, feature-selection JSON, per-condition raw/main matrix-filer, method-sammenlikning (HDBSCAN + agglomerative_jaccard) og samlet `pilot_clustering_method_summary.tsv`. Dette endrer ikke den primare production-clusteringstien, men legger til en sideflate i `analysis_summary["clustering_pilot"]`.
+
+Til slutt finnes real-case pilotorkestrering i test/run-scripts. `prepare_real_case_pilot_run(...)` materialiserer en resumevennlig pipeline med checkpoints:
+- snapshot av selection manifest
+- discovery-checkpoint for valgt protein/target-scope
+- staging-checkpoint som lager symlinket fake work-root + `latest`-lenker
+- generert production-config med `clustering_pilot.enabled=true`.
+
+Wrapperen `run_clustering_pilot_real_case.py` kan kjores i prepare-only eller execute-modus, og bestemmer om den skal rerunne `cmd_run` basert paa `force-step`, `manifest_changed`, `config_changed` og om `analysis_core_summary.json` allerede finnes. Etter execute kan den bygge/oppdatere et execution summary via `summarize_pilot_execution(...)`.
+
+For multi-node orkestrering bygger `submit_clustering_pilot_staged.sh` domain/full-length manifests, splitter disse i shards (balansert paa protein_count eller estimated_pose_count), submitter Slurm-arrays per construct-type, og trigger en samlesteg-jobb. Samlesteg (`collect_clustering_pilot_shards.py`) lager per-shard status, merger sentrale outputflater, bygger aggregert `summary.json` + `report.html`, og kan kjoere global postprocess (predictive/CBM/family) over merged output.
+
+### Hvorfor det gjores
+- bekreftet av kode:
+  - Pilot i `analysis_orchestrator` er en add-on-output som gjenbruker IFP-signal og skriver egne artefakter; den erstatter ikke primar HDBSCAN-production-flyt.
+  - Real-case pilot wrappers er laget for resumering/robust batch-kjoring via checkpoints og forceable steg.
+  - Staged Slurm-wrapper separerer discovery/staging/sharding/execute/samling for aa skalere stor pilotkjoring uten aa miste sporbarhet.
+  - Samlesteget merger shard-overflater til en felles runflate og muliggjør global postprocess etter array-kjoring.
+- stottet av dokumentasjon/tests:
+  - `test_clustering_pilot.py` og `test_clustering_pilot_real_case.py` beskriver forventet policy for feature-seleksjon, matrix-status og checkpoint/reuse-oppforsel.
+  - Run-scripts dokumenterer eksplisitt staged, multi-node pilot som naavaerende anbefalt pilotorkestrering.
+- usikkert/avvik:
+  - Tune-signaturen er na gjort kompatibel i CLI-kallet: `cmd_tune()` sender `tuning_config_path`, `test_cases`, `output_dir`, `pipeline_config` og `max_parallel` til `run_tuning(...)`.
+  - Dagens CLI-sti sender forelopig `test_cases=[]`; derfor er gjenvaerende usikkerhet ikke signaturmismatch, men hvordan tuning-datasettet skal materialiseres fra config til konkrete `TuningTestCase`-objekter i produksjonsbruk.
+
+### Output
+- tuning-spor:
+  - `run_manifest.json` (mode=tune)
+  - laast best-params YAML
+  - `tuning_summary.json`
+- production-integrert pilotspor:
+  - `clustering_pilot/<label>/pilot_ifp_interaction_type_prevalence.tsv`
+  - `clustering_pilot/<label>/pilot_ifp_feature_prevalence.tsv`
+  - `clustering_pilot/<label>/pilot_feature_selection.json`
+  - `clustering_pilot/<label>/pilot_clustering_method_summary.tsv`
+  - conditionvise raw/main matrix-filer + method-spesifikke assignment/medoid-tabeller
+- real-case staged spor:
+  - checkpoint-json under `tmp/clustering_pilot_real_case/`
+  - generert production-config for pilotrun
+  - shard-sammendrag, merged outputflater og aggregert summary/report i staged run-root.
+
+### Relevante filer og linjer
+- `src/lpmo_pipeline/cli.py:L253-L322` - `cmd_tune()` og hvordan tuning entrypoint orchestreres.
+- `src/lpmo_pipeline/tuning/tune_orchestrator.py:L28-L157` - `run_tuning()` sin faseflyt og outputskriving.
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L193-L225` - `ClusteringPilotOptions` kontrakt.
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L452-L617` - lasting/normalisering av `production.clustering_pilot`-opsjoner.
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L700-L977` - `_write_clustering_pilot_outputs()` og pilotartefakter.
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2283-L2293` - innsamling av `PilotConditionIFP` i ordinart run.
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2586-L2600` - trigger for pilot-outputskriving og timing-event.
+- `src/lpmo_pipeline/analysis/clustering_pilot.py:L1-L347` - prevalence, feature-seleksjon, filtrerte matriser og condition-status.
+- `src/lpmo_pipeline/analysis/clustering_pilot_real_case.py:L659-L789` - prepare/checkpoint/resume-flyt for real-case pilot.
+- `src/lpmo_pipeline/analysis/clustering_pilot_real_case.py:L792-L851` - execution summary og pilot-output readiness.
+- `tests/run_tests_scripts/run_clustering_pilot_real_case.py:L1-L145` - CLI-wrapper for prepare/execute/reuse.
+- `tests/run_tests_scripts/submit_clustering_pilot_staged.sh:L1-L320` - multi-node staged orchestration.
+- `tests/run_tests_scripts/split_clustering_pilot_selection_manifest.py:L1-L229` - shard-splitting og balansepolicy.
+- `tests/run_tests_scripts/collect_clustering_pilot_shards.py:L1-L360` - shard-samling, merge og global postprocess.
+- `tests/test_clustering_pilot.py:L1-L307` - tester for pilot-featurepolicy og matrix-status.
+- `tests/test_clustering_pilot_real_case.py:L1-L323` - tester for real-case manifest/staging/checkpoint/reuse.
+
+### Samsvar med stottedokumenter
+
+| Stottedokument | Hva dokumentet sier | Hva koden viser | Vurdering | Relevante linjer |
+|---|---|---|---|---|
+| `README.md` / statusdokumentasjon | Pilot er sidegren ved siden av production og bruker samme analyseflate som grunnlag | Orkestratoren bygger pilot-data fra conditionvise IFP-resultater og skriver separate pilotartefakter | Bekreftet | kode: `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2283-L2293`, `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2586-L2600` |
+| run-scripts under `tests/run_tests_scripts/` | Staged pilot skal vaere resumebar og skaleres via shards/Slurm arrays | `run_clustering_pilot_real_case.py` + `submit_clustering_pilot_staged.sh` + shard collect/split implementerer dette | Bekreftet | script: `tests/run_tests_scripts/run_clustering_pilot_real_case.py:L1-L145`, `tests/run_tests_scripts/submit_clustering_pilot_staged.sh:L1-L320` |
+| tuning-kontrakt i kode | `cmd_tune()` skal bruke tuning-orkestratorfunksjonen | `cmd_tune()` kaller na `run_tuning(...)` med kompatible argumentnavn (`tuning_config_path`, `test_cases`, `pipeline_config`, `max_parallel`) | Bekreftet | `src/lpmo_pipeline/cli.py:L286-L294`, `src/lpmo_pipeline/tuning/tune_orchestrator.py:L28-L35` |
+| testdekning for tune | CLI-kontrakter boer vaere dekket av focused tester | `tests/test_cli_run.py` har na en egen test for `cmd_tune()`-kallet og manifest-gate `tuning_completed` | Bekreftet | `tests/test_cli_run.py:L10-L53` |
+
+### Usikkerheter
+- Jeg har ikke i denne runden kjort `lpmo-pipeline tune` end-to-end mot reelt tuning-datasett; focused testen verifiserer kallesignatur og manifest-gate, men ikke datamaterialisering av `test_cases`.
+- Production-integrert pilot-output forutsetter at conditions med contact-eligible signal faktisk finnes; ved tom signalflate blir pilotdelen i praksis redusert til metadata/ingen outputskriving.
+- Den staged wrapperen inkluderer ogsaa global postprocess (predictive/CBM/family) etter merge; dette overlapper delvis andre sidegrener og kan skape grenseuklarhet i dokumentasjonen dersom disse beskrives separat senere.
+
+## Prompt 5-avgrensning: Hovedprosessering (kjerne)
+
+Denne delleveransen avgrenser hovedprosesseringen til Steg 5-6 for aa holde analysen presis og ikke for bred. Steg 7-10 viderefoeres i neste runde (Prompt 6).
+
+### Steg 5: Downstream geometri for beholdte poser
+
+#### Status
+Ferdig
+
+#### Formaal
+Bygge en stabil geometriflate per pose etter hard QC, uten aa innfore en ny hard gate. Steget produserer analyseklare geometriresultater som brukes videre i metrics/summary og senere annotasjon.
+
+#### Input
+- data fra tidligere steg:
+  - `PreparedPose.structure` (in-memory struktur fra normalisert CIF)
+  - `qc_verdict` per pose fra hard QC
+  - posemetadata (`pose_id`, `protein_id`, `ligand_id`, `model`, `seed`, `sample`)
+- config:
+  - terskler/rules fra `configs/thresholds.yaml` via `mdanalysis_metrics`
+- metadata:
+  - `condition_id` avledet i orkestrator for videre condition-gruppering
+- tidligere mellomresultater:
+  - `case_by_pose_id` og `metrics_record_by_pose_id` bygges videre paa
+
+#### Hva skjer
+- Orkestratoren itererer over alle `prepared_poses` og stopper geometri helt for `qc_verdict.status == dropped`; disse markeres som `skipped` i analysefelt.
+- For beholdte poser beregnes posegeometri via `compute_pose_metrics_from_structure(...)`, og raden lagres baade i geometri-listen og i case/metrics-lag.
+- Hvis geometri-beregning kaster exception, blir posen ikke fjernet: orkestratoren skriver en fallback-rad (`geometry_not_computable`) og setter `geometry_metrics_error`/traceback i case.
+- Data klargjoeres for neste steg ved at hver pose har en konsistent geometri-rad (ok eller fallback), og ved at analysen fortsatt fortsetter til analysis export.
+
+#### Hvorfor det gjores
+- Koden viser at geometri her er en beskrivende analyseflate, ikke en hard QC-gate: feil i geometri skal ikke blokkere analysis export/IFP.
+- Dette reduserer tap av signal i downstream-kjeden ved tekniske geometri-feil, samtidig som feilen forblir eksplisitt sporbar i case- og metrics-felter.
+- Begrunnelsen er direkte stottet av validerings-/feilhaandtering i orkestratoren og av statussettingen i `mdanalysis_metrics`.
+
+#### Output
+- datastrukturer:
+  - `geometry_metrics` (liste av `PoseGeometryMetrics`)
+  - `summary_geometry_rows`
+  - oppdaterte `case_by_pose_id[*]["geometry_row"]`
+  - oppdaterte `metrics_record_by_pose_id`
+- mellomfiler (skrives senere i samme run):
+  - `pose_geometry.tsv`
+- output til neste steg:
+  - case med geometri-status (`ok`/`flagged`/`skipped`) klar for analysis export og condition-looper
+
+#### Relevante filer og linjer
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2036-L2078`
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2118-L2129`
+- `src/lpmo_pipeline/analysis/mdanalysis_metrics.py:L272-L356`
+- `src/lpmo_pipeline/analysis/mdanalysis_metrics.py:L398-L408`
+- `src/lpmo_pipeline/analysis/mdanalysis_metrics.py:L727-L741`
+
+#### Samsvar med stottedokumenter
+
+| Stottedokument | Hva det sier | Hva koden viser | Samsvar/avvik | Linjereferanser |
+|---|---|---|---|---|
+| `README.md` | Downstream geometri er ikke ny hard gate | Geometri-feil gir fallback + flagg, men analysen fortsetter | Samsvar | doc: `README.md:L175`; kode: `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2036-L2114` |
+| `IMPLEMENTATION_PLAYBOOK.md` | `geometry_metrics_error` skal ikke stoppe analysis export/IFP | Exception-gren setter flagged/error og gaar videre | Samsvar | doc: `IMPLEMENTATION_PLAYBOOK.md:L228`; kode: `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2057-L2114` |
+| `MASTERPLAN.md` | Geometry-not-computable behandles som ikke-blokkerende analysetilstand | `_assign_geometry_status()` + orkestratorens fallback samsvarer | Delvis samsvar (planverk grovere) | doc: `MASTERPLAN.md:L146-L157`; kode: `src/lpmo_pipeline/analysis/mdanalysis_metrics.py:L727-L741` |
+
+#### Usikkerheter
+- Jeg har ikke i denne delrunden validert bred real-data-fordeling av `geometry_not_computable`; kun logikken i kode/test er analysert.
+- Det er uklart om alle stoettedokumenter bruker samme begrepsskille mellom hard-QC-geometri og downstream-geometri.
+
+### Steg 6: Analysis export som gate til condition-vis prosessering
+
+#### Status
+Ferdig
+
+#### Formaal
+Transformere normalisert CIF til to ikke-protonerte PDB-artefakter (`complex` + `ligand-only`) som er obligatorisk input for videre konvergens og ProLIF.
+
+#### Input
+- data fra tidligere steg:
+  - `prepared_pose.normalized_cif`
+  - case/posemetadata fra orkestratorloopen
+- config/regler:
+  - analysis-export-reglene i `io/analysis_export.py` (blockers/warnings)
+- tidligere mellomresultater:
+  - geometri-status fra Steg 5 (kan vaere `flagged`, men posen kan fortsatt eksporteres)
+
+#### Hva skjer
+- For hver beholdt pose kalles `export_analysis_artifacts(normalized_cif, analysis_export_dir)`.
+- Exporten produserer:
+  - `analysis_export/complex_for_prolif.pdb`
+  - `analysis_export/ligand_only_for_prolif.pdb`
+  - `analysis_export_report.json`
+- Orkestratoren leser `analysis_export_ok` og blocker-liste:
+  - ved suksess legges posen i `ifp_pose_inputs_by_condition` med paths/metadata
+  - ved feil opprettes et eksplisitt IFP-feilresultat (`_make_ifp_failure_result`) i stedet for stille bortfall
+- Resultatet er en tydelig condition-klar inputmengde for neste hovedprosessering (konvergens + ProLIF) og samtidig sporbarhet for poser som stoppet paa export.
+
+#### Hvorfor det gjores
+- Koden krever non-protonated PDB-flater for baade konvergens og ProLIF; analysis export er derfor en naturlig gate mellom per-pose geometri og condition-vis analyse.
+- Blocker-begrepet gjør stoppgrunn eksplisitt (f.eks. tom ligand-only ekstraksjon), slik at senere tabeller ikke blander teknisk stopp med biologisk nullsignal.
+- Explicit IFP-failure-rad bevarer posehistorikk i runflatene og forhindrer skjult attrisjon.
+
+#### Output
+- mellomfiler per pose:
+  - `analysis_export/complex_for_prolif.pdb`
+  - `analysis_export/ligand_only_for_prolif.pdb`
+  - `analysis_export/analysis_export_report.json`
+- oppdaterte objekter:
+  - `case["analysis_export_ok"]`, `case["analysis_export_blockers"]`, `case["ifp_generation_status"]`
+  - `ifp_pose_inputs_by_condition[condition_id]` for vellykkede poser
+  - `all_ifp_results` beriket med feilrader for blokkerte poser
+- output til neste steg:
+  - condition-grupperte IFP-/konvergensinput fra eksporterte poser
+
+#### Relevante filer og linjer
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2080-L2117`
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2176-L2233`
+- `src/lpmo_pipeline/io/analysis_export.py:L47-L116`
+- `src/lpmo_pipeline/io/analysis_export.py:L132-L133`
+
+#### Samsvar med stottedokumenter
+
+| Stottedokument | Hva det sier | Hva koden viser | Samsvar/avvik | Linjereferanser |
+|---|---|---|---|---|
+| `README.md` | ProLIF-facing input er non-protonated `complex_for_prolif.pdb` + `ligand_only_for_prolif.pdb` | Exporten skriver nettopp disse artefaktene og blokkerer ved ugyldig ligand-only | Samsvar | doc: `README.md:L20-L21`, `README.md:L60-L61`; kode: `src/lpmo_pipeline/io/analysis_export.py:L47-L81` |
+| `CODEWALKTHROUGH_STATUS.md` | Steg 6 er `analysis_export`, ikke protonering | Orkestratoren bruker `export_analysis_artifacts` foer konvergens/IFP | Samsvar | doc: `human_readability_code_walkthrough/CODEWALKTHROUGH_STATUS.md:L3-L6`; kode: `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2083-L2233` |
+| `IMPLEMENTATION_PLAYBOOK.md` | Analysis export er del av aktiv production-slice | Case-oppdatering og gating til condition-input viser aktiv bruk i hovedflyt | Samsvar | doc: `IMPLEMENTATION_PLAYBOOK.md:L53-L60`; kode: `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2080-L2189` |
+
+#### Usikkerheter
+- Jeg har ikke funnet en egen focused testfil kun for `analysis_export.py`; kontrakten bekreftes indirekte via orkestrator/io-tester.
+- I denne avgrensningen er ikke hele condition-loopen (konvergens, IFP, clustering) detaljert utover at Steg 6 leverer input dit.
+
+### Steg 7: Konvergens per condition
+
+#### Status
+Ferdig
+
+#### Formål
+Beregne reproduksjon av ligandplassering innen hver condition foer clustering, slik at hver pose faar et sammenlignbart RMSD-signal mot en fast condition-referanse.
+
+#### Input
+- data fra tidligere steg:
+  - condition-grupperte poser fra analysis export (`complex_for_prolif.pdb`)
+  - posemetadata (`pose_id`, `condition_id`, `seed`, `sample`)
+- config:
+  - `convergence`-seksjonen i `configs/thresholds.yaml`
+  - `alignment_selection`, `ligand_selection`, `convergent_rmsd_max_a`, `low_convergence_flag_threshold`
+- metadata:
+  - condition-ID brukt som streng gate (noyaktig ett condition-ID per batch)
+- tidligere mellomresultater:
+  - per-pose case-records og metrics-records som berikes med konvergensfelter
+
+#### Hva skjer
+- Orkestratoren gaar condition-for-condition over `ifp_pose_inputs_by_condition`; konvergens kjorer bare nar conditionen har minst ett analysis-export-vellykket pose-input.
+- Hver condition-input bygges om til `ConvergencePoseInput` og sendes til `compute_condition_convergence(...)`.
+- Inne i konvergensmodulen velges en fast referansepose med seed-1-foerst policy. Hvis seed-1 finnes, velges referanse innen dette delsettet; ranking score og mean pLDDT brukes som tie-break dersom de er tilgjengelige, ellers sample/pose-id for determinisme.
+- For hver pose alignes protein mot referansen (CA-seleksjon), ligandatomer velges fra konfigurasjon, og atomvis ligand-RMSD beregnes.
+- Per pose settes `convergent_flag` via terskelen `ligand_rmsd_to_reference < convergent_rmsd_max_a`.
+- Deretter bygges en condition-summary med `convergence_fraction`, median og IQR for ligand-RMSD, samt `low_convergence_flag` mot condition-terskelen.
+- Orkestratoren beriker case-nivaa med `ligand_rmsd_to_reference`, `convergent_flag` og `convergence_reference_pose_id`, og samler tabellrader for senere TSV-skriving.
+
+#### Hvorfor det gjøres
+- Konvergens legges foer clustering for aa beskrive intern stabilitet i posemengden uten aa avhenge av cluster-utfall.
+- Fast referanse per condition gir konsistente RMSD-sammenligninger i samme biologiske kontekst.
+- Seed-1-prioritering er eksplisitt i kode/docstring og virker valgt for deterministisk og robust referansevalg i pre-clustering-fase.
+- Protein-alignment foer ligand-RMSD reduserer rigid-body-forskyvning som feilkilde i ligand-sammenligning.
+- Terskelstyrte flagg (`convergent_flag`, `low_convergence_flag`) gjor resultatet direkte brukbart videre i summary/aggregering.
+
+#### Output
+- datastrukturer:
+  - `pose_convergence_metrics` (liste av `PoseConvergenceMetrics`)
+  - `condition_convergence_summaries` (liste av `ConditionConvergenceSummary`)
+  - oppdaterte case-felter per pose (`ligand_rmsd_to_reference`, `convergent_flag`, `convergence_reference_pose_id`)
+- mellomfiler:
+  - `pose_convergence.tsv`
+  - `condition_convergence_summary.tsv`
+- output til neste steg:
+  - berikede pose-/condition-signaler videre til ProLIF/clustering og senere condition/protein-summary
+
+#### Relevante filer og linjer
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2194-L2221`
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2628-L2635`
+- `src/lpmo_pipeline/analysis/convergence_metrics.py:L92-L125`
+- `src/lpmo_pipeline/analysis/convergence_metrics.py:L127-L149`
+- `src/lpmo_pipeline/analysis/convergence_metrics.py:L151-L193`
+- `src/lpmo_pipeline/analysis/convergence_metrics.py:L196-L225`
+- `src/lpmo_pipeline/analysis/convergence_metrics.py:L227-L247`
+- `configs/thresholds.yaml:L89-L98`
+- `tests/test_convergence_metrics.py:L70-L153`
+
+#### Samsvar med støttedokumenter
+
+| Støttedokument | Hva det sier | Hva koden viser | Samsvar/avvik | Linjereferanser |
+|---|---|---|---|---|
+| `IMPLEMENTATION_PLAYBOOK.md` | Konvergens er koblet inn i production-sti, med seed-1-foerst referansevalg og TSV-output | Orkestrator + konvergensmodul skriver begge TSV-ene og bruker seed-1-prioritering | Samsvar | doc: `IMPLEMENTATION_PLAYBOOK.md:L245-L253`; kode: `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2194-L2221`, `src/lpmo_pipeline/analysis/convergence_metrics.py:L127-L149`, `src/lpmo_pipeline/analysis/convergence_metrics.py:L227-L247` |
+| `README.md` | Stage 14b convergence er implementert i production, men integrert real-data verifisering gjenstaar | Koden viser aktiv wiring i production-loop; statuslinjen i README stemmer med at integrert verifisering fortsatt er markert som gjenstaaende | Samsvar | doc: `README.md:L46-L49`; kode: `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2194-L2221` |
+| `MASTERPLAN.md` | Beskriver topprangert pose som referanse | Koden prioriterer seed-1 delsett foerst; ranking/plDDT brukes innen kandidatsortering | Avvik (kode er fasit) | doc: `MASTERPLAN.md:L163`; kode: `src/lpmo_pipeline/analysis/convergence_metrics.py:L127-L149`; test: `tests/test_convergence_metrics.py:L70-L113` |
+
+#### Usikkerheter
+- Orkestratoren sender per i dag ikke `ranking_score`/`mean_plddt` inn i `ConvergencePoseInput`; tie-break med disse feltene er implementert i modulen, men brukes bare hvis felt faktisk settes av kallende kode.
+- Jeg har ikke i denne avgrensningen verifisert en ny integrert real-data-kjoring for hele production-stien, kun kode/test-kontrakt for konvergensdelen.
+
+### Steg 8: ProLIF og residue contacts
+
+#### Status
+Ferdig
+
+#### Formaal
+Bygge et condition-alignet interaksjonssignal fra non-protonated analysis-export-artefakter, og avlede en residue-nivaa kontaktflate som er 1:1 med IFP-featurebittene.
+
+#### Input
+- condition-grupperte poser fra analysis export med:
+  - `complex_for_prolif.pdb`
+  - `ligand_only_for_prolif.pdb`
+  - posemetadata (`pose_id`, `protein_id`, `ligand_id`, `model`, `condition_id`)
+- ProLIF feature/config fra runtime-paths (`prolif_features.yaml`)
+- contact-eligibility-regel (`main_rule`) lastet fra samme config
+
+#### Hva skjer
+- Orkestratoren gaar condition-vis og kjorer `compute_ifp_batch(...)` for alle analysis-export-vellykkede poser i conditionen.
+- Batchen kjorer `compute_ifp_single(...)` per pose, bygger ProLIF-fingerprint med aktiv interaksjonstypepolicy, og aligner deretter feature-navn over alle poser i conditionen til en felles matrise (`batch.matrix`, `batch.feature_names`).
+- Condition-lokal full IFP-matrise skrives til `ifp_matrices/<condition>/ifp_matrix.csv`.
+- Per pose oppdateres case/metrics med IFP-status, feilstreng ved feil, og `n_ifp_contacts`.
+- For IFP-resultater med status `ok` eller `zero_contacts` beregnes contact eligibility via `evaluate_contact_eligibility(...)`:
+  - teller vdW og non-vdW signal
+  - klassifiserer `null_ifp`, `vdw_only`, `low_specific_contact` eller eligible
+  - beriker case/metrics med eligibility-feltene.
+- Etter condition-loopen skrives samlet `pose_ifp_table.tsv`.
+- Residue-contact-tabellen bygges direkte fra `feature_names` + `flat_bitvector` i hvert IFP-resultat:
+  - hver feature blir en rad
+  - `contact_present` settes fra bitverdi
+  - proteinresidue parses fra feature-labelen
+  - radene skrives til `pose_residue_contact_table.tsv`.
+
+#### Hvorfor det gjores
+- ProLIF trenger eksplisitt protein+ligand PDB-flater; analysis export fra steg 6 er derfor kontraktsinput til steg 8.
+- Feature-union per condition gir sammenlignbare kolonner for videre clusteringmatriser.
+- Contact eligibility skilles ut tidlig for aa hindre at vdw-dominert eller for svakt spesifikt signal gaar videre som clustergrunnlag.
+- Residue-contact-avledning direkte fra IFP-featurebit holder tabellene konsistente og sporbare mellom `pose_ifp_table.tsv` og `pose_residue_contact_table.tsv`.
+
+#### Output
+- condition-lokale matriser:
+  - `ifp_matrices/<condition>/ifp_matrix.csv`
+- run-nivaa tabeller:
+  - `pose_ifp_table.tsv`
+  - `pose_residue_contact_table.tsv`
+- berikede per-pose felt i case/metrics:
+  - `ifp_generation_status`, `ifp_error`, `n_ifp_contacts`
+  - `contact_eligible`, `contact_exclusion_class`
+  - `n_vdw_interactions`, `n_non_vdw_interactions`, `n_non_vdw_contact_residues`
+
+#### Relevante filer og linjer
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2222-L2312`
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2389-L2421`
+- `src/lpmo_pipeline/analysis/prolif_ifp.py:L102-L146`
+- `src/lpmo_pipeline/analysis/prolif_ifp.py:L156-L199`
+- `src/lpmo_pipeline/analysis/prolif_ifp.py:L387-L486`
+- `src/lpmo_pipeline/analysis/prolif_ifp.py:L500-L560`
+- `src/lpmo_pipeline/analysis/residue_contact_extraction.py:L72-L157`
+- `src/lpmo_pipeline/analysis/residue_contact_extraction.py:L160-L167`
+- `tests/test_prolif_ifp.py:L31-L287`
+- `tests/test_residue_contact_extraction.py:L15-L97`
+
+#### Samsvar med stottedokumenter
+
+| Stottedokument | Hva det sier | Hva koden viser | Samsvar/avvik | Linjereferanser |
+|---|---|---|---|---|
+| `README.md` | ProLIF bruker non-protonated `complex_for_prolif.pdb` + `ligand_only_for_prolif.pdb` | Batch-input bygges direkte fra disse feltene | Samsvar | doc: `README.md:L20-L21`, `README.md:L60-L61`; kode: `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2228-L2245` |
+| `CODEWALKTHROUGH_STATUS.md` | Steg 8 beskriver ProLIF + residue-contact-avledning | Orkestratoren skriver baade `pose_ifp_table.tsv` og `pose_residue_contact_table.tsv` | Samsvar | doc: `human_readability_code_walkthrough/CODEWALKTHROUGH_STATUS.md:L69`; kode: `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2389-L2421` |
+| `MASTERPLAN.md` | `pose_residue_contact_table.tsv` omtales som planlagt i eldre tekst | Tabell bygges aktivt i production-path | Avvik (kode er fasit) | doc: `MASTERPLAN.md:L139`, `MASTERPLAN.md:L149`; kode: `src/lpmo_pipeline/analysis/residue_contact_extraction.py:L110-L157` |
+
+#### Usikkerheter
+- Jeg har i denne runden ikke benchmarket runtime-kost for ProLIF batch paa stor conditionstorrelsen; vurderingen her er funksjonell, ikke ytelsesmessig.
+- Region-annotasjoner i residue-contact-tabellen er stottet i API-et, men production-kallet sender per naa ingen ekstra annotasjonsmap.
+
+### Steg 9: Contact eligibility og clustering
+
+#### Status
+Ferdig
+
+#### Formaal
+Filtrere condition-lokal IFP-signal ned til clusterable posemengde, bygge en policy-filtrert hovedmatrise, og kjorre formell HDBSCAN/Jaccard-clustering bare nar signalgrunnlaget faktisk er tilstrekkelig.
+
+#### Input
+- IFP-batch per condition (`IFPBatch`) fra steg 8
+- contact-eligibility-resultater per pose
+- clusteringpolicy fra config:
+  - `minimum_clusterable_n`
+  - `insufficient_clusterable_signal_label`
+  - main-feature-policy (inkluderte/ekskluderte interaksjonstyper og sjeldenhetsfiltre)
+- HDBSCAN-parametre (min cluster size, min samples, selection method, metric=jaccard)
+
+#### Hva skjer
+- Condition-vis velges `clusterable_indices` som poser med:
+  - `result.status == "ok"`
+  - eksplisitt contact-eligibility
+  - `eligibility.eligible == True`
+- For disse posene bygges `main_clustering_matrix` via:
+  - `select_main_clustering_features_for_condition(...)`
+  - `build_filtered_ifp_matrix(...)`
+- Main-matrisen skrives til `ifp_matrices/<condition>/main_clustering_ifp_matrix.csv`.
+- `_classify_primary_clustering_input(...)` avgjor om formell clustering er lov:
+  - `no_clusterable_poses`
+  - `insufficient_clusterable_signal_label`
+  - `empty_main_matrix`
+  - eller `ok`.
+- Bare ved `ok` kalles `HDBSCANClusterer.cluster(...)` paa main-matrisen:
+  - jaccard-distansene beregnes
+  - labels produseres
+  - medoids velges med minimum sum av within-cluster-distansene
+  - rows bygges for `cluster_assignments.tsv` og `medoid_manifest.tsv`.
+- Uansett clusteringutfall bygges conditionsummary med eligibility-fordelinger, noise/statistikk og occupancy-maal, og utvides med `clustering_status` + `formal_clustering_allowed`.
+
+#### Hvorfor det gjores
+- Eligibility-gating skiller spesifikt kontaktmønster fra uspesifikt/null signal foer clustering.
+- Main-feature-policy (implicit H-bindingsfokus) reduserer stoy fra kontakttyper som ikke skal drive hovedclustering.
+- `_classify_primary_clustering_input(...)` gjor skip-grunner eksplisitte i stedet for at tomme matriser eller for faa poser feiler implisitt.
+- Medoidvalg paa jaccard-distanser gir en representativ pose per cluster som kan brukes videre i annotasjon og crystal-anchoring.
+
+#### Output
+- condition-lokale filer:
+  - `ifp_matrices/<condition>/main_clustering_ifp_matrix.csv`
+- run-nivaa tabeller:
+  - `cluster_assignments.tsv`
+  - `medoid_manifest.tsv`
+  - `condition_cluster_summary.tsv`
+- berikede felter i case/metrics for clusterlabel der relevant
+
+#### Relevante filer og linjer
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L666-L703`
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2298-L2377`
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2521-L2568`
+- `src/lpmo_pipeline/analysis/clustering_pilot.py:L14-L20`
+- `src/lpmo_pipeline/analysis/clustering_pilot.py:L258-L323`
+- `src/lpmo_pipeline/analysis/clustering_hdbscan.py:L31-L58`
+- `src/lpmo_pipeline/analysis/clustering_hdbscan.py:L127-L190`
+- `src/lpmo_pipeline/analysis/clustering_hdbscan.py:L288-L405`
+- `tests/test_clustering.py:L18-L119`
+- `tests/test_analysis_orchestrator.py:L919-L1004`
+
+#### Samsvar med stottedokumenter
+
+| Stottedokument | Hva det sier | Hva koden viser | Samsvar/avvik | Linjereferanser |
+|---|---|---|---|---|
+| `CODEWALKTHROUGH_STATUS.md` | Steg 9 er eligibility-gating + HDBSCAN-basert formell clustering | Orkestratoren kobler eligibility, main matrix og HDBSCAN i samme condition-loop | Samsvar | doc: `human_readability_code_walkthrough/CODEWALKTHROUGH_STATUS.md:L70`; kode: `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2298-L2359` |
+| `DECISIONS.md` | Eldre og nyere metodeavsnitt finnes side om side | Aktiv produksjonssti bruker HDBSCANClusterer (ikke agglomerativ som primarsti) | Delvis avvik i eldre tekst | doc: `DECISIONS.md:L101-L110`; kode: `src/lpmo_pipeline/analysis/clustering_hdbscan.py:L288-L360` |
+| `README.md` | Main clustering bruker implicit H-bond-signal som hovedpolicy | Feature-policy i clustering-pilot/orkestrator ekskluderer vdW som default for main matrix | Samsvar | doc: `README.md:L32-L33`; kode: `src/lpmo_pipeline/analysis/clustering_pilot.py:L14-L20`, `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L666-L684` |
+
+#### Usikkerheter
+- Real-datafordeling mellom `insufficient_clusterable_signal` og `empty_main_matrix` er ikke kvantifisert i denne runden.
+- Agglomerativ implementasjon finnes fortsatt i repo som alternativ/legacy, og kan forvirre lesing uten tydelig produksjonskontekst.
+
+### Steg 10: Cluster annotation og residue importance
+
+#### Status
+Ferdig
+
+#### Formaal
+Transformere ra clusteringflater til forklarbare cluster-signaturer, residue-/patch-signaler og condition/protein-aggregerte tabeller som kan brukes videre i tolkning og rapportering.
+
+#### Input
+- clusteringflater fra steg 9:
+  - `cluster_assignment_rows`
+  - `medoid_rows`
+  - `condition_cluster_summary_rows`
+- berikende datakilder:
+  - geometri per pose
+  - ProLIF-resultater
+  - residue-contact-rader
+  - posemetadata og conditionmetadata
+  - confidence-rader og convergence-rader per pose
+
+#### Hva skjer
+- Orkestratoren bygger metadataindexer (`pose_metadata_by_id`, `condition_metadata_by_id`, confidence og convergence maps).
+- `build_cluster_signature_tables(...)` kjores og produserer tre flater:
+  - cluster summaries (`cluster_table.tsv` + JSON)
+  - IFP-signaturfrekvenser (`cluster_ifp_signature.tsv`)
+  - residue-signaturfrekvenser (`cluster_residue_signature.tsv`)
+- Cluster-type klassifiseres med terskler fra `thresholds.yaml` basert paa C1/C4-plausible-andeler og occupancy.
+- Deretter kjores `compute_residue_importance_outputs(...)` som bygger Stage 16b-tabeller:
+  - `protein_condition_residue_scores.tsv`
+  - `protein_residue_regio_delta.tsv`
+  - `condition_patch_summary.tsv`
+  - `protein_patch_summary.tsv`
+- Til slutt aggregeres condition/protein-nivaa i `condition_summary.py`:
+  - `condition_table.tsv` kobler QC-attrition + cluster/convergence/patch + confidence/clusteraggregater
+  - `protein_summary_table.tsv` er ren groupby over condition-tabellen.
+
+#### Hvorfor det gjores
+- Ra clusterlabels alene forklarer ikke bindingstype eller residuebidrag; cluster-signaturtabellene gir tolkbarhet.
+- Residue-importance/patch-flater gjor det mulig aa sammenligne kontaktprofil mellom conditions og proteiner med occupancy-vektet signal.
+- Condition/protein-tabeller samler mange mellomflater i et robust oppsummeringslag som rapporteringen senere kan bruke direkte.
+
+#### Output
+- cluster-annotasjon:
+  - `cluster_table.tsv`
+  - `cluster_ifp_signature.tsv`
+  - `cluster_residue_signature.tsv`
+  - `cluster_signatures.json`
+- residue-importance og patch:
+  - `protein_condition_residue_scores.tsv`
+  - `protein_residue_regio_delta.tsv`
+  - `condition_patch_summary.tsv`
+  - `protein_patch_summary.tsv`
+- aggregert oppsummering:
+  - `condition_table.tsv`
+  - `protein_summary_table.tsv`
+
+#### Relevante filer og linjer
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2521-L2652`
+- `src/lpmo_pipeline/analysis/cluster_signatures.py:L326-L544`
+- `src/lpmo_pipeline/analysis/cluster_signatures.py:L739-L798`
+- `src/lpmo_pipeline/analysis/residue_importance.py:L280-L628`
+- `src/lpmo_pipeline/analysis/condition_summary.py:L261-L365`
+- `tests/test_cluster_signatures.py:L37-L201`
+- `tests/test_residue_importance.py:L89-L257`
+- `tests/test_condition_summary.py:L18-L145`
+- `tests/test_analysis_orchestrator.py:L1005-L1118`
+
+#### Samsvar med stottedokumenter
+
+| Stottedokument | Hva det sier | Hva koden viser | Samsvar/avvik | Linjereferanser |
+|---|---|---|---|---|
+| `CODEWALKTHROUGH_STATUS.md` | Steg 10 dekker cluster-annotasjon, residue-importance og condition/protein-aggregering | Orkestratoren bygger alle disse flatene i samme fase etter clustering | Samsvar | doc: `human_readability_code_walkthrough/CODEWALKTHROUGH_STATUS.md:L71`; kode: `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2521-L2652` |
+| `IMPLEMENTATION_PLAYBOOK.md` | Stage 16/16b og summaryflater er del av produksjonsflyten | `build_cluster_signature_tables`, `compute_residue_importance_outputs` og `build_condition_table_rows` er aktivt koblet | Samsvar | doc: `IMPLEMENTATION_PLAYBOOK.md:L183-L194`; kode: `src/lpmo_pipeline/analysis/cluster_signatures.py:L414-L544`, `src/lpmo_pipeline/analysis/residue_importance.py:L280-L628`, `src/lpmo_pipeline/analysis/condition_summary.py:L261-L365` |
+| `MASTERPLAN.md` | Deler av summary/predictive-lag omtales som planlagte | Kjerneflatene for cluster/residue/condition/protein skrives i dagens production-run | Delvis avvik i eldre plantekst | doc: `MASTERPLAN.md:L200-L205`; kode: `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2942-L2992` |
+
+#### Usikkerheter
+- Predictive- og CBM-sideanalyser er utenfor denne avgrensningen; her er kun kjerneaggregeringen i hovedprosesseringen dokumentert.
+- Jeg har ikke i denne runden gjort ny real-dataregresjon av fordelingene i residue/patch-flatene, bare bekreftet kode- og testkontrakten.
+
+### Steg X: Validering, kvalitetssjekker og feilhaandtering
+
+#### Status
+Ferdig
+
+#### Formaal
+Beskrive den tverrgaaende kontrollmekanismen som avgjor hva som stoppes hardt, hva som flagges og foeres videre, hvordan feil gjores eksplisitte i outputflatene, og hvordan logging/manifest gjor kjoringen revisjonssikker.
+
+#### Input
+- inngangsvalidering i CLI:
+  - paakrevde argumenter/config-felter i `cmd_run`/`cmd_tune`
+  - eksplisitt mode/del-validering og required-felt-resolusjon
+- config- og schema-validering:
+  - type- og feltvalidering i `load_production_options(...)`
+  - schema-validering av `qc_report.json` med `jsonschema.validate(...)`
+- QC- og kvalitetsregler:
+  - hard/soft terskler fra `configs/thresholds.yaml` via `qc/gates.py`
+  - contact-eligibility-regel fra `prolif_features.yaml`
+- strukturert logging/manifest:
+  - JSONL-step/check/failure/artifact logger per modul
+  - manifest-gates for stegstatus i CLI.
+
+#### Hva skjer
+- Tidlig argument-/config-resolusjon:
+  - `_resolve_required(...)` stopper manglende kritiske felt tidlig med eksplisitt feil.
+  - `cmd_run()` og `cmd_tune()` returnerer exit code 1 ved ugyldig oppstart, og skriver feil til stderr.
+- Produksjonsopsjonsvalidering:
+  - `load_production_options(...)` sjekker mapping-typer for `work_roots`, `clustering_features`, `clustering`, `predictive`.
+  - manglende `work_root` eller predictive metadata ved `predictive.enabled=true` gir `ValueError`.
+- Per-pose fail policy i hovedflyten:
+  - prepare-feil setter `status=prep_error` i case, men stopper ikke hele runnen.
+  - hard QC dropper pose fra downstream analyse, men metrics/begrunnelse bevares i verdict og attrition-tabeller.
+  - downstream geometri-feil etter QC blir `geometry_metrics_error` (flagged), ikke hard stopp.
+  - analysis-export-feil konverteres til eksplisitt IFP-feilrad (`input_missing`/blocker) i stedet for stille tap.
+  - clustering kan bli `skipped` med eksplisitt `clustering_status` (`no_clusterable_poses`, `insufficient_clusterable_signal`, `empty_main_matrix`) uten at runnen krasjer.
+  - crystal anchoring exceptions legges inn som error-rader i `crystal_anchor_table.tsv` med `comparison_status=error`.
+- Logging og sporbarhet:
+  - moduler med `StructuredLogger` skriver step-start/step-end, check, failure og artifact events til JSONL + konsoll.
+  - `FailureLog` skriver egne failure-JSON-filer per stegmodul.
+  - manifest-gates (`run_manifest.json`) markerer hvilke hovedsteg som faktisk fullforte.
+  - `analysis_core_summary.json` samler statusfelt, errorfelt, tellerfelt og paths for etterkontroll.
+
+#### Hvorfor det gjores
+- Koden bruker en blanding av fail-closed og fail-open policy for aa balansere datakvalitet og throughput:
+  - fail-closed der feil gir ubrukelig biologisk signal (hard QC, kritiske backendfeil i QC, invalid oppstartskonfig).
+  - fail-open/flagged der delsignal fortsatt er nyttig (downstream geometri, conditioner uten clusterbart signal, crystal-delsteg med delvis feil).
+- Eksplisitte statusverdier i tabeller gir reproduserbar attrisjonssporing i stedet for skjult bortfall.
+- Strukturert logging + manifest-gates gjor runnen revisjonssikker i ettertid, og reduserer behovet for ad hoc-logglesing.
+
+#### Output
+- validerings- og feilsignaler i runtime-objekter:
+  - `case.status`, `case.error`, `case.traceback`, `case.analysis_flags`, `ifp_error`, `geometry_metrics_error`, `crystal_anchoring_error`
+- QC-/attritionflater:
+  - `qc_report.json` (schema-validert)
+  - `qc_attrition_table.tsv`
+- condition-/cluster-/crystal-feilflater:
+  - `condition_cluster_summary.tsv` med `clustering_status`/`formal_clustering_allowed`
+  - `crystal_anchor_table.tsv` med error-rader
+- runnivaa sporbarhet:
+  - `run_manifest.json` med gates
+  - `analysis_core_summary.json` med samlet status/error/path-bilde
+  - modulvise `*.jsonl` logger og `*_failures.json` artefakter.
+
+#### Relevante filer og linjer
+- `src/lpmo_pipeline/cli.py:L28-L62` - required/optional argument-resolusjon og tidlig validering.
+- `src/lpmo_pipeline/cli.py:L92-L143` - `cmd_tune()`-feilhaandtering og manifest-gate ved feil/suksess.
+- `src/lpmo_pipeline/cli.py:L146-L255` - `cmd_run()`-validering, manifest-gates og toppnivaa exception-policy.
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L430-L595` - type-/feltvalidering i `load_production_options(...)`.
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L571-L575` - hard validering av predictive metadata nar predictive er aktiv.
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L1064-L1098` - per-pose prepare-feil til `prep_error` med traceback.
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L1899-L1901` - schema-validering av `qc_report.json`.
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2039-L2114` - geometri/analysis-export feilpolicy (flagged vs blocker).
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2296-L2377` - eksplisitt clustering-status og skipped-grener.
+- `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2473-L2510` - crystal-anchoring exception-haandtering til tabellrad.
+- `src/lpmo_pipeline/qc/hard_qc_orchestrator.py:L113-L152` - hard-QC-kontrakt med fail-closed backendpolicy.
+- `src/lpmo_pipeline/qc/hard_qc_orchestrator.py:L183-L347` - pre-QC/geometry/PoseBusters gating og skip-logikk.
+- `src/lpmo_pipeline/qc/hard_qc_orchestrator.py:L350-L415` - Privateer-batch feilhaandtering (runner error/missing result).
+- `src/lpmo_pipeline/qc/gates.py:L243-L280` - lasting av QC-terskler fra YAML.
+- `src/lpmo_pipeline/io/normalize_mmcif.py:L157-L207` - hard fail ved ufullstendig atom-mapping eller ugyldig glykan-CCD.
+- `src/lpmo_pipeline/io/analysis_export.py:L62-L121` - blocker/warning-rapportering og failure-logg.
+- `src/lpmo_pipeline/utils/logging.py:L15-L150` - `StructuredLogger` + `FailureLog` kontrakt.
+- `src/lpmo_pipeline/utils/manifest.py:L100-L178` - manifest-builder, gate-registrering og serialisering.
+
+#### Samsvar med stottedokumenter
+
+| Stottedokument | Hva det sier | Hva koden viser | Samsvar/avvik | Linjereferanser |
+|---|---|---|---|---|
+| `README.md` | Hard QC + fail-closed backendfeil er kritisk gate, mens senere analyseflater kan vaere mer tolerante | Hard QC dropper poser; downstream geometri og enkelte condition-grener flagges/skippes med eksplisitt status | Delvis samsvar (kode mer detaljert) | doc: `README.md`; kode: `src/lpmo_pipeline/qc/hard_qc_orchestrator.py:L113-L152`, `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2039-L2377` |
+| `DECISIONS.md` | Kode/config er sannhetskilde og beslutninger skal speiles i eksplisitte outputflater | Orkestratoren materialiserer status/feil i manifest, summary, attrition og condition-tabeller | Samsvar | doc: `DECISIONS.md:L6-L8`; kode: `src/lpmo_pipeline/analysis/analysis_orchestrator.py:L2942-L3006`, `src/lpmo_pipeline/utils/manifest.py:L158-L178` |
+| `CODEWALKTHROUGH_STATUS.md` | Krysstemaet validering/kvalitet/feilhaandtering/logging skal dokumenteres eksplisitt | Denne seksjonen samler policyen med konkrete kodeforankringer | Samsvar | doc: `human_readability_code_walkthrough/CODEWALKTHROUGH_STATUS.md`; kode: denne seksjonen |
+
+#### Usikkerheter
+- Denne gjennomgangen fokuserer policy og kontrollflyt; den kvantifiserer ikke frekvensen av hver feilkategori i real-data-runs.
+- Strukturert logging brukes tydelig i flere I/O-moduler; ikke alle analysemoduler bruker `StructuredLogger` direkte, siden noe logges via vanlig `logging` og summary-felter.
+- Manifest-gates beskriver stegfullforing paa run-nivaa, men er ikke en full erstatning for per-pose diagnoser i case/tabellflatene.

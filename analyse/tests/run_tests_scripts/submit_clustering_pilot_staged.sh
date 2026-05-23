@@ -1,14 +1,15 @@
 #!/bin/bash
 set -euo pipefail
 
-REPO_ROOT="/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse"
-SCRIPT_DIR="$REPO_ROOT/tests/run_tests_scripts"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 PYTHON_BIN="/cluster/work/projects/nn1003k/eirik/conda/analyse_full_prolif_env/bin/python"
 OVERVIEW_TSV="$REPO_ROOT/input_data/clustering_pilot_protein_overview.tsv"
 RUN_ROOT="$REPO_ROOT/tests/tests_results/clustering_pilot_staged"
 ACCOUNT="nn1003k"
 PARTITION="small"
-SHARD_SIZE=1
+SHARD_SIZE=5
+BALANCE_BY="estimated_pose_count"
 ARRAY_LIMIT=""
 EXECUTE_CPUS=8
 EXECUTE_MEM="24G"
@@ -16,6 +17,11 @@ EXECUTE_TIME="24:00:00"
 SUMMARY_CPUS=1
 SUMMARY_MEM="4G"
 SUMMARY_TIME="00:30:00"
+RUN_GLOBAL_POSTPROCESS=true
+PROTEIN_METADATA="$REPO_ROOT/input_data/metadata_final_ec_fixed.tsv"
+CORE_FASTA="$REPO_ROOT/input_data/lpmo_core_domain_2026-03-14_06-52-15_deduplicated.fasta"
+FAMILY_ALIGNMENT_DIR=""
+MAFFT_EXECUTABLE="mafft"
 SUBMISSION_METADATA_JSON=""
 DRY_RUN=false
 
@@ -28,7 +34,9 @@ Options:
     --run-dir PATH          Output root for staged pilot artifacts.
     --account NAME          Slurm account (default: nn1003k).
     --partition NAME        Slurm partition (default: small).
-    --shard-size N          Protein selections per Slurm array task (default: 1).
+    --shard-size N          Compatibility alias for --proteins-per-shard.
+    --proteins-per-shard N  Protein selections per Slurm array task (default: 5).
+    --balance-by MODE       Shard balancing: protein_count|estimated_pose_count (default: estimated_pose_count).
     --array-limit N         Optional Slurm array concurrency cap.
     --execute-cpus N        CPUs per shard task, passed to --n-jobs (default: 8).
     --execute-mem VALUE     Memory per shard task (default: 24G).
@@ -36,14 +44,21 @@ Options:
     --summary-cpus N        CPUs for aggregate summary job (default: 1).
     --summary-mem VALUE     Memory for aggregate summary job (default: 4G).
     --summary-time VALUE    Walltime for aggregate summary job (default: 00:30:00).
+    --run-global-postprocess true|false
+                            Run predictive/CBM/family postprocess after merge (default: true).
+    --protein-metadata PATH Protein metadata TSV for global postprocess.
+    --core-fasta PATH       Core-domain FASTA for global family enrichment.
+    --family-alignment-dir PATH
+                            Optional precomputed AA9/AA10 alignments.
+    --mafft-executable NAME MAFFT executable name/path (default: mafft).
     --submission-metadata-json PATH
                             Optional JSON file describing submitted job ids.
     --dry-run               Write manifests/job scripts and print sbatch commands only.
 
 This is the multi-node Slurm wrapper for the clustering pilot. It builds the
-domain-only and full-length selection manifests, splits them into protein-level
-shards, submits one Slurm array per construct type, then collects compact shard
-status after the arrays finish.
+domain-only and full-length selection manifests, splits them into weighted
+protein shards, submits one Slurm array per construct type, then collects and
+merges production outputs after the arrays finish.
 EOF
 }
 
@@ -63,6 +78,14 @@ while [[ $# -gt 0 ]]; do
             ;;
         --shard-size)
             SHARD_SIZE="$2"
+            shift 2
+            ;;
+        --proteins-per-shard)
+            SHARD_SIZE="$2"
+            shift 2
+            ;;
+        --balance-by)
+            BALANCE_BY="$2"
             shift 2
             ;;
         --array-limit)
@@ -93,6 +116,26 @@ while [[ $# -gt 0 ]]; do
             SUMMARY_TIME="$2"
             shift 2
             ;;
+        --run-global-postprocess)
+            RUN_GLOBAL_POSTPROCESS="$2"
+            shift 2
+            ;;
+        --protein-metadata)
+            PROTEIN_METADATA=$(realpath -m "$2")
+            shift 2
+            ;;
+        --core-fasta)
+            CORE_FASTA=$(realpath -m "$2")
+            shift 2
+            ;;
+        --family-alignment-dir)
+            FAMILY_ALIGNMENT_DIR=$(realpath -m "$2")
+            shift 2
+            ;;
+        --mafft-executable)
+            MAFFT_EXECUTABLE="$2"
+            shift 2
+            ;;
         --submission-metadata-json)
             SUBMISSION_METADATA_JSON=$(realpath -m "$2")
             shift 2
@@ -118,11 +161,17 @@ if [[ "$SHARD_SIZE" -lt 1 ]]; then
     exit 2
 fi
 
+if [[ "$BALANCE_BY" != "protein_count" && "$BALANCE_BY" != "estimated_pose_count" ]]; then
+    echo "[ERROR] --balance-by must be protein_count or estimated_pose_count" >&2
+    exit 2
+fi
+
 LOG_DIR="$RUN_ROOT/logs"
 MANIFEST_DIR="$RUN_ROOT/manifests"
 SHARD_DIR="$MANIFEST_DIR/shards"
 JOB_SCRIPT_DIR="$RUN_ROOT/slurm_scripts"
 SUMMARY_DIR="$RUN_ROOT/summaries"
+MERGE_OUTPUT_ROOT="$RUN_ROOT/merged_production_output"
 mkdir -p "$LOG_DIR" "$MANIFEST_DIR" "$SHARD_DIR" "$JOB_SCRIPT_DIR" "$SUMMARY_DIR"
 
 cd "$REPO_ROOT"
@@ -145,12 +194,16 @@ FULL_SHARD_DIR="$SHARD_DIR/full_length"
 "$PYTHON_BIN" "$SCRIPT_DIR/split_clustering_pilot_selection_manifest.py" \
   --input-manifest "$DOMAIN_MANIFEST" \
   --output-dir "$DOMAIN_SHARD_DIR" \
-  --shard-size "$SHARD_SIZE" > "$LOG_DIR/00_split_domain_local.log" 2>&1
+    --proteins-per-shard "$SHARD_SIZE" \
+    --balance-by "$BALANCE_BY" \
+    --output-root-template "$RUN_ROOT/{construct_type}_shards/{shard_id}/production_output" > "$LOG_DIR/00_split_domain_local.log" 2>&1
 
 "$PYTHON_BIN" "$SCRIPT_DIR/split_clustering_pilot_selection_manifest.py" \
   --input-manifest "$FULL_MANIFEST" \
   --output-dir "$FULL_SHARD_DIR" \
-  --shard-size "$SHARD_SIZE" > "$LOG_DIR/00_split_full_local.log" 2>&1
+    --proteins-per-shard "$SHARD_SIZE" \
+    --balance-by "$BALANCE_BY" \
+    --output-root-template "$RUN_ROOT/{construct_type}_shards/{shard_id}/production_output" > "$LOG_DIR/00_split_full_local.log" 2>&1
 
 domain_shards=$("$PYTHON_BIN" -c 'import json,sys; print(json.load(open(sys.argv[1]))["n_shards"])' "$DOMAIN_SHARD_DIR/shard_summary.json")
 full_shards=$("$PYTHON_BIN" -c 'import json,sys; print(json.load(open(sys.argv[1]))["n_shards"])' "$FULL_SHARD_DIR/shard_summary.json")
@@ -199,10 +252,24 @@ set -euo pipefail
 
 cd \"$REPO_ROOT\"
 export PYTHONPATH=\"$REPO_ROOT/src:\${PYTHONPATH:-}\"
-\"$PYTHON_BIN\" \"$SCRIPT_DIR/collect_clustering_pilot_shards.py\" \\
-  --run-root \"$RUN_ROOT\" \\
-  --output-json \"$SUMMARY_DIR/staged_array_summary.json\" \\
-  --output-tsv \"$SUMMARY_DIR/staged_array_shards.tsv\"
+collect_args=(
+    --run-root \"$RUN_ROOT\"
+    --output-json \"$SUMMARY_DIR/staged_array_summary.json\"
+    --output-tsv \"$SUMMARY_DIR/staged_array_shards.tsv\"
+    --merge-output-root \"$MERGE_OUTPUT_ROOT\"
+    --protein-metadata \"$PROTEIN_METADATA\"
+    --core-fasta \"$CORE_FASTA\"
+    --mafft-executable \"$MAFFT_EXECUTABLE\"
+)
+
+if [[ -n \"$FAMILY_ALIGNMENT_DIR\" ]]; then
+    collect_args+=(--family-alignment-dir \"$FAMILY_ALIGNMENT_DIR\")
+fi
+if [[ \"$RUN_GLOBAL_POSTPROCESS\" == \"true\" ]]; then
+    collect_args+=(--run-global-postprocess)
+fi
+
+\"$PYTHON_BIN\" \"$SCRIPT_DIR/collect_clustering_pilot_shards.py\" \"\${collect_args[@]}\"
 "
 
 array_spec() {
@@ -305,9 +372,11 @@ if [[ -n "$SUBMISSION_METADATA_JSON" ]]; then
 {
     "run_root": "$RUN_ROOT",
     "shard_size": $SHARD_SIZE,
+    "balance_by": "$BALANCE_BY",
     "domain_shards": $domain_shards,
     "full_shards": $full_shards,
     "execute_cpus": $EXECUTE_CPUS,
+    "run_global_postprocess": $([[ "$RUN_GLOBAL_POSTPROCESS" == true ]] && echo true || echo false),
     "domain_array_job": "${DOMAIN_ARRAY_JOB:-}",
     "full_array_job": "${FULL_ARRAY_JOB:-}",
     "summary_job": "$SUMMARY_JOB",
@@ -320,6 +389,7 @@ cat <<EOF
 Submitted staged clustering pilot arrays:
   run_root:          $RUN_ROOT
   shard_size:        $SHARD_SIZE
+    balance_by:        $BALANCE_BY
   domain_shards:     $domain_shards
   full_shards:       $full_shards
   execute_cpus:      $EXECUTE_CPUS
@@ -327,7 +397,8 @@ Submitted staged clustering pilot arrays:
   full_array_job:    ${FULL_ARRAY_JOB:-none}
   summary_job:       $SUMMARY_JOB
 
-Compact aggregate summary will be written to:
+Production aggregate summary will be written to:
   $SUMMARY_DIR/staged_array_summary.json
   $SUMMARY_DIR/staged_array_shards.tsv
+    $MERGE_OUTPUT_ROOT
 EOF

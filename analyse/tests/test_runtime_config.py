@@ -3,7 +3,12 @@ from __future__ import annotations
 import importlib
 from pathlib import Path
 
-from lpmo_pipeline.config import clear_runtime_paths_cache, load_runtime_paths_config
+from lpmo_pipeline.config import (
+  clear_runtime_paths_cache,
+  load_pipeline_run_config,
+  load_runtime_paths_config,
+  resolve_pipeline_command_config,
+)
 
 
 def _write_runtime_paths_config(tmp_path: Path) -> tuple[Path, Path, Path, Path, Path]:
@@ -29,6 +34,8 @@ def _write_runtime_paths_config(tmp_path: Path) -> tuple[Path, Path, Path, Path,
     privateer_sif.parent.mkdir(parents=True, exist_ok=True)
     privateer_sif.write_text("fake\n")
     posebusters_sif.write_text("fake\n")
+    analyse_python = tmp_path / "tools" / "analyse-python"
+    analyse_python.write_text("#!/usr/bin/env bash\n")
 
     runtime_config = configs_dir / "runtime_paths.yaml"
     runtime_config.write_text(
@@ -43,6 +50,7 @@ runtime_paths:
       - "../tools/posebusters.sif"
   runtime_settings:
     privateer_default_mode: "custom-mode"
+    python_executable: "../tools/analyse-python"
   pipeline_assets:
     thresholds_config: "configs/thresholds.yaml"
     prolif_features_config: "configs/prolif_features.yaml"
@@ -67,6 +75,7 @@ def test_load_runtime_paths_config_resolves_project_relative_assets(tmp_path: Pa
     assert config.external_tools.privateer_sif_candidates == (privateer_sif.resolve(),)
     assert config.external_tools.posebusters_sif_candidates == (posebusters_sif.resolve(),)
     assert config.runtime_settings.privateer_default_mode == "custom-mode"
+    assert config.runtime_settings.python_executable == str((tmp_path / "tools" / "analyse-python").resolve())
     assert config.pipeline_assets.thresholds_config == (project_root / "configs" / "thresholds.yaml").resolve()
     assert config.pipeline_assets.qc_report_schema == (schemas_dir / "qc_report_schema.json").resolve()
 
@@ -208,3 +217,51 @@ target_metadata:
         importlib.reload(geometry_checks_mod)
         importlib.reload(hard_qc_mod)
         importlib.reload(posebusters_mod)
+
+
+def test_load_pipeline_run_config_and_resolve_command(monkeypatch, tmp_path: Path) -> None:
+    run_config_path = tmp_path / "pipeline_run.yaml"
+    run_config_path.write_text(
+        """
+base:
+  n_jobs: 4
+  output: results
+commands:
+  predictive:
+    output: results/del_a
+    task: c1_c4
+    n_folds: 3
+""".lstrip()
+    )
+
+    monkeypatch.setenv("LPMO_PIPELINE_RUN_CONFIG", str(run_config_path))
+    try:
+        clear_runtime_paths_cache()
+        payload = load_pipeline_run_config()
+        resolved = resolve_pipeline_command_config(payload, "predictive")
+        assert resolved["n_jobs"] == 4
+        assert resolved["output"] == "results/del_a"
+        assert resolved["task"] == "c1_c4"
+        assert resolved["n_folds"] == 3
+    finally:
+        monkeypatch.delenv("LPMO_PIPELINE_RUN_CONFIG", raising=False)
+        clear_runtime_paths_cache()
+
+
+def test_resolve_pipeline_command_config_accepts_dash_command(tmp_path: Path) -> None:
+    run_config_path = tmp_path / "pipeline_run.yaml"
+    run_config_path.write_text(
+        """
+base:
+  random_state: 42
+commands:
+  cbm_paired:
+    condition_table: results/condition_table.tsv
+""".lstrip()
+    )
+
+    clear_runtime_paths_cache()
+    payload = load_pipeline_run_config(run_config_path)
+    resolved = resolve_pipeline_command_config(payload, "cbm-paired")
+    assert resolved["random_state"] == 42
+    assert resolved["condition_table"] == "results/condition_table.tsv"

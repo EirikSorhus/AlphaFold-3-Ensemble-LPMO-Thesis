@@ -127,7 +127,7 @@ Konfigurasjonsregel (gjeldende):
    Krav: beregn og logg `min_cu_ligand_distance`, `min_cu_c1`, `min_cu_c4` for alle poser.
     Status 2026-04-23: integrert i `hard_qc_orchestrator.py`. Targeted tester bekrefter at poser med stor avstand droppes for PB/Privateer, og at pre-QC-metrikker beholdes i verdict-data.
     Status 2026-05-03: verifisert på ekte data i den nye analysis-core produksjonsstien via `tests/run_tests_scripts/test_analysis_core_real_cifs.sh` (jobb 613251, run `analysis_core_real_cifs_613251`). I denne kjøringen ble STA4-caset droppet før downstream geometri (`analysis_status = skipped_dropped`), STA6-caset beholdt som `flagged` og analysert videre, og pre-QC-metrikker ble bevart i `qc_report.json` og `analysis_core_summary.json`.
-    ⛔ STOPP: Avklar om `qc_report.json` + `analysis_core_summary.json` er den endelige flaten for metrikker fra droppede poser, eller implementer en eksplisitt `pose_manifest.tsv` som beholder disse uten å slippe droppede poser inn i downstream geometri/IFP.
+    Avklart 2026-05-23: endelig flate for droppede poser er `qc_report.json` + `analysis_core_summary.json` for numeriske QC-metrikker, med `pose_manifest.tsv` som tabulart pose/QC-indekslag (`qc_status`, `analysis_status`, `analysis_flags`, `geometry_metrics_status`, `geometry_metrics_error`) uten re-innslipp av droppede poser i downstream geometri/IFP.
 
 9. **`qc/posebusters_runner.py`** — PoseBusters-wrapper.
    Kjøres på AF3-poser direkte.

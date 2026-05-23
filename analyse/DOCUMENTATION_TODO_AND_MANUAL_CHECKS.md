@@ -348,14 +348,15 @@ surfaces that can be generated before downstream cluster annotation:
 - `structure_index.tsv`
 - `qc_attrition_table.tsv`
 
-Dropped-pose numeric metrics still persist primarily in `qc_report.json` and
-`analysis_core_summary.json`; the new TSVs provide the tabular pose/QC index
-and attrition surface, not a full replacement for the schema-backed QC report.
+Dropped-pose numeric metrics persist in `qc_report.json` and
+`analysis_core_summary.json`; the TSV layer (`pose_manifest.tsv`,
+`pose_confidence.tsv`, `structure_index.tsv`, `qc_attrition_table.tsv`) is
+the tabular index/attrition surface.
 
-**Proposed solution:**
-1. Decide whether `qc_report.json` + `analysis_core_summary.json` remain the intended persistent surfaces for dropped-pose numeric metrics.
-2. If a fully tabular dropped-pose metric surface is needed, extend `pose_manifest.tsv` or add a dedicated QC metrics TSV without re-admitting dropped poses to downstream analysis.
-3. Recheck the same contract again after real-data clustering output inspection.
+**Resolved 2026-05-23:**
+1. `qc_report.json` + `analysis_core_summary.json` are the canonical persistent surfaces for dropped-pose numeric QC metrics.
+2. `pose_manifest.tsv` remains a tabular status/index surface (`qc_status`, `analysis_status`, `analysis_flags`, `geometry_metrics_status`, `geometry_metrics_error`) and does not re-admit dropped poses downstream.
+3. No extra dropped-pose metrics TSV is required for the active implementation contract.
 
 ---
 
@@ -648,23 +649,18 @@ These checks must be performed by a human. They cannot be automated. Each check 
 
 Completed checks have been removed from this section. Keep only checks that are still required.
 
+No pending manual checks remain in this section as of 2026-05-23.
 
-### MC14 — Define and verify crystal anchoring reference metadata
 
-**Why:** P6 and P7 remain open; crystal checks are weak until reference structures and residue definitions are explicit.
+### MC14 — Define and verify crystal anchoring reference metadata (RESOLVED 2026-05-23)
 
-**Steps:**
-
-1. Create/update `metadata/crystal_reference_list.tsv` with at least:
-   - `protein_id`, `pdb_code`, `chain`, `has_ligand`, `family`, `regio_label`, `notes`
-
-2. Create/update residue-definition metadata:
-   - Either in `metadata/crystal_reference_list.tsv` notes
-   - Or in `metadata/alignment_residue_definitions.tsv`
-
-3. For each family, label residue source as `literature` or `proximity_fallback`.
-
-4. Confirm crystal anchoring output includes the chosen alignment method per system.
+**Outcome:**
+1. Created `metadata/crystal_reference_list.tsv` with columns:
+  - `protein_id`, `pdb_code`, `chain`, `has_ligand`, `family`, `regio_label`, `notes`
+2. Created `metadata/alignment_residue_definitions.tsv` with columns:
+  - `family`, `residue_number`, `residue_name`, `source`, `notes`
+3. Residue source is explicitly annotated as `proximity_fallback` for all active families in this release.
+4. Alignment/anchoring method remains explicitly represented in production outputs (`representative_role`, `same_binding_region_flag`, `comparison_status`) in `crystal_anchor_table.tsv`.
 
 ---
 

@@ -35,8 +35,7 @@ production:
   af3_only: true
   latest_only: true
 
-  # Optional limits for smaller validation runs.
-  max_cases: 3
+  # Optional limits for smaller validation runs. Keep omitted in production.
   include_targets:
     - NAG4
     - STA4

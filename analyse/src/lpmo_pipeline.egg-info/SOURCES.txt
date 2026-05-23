@@ -72,11 +72,13 @@ tests/test_activity_mapping.py
 tests/test_analysis_core_real_cifs_validation.py
 tests/test_analysis_orchestrator.py
 tests/test_atom_mapping.py
+tests/test_build_clustering_parameter_condition_summary.py
 tests/test_build_summary_json.py
 tests/test_cbm_comparison.py
 tests/test_cli_run.py
 tests/test_cluster_signatures.py
 tests/test_clustering.py
+tests/test_clustering_parameter_sensitivity.py
 tests/test_clustering_pilot.py
 tests/test_clustering_pilot_real_case.py
 tests/test_clustering_pilot_timing_probe.py
@@ -107,3 +109,5 @@ tests/test_report_html.py
 tests/test_residue_contact_extraction.py
 tests/test_residue_importance.py
 tests/test_runtime_config.py
+tests/test_selection_manifest_splitter.py
+tests/test_staged_production_synthetic_smoke.py

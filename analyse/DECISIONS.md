@@ -867,6 +867,30 @@ The current threshold flag is:
 
 - `pocket_rmsd_below_threshold = pocket_rmsd < 2.5`
 
+### Finalized interpretation policy (2026-05-23)
+
+The current release freezes the crystal-anchoring interpretation contract as:
+
+- IFP similarity is interpreted only when `ifp_comparison_eligible=True`.
+- `ifp_tanimoto >= 0.50` is treated as moderate crystal-overlap support.
+- `0.30 <= ifp_tanimoto < 0.50` is treated as weak/noisy support.
+- `ifp_tanimoto < 0.30` is treated as low overlap.
+- `local_pocket_rmsd < 2.5 A` remains a binding-region support flag and is not used as a standalone biological proof.
+
+VdW-dominance / low-specific-contact interpretation is frozen to the
+diagnostic summary in `crystal_ifp_diagnostic_summary.tsv`:
+
+- if `contact_eligible_fraction < 0.50`, crystal-IFP interpretation is downgraded to geometry-first/IFP-limited,
+- if `n_vdw_only > n_contact_eligible`, report the condition as VdW-dominated and avoid strong substrate-specific IFP claims.
+
+### Finalized PoseBusters severity policy (2026-05-23)
+
+The active hard-QC policy keeps PoseBusters dock defaults unchanged and freezes:
+
+- `minimum_distance_to_protein` as hard-fail,
+- explicit soft warning classes as soft-flag only,
+- unknown PoseBusters failures as conservative hard-fail.
+
 ## 11. Current Code/Plan Clarifications And Remaining Gaps
 
 These are the main places where the current implementation needs explicit clarification or still differs from a naive reading of the plan documents:

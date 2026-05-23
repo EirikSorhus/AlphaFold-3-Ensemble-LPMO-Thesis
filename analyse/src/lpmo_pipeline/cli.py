@@ -13,14 +13,56 @@ import argparse
 import json
 import sys
 from pathlib import Path
+from typing import Any
 
 from lpmo_pipeline.analysis.analysis_orchestrator import run_analysis_core
 from lpmo_pipeline.analysis.cbm_comparison import run_cbm_paired_analysis
 from lpmo_pipeline.analysis.family_enrichment_postprocess import run_family_enrichment_postprocess
 from lpmo_pipeline.analysis.predictive_postprocess import run_predictive_postprocess
+from lpmo_pipeline.config import load_pipeline_run_config, resolve_pipeline_command_config
 from lpmo_pipeline.io.discovery import discover_work_root
 from lpmo_pipeline.tuning.tune_orchestrator import run_tuning
 from lpmo_pipeline.utils.manifest import ManifestBuilder, ToolVersionFetcher
+
+
+def _command_config_from_args(args: argparse.Namespace, command_name: str) -> dict[str, Any]:
+    run_config_path = getattr(args, "run_config", None)
+    if run_config_path is None:
+        return {}
+    run_config = load_pipeline_run_config(run_config_path)
+    return resolve_pipeline_command_config(run_config, command_name)
+
+
+def _resolve_required(
+    args: argparse.Namespace,
+    command_config: dict[str, Any],
+    arg_key: str,
+    config_key: str,
+    *,
+    command_name: str,
+) -> Any:
+    arg_value = getattr(args, arg_key, None)
+    if arg_value is not None:
+        return arg_value
+    config_value = command_config.get(config_key)
+    if config_value is not None:
+        return config_value
+    raise ValueError(
+        f"Missing required '{config_key}' for '{command_name}'. "
+        f"Pass --{arg_key.replace('_', '-')} or set commands.{command_name.replace('-', '_')}.{config_key} in run config"
+    )
+
+
+def _resolve_optional(
+    args: argparse.Namespace,
+    command_config: dict[str, Any],
+    arg_key: str,
+    config_key: str,
+) -> Any:
+    arg_value = getattr(args, arg_key, None)
+    if arg_value is not None:
+        return arg_value
+    return command_config.get(config_key)
 
 
 def main():
@@ -33,13 +75,15 @@ def main():
     
     # TUNE subcommand (optional post-analysis)
     tune_parser = subparsers.add_parser("tune", help="Run optional post-analysis parameter tuning")
-    tune_parser.add_argument("--model", required=True, choices=["AF3", "RF3", "Boltz2"],
+    tune_parser.add_argument("--run-config", type=Path, default=None,
+                             help="Optional hybrid run config YAML for config-first execution")
+    tune_parser.add_argument("--model", required=False, choices=["AF3", "RF3", "Boltz2"],
                              help="Prediction model to tune")
-    tune_parser.add_argument("--config", type=Path, required=True,
+    tune_parser.add_argument("--config", type=Path, required=False,
                              help="Tuning config YAML (parameter grid + dataset)")
-    tune_parser.add_argument("--output", type=Path, required=True,
+    tune_parser.add_argument("--output", type=Path, required=False,
                              help="Output directory for tuning results")
-    tune_parser.add_argument("--n-jobs", type=int, default=1,
+    tune_parser.add_argument("--n-jobs", type=int, default=None,
                              help="Number of parallel jobs")
     
     # DISCOVER subcommand
@@ -74,27 +118,31 @@ def main():
         help="Run predictive postprocess over summary tables",
     )
     predictive_parser.add_argument(
-        "--condition-table", type=Path, required=True,
+        "--run-config", type=Path, default=None,
+        help="Optional hybrid run config YAML for config-first execution",
+    )
+    predictive_parser.add_argument(
+        "--condition-table", type=Path, required=False,
         help="Path to condition_table.tsv",
     )
     predictive_parser.add_argument(
-        "--protein-metadata", type=Path, required=True,
+        "--protein-metadata", type=Path, required=False,
         help="Path to protein_metadata.tsv",
     )
     predictive_parser.add_argument(
-        "--output", type=Path, required=True,
+        "--output", type=Path, required=False,
         help="Output directory for predictive analysis artifacts",
     )
     predictive_parser.add_argument(
-        "--task", choices=["all", "c1_c4", "substrate"], default="all",
+        "--task", choices=["all", "c1_c4", "substrate"], default=None,
         help="Which predictive task set to run",
     )
     predictive_parser.add_argument(
-        "--n-folds", type=int, default=5,
+        "--n-folds", type=int, default=None,
         help="Target number of grouped CV folds",
     )
     predictive_parser.add_argument(
-        "--random-state", type=int, default=42,
+        "--random-state", type=int, default=None,
         help="Random seed for grouped CV and logistic regression",
     )
 
@@ -103,7 +151,11 @@ def main():
         help="Run condition-level CBM full-length vs domain-only paired analysis",
     )
     cbm_parser.add_argument(
-        "--condition-table", type=Path, required=True,
+        "--run-config", type=Path, default=None,
+        help="Optional hybrid run config YAML for config-first execution",
+    )
+    cbm_parser.add_argument(
+        "--condition-table", type=Path, required=False,
         help="Path to condition_table.tsv",
     )
     cbm_parser.add_argument(
@@ -115,11 +167,11 @@ def main():
         help="Optional path to protein metadata TSV",
     )
     cbm_parser.add_argument(
-        "--output", type=Path, required=True,
+        "--output", type=Path, required=False,
         help="Output directory for CBM paired-analysis artifacts",
     )
     cbm_parser.add_argument(
-        "--random-state", type=int, default=42,
+        "--random-state", type=int, default=None,
         help="Random seed for bootstrap confidence intervals",
     )
 
@@ -128,23 +180,27 @@ def main():
         help="Run optional AA9/AA10 family residue enrichment postprocess",
     )
     family_parser.add_argument(
-        "--protein-condition-residue-scores", type=Path, required=True,
+        "--run-config", type=Path, default=None,
+        help="Optional hybrid run config YAML for config-first execution",
+    )
+    family_parser.add_argument(
+        "--protein-condition-residue-scores", type=Path, required=False,
         help="Path to protein_condition_residue_scores.tsv",
     )
     family_parser.add_argument(
-        "--protein-residue-regio-delta", type=Path, required=True,
+        "--protein-residue-regio-delta", type=Path, required=False,
         help="Path to protein_residue_regio_delta.tsv",
     )
     family_parser.add_argument(
-        "--protein-metadata", type=Path, required=True,
+        "--protein-metadata", type=Path, required=False,
         help="Path to protein metadata TSV",
     )
     family_parser.add_argument(
-        "--core-fasta", type=Path, required=True,
+        "--core-fasta", type=Path, required=False,
         help="Path to the deduplicated catalytic-core FASTA",
     )
     family_parser.add_argument(
-        "--output", type=Path, required=True,
+        "--output", type=Path, required=False,
         help="Output directory for family enrichment artifacts",
     )
     family_parser.add_argument(
@@ -152,25 +208,27 @@ def main():
         help="Optional directory with precomputed {AA9,AA10}.aligned.fasta files",
     )
     family_parser.add_argument(
-        "--families", nargs="+", default=["AA9", "AA10"],
+        "--families", nargs="+", default=None,
         help="Family labels to include (default: AA9 AA10)",
     )
     family_parser.add_argument(
-        "--mafft-executable", default="mafft",
+        "--mafft-executable", default=None,
         help="MAFFT executable used when precomputed alignments are absent",
     )
 
     # RUN subcommand
     run_parser = subparsers.add_parser("run", help="Run production analysis")
-    run_parser.add_argument("--mode", required=True, choices=["production"],
+    run_parser.add_argument("--run-config", type=Path, default=None,
+                            help="Optional hybrid run config YAML for config-first execution")
+    run_parser.add_argument("--mode", required=False, choices=["production"],
                             help="Execution mode (fixed to production)")
-    run_parser.add_argument("--config", type=Path, required=True,
+    run_parser.add_argument("--config", type=Path, required=False,
                             help="Main config YAML (locked from tuning)")
-    run_parser.add_argument("--output", type=Path, required=True,
+    run_parser.add_argument("--output", type=Path, required=False,
                             help="Output directory for analysis results")
-    run_parser.add_argument("--del", dest="del_branch", required=True, choices=["del_a", "del_b"],
+    run_parser.add_argument("--del", dest="del_branch", required=False, choices=["del_a", "del_b"],
                             help="Analysis branch (all proteins or CBM subset)")
-    run_parser.add_argument("--n-jobs", type=int, default=1,
+    run_parser.add_argument("--n-jobs", type=int, default=None,
                             help="Number of parallel jobs")
     
     args = parser.parse_args()
@@ -194,12 +252,22 @@ def main():
 
 def cmd_tune(args):
     """Execute tuning subcommand."""
-    print(f"[TUNE] Starting optional post-analysis {args.model} tuning...")
-    print(f"  Config: {args.config}")
-    print(f"  Output: {args.output}")
+    try:
+        command_config = _command_config_from_args(args, "tune")
+        model = str(_resolve_required(args, command_config, "model", "model", command_name="tune"))
+        config_path = Path(_resolve_required(args, command_config, "config", "config", command_name="tune"))
+        output_dir = Path(_resolve_required(args, command_config, "output", "output", command_name="tune"))
+        n_jobs = int(_resolve_optional(args, command_config, "n_jobs", "n_jobs") or 1)
+    except Exception as exc:
+        print(f"[ERROR] Tune argument resolution failed: {exc}", file=sys.stderr)
+        return 1
+
+    print(f"[TUNE] Starting optional post-analysis {model} tuning...")
+    print(f"  Config: {config_path}")
+    print(f"  Output: {output_dir}")
     
     # Create output directory
-    args.output.mkdir(parents=True, exist_ok=True)
+    output_dir.mkdir(parents=True, exist_ok=True)
     
     # Initialize manifest
     manifest_builder = ManifestBuilder(mode="tune", version="2.1")
@@ -208,7 +276,7 @@ def cmd_tune(args):
     
     # Load config
     try:
-        with open(args.config) as f:
+        with open(config_path) as f:
             import yaml
             config = yaml.safe_load(f)
         manifest_builder.set_config_hash(config)
@@ -219,39 +287,56 @@ def cmd_tune(args):
     # Run tuning (functional API)
     try:
         result = run_tuning(
-            model=args.model,
-            config=config,
-            output_dir=args.output,
-            n_jobs=args.n_jobs,
+            model=model,
+            tuning_config_path=config_path,
+            test_cases=[],
+            output_dir=output_dir,
+            pipeline_config=config,
+            max_parallel=n_jobs,
         )
         
         # Write manifest
         manifest_builder.record_gate("tuning_completed", True)
-        manifest_path = args.output / "run_manifest.json"
+        manifest_path = output_dir / "run_manifest.json"
         manifest_builder.write(manifest_path)
         
         print("[TUNE] Tuning completed successfully")
-        print(f"  Best params: {args.output / 'best_params.yaml'}")
-        print(f"  Summary: {args.output / 'tuning_summary.json'}")
+        print(f"  Best params: {output_dir / 'best_params.yaml'}")
+        print(f"  Summary: {output_dir / 'tuning_summary.json'}")
         
         return 0
     
     except Exception as e:
         print(f"[ERROR] Tuning failed: {e}", file=sys.stderr)
         manifest_builder.record_gate("tuning_completed", False)
-        manifest_path = args.output / "run_manifest.json"
+        manifest_path = output_dir / "run_manifest.json"
         manifest_builder.write(manifest_path)
         return 1
 
 
 def cmd_run(args):
     """Execute production mode subcommand."""
-    print(f"[RUN] Starting {args.del_branch} analysis...")
-    print(f"  Config: {args.config}")
-    print(f"  Output: {args.output}")
+    try:
+        command_config = _command_config_from_args(args, "run")
+        mode = str(_resolve_required(args, command_config, "mode", "mode", command_name="run"))
+        if mode != "production":
+            raise ValueError(f"Unsupported mode '{mode}'. Only 'production' is valid")
+        config_path = Path(_resolve_required(args, command_config, "config", "config", command_name="run"))
+        output_dir = Path(_resolve_required(args, command_config, "output", "output", command_name="run"))
+        del_branch = str(_resolve_required(args, command_config, "del_branch", "del", command_name="run"))
+        if del_branch not in {"del_a", "del_b"}:
+            raise ValueError("run.del must be one of: del_a, del_b")
+        n_jobs = int(_resolve_optional(args, command_config, "n_jobs", "n_jobs") or 1)
+    except Exception as exc:
+        print(f"[ERROR] Run argument resolution failed: {exc}", file=sys.stderr)
+        return 1
+
+    print(f"[RUN] Starting {del_branch} analysis...")
+    print(f"  Config: {config_path}")
+    print(f"  Output: {output_dir}")
     
     # Create output directory
-    args.output.mkdir(parents=True, exist_ok=True)
+    output_dir.mkdir(parents=True, exist_ok=True)
     
     # Initialize manifest
     manifest_builder = ManifestBuilder(mode="production", version="2.1")
@@ -260,7 +345,7 @@ def cmd_run(args):
     
     # Load config
     try:
-        with open(args.config) as f:
+        with open(config_path) as f:
             import yaml
             config = yaml.safe_load(f)
         manifest_builder.set_config_hash(config)
@@ -274,14 +359,14 @@ def cmd_run(args):
         manifest_builder.set_tuning_reference(tuning_ref)
 
     manifest_builder.record_gate("production_pipeline_started", True)
-    manifest_path = args.output / "run_manifest.json"
+    manifest_path = output_dir / "run_manifest.json"
 
     try:
         result = run_analysis_core(
             config=config,
-            output_dir=args.output,
-            del_variant=args.del_branch,
-            n_jobs=args.n_jobs,
+            output_dir=output_dir,
+            del_variant=del_branch,
+            n_jobs=n_jobs,
         )
         manifest_builder.record_gate("analysis_core_completed", result.success)
         manifest_builder.record_gate("hard_qc_completed", result.qc_report_path is not None)
@@ -373,21 +458,49 @@ def cmd_run(args):
 
 def cmd_predictive(args):
     """Execute predictive postprocess subcommand."""
-    print("[PREDICTIVE] Starting predictive postprocess...")
-    print(f"  Condition table: {args.condition_table}")
-    print(f"  Protein metadata: {args.protein_metadata}")
-    print(f"  Output: {args.output}")
+    try:
+        command_config = _command_config_from_args(args, "predictive")
+        condition_table = Path(
+            _resolve_required(
+                args,
+                command_config,
+                "condition_table",
+                "condition_table",
+                command_name="predictive",
+            )
+        )
+        protein_metadata = Path(
+            _resolve_required(
+                args,
+                command_config,
+                "protein_metadata",
+                "protein_metadata",
+                command_name="predictive",
+            )
+        )
+        output_dir = Path(_resolve_required(args, command_config, "output", "output", command_name="predictive"))
+        task = str(_resolve_optional(args, command_config, "task", "task") or "all")
+        n_folds = int(_resolve_optional(args, command_config, "n_folds", "n_folds") or 5)
+        random_state = int(_resolve_optional(args, command_config, "random_state", "random_state") or 42)
+    except Exception as exc:
+        print(f"[ERROR] Predictive argument resolution failed: {exc}", file=sys.stderr)
+        return 1
 
-    args.output.mkdir(parents=True, exist_ok=True)
+    print("[PREDICTIVE] Starting predictive postprocess...")
+    print(f"  Condition table: {condition_table}")
+    print(f"  Protein metadata: {protein_metadata}")
+    print(f"  Output: {output_dir}")
+
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     try:
         result = run_predictive_postprocess(
-            condition_table_path=args.condition_table,
-            protein_metadata_path=args.protein_metadata,
-            output_dir=args.output,
-            task=args.task,
-            n_folds=args.n_folds,
-            random_state=args.random_state,
+            condition_table_path=condition_table,
+            protein_metadata_path=protein_metadata,
+            output_dir=output_dir,
+            task=task,
+            n_folds=n_folds,
+            random_state=random_state,
         )
     except Exception as exc:
         print(f"[ERROR] Predictive postprocess failed: {exc}", file=sys.stderr)
@@ -406,21 +519,51 @@ def cmd_predictive(args):
 
 def cmd_cbm_paired(args):
     """Execute CBM paired postprocess subcommand."""
-    print("[CBM] Starting CBM paired postprocess...")
-    print(f"  Condition table: {args.condition_table}")
-    print(f"  Cluster table: {args.cluster_table}")
-    print(f"  Protein metadata: {args.protein_metadata}")
-    print(f"  Output: {args.output}")
+    try:
+        command_config = _command_config_from_args(args, "cbm-paired")
+        condition_table = Path(
+            _resolve_required(
+                args,
+                command_config,
+                "condition_table",
+                "condition_table",
+                command_name="cbm-paired",
+            )
+        )
+        cluster_table = _resolve_optional(args, command_config, "cluster_table", "cluster_table")
+        protein_metadata = _resolve_optional(args, command_config, "protein_metadata", "protein_metadata")
+        output_dir = Path(
+            _resolve_required(
+                args,
+                command_config,
+                "output",
+                "output",
+                command_name="cbm-paired",
+            )
+        )
+        random_state = int(_resolve_optional(args, command_config, "random_state", "random_state") or 42)
+    except Exception as exc:
+        print(f"[ERROR] CBM argument resolution failed: {exc}", file=sys.stderr)
+        return 1
 
-    args.output.mkdir(parents=True, exist_ok=True)
+    cluster_table_path = Path(cluster_table) if cluster_table is not None else None
+    protein_metadata_path = Path(protein_metadata) if protein_metadata is not None else None
+
+    print("[CBM] Starting CBM paired postprocess...")
+    print(f"  Condition table: {condition_table}")
+    print(f"  Cluster table: {cluster_table_path}")
+    print(f"  Protein metadata: {protein_metadata_path}")
+    print(f"  Output: {output_dir}")
+
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     try:
         result = run_cbm_paired_analysis(
-            condition_table_path=args.condition_table,
-            cluster_table_path=args.cluster_table,
-            protein_metadata_path=args.protein_metadata,
-            output_dir=args.output,
-            random_state=args.random_state,
+            condition_table_path=condition_table,
+            cluster_table_path=cluster_table_path,
+            protein_metadata_path=protein_metadata_path,
+            output_dir=output_dir,
+            random_state=random_state,
         )
     except Exception as exc:
         print(f"[ERROR] CBM paired postprocess failed: {exc}", file=sys.stderr)
@@ -435,25 +578,83 @@ def cmd_cbm_paired(args):
 
 def cmd_family_enrichment(args):
     """Execute optional family enrichment postprocess."""
-    print("[FAMILY] Starting optional family residue enrichment postprocess...")
-    print(f"  Protein-condition residue scores: {args.protein_condition_residue_scores}")
-    print(f"  Protein residue regio delta: {args.protein_residue_regio_delta}")
-    print(f"  Protein metadata: {args.protein_metadata}")
-    print(f"  Core FASTA: {args.core_fasta}")
-    print(f"  Output: {args.output}")
+    try:
+        command_config = _command_config_from_args(args, "family-enrichment")
+        protein_condition_residue_scores = Path(
+            _resolve_required(
+                args,
+                command_config,
+                "protein_condition_residue_scores",
+                "protein_condition_residue_scores",
+                command_name="family-enrichment",
+            )
+        )
+        protein_residue_regio_delta = Path(
+            _resolve_required(
+                args,
+                command_config,
+                "protein_residue_regio_delta",
+                "protein_residue_regio_delta",
+                command_name="family-enrichment",
+            )
+        )
+        protein_metadata = Path(
+            _resolve_required(
+                args,
+                command_config,
+                "protein_metadata",
+                "protein_metadata",
+                command_name="family-enrichment",
+            )
+        )
+        core_fasta = Path(
+            _resolve_required(
+                args,
+                command_config,
+                "core_fasta",
+                "core_fasta",
+                command_name="family-enrichment",
+            )
+        )
+        output_dir = Path(
+            _resolve_required(
+                args,
+                command_config,
+                "output",
+                "output",
+                command_name="family-enrichment",
+            )
+        )
+        alignment_dir = _resolve_optional(args, command_config, "alignment_dir", "alignment_dir")
+        families = _resolve_optional(args, command_config, "families", "families") or ["AA9", "AA10"]
+        mafft_executable = str(
+            _resolve_optional(args, command_config, "mafft_executable", "mafft_executable") or "mafft"
+        )
+    except Exception as exc:
+        print(f"[ERROR] Family enrichment argument resolution failed: {exc}", file=sys.stderr)
+        return 1
 
-    args.output.mkdir(parents=True, exist_ok=True)
+    alignment_path = Path(alignment_dir) if alignment_dir is not None else None
+
+    print("[FAMILY] Starting optional family residue enrichment postprocess...")
+    print(f"  Protein-condition residue scores: {protein_condition_residue_scores}")
+    print(f"  Protein residue regio delta: {protein_residue_regio_delta}")
+    print(f"  Protein metadata: {protein_metadata}")
+    print(f"  Core FASTA: {core_fasta}")
+    print(f"  Output: {output_dir}")
+
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     try:
         result = run_family_enrichment_postprocess(
-            protein_condition_residue_scores_path=args.protein_condition_residue_scores,
-            protein_residue_regio_delta_path=args.protein_residue_regio_delta,
-            protein_metadata_path=args.protein_metadata,
-            core_fasta_path=args.core_fasta,
-            output_dir=args.output,
-            alignment_dir=args.alignment_dir,
-            families=tuple(args.families),
-            mafft_executable=args.mafft_executable,
+            protein_condition_residue_scores_path=protein_condition_residue_scores,
+            protein_residue_regio_delta_path=protein_residue_regio_delta,
+            protein_metadata_path=protein_metadata,
+            core_fasta_path=core_fasta,
+            output_dir=output_dir,
+            alignment_dir=alignment_path,
+            families=tuple(str(value) for value in families),
+            mafft_executable=mafft_executable,
         )
     except Exception as exc:
         print(f"[ERROR] Family enrichment postprocess failed: {exc}", file=sys.stderr)
