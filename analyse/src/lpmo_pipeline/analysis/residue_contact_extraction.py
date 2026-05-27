@@ -26,7 +26,9 @@ POSE_RESIDUE_CONTACT_COLUMNS = [
     "contact_present",
     "ligand_residue_label",
     "distance_if_available",
+    "is_core_region",
     "is_catalytic_surface_region",
+    "is_non_core_region",
     "is_cbm_region",
     "is_linker_region",
 ]
@@ -36,7 +38,9 @@ POSE_RESIDUE_CONTACT_COLUMNS = [
 class ResidueRegionFlags:
     """Optional residue-region annotations for downstream interpretation."""
 
+    is_core_region: bool = False
     is_catalytic_surface_region: bool = False
+    is_non_core_region: bool = False
     is_cbm_region: bool = False
     is_linker_region: bool = False
 
@@ -55,7 +59,9 @@ class ResidueContactRecord:
     contact_present: int
     ligand_residue_label: str
     distance_if_available: float | None = None
+    is_core_region: bool = False
     is_catalytic_surface_region: bool = False
+    is_non_core_region: bool = False
     is_cbm_region: bool = False
     is_linker_region: bool = False
 
@@ -71,7 +77,9 @@ class ResidueContactRecord:
             "contact_present": self.contact_present,
             "ligand_residue_label": self.ligand_residue_label,
             "distance_if_available": "" if self.distance_if_available is None else self.distance_if_available,
+            "is_core_region": self.is_core_region,
             "is_catalytic_surface_region": self.is_catalytic_surface_region,
+            "is_non_core_region": self.is_non_core_region,
             "is_cbm_region": self.is_cbm_region,
             "is_linker_region": self.is_linker_region,
         }
@@ -155,7 +163,9 @@ def build_pose_residue_contact_rows(
                     interaction_type=interaction_type,
                     contact_present=int(bit),
                     ligand_residue_label=ligand_residue_label,
+                    is_core_region=flags.is_core_region,
                     is_catalytic_surface_region=flags.is_catalytic_surface_region,
+                    is_non_core_region=flags.is_non_core_region,
                     is_cbm_region=flags.is_cbm_region,
                     is_linker_region=flags.is_linker_region,
                 ).to_row()

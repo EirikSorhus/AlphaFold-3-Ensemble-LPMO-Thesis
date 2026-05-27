@@ -115,7 +115,10 @@ model-interpretable or only I/O-valid.
 `analysis/cbm_comparison.py` now has a condition-level CBM paired-analysis
 builder for `cbm_construct_condition_summary.tsv` and
 `cbm_paired_comparison_table.tsv`, using `condition_table.tsv`,
-`cluster_table.tsv`, and protein metadata. Pose-level CBM dual-IFP remains a
+`cluster_table.tsv`, `cluster_residue_signature.tsv`, and protein metadata.
+Raw ProLIF IFP is still generated against the full protein chain, while
+production clustering uses core-only IFP features resolved from
+`LPMO_Core_Start`/`LPMO_Core_End` metadata. Pose-level CBM dual-IFP remains a
 later side analysis. This condition-level CBM layer is now also validated on
 staged real paired rows derived from the stored `clustering_pilot_staged`
 domain-only and full-length shard outputs: focused pytest plus
@@ -140,13 +143,14 @@ Separate geometric planarity thresholds are not an active gate or report field.
 The CBM paired side analysis is condition-level. `analysis/cbm_comparison.py`
 builds matched domain-only/full-length rows by
 `protein_id x substrate_class x dp`, primary and secondary endpoint summaries,
-stratified summaries, representative example rows, and a CBM figure manifest.
+stratified summaries, representative example rows, and a JSON list of planned
+downstream figures.
 The active interpretation contract is now binary: catalytic/core context versus
 aggregated non-core context. The analysis does not attempt residue-level
 attribution of which extra domain type interacts with the ligand; any CBM,
 linker, or other extra-module signal is collapsed into one non-core bucket.
-The figure manifest remains a planning artifact only. Actual CBM figure
-rendering is deferred until the full real-data production runs are complete.
+Actual CBM figure rendering is deferred until the full real-data production
+runs are complete and is not part of the CBM paired-analysis table output.
 
 See [MASTERPLAN.md](MASTERPLAN.md) for full integrated specification.
 

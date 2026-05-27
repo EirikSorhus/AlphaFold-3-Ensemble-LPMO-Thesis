@@ -163,6 +163,10 @@ def main():
         help="Optional path to cluster_table.tsv for C1/C4 compatible fractions",
     )
     cbm_parser.add_argument(
+        "--cluster-residue-signature-table", type=Path,
+        help="Optional path to cluster_residue_signature.tsv for non-core/bridge fractions",
+    )
+    cbm_parser.add_argument(
         "--protein-metadata", type=Path,
         help="Optional path to protein metadata TSV",
     )
@@ -531,6 +535,12 @@ def cmd_cbm_paired(args):
             )
         )
         cluster_table = _resolve_optional(args, command_config, "cluster_table", "cluster_table")
+        cluster_residue_signature_table = _resolve_optional(
+            args,
+            command_config,
+            "cluster_residue_signature_table",
+            "cluster_residue_signature_table",
+        )
         protein_metadata = _resolve_optional(args, command_config, "protein_metadata", "protein_metadata")
         output_dir = Path(
             _resolve_required(
@@ -547,11 +557,17 @@ def cmd_cbm_paired(args):
         return 1
 
     cluster_table_path = Path(cluster_table) if cluster_table is not None else None
+    cluster_residue_signature_table_path = (
+        Path(cluster_residue_signature_table)
+        if cluster_residue_signature_table is not None
+        else None
+    )
     protein_metadata_path = Path(protein_metadata) if protein_metadata is not None else None
 
     print("[CBM] Starting CBM paired postprocess...")
     print(f"  Condition table: {condition_table}")
     print(f"  Cluster table: {cluster_table_path}")
+    print(f"  Cluster residue signature table: {cluster_residue_signature_table_path}")
     print(f"  Protein metadata: {protein_metadata_path}")
     print(f"  Output: {output_dir}")
 
@@ -561,6 +577,7 @@ def cmd_cbm_paired(args):
         result = run_cbm_paired_analysis(
             condition_table_path=condition_table,
             cluster_table_path=cluster_table_path,
+            cluster_residue_signature_table_path=cluster_residue_signature_table_path,
             protein_metadata_path=protein_metadata_path,
             output_dir=output_dir,
             random_state=random_state,

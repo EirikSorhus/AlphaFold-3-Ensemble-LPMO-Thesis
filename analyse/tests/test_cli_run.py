@@ -250,11 +250,13 @@ def test_cmd_cbm_paired_calls_postprocess(tmp_path, monkeypatch) -> None:
         condition_table_path: Path,
         output_dir: Path,
         cluster_table_path: Path | None,
+        cluster_residue_signature_table_path: Path | None,
         protein_metadata_path: Path | None,
         random_state: int,
     ):
         called["condition_table_path"] = condition_table_path
         called["cluster_table_path"] = cluster_table_path
+        called["cluster_residue_signature_table_path"] = cluster_residue_signature_table_path
         called["protein_metadata_path"] = protein_metadata_path
         called["output_dir"] = output_dir
         called["random_state"] = random_state
@@ -276,6 +278,7 @@ def test_cmd_cbm_paired_calls_postprocess(tmp_path, monkeypatch) -> None:
     args = argparse.Namespace(
         condition_table=condition_table,
         cluster_table=cluster_table,
+        cluster_residue_signature_table=None,
         protein_metadata=protein_metadata,
         output=output_dir,
         random_state=13,
@@ -286,6 +289,7 @@ def test_cmd_cbm_paired_calls_postprocess(tmp_path, monkeypatch) -> None:
     assert exit_code == 0
     assert called["condition_table_path"] == condition_table
     assert called["cluster_table_path"] == cluster_table
+    assert called["cluster_residue_signature_table_path"] is None
     assert called["protein_metadata_path"] == protein_metadata
     assert called["output_dir"] == output_dir
     assert called["random_state"] == 13

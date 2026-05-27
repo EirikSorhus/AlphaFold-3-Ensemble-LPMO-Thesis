@@ -78,8 +78,10 @@ from lpmo_pipeline.analysis.prolif_ifp import (
     IFPResult,
     compute_ifp_batch,
     evaluate_contact_eligibility,
+    filter_ifp_batch_features,
     load_contact_eligibility_rule,
     load_prolif_features_config,
+    parse_ifp_feature_name,
     write_ifp_matrix,
     write_pose_ifp_table,
 )
@@ -93,6 +95,12 @@ from lpmo_pipeline.analysis.residue_importance import (
     write_protein_condition_residue_scores,
     write_protein_patch_summary,
     write_protein_residue_regio_delta,
+)
+from lpmo_pipeline.analysis.residue_region_annotation import (
+    ProteinRegionDefinition,
+    build_region_annotations_for_ifp_results,
+    load_protein_region_definitions,
+    residue_is_core,
 )
 from lpmo_pipeline.analysis.crystal_anchoring import (
     CRYSTAL_GEOMETRY_COLUMNS,
@@ -176,6 +184,7 @@ class ProductionRunOptions:
     include_targets: tuple[str, ...] = ()
     include_proteins: tuple[str, ...] = ()
     construct_type: str = "domain_only"
+    protein_metadata_path: Path | None = None
     run_posebusters: bool = True
     run_privateer: bool = True
     clustering_features: ClusteringFeatureOptions = field(default_factory=ClusteringFeatureOptions)
@@ -452,6 +461,7 @@ def load_production_options(
     include_proteins = tuple(str(value) for value in production.get("include_proteins", ()))
     run_posebusters = bool(production.get("run_posebusters", True))
     run_privateer = bool(production.get("run_privateer", True))
+    protein_metadata_path_raw = production.get("protein_metadata_path") or config.get("protein_metadata_path")
     production_n_jobs = int(production.get("n_jobs", 1) or 1)
     clustering_pilot_config = production.get("clustering_pilot") or {}
     predictive_config = production.get("predictive") or {}
@@ -607,6 +617,11 @@ def load_production_options(
         include_targets=include_targets,
         include_proteins=include_proteins,
         construct_type=construct_type,
+        protein_metadata_path=(
+            Path(protein_metadata_path_raw).expanduser().resolve()
+            if protein_metadata_path_raw
+            else None
+        ),
         run_posebusters=run_posebusters,
         run_privateer=run_privateer,
         clustering_features=clustering_features,
@@ -668,9 +683,22 @@ def _build_main_clustering_matrix(
     *,
     selected_pose_ids: list[str],
     feature_options: ClusteringFeatureOptions,
+    construct_type: str = "domain_only",
+    region_definitions: dict[str, ProteinRegionDefinition] | None = None,
 ):
+    core_feature_names = {
+        feature_name
+        for feature_name in batch.feature_names
+        if residue_is_core(
+            parse_ifp_feature_name(feature_name)[1],
+            protein_id=batch.protein_id,
+            construct_type=construct_type,
+            region_definitions=region_definitions,
+        )
+    }
+    core_batch = filter_ifp_batch_features(batch, core_feature_names)
     selected_main_feature_names = select_main_clustering_features_for_condition(
-        batch,
+        core_batch,
         selected_pose_ids=selected_pose_ids,
         default_include_interaction_types=feature_options.main_include_interaction_types,
         extra_include_interaction_types=feature_options.extra_include_interaction_types,
@@ -679,10 +707,29 @@ def _build_main_clustering_matrix(
         rare_feature_condition_prevalence_lt_n_conditions=feature_options.rare_feature_condition_prevalence_lt_n_conditions,
     )
     return build_filtered_ifp_matrix(
-        batch,
+        core_batch,
         selected_pose_ids=selected_pose_ids,
         allowed_feature_names=selected_main_feature_names,
     )
+
+
+def _build_core_ifp_batch(
+    batch: IFPBatch,
+    *,
+    construct_type: str,
+    region_definitions: dict[str, ProteinRegionDefinition] | None,
+) -> IFPBatch:
+    core_feature_names = {
+        feature_name
+        for feature_name in batch.feature_names
+        if residue_is_core(
+            parse_ifp_feature_name(feature_name)[1],
+            protein_id=batch.protein_id,
+            construct_type=construct_type,
+            region_definitions=region_definitions,
+        )
+    }
+    return filter_ifp_batch_features(batch, core_feature_names)
 
 
 def _classify_primary_clustering_input(
@@ -2009,10 +2056,12 @@ def run_analysis_core(
 
         prolif_config = load_prolif_features_config()
         contact_eligibility_rule = load_contact_eligibility_rule()
+        region_definitions = load_protein_region_definitions(options.protein_metadata_path)
         geometry_metrics: list[PoseGeometryMetrics] = []
         summary_geometry_rows: list[dict[str, Any]] = []
         metrics_record_by_pose_id: dict[str, dict[str, Any]] = {}
         all_ifp_results: list[IFPResult] = []
+        region_annotations_by_pose_id: dict[str, dict[tuple[str, int, str], Any]] = {}
         residue_contact_rows: list[dict[str, Any]] = []
         contact_eligibility_by_condition: dict[str, list[ContactEligibility]] = {}
         ifp_pose_inputs_by_condition: dict[str, list[dict[str, Any]]] = {}
@@ -2245,6 +2294,18 @@ def run_analysis_core(
                     detail=f"n_poses={len(condition_pose_inputs)}",
                 )
                 all_ifp_results.extend(batch.results)
+                condition_region_annotations = build_region_annotations_for_ifp_results(
+                    batch.results,
+                    protein_id=batch.protein_id,
+                    construct_type=options.construct_type,
+                    region_definitions=region_definitions,
+                )
+                region_annotations_by_pose_id.update(condition_region_annotations)
+                core_batch = _build_core_ifp_batch(
+                    batch,
+                    construct_type=options.construct_type,
+                    region_definitions=region_definitions,
+                )
 
                 condition_ifp_dir = ifp_matrix_root / _slug(condition_id)
                 write_ifp_matrix(batch, condition_ifp_dir / "ifp_matrix.csv")
@@ -2258,7 +2319,7 @@ def run_analysis_core(
                     case["n_ifp_contacts"] = result.n_total_contacts
                     metrics_record_by_pose_id[result.pose_id]["n_ifp_contacts"] = result.n_total_contacts
 
-                for index, result in enumerate(batch.results):
+                for index, result in enumerate(core_batch.results):
                     if result.status not in {"ok", "zero_contacts"}:
                         continue
 
@@ -2281,16 +2342,16 @@ def run_analysis_core(
 
                 clusterable_indices = [
                     index
-                    for index, result in enumerate(batch.results)
+                    for index, result in enumerate(core_batch.results)
                     if result.status == "ok" and eligibility_by_index.get(index) is not None and eligibility_by_index[index].eligible
                 ]
                 if options.clustering_pilot is not None:
                     pilot_conditions.append(
                         PilotConditionIFP(
                             condition_id=condition_id,
-                            batch=batch,
+                            batch=core_batch,
                             selected_pose_ids=tuple(
-                                batch.results[index].pose_id for index in clusterable_indices
+                                core_batch.results[index].pose_id for index in clusterable_indices
                             ),
                             contact_eligibilities=tuple(contact_eligibility_by_condition.get(condition_id, [])),
                             n_qc_pass_poses=n_qc_pass_by_condition.get(condition_id, 0),
@@ -2298,11 +2359,13 @@ def run_analysis_core(
                     )
                 if clusterable_indices:
                     clustering_start = perf_counter()
-                    cluster_pose_ids = [batch.results[index].pose_id for index in clusterable_indices]
+                    cluster_pose_ids = [core_batch.results[index].pose_id for index in clusterable_indices]
                     main_clustering_matrix = _build_main_clustering_matrix(
                         batch,
                         selected_pose_ids=cluster_pose_ids,
                         feature_options=options.clustering_features,
+                        construct_type=options.construct_type,
+                        region_definitions=region_definitions,
                     )
                     _write_ifp_matrix_csv(
                         condition_ifp_dir / "main_clustering_ifp_matrix.csv",
@@ -2620,6 +2683,7 @@ def run_analysis_core(
             residue_contact_rows = build_pose_residue_contact_rows(
                 all_ifp_results,
                 pose_metadata_by_id,
+                region_annotations_by_pose_id=region_annotations_by_pose_id,
             )
             pose_residue_contact_tsv_path = options.output_dir / "pose_residue_contact_table.tsv"
             write_pose_residue_contact_table(

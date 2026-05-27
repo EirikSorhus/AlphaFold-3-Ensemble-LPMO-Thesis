@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import csv
+import json
 from pathlib import Path
 
 import pytest
 
 from lpmo_pipeline.analysis.cluster_signatures import write_cluster_table_tsv
 from lpmo_pipeline.analysis.cbm_comparison import (
-    build_cbm_figure_manifest_rows,
     build_cbm_construct_condition_summary_rows,
     build_cbm_paired_comparison_rows,
     build_cbm_primary_metric_summary_rows,
@@ -15,7 +15,6 @@ from lpmo_pipeline.analysis.cbm_comparison import (
     build_cbm_secondary_descriptive_summary_rows,
     build_cbm_stratified_summary_rows,
     run_cbm_paired_analysis,
-    write_cbm_figure_manifest,
     write_cbm_construct_condition_summary,
     write_cbm_paired_comparison_table,
     write_cbm_primary_metric_summary,
@@ -154,10 +153,6 @@ def test_cbm_condition_summary_and_pairs_are_condition_level(tmp_path: Path) -> 
             "cluster_entropy": "0.4",
             "occupancy_weighted_c1_plausible_fraction": "0.2",
             "occupancy_weighted_c4_plausible_fraction": "0.6",
-            "non_core_contact_fraction": "0.6",
-            "cbm_contact_fraction": "0.45",
-            "linker_contact_fraction": "0.15",
-            "bridge_fraction": "0.25",
             "catalytic_surface_contact_fraction": "0.4",
             "aromatic_contact_fraction": "0.35",
             "polar_contact_fraction": "0.2",
@@ -178,19 +173,57 @@ def test_cbm_condition_summary_and_pairs_are_condition_level(tmp_path: Path) -> 
     cluster_rows = [
         {
             "condition_id": "P1__domain_only__chitin_DP4",
+            "cluster_id": "0",
             "cluster_type": "C1_compatible",
             "occupancy": "0.7",
+            "c1_geometry_computable_fraction": "1.0",
+            "c4_geometry_computable_fraction": "1.0",
         },
         {
             "condition_id": "P1__full_length__chitin_DP4",
+            "cluster_id": "0",
             "cluster_type": "C4_compatible",
             "occupancy": "0.6",
+            "c1_geometry_computable_fraction": "1.0",
+            "c4_geometry_computable_fraction": "1.0",
+        },
+        {
+            "condition_id": "P1__full_length__chitin_DP4",
+            "cluster_id": "1",
+            "cluster_type": "uncertain",
+            "occupancy": "0.4",
+            "c1_geometry_computable_fraction": "1.0",
+            "c4_geometry_computable_fraction": "1.0",
+        },
+    ]
+    cluster_residue_rows = [
+        {
+            "condition_id": "P1__full_length__chitin_DP4",
+            "cluster_id": "0",
+            "contact_frequency": "1.0",
+            "is_core_region": "True",
+            "is_non_core_region": "False",
+        },
+        {
+            "condition_id": "P1__full_length__chitin_DP4",
+            "cluster_id": "0",
+            "contact_frequency": "1.0",
+            "is_core_region": "False",
+            "is_non_core_region": "True",
+        },
+        {
+            "condition_id": "P1__full_length__chitin_DP4",
+            "cluster_id": "1",
+            "contact_frequency": "1.0",
+            "is_core_region": "True",
+            "is_non_core_region": "False",
         },
     ]
 
     construct_rows = build_cbm_construct_condition_summary_rows(
         condition_rows,
         cluster_rows=cluster_rows,
+        cluster_residue_rows=cluster_residue_rows,
         protein_metadata_rows=[{"protein_id": "P1", "family": "AA9", "cbm_type": "CBM1"}],
     )
     assert len(construct_rows) == 3
@@ -199,8 +232,9 @@ def test_cbm_condition_summary_and_pairs_are_condition_level(tmp_path: Path) -> 
     assert domain["qc_pass_fraction"] == pytest.approx(0.8)
     assert domain["ifp_success_fraction"] == pytest.approx(0.75)
     assert domain["C1_compatible_fraction"] == pytest.approx(1.0)
-    assert full["C4_compatible_fraction"] == pytest.approx(1.0)
+    assert full["C4_compatible_fraction"] == pytest.approx(0.6)
     assert full["non_core_ligand_contact_fraction"] == pytest.approx(0.6)
+    assert full["bridge_fraction"] == pytest.approx(0.6)
     assert full["non_core_recruitment_score"] == pytest.approx(0.6)
 
     pair_rows = build_cbm_paired_comparison_rows(construct_rows)
@@ -210,9 +244,9 @@ def test_cbm_condition_summary_and_pairs_are_condition_level(tmp_path: Path) -> 
     assert pair["domain_only_condition_id"] == "P1__domain_only__chitin_DP4"
     assert pair["full_length_condition_id"] == "P1__full_length__chitin_DP4"
     assert pair["delta_qc_pass_fraction"] == pytest.approx(-0.1)
-    assert pair["delta_C4_minus_C1_geometry_bias"] == pytest.approx(2.0)
+    assert pair["delta_C4_minus_C1_geometry_bias"] == pytest.approx(1.6)
     assert pair["non_core_ligand_contact_fraction_full_length"] == pytest.approx(0.6)
-    assert pair["bridge_fraction_full_length"] == pytest.approx(0.25)
+    assert pair["bridge_fraction_full_length"] == pytest.approx(0.6)
     assert pair["catalytic_domain_ifp_jaccard_distance"] == pytest.approx(2 / 3)
 
     construct_path = tmp_path / "cbm_construct_condition_summary.tsv"
@@ -262,7 +296,6 @@ def test_cbm_paired_summaries_follow_sample_size_rules_and_figure_contract(tmp_p
     secondary_rows = build_cbm_secondary_descriptive_summary_rows(paired_rows)
     substrate_rows = build_cbm_stratified_summary_rows(paired_rows, stratum_name="substrate_class")
     example_rows = build_cbm_representative_example_rows(paired_rows, top_n=1)
-    figure_rows = build_cbm_figure_manifest_rows()
 
     bridge_summary = next(row for row in primary_rows if row["metric_name"] == "bridge_fraction")
     geometry_summary = next(
@@ -278,25 +311,19 @@ def test_cbm_paired_summaries_follow_sample_size_rules_and_figure_contract(tmp_p
     assert len(secondary_rows) > 5
     assert {row["stratum_value"] for row in substrate_rows} == {"cellulose", "chitin"}
     assert example_rows[0]["example_type"] == "full_length_medoid_with_ligand_bridging_catalytic_domain_and_cbm"
-    assert {row["figure_name"] for row in figure_rows} >= {
-        "paired_delta_plot_primary_metrics.png",
-        "active_site_ifp_change_heatmap.png",
-        "geometry_bias_delta_heatmap.png",
-    }
 
     primary_path = tmp_path / "cbm_primary_metric_summary.tsv"
-    figure_path = tmp_path / "cbm_figure_manifest.tsv"
     write_cbm_primary_metric_summary(primary_rows, primary_path)
-    write_cbm_figure_manifest(figure_rows, figure_path)
     with primary_path.open(newline="") as handle:
         written_primary = list(csv.DictReader(handle, delimiter="\t"))
     assert written_primary[0]["sample_size_label"]
-    assert figure_path.exists()
+    assert "interpretation_scope" not in written_primary[0]
 
 
 def test_run_cbm_paired_analysis_writes_complete_side_analysis(tmp_path: Path) -> None:
     condition_table = tmp_path / "condition_table.tsv"
     cluster_table = tmp_path / "cluster_table.tsv"
+    cluster_residue_table = tmp_path / "cluster_residue_signature.tsv"
     metadata_table = tmp_path / "protein_metadata.tsv"
     output_dir = tmp_path / "results"
 
@@ -317,26 +344,29 @@ def test_run_cbm_paired_analysis_writes_complete_side_analysis(tmp_path: Path) -
                 "cluster_entropy",
                 "occupancy_weighted_c1_plausible_fraction",
                 "occupancy_weighted_c4_plausible_fraction",
-                "cbm_contact_fraction",
-                "linker_contact_fraction",
-                "bridge_fraction",
                 "active_site_ifp_weighted_vector",
             ]
         )
         + "\n"
-        + "P1__domain\tP1\tdomain_only\tchitin\t4\t10\t8\t8\t1\t0.1\t0.7\t0.2\t0.8\t0.1\t0\t0\t0\t[0.2, 0.0]\n"
-        + "P1__full\tP1\tfull_length\tchitin\t4\t10\t7\t7\t1\t0.2\t0.6\t0.4\t0.2\t0.7\t0.3\t0.1\t0.2\t[0.0, 0.3]\n"
+        + "P1__domain\tP1\tdomain_only\tchitin\t4\t10\t8\t8\t1\t0.1\t0.7\t0.2\t0.8\t0.1\t[0.2, 0.0]\n"
+        + "P1__full\tP1\tfull_length\tchitin\t4\t10\t7\t7\t1\t0.2\t0.6\t0.4\t0.2\t0.7\t[0.0, 0.3]\n"
     )
     cluster_table.write_text(
-        "condition_id\tcluster_type\toccupancy\n"
-        "P1__domain\tC1_compatible\t0.7\n"
-        "P1__full\tC4_compatible\t0.6\n"
+        "condition_id\tcluster_id\tcluster_type\toccupancy\tc1_geometry_computable_fraction\tc4_geometry_computable_fraction\n"
+        "P1__domain\t0\tC1_compatible\t0.7\t1.0\t1.0\n"
+        "P1__full\t0\tC4_compatible\t0.6\t1.0\t1.0\n"
+    )
+    cluster_residue_table.write_text(
+        "condition_id\tcluster_id\tcontact_frequency\tis_core_region\tis_non_core_region\n"
+        "P1__full\t0\t1.0\tTrue\tFalse\n"
+        "P1__full\t0\t1.0\tFalse\tTrue\n"
     )
     metadata_table.write_text("protein_id\tfamily\tcbm_type\nP1\tAA9\tCBM1\n")
 
     result = run_cbm_paired_analysis(
         condition_table_path=condition_table,
         cluster_table_path=cluster_table,
+        cluster_residue_signature_table_path=cluster_residue_table,
         protein_metadata_path=metadata_table,
         output_dir=output_dir,
         random_state=5,
@@ -352,11 +382,14 @@ def test_run_cbm_paired_analysis_writes_complete_side_analysis(tmp_path: Path) -
         "stratified_summary_by_dp",
         "stratified_summary_by_cbm_type",
         "representative_examples",
-        "figure_manifest",
     }
     assert set(result.table_paths) == expected_tables
     for path in result.table_paths.values():
         assert path.exists()
+    assert not (result.output_dir / "cbm_figure_manifest.tsv").exists()
+    summary = json.loads(result.summary_path.read_text())
+    assert summary["figures_to_generate"]
+    assert summary["n_full_length_conditions_with_bridge_flag"] == 1
 
 
 def test_run_cbm_paired_analysis_on_staged_real_summary_tables(tmp_path: Path) -> None:

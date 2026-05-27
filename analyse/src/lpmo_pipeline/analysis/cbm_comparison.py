@@ -23,6 +23,10 @@ from scipy.stats import binomtest, wilcoxon
 
 logger = logging.getLogger(__name__)
 
+NON_CORE_CONTACT_PRESENT_THRESHOLD = 0.10
+BRIDGE_PRESENT_THRESHOLD = 0.10
+STRONG_BRIDGE_THRESHOLD = 0.30
+
 CBM_CONSTRUCT_CONDITION_COLUMNS = [
     "condition_id",
     "protein_id",
@@ -39,15 +43,23 @@ CBM_CONSTRUCT_CONDITION_COLUMNS = [
     "n_clusters",
     "any_valid_cluster",
     "no_valid_cluster_flag",
+    "geometry_computable_fraction",
+    "geometry_missing_flag",
+    "ifp_missing_flag",
     "noise_fraction",
     "top_cluster_occupancy",
     "cluster_entropy",
+    "occupancy_gini",
     "geometry_plausible_fraction",
     "C1_compatible_fraction",
     "C4_compatible_fraction",
     "C4_minus_C1_geometry_bias",
     "non_core_ligand_contact_fraction",
     "bridge_fraction",
+    "non_core_contact_flag",
+    "bridge_flag",
+    "strong_bridge_flag",
+    "non_core_recruitment_flag",
     "non_core_recruitment_score",
     "active_site_ifp_weighted_vector",
     "catalytic_surface_contact_fraction",
@@ -71,6 +83,10 @@ CBM_PAIRED_COMPARISON_COLUMNS = [
     "any_valid_cluster_full_length",
     "non_core_ligand_contact_fraction_full_length",
     "bridge_fraction_full_length",
+    "non_core_contact_flag_full_length",
+    "bridge_flag_full_length",
+    "strong_bridge_flag_full_length",
+    "non_core_recruitment_flag_full_length",
     "non_core_recruitment_score_full_length",
     "catalytic_domain_ifp_jaccard_distance",
     "delta_qc_pass_fraction",
@@ -79,6 +95,7 @@ CBM_PAIRED_COMPARISON_COLUMNS = [
     "delta_noise_fraction",
     "delta_top_cluster_occupancy",
     "delta_cluster_entropy",
+    "delta_occupancy_gini",
     "delta_C1_compatible_fraction",
     "delta_C4_compatible_fraction",
     "delta_C4_minus_C1_geometry_bias",
@@ -114,7 +131,6 @@ CBM_PRIMARY_METRIC_COLUMNS = [
     "effect_size_rank_biserial",
     "bh_fdr_p_value",
     "significant_fdr_0_05",
-    "interpretation_scope",
 ]
 
 CBM_SECONDARY_METRIC_COLUMNS = [
@@ -162,15 +178,6 @@ CBM_REPRESENTATIVE_EXAMPLE_COLUMNS = [
     "selection_reason",
 ]
 
-CBM_FIGURE_MANIFEST_COLUMNS = [
-    "figure_name",
-    "description",
-    "source_table",
-    "required_columns",
-    "plot_unit",
-    "status",
-]
-
 PRIMARY_ENDPOINTS = [
     {
         "metric_name": "bridge_fraction",
@@ -208,53 +215,19 @@ SECONDARY_ENDPOINTS = [
     {"metric_name": "delta_ifp_success_fraction", "source_column": "delta_ifp_success_fraction", "endpoint_type": "paired_delta"},
     {"metric_name": "delta_noise_fraction", "source_column": "delta_noise_fraction", "endpoint_type": "paired_delta"},
     {"metric_name": "delta_top_cluster_occupancy", "source_column": "delta_top_cluster_occupancy", "endpoint_type": "paired_delta"},
+    {"metric_name": "delta_occupancy_gini", "source_column": "delta_occupancy_gini", "endpoint_type": "paired_delta"},
     {"metric_name": "delta_n_clusters", "source_column": "delta_n_clusters", "endpoint_type": "paired_delta"},
     {"metric_name": "delta_catalytic_surface_contact_fraction", "source_column": "delta_catalytic_surface_contact_fraction", "endpoint_type": "paired_delta"},
     {"metric_name": "delta_aromatic_contact_fraction", "source_column": "delta_aromatic_contact_fraction", "endpoint_type": "paired_delta"},
     {"metric_name": "delta_polar_contact_fraction", "source_column": "delta_polar_contact_fraction", "endpoint_type": "paired_delta"},
 ]
 
-CBM_FIGURE_MANIFEST_ROWS = [
-    {
-        "figure_name": "paired_delta_plot_primary_metrics.png",
-        "description": "One point per matched pair for primary full_length - domain_only delta metrics.",
-        "source_table": "cbm_paired_comparison_table.tsv; cbm_primary_metric_summary.tsv",
-        "required_columns": "delta_C4_minus_C1_geometry_bias,delta_qc_pass_fraction,delta_cluster_entropy",
-        "plot_unit": "matched protein_id x substrate_class x dp pair",
-        "status": "planned_downstream_plot",
-    },
-    {
-        "figure_name": "domain_only_vs_full_length_paired_lines.png",
-        "description": "Paired line plots for selected construct-level metrics before and after adding non-core sequence/module context.",
-        "source_table": "cbm_construct_condition_summary.tsv",
-        "required_columns": "protein_id,substrate_class,dp,construct_type,qc_pass_fraction,cluster_entropy,geometry_plausible_fraction",
-        "plot_unit": "matched construct condition",
-        "status": "planned_downstream_plot",
-    },
-    {
-        "figure_name": "cbm_bridge_fraction_by_substrate_dp.png",
-        "description": "Full-length catalytic/core-to-non-core bridge fraction by substrate_class and dp with individual points and medians.",
-        "source_table": "cbm_paired_comparison_table.tsv",
-        "required_columns": "substrate_class,dp,bridge_fraction_full_length",
-        "plot_unit": "matched pair full-length condition",
-        "status": "planned_downstream_plot",
-    },
-    {
-        "figure_name": "active_site_ifp_change_heatmap.png",
-        "description": "Heatmap of catalytic-domain IFP Jaccard distance per protein and ligand condition when vectors are available.",
-        "source_table": "cbm_paired_comparison_table.tsv",
-        "required_columns": "protein_id,substrate_class,dp,catalytic_domain_ifp_jaccard_distance",
-        "plot_unit": "matched pair",
-        "status": "planned_downstream_plot",
-    },
-    {
-        "figure_name": "geometry_bias_delta_heatmap.png",
-        "description": "Heatmap of delta_C4_minus_C1_geometry_bias per protein and ligand condition.",
-        "source_table": "cbm_paired_comparison_table.tsv",
-        "required_columns": "protein_id,substrate_class,dp,delta_C4_minus_C1_geometry_bias",
-        "plot_unit": "matched pair",
-        "status": "planned_downstream_plot",
-    },
+CBM_FIGURES_TO_GENERATE = [
+    "paired_delta_plot_primary_metrics.png",
+    "domain_only_vs_full_length_paired_lines.png",
+    "cbm_bridge_fraction_by_substrate_dp.png",
+    "active_site_ifp_change_heatmap.png",
+    "geometry_bias_delta_heatmap.png",
 ]
 
 
@@ -544,10 +517,88 @@ def _cluster_type_fractions(cluster_rows: list[dict[str, Any]]) -> dict[str, flo
     }
 
 
+def _cluster_weighted_fraction(
+    cluster_rows: list[dict[str, Any]],
+    value_getter,
+) -> float:
+    total_occupancy = sum(_as_float(row.get("occupancy")) or 0.0 for row in cluster_rows)
+    if not total_occupancy:
+        return 0.0
+    weighted = sum((_as_float(row.get("occupancy")) or 0.0) * float(value_getter(row)) for row in cluster_rows)
+    return weighted / total_occupancy
+
+
+def _cluster_geometry_computable_fraction(cluster_rows: list[dict[str, Any]]) -> float:
+    return _cluster_weighted_fraction(
+        cluster_rows,
+        lambda row: max(
+            _as_float(row.get("c1_geometry_computable_fraction")) or 0.0,
+            _as_float(row.get("c4_geometry_computable_fraction")) or 0.0,
+        ),
+    )
+
+
+def _cluster_geometry_plausible_fraction(cluster_rows: list[dict[str, Any]], condition: dict[str, Any]) -> float:
+    if cluster_rows:
+        return _cluster_weighted_fraction(
+            cluster_rows,
+            lambda row: max(
+                _as_float(row.get("c1_geometry_plausible_fraction")) or _as_float(row.get("c1_plausible_fraction")) or 0.0,
+                _as_float(row.get("c4_geometry_plausible_fraction")) or _as_float(row.get("c4_plausible_fraction")) or 0.0,
+            ),
+        )
+    return max(
+        _as_float(condition.get("occupancy_weighted_c1_plausible_fraction")) or 0.0,
+        _as_float(condition.get("occupancy_weighted_c4_plausible_fraction")) or 0.0,
+    )
+
+
+def _cluster_recruitment_fractions(
+    cluster_rows: list[dict[str, Any]],
+    cluster_residue_rows: list[dict[str, Any]],
+) -> dict[str, float]:
+    total_occupancy = sum(_as_float(row.get("occupancy")) or 0.0 for row in cluster_rows)
+    if not total_occupancy:
+        return {"non_core_ligand_contact_fraction": 0.0, "bridge_fraction": 0.0}
+
+    cluster_flags: dict[tuple[str, str], dict[str, bool]] = defaultdict(
+        lambda: {"core": False, "non_core": False}
+    )
+    for row in cluster_residue_rows:
+        if (_as_float(row.get("contact_frequency")) or 0.0) <= 0.0:
+            continue
+        key = (str(row.get("condition_id", "")), str(row.get("cluster_id", "")))
+        is_core = _as_bool(row.get("is_core_region")) or _as_bool(row.get("is_catalytic_surface_region"))
+        is_non_core = (
+            _as_bool(row.get("is_non_core_region"))
+            or _as_bool(row.get("is_cbm_region"))
+            or _as_bool(row.get("is_linker_region"))
+        )
+        cluster_flags[key]["core"] = cluster_flags[key]["core"] or is_core
+        cluster_flags[key]["non_core"] = cluster_flags[key]["non_core"] or is_non_core
+
+    non_core_occupancy = 0.0
+    bridge_occupancy = 0.0
+    for row in cluster_rows:
+        occupancy = _as_float(row.get("occupancy")) or 0.0
+        key = (str(row.get("condition_id", "")), str(row.get("cluster_id", "")))
+        flags = cluster_flags.get(key, {"core": False, "non_core": False})
+        if flags["non_core"]:
+            non_core_occupancy += occupancy
+        if flags["core"] and flags["non_core"]:
+            bridge_occupancy += occupancy
+
+    return {
+        "non_core_ligand_contact_fraction": non_core_occupancy / total_occupancy,
+        "bridge_fraction": bridge_occupancy / total_occupancy,
+    }
+
+
 def build_cbm_construct_condition_summary_rows(
     condition_rows: list[dict[str, Any]],
     *,
     cluster_rows: list[dict[str, Any]] | None = None,
+    cluster_residue_rows: list[dict[str, Any]] | None = None,
     protein_metadata_rows: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """Build one CBM side-analysis row per construct condition."""
@@ -555,6 +606,9 @@ def build_cbm_construct_condition_summary_rows(
     clusters_by_condition: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for row in cluster_rows or []:
         clusters_by_condition[str(row.get("condition_id", ""))].append(row)
+    cluster_residues_by_condition: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for row in cluster_residue_rows or []:
+        cluster_residues_by_condition[str(row.get("condition_id", ""))].append(row)
     metadata_by_protein = _index_protein_metadata(protein_metadata_rows or [])
 
     out: list[dict[str, Any]] = []
@@ -568,20 +622,24 @@ def build_cbm_construct_condition_summary_rows(
         n_qc_pass = _as_int(condition.get("n_stage1_pass"))
         n_ifp_success = _as_int(condition.get("n_ifp_success"))
         n_clusters = _as_int(condition.get("n_clusters"))
+        condition_cluster_rows = clusters_by_condition.get(condition_id, [])
         c1_fraction = cluster_type_fractions["C1_compatible_fraction"]
         c4_fraction = cluster_type_fractions["C4_compatible_fraction"]
-        geometry_plausible = max(
-            _as_float(condition.get("occupancy_weighted_c1_plausible_fraction")) or 0.0,
-            _as_float(condition.get("occupancy_weighted_c4_plausible_fraction")) or 0.0,
+        geometry_computable = _cluster_geometry_computable_fraction(condition_cluster_rows)
+        geometry_plausible = _cluster_geometry_plausible_fraction(condition_cluster_rows, condition)
+        recruitment_fractions = _cluster_recruitment_fractions(
+            condition_cluster_rows,
+            cluster_residues_by_condition.get(condition_id, []),
         )
-        non_core_fraction = _as_float(condition.get("non_core_contact_fraction"))
-        if non_core_fraction is None:
-            cbm_fraction = _as_float(condition.get("cbm_contact_fraction")) or 0.0
-            linker_fraction = _as_float(condition.get("linker_contact_fraction")) or 0.0
-            non_core_fraction = cbm_fraction + linker_fraction
-        bridge_fraction = _as_float(condition.get("bridge_fraction"))
-        if bridge_fraction is None:
-            bridge_fraction = 0.0
+        non_core_fraction = recruitment_fractions["non_core_ligand_contact_fraction"]
+        bridge_fraction = recruitment_fractions["bridge_fraction"]
+        weighted_vector = condition.get(
+            "active_site_ifp_weighted_vector",
+            condition.get("catalytic_domain_ifp_weighted_vector", ""),
+        )
+        non_core_contact_flag = non_core_fraction >= NON_CORE_CONTACT_PRESENT_THRESHOLD
+        bridge_flag = bridge_fraction >= BRIDGE_PRESENT_THRESHOLD
+        strong_bridge_flag = bridge_fraction >= STRONG_BRIDGE_THRESHOLD
 
         out.append(
             {
@@ -612,20 +670,25 @@ def build_cbm_construct_condition_summary_rows(
                 "n_clusters": n_clusters,
                 "any_valid_cluster": _as_bool(condition.get("any_valid_cluster")) or n_clusters > 0,
                 "no_valid_cluster_flag": n_clusters == 0,
+                "geometry_computable_fraction": geometry_computable,
+                "geometry_missing_flag": geometry_computable == 0.0,
+                "ifp_missing_flag": n_ifp_success == 0 or weighted_vector in (None, ""),
                 "noise_fraction": condition.get("noise_fraction", ""),
                 "top_cluster_occupancy": condition.get("top_cluster_occupancy", ""),
                 "cluster_entropy": condition.get("cluster_entropy", ""),
+                "occupancy_gini": condition.get("occupancy_gini", ""),
                 "geometry_plausible_fraction": geometry_plausible,
                 "C1_compatible_fraction": c1_fraction,
                 "C4_compatible_fraction": c4_fraction,
                 "C4_minus_C1_geometry_bias": c4_fraction - c1_fraction,
                 "non_core_ligand_contact_fraction": non_core_fraction,
                 "bridge_fraction": bridge_fraction,
+                "non_core_contact_flag": non_core_contact_flag,
+                "bridge_flag": bridge_flag,
+                "strong_bridge_flag": strong_bridge_flag,
+                "non_core_recruitment_flag": non_core_contact_flag or bridge_flag,
                 "non_core_recruitment_score": max(non_core_fraction, bridge_fraction),
-                "active_site_ifp_weighted_vector": condition.get(
-                    "active_site_ifp_weighted_vector",
-                    condition.get("catalytic_domain_ifp_weighted_vector", ""),
-                ),
+                "active_site_ifp_weighted_vector": weighted_vector,
                 "catalytic_surface_contact_fraction": condition.get(
                     "catalytic_surface_contact_fraction", ""
                 ),
@@ -692,6 +755,12 @@ def build_cbm_paired_comparison_rows(
                     "non_core_ligand_contact_fraction", ""
                 ),
                 "bridge_fraction_full_length": full_length.get("bridge_fraction", ""),
+                "non_core_contact_flag_full_length": full_length.get("non_core_contact_flag", ""),
+                "bridge_flag_full_length": full_length.get("bridge_flag", ""),
+                "strong_bridge_flag_full_length": full_length.get("strong_bridge_flag", ""),
+                "non_core_recruitment_flag_full_length": full_length.get(
+                    "non_core_recruitment_flag", ""
+                ),
                 "non_core_recruitment_score_full_length": full_length.get(
                     "non_core_recruitment_score", ""
                 ),
@@ -707,6 +776,7 @@ def build_cbm_paired_comparison_rows(
                     full_length, domain_only, "top_cluster_occupancy"
                 ),
                 "delta_cluster_entropy": _delta(full_length, domain_only, "cluster_entropy"),
+                "delta_occupancy_gini": _delta(full_length, domain_only, "occupancy_gini"),
                 "delta_C1_compatible_fraction": _delta(
                     full_length, domain_only, "C1_compatible_fraction"
                 ),
@@ -809,7 +879,6 @@ def build_cbm_primary_metric_summary_rows(
             "effect_size_rank_biserial": effect_size,
             "bh_fdr_p_value": "",
             "significant_fdr_0_05": "",
-            "interpretation_scope": "exploratory_af3_construct_comparison",
         }
         summary_rows.append(row)
         wilcoxon_p_values.append(wilcoxon_p_value)
@@ -961,12 +1030,6 @@ def build_cbm_representative_example_rows(
     return out
 
 
-def build_cbm_figure_manifest_rows() -> list[dict[str, Any]]:
-    """Return the documented downstream CBM figure contract."""
-
-    return [dict(row) for row in CBM_FIGURE_MANIFEST_ROWS]
-
-
 def write_cbm_primary_metric_summary(rows: list[dict[str, Any]], output_path: Path) -> None:
     _write_tsv(output_path, CBM_PRIMARY_METRIC_COLUMNS, rows)
 
@@ -983,15 +1046,12 @@ def write_cbm_representative_examples(rows: list[dict[str, Any]], output_path: P
     _write_tsv(output_path, CBM_REPRESENTATIVE_EXAMPLE_COLUMNS, rows)
 
 
-def write_cbm_figure_manifest(rows: list[dict[str, Any]], output_path: Path) -> None:
-    _write_tsv(output_path, CBM_FIGURE_MANIFEST_COLUMNS, rows)
-
-
 def run_cbm_paired_analysis(
     *,
     condition_table_path: Path,
     output_dir: Path,
     cluster_table_path: Path | None = None,
+    cluster_residue_signature_table_path: Path | None = None,
     protein_metadata_path: Path | None = None,
     random_state: int = 42,
 ) -> CBMPairedAnalysisResult:
@@ -1003,11 +1063,13 @@ def run_cbm_paired_analysis(
 
     condition_rows = read_tsv(condition_table_path)
     cluster_rows = read_tsv(cluster_table_path)
+    cluster_residue_rows = read_tsv(cluster_residue_signature_table_path)
     protein_metadata_rows = read_tsv(protein_metadata_path)
 
     construct_rows = build_cbm_construct_condition_summary_rows(
         condition_rows,
         cluster_rows=cluster_rows,
+        cluster_residue_rows=cluster_residue_rows,
         protein_metadata_rows=protein_metadata_rows,
     )
     paired_rows = build_cbm_paired_comparison_rows(construct_rows)
@@ -1026,8 +1088,6 @@ def run_cbm_paired_analysis(
         stratum_name="cbm_type",
     )
     representative_rows = build_cbm_representative_example_rows(paired_rows)
-    figure_rows = build_cbm_figure_manifest_rows()
-
     tables = {
         "construct_condition_summary": (
             cbm_root / "cbm_construct_condition_summary.tsv",
@@ -1069,11 +1129,6 @@ def run_cbm_paired_analysis(
             write_cbm_representative_examples,
             representative_rows,
         ),
-        "figure_manifest": (
-            cbm_root / "cbm_figure_manifest.tsv",
-            write_cbm_figure_manifest,
-            figure_rows,
-        ),
     }
     for table_name, (path, writer, rows) in tables.items():
         writer(rows, path)
@@ -1082,13 +1137,38 @@ def run_cbm_paired_analysis(
     summary_data = {
         "condition_table": str(condition_table_path),
         "cluster_table": str(cluster_table_path) if cluster_table_path else "",
+        "cluster_residue_signature_table": (
+            str(cluster_residue_signature_table_path)
+            if cluster_residue_signature_table_path
+            else ""
+        ),
         "protein_metadata": str(protein_metadata_path) if protein_metadata_path else "",
+        "warnings": (
+            [
+                "cluster_residue_signature_table_missing_or_empty: "
+                "non_core_ligand_contact_fraction and bridge_fraction set to zero"
+            ]
+            if not cluster_residue_rows
+            else []
+        ),
         "n_construct_condition_rows": len(construct_rows),
         "n_paired_rows": len(paired_rows),
         "n_primary_metrics": len(primary_rows),
         "n_secondary_metrics": len(secondary_rows),
+        "n_full_length_conditions_with_non_core_contact_flag": sum(
+            1 for row in construct_rows
+            if row.get("construct_type") == "full_length" and _as_bool(row.get("non_core_contact_flag"))
+        ),
+        "n_full_length_conditions_with_bridge_flag": sum(
+            1 for row in construct_rows
+            if row.get("construct_type") == "full_length" and _as_bool(row.get("bridge_flag"))
+        ),
+        "n_full_length_conditions_with_strong_bridge_flag": sum(
+            1 for row in construct_rows
+            if row.get("construct_type") == "full_length" and _as_bool(row.get("strong_bridge_flag"))
+        ),
         "tables": {name: str(path) for name, path in sorted(result.table_paths.items())},
-        "figures_to_generate": [row["figure_name"] for row in figure_rows],
+        "figures_to_generate": list(CBM_FIGURES_TO_GENERATE),
     }
     summary_path.parent.mkdir(parents=True, exist_ok=True)
     with summary_path.open("w") as handle:

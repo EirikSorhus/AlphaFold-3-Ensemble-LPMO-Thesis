@@ -29,6 +29,7 @@ from lpmo_pipeline.analysis.convergence_metrics import (
     PoseConvergenceMetrics,
 )
 from lpmo_pipeline.analysis.prolif_ifp import IFPBatch, IFPResult
+from lpmo_pipeline.analysis.residue_region_annotation import ProteinRegionDefinition
 from lpmo_pipeline.analysis.mdanalysis_metrics import PoseGeometryMetrics
 from lpmo_pipeline.qc.qc_report import PoseQCVerdict, build_qc_report
 
@@ -193,6 +194,46 @@ def test_build_main_clustering_matrix_filters_raw_ifp_to_main_interactions() -> 
         "NAG2.B|TYR12.A|Hydrophobic",
         "NAG3.B|GLU15.A|ImplicitHBAcceptor",
     ]
+
+
+def test_build_main_clustering_matrix_uses_only_core_ifp_features() -> None:
+    feature_names = [
+        "NAG1.B|ASN10.A|ImplicitHBDonor",
+        "NAG1.B|TYR130.A|ImplicitHBAcceptor",
+        "NAG1.B|TYR130.A|VdWContact",
+    ]
+    batch = IFPBatch(
+        protein_id="P1",
+        ligand_id="NAG4",
+        model="af3",
+        feature_names=feature_names,
+        matrix=[[1, 1, 1]],
+        results=[
+            IFPResult(
+                pose_id="pose-1",
+                status="ok",
+                feature_names=feature_names,
+                flat_bitvector=[1, 1, 1],
+                n_total_contacts=3,
+                interaction_counts={
+                    "ImplicitHBDonor": 1,
+                    "ImplicitHBAcceptor": 1,
+                    "VdWContact": 1,
+                },
+            )
+        ],
+    )
+
+    filtered = _build_main_clustering_matrix(
+        batch,
+        selected_pose_ids=["pose-1"],
+        feature_options=ClusteringFeatureOptions(),
+        construct_type="full_length",
+        region_definitions={"P1": ProteinRegionDefinition("P1", core_start=1, core_end=100)},
+    )
+
+    assert filtered.feature_names == ["NAG1.B|ASN10.A|ImplicitHBDonor"]
+    assert filtered.matrix == [[1]]
 
 
 def test_discover_pose_inputs_filters_by_include_proteins(tmp_path: Path) -> None:

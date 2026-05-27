@@ -60,7 +60,9 @@ CLUSTER_RESIDUE_SIGNATURE_COLUMNS = [
     "ligand_residue_label",
     "n_poses_with_contact",
     "contact_frequency",
+    "is_core_region",
     "is_catalytic_surface_region",
+    "is_non_core_region",
     "is_cbm_region",
     "is_linker_region",
 ]
@@ -500,7 +502,9 @@ def _residue_frequency_rows(
             {
                 "interaction_types": set(),
                 "ligand_residue_labels": set(),
+                "is_core_region": False,
                 "is_catalytic_surface_region": False,
+                "is_non_core_region": False,
                 "is_cbm_region": False,
                 "is_linker_region": False,
             },
@@ -513,9 +517,11 @@ def _residue_frequency_rows(
                 entry["interaction_types"].add(interaction_type)
             if ligand_residue_label:
                 entry["ligand_residue_labels"].add(ligand_residue_label)
+        entry["is_core_region"] = entry["is_core_region"] or _as_bool(row.get("is_core_region"))
         entry["is_catalytic_surface_region"] = entry["is_catalytic_surface_region"] or _as_bool(
             row.get("is_catalytic_surface_region")
         )
+        entry["is_non_core_region"] = entry["is_non_core_region"] or _as_bool(row.get("is_non_core_region"))
         entry["is_cbm_region"] = entry["is_cbm_region"] or _as_bool(row.get("is_cbm_region"))
         entry["is_linker_region"] = entry["is_linker_region"] or _as_bool(row.get("is_linker_region"))
 
@@ -533,7 +539,9 @@ def _residue_frequency_rows(
                 "ligand_residue_label": ",".join(sorted(entry["ligand_residue_labels"])) or "none",
                 "n_poses_with_contact": len(active_pose_ids),
                 "contact_frequency": len(active_pose_ids) / len(member_set) if member_set else 0.0,
+                "is_core_region": entry["is_core_region"],
                 "is_catalytic_surface_region": entry["is_catalytic_surface_region"],
+                "is_non_core_region": entry["is_non_core_region"],
                 "is_cbm_region": entry["is_cbm_region"],
                 "is_linker_region": entry["is_linker_region"],
             }

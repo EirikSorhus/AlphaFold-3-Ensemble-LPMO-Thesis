@@ -34,6 +34,7 @@ production:
   # Discovery controls.
   af3_only: true
   latest_only: true
+  protein_metadata_path: "/cluster/work/projects/nn1003k/eirik/Masteroppgave_clean/analyse/input_data/metadata_final_ec_fixed.tsv"
 
   # include_targets omitted on purpose to include all available ligands/targets.
 

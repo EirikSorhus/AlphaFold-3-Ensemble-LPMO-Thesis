@@ -393,6 +393,65 @@ def _feature_value_map(result: IFPResult) -> dict[str, int]:
     }
 
 
+def filter_ifp_result_features(
+    result: IFPResult,
+    allowed_feature_names: set[str],
+) -> IFPResult:
+    """Return a copy of one IFP result restricted to selected flattened features."""
+
+    feature_values = [
+        (feature_name, int(value))
+        for feature_name, value in zip(result.feature_names, result.flat_bitvector, strict=True)
+        if feature_name in allowed_feature_names
+    ]
+    feature_names = [feature_name for feature_name, _ in feature_values]
+    flat_bitvector = [value for _, value in feature_values]
+    interaction_types = list(dict.fromkeys(parse_ifp_feature_name(feature_name)[2] for feature_name in feature_names))
+    interaction_counts = {name: 0 for name in interaction_types}
+    for feature_name, value in feature_values:
+        interaction_counts[parse_ifp_feature_name(feature_name)[2]] += int(value)
+    return IFPResult(
+        pose_id=result.pose_id,
+        status=result.status,
+        error=result.error,
+        n_residues=len({parse_ifp_feature_name(feature_name)[1] for feature_name in feature_names}),
+        n_interaction_types=len(interaction_types),
+        residue_names=list(dict.fromkeys(
+            f"{parse_ifp_feature_name(feature_name)[0]}{_FEATURE_SEPARATOR}{parse_ifp_feature_name(feature_name)[1]}"
+            for feature_name in feature_names
+        )),
+        interaction_types=interaction_types,
+        feature_names=feature_names,
+        fingerprint=[],
+        flat_bitvector=flat_bitvector,
+        n_total_contacts=sum(flat_bitvector),
+        interaction_counts=interaction_counts,
+        interaction_occurrence_counts=interaction_counts,
+    )
+
+
+def filter_ifp_batch_features(
+    batch: IFPBatch,
+    allowed_feature_names: set[str],
+) -> IFPBatch:
+    """Return an IFP batch restricted to selected flattened features."""
+
+    results = [filter_ifp_result_features(result, allowed_feature_names) for result in batch.results]
+    feature_names = [feature_name for feature_name in batch.feature_names if feature_name in allowed_feature_names]
+    matrix = []
+    for result in results:
+        feature_map = _feature_value_map(result)
+        matrix.append([int(feature_map.get(feature_name, 0)) for feature_name in feature_names])
+    return IFPBatch(
+        protein_id=batch.protein_id,
+        ligand_id=batch.ligand_id,
+        model=batch.model,
+        results=results,
+        matrix=matrix,
+        feature_names=feature_names,
+    )
+
+
 # ---------------------------------------------------------------------------
 # IFP generation
 # ---------------------------------------------------------------------------

@@ -40,6 +40,7 @@ commands:
   cbm_paired:
     condition_table: "results/combined/condition_table.tsv"
     cluster_table: "results/combined/cluster_table.tsv"
+    cluster_residue_signature_table: "results/combined/cluster_residue_signature.tsv"
     protein_metadata: "input_data/metadata_final_ec_fixed.tsv"
     output: "results/combined"
     random_state: 42

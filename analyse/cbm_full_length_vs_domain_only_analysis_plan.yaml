@@ -359,7 +359,6 @@ outputs:
     - cbm_stratified_summary_by_dp.tsv
     - cbm_stratified_summary_by_cbm_type.tsv
     - cbm_representative_examples.tsv
-    - cbm_figure_manifest.tsv
   figures:
     - paired_delta_plot_primary_metrics.png
     - domain_only_vs_full_length_paired_lines.png
@@ -377,10 +376,10 @@ implementation_order:
     - Compute primary endpoint summaries and sample-size category for each metric.
     - Run bootstrap, sign test, Wilcoxon, rank-biserial effect size, and BH-FDR according to n_pairs and n_nonzero_pairs rules.
     - Create stratified descriptive summaries by substrate_class, dp, and cbm_type.
-    - Create deterministic representative-example rows and a figure manifest.
+    - Create deterministic representative-example rows and record downstream figure names in summary JSON.
   remaining_after_real_row_validation:
     - Define or verify catalytic_domain, cbm_region, and linker_region residue labels for all full-length constructs before biological interpretation.
-    - Generate required figures from cbm_figure_manifest.tsv.
+    - Generate required figures from the summary JSON figures_to_generate list.
     - Add representative medoid structure renderings after matched real rows are validated.
     - Write final interpretation using effect sizes, direction, and uncertainty rather than only p-values.
 
