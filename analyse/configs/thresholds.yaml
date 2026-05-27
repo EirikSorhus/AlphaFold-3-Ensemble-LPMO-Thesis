@@ -21,9 +21,6 @@ hard_gates:
 # runs with `max_distance=5.0`, `search_distance=6.0`, `radius_type=vdw`,
 # `radius_scale=1.0`, and `clash_cutoff=0.75`.
 # Important naming note:
-# - `protein-ligand_maximum_distance` = the far-away test (`not_too_far_away`)
-# - `minimum_distance_to_protein` = the renamed `no_clashes` result, not the
-#   distance cutoff itself
 # Any PoseBusters failure code not listed here or under `soft_thresholds` is
 # still treated conservatively as critical by `qc/posebusters_runner.py`.
 posebusters_critical_errors:
@@ -140,7 +137,6 @@ iptm_policy:
 # These sections mirror naming used across plan/checklist documents.
 
 cluster_type:
-  # TODO: confirm before full analysis run
   c1_compatible_min_plausible_fraction: 0.50
   c4_compatible_min_plausible_fraction: 0.50
   mixed_compatible_min_plausible_fraction: 0.40
@@ -149,13 +145,10 @@ cluster_type:
 
 geometry_rules:
   his_brace:
-    # TODO: confirm before full analysis run
     max_search_dist_a: 3.0
   virtual_oxyl:
-    # TODO: confirm before full analysis run
     cu_oxyl_bond_length_a: 1.8
   virtual_h:
-    # TODO: confirm before full analysis run
     c_h_bond_length_a: 1.1
 
 clustering:

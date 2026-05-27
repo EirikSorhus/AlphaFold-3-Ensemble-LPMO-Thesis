@@ -1,18 +1,20 @@
 [
-    {
-        "name": "rf3_test_amylase",
-        "components": [
-            {
-                "seq": "MARMSILTALAGASLVAAHGHVSKVIVNGVEYQNYDPTSFPYNSNPPTVIGWTIDQKDNGFVSPDAFDSGDIICHKSAKPAGGHATVKAGDKISLQWDQWPESHKGPVIDYLAACDGDCESVDKTALKFFKIDGAGYDATNGWASDTLIKDGNSWVVEIPESIKPGNYVLRHEIIALHSAGQANGAQNYPQCFNLKVEGSGSTVPAGVAGTELYKATDAGILFDIYKNDISYPVPGPSLIAGASSSIAQSKMAATATASATLPGATGGSNSPATSAAAAAPATSAAAATSQVQAAPATTLVTSTKAAAPATSAAAPAAPATSAAAGGAGQVQAKQTKWGQCGGNGFTGPTECESGSTCTKYNDWYSQCV",
-                "chain_id": "A",
-                "msa_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/pipe_test/scripts/module_5/rf3/input/UniProtIDs_Q7S111.a3m"
-            },
-            {
-                "path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave/pipe_test/scripts/module_5/rf3/input/CEL6.cif"
-            },
-            {
-                "ccd_code": "CU"
-            }
-        ]
-    }
+  {
+    "name": "rf3_sheet_test",
+    "components": [
+      {
+        "seq": "MARMSILTALAGASLVAAHGHVSKVIVNGVEYQNYDPTSFPYNSNPPTVIGWTIDQKDNGFVSPDAFDSGDIICHKSAKPAGGHATVKAGDKISLQWDQWPESHKGPVIDYLAACDGDCESVDKTALKFFKIDGAGYDATNGWASDTLIKDGNSWVVEIPESIKPGNYVLRHEIIALHSAGQANGAQNYPQCFNLKVEGSGSTVPAGVAGTELYKATDAGILFDIYKNDISYPVPGPSLIAGASSSIAQSKMAATATASATLPGATGGSNSPATSAAAAAPATSAAAATSQVQAAPATTLVTSTKAAAPATSAAAPAAPATSAAAGGAGQVQAKQTKWGQCGGNGFTGPTECESGSTCTKYNDWYSQCV",
+        "chain_id": "A",
+        "msa_path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave_clean/pipe_test/scripts/module_5/rf3/input/UniProtIDs_Q7S111.a3m"
+      },
+      {
+        "path": "/cluster/work/projects/nn1003k/eirik/Masteroppgave_clean/pipe_test/scripts/module_5/rf3/input/sheet_ligand.sdf",
+        "chain_id": "B"
+      },
+      {
+        "ccd_code": "CU",
+        "chain_id": "C"
+      }
+    ]
+  }
 ]

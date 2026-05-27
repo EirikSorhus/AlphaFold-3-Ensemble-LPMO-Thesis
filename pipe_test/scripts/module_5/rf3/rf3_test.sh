@@ -5,8 +5,8 @@
 #SBATCH --gpus=1
 #SBATCH --time=00:20:00
 #SBATCH --mem-per-gpu=30G
-#SBATCH --output=/cluster/work/projects/nn1003k/eirik/Masteroppgave/pipe_test/scripts/module_5/rf3/slurm_%j.out
-#SBATCH --error=/cluster/work/projects/nn1003k/eirik/Masteroppgave/pipe_test/scripts/module_5/rf3/slurm_%j.err
+#SBATCH --output=/cluster/work/projects/nn1003k/eirik/Masteroppgave_clean/pipe_test/scripts/module_5/rf3/slurm_%j.out
+#SBATCH --error=/cluster/work/projects/nn1003k/eirik/Masteroppgave_clean/pipe_test/scripts/module_5/rf3/slurm_%j.err
 
 set -euo pipefail
 module load NRIS/GPU
@@ -26,14 +26,14 @@ SIF=${FOUNDRY_ROOT}/foundry.sif
 CKPT_DIR=${FOUNDRY_ROOT}/checkpoints
 CKPT_FILE=${CKPT_DIR}/rf3_foundry_01_24_latest_remapped.ckpt
 
-OUTBASE=/cluster/work/projects/nn1003k/eirik/Masteroppgave/pipe_test/scripts/module_5/rf3
+OUTBASE=/cluster/work/projects/nn1003k/eirik/Masteroppgave_clean/pipe_test/scripts/module_5/rf3
 OUT=${OUTBASE}/${SLURM_JOB_ID}
 
 TMPBASE=/cluster/work/projects/nn1003k/eirik/tmp
 TMPDIR=${TMPBASE}/foundry_${USER}
 
 INPUT_TEMPLATE=${FOUNDRY_ROOT}/models/rf3/tests/data/5vht_from_json.json
-MSA_PATH=/cluster/work/projects/nn1003k/eirik/Masteroppgave/pipe_test/scripts/module_5/rf3/input/UniProtIDs_Q7S111.a3m
+MSA_PATH=/cluster/work/projects/nn1003k/eirik/Masteroppgave_clean/pipe_test/scripts/module_5/rf3/input/UniProtIDs_Q7S111.a3m
 
 INPUT_JSON="${OUTBASE}/input/rf3_test.json"
 
@@ -104,7 +104,8 @@ PY
       dump_trajectories=False \
       n_recycles=10 \
       diffusion_batch_size=1 \
-      num_steps=50 
+      num_steps=50 \
+      ground_truth_conformer_selection="[B]"
   "
 
 echo "Done. Outputs in: ${OUT}"

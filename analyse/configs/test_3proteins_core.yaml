@@ -1,0 +1,51 @@
+# Test config: 3-protein smoke test – domain-only (core) construct.
+#
+# Purpose:
+#   Small-scale end-to-end validation covering all analysis stages for
+#   three proteins that also have full-length predictions, so that the
+#   paired CBM analysis can run afterwards.
+#
+# Paired partner: configs/test_3proteins_full_length.yaml
+# Run with: del_a
+
+pipeline_version: "2.1"
+
+production:
+  construct_type: "domain_only"
+
+  work_roots:
+    domain_only: "/cluster/work/projects/nn1003k/eirik/Masteroppgave_clean/structure_pipeline/work_core"
+    full_length:  "/cluster/work/projects/nn1003k/eirik/Masteroppgave_clean/structure_pipeline/work_full_length"
+
+  run_id: "test_3proteins_core"
+
+  af3_only: true
+  latest_only: true
+
+  # Restrict to the three test proteins.
+  include_proteins:
+    - B2ADG1
+    - Q7SHI8
+    - D6Y7U3
+
+  clustering:
+    minimum_clusterable_n: 3
+    insufficient_clusterable_signal_label: "insufficient_clusterable_signal"
+    hdbscan_min_cluster_size: 3
+    hdbscan_min_samples: null
+    hdbscan_cluster_selection_method: "eom"
+    agglomerative_linkage: "average"
+    agglomerative_distance_threshold: 0.55
+    agglomerative_min_cluster_size: 3
+
+  clustering_features:
+    main_include_interaction_types:
+      - ImplicitHBAcceptor
+      - ImplicitHBDonor
+    extra_include_interaction_types: []
+    excluded_interaction_types:
+      - VdWContact
+
+  # Predictive is run as a separate step in the test script.
+  predictive:
+    enabled: false

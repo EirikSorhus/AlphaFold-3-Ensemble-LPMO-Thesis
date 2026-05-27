@@ -25,8 +25,8 @@ production:
   # The loader picks the entry matching construct_type and falls back to
   # production.work_root only if no keyed path is present.
   work_roots:
-    domain_only: "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work_core"
-    full_length: "/cluster/work/projects/nn1003k/eirik/Masteroppgave/structure_pipeline/work_full_length"
+    domain_only: "/cluster/work/projects/nn1003k/eirik/Masteroppgave_clean/structure_pipeline/work_core"
+    full_length: "/cluster/work/projects/nn1003k/eirik/Masteroppgave_clean/structure_pipeline/work_full_length"
 
   # Optional identifier written into the generated artifacts.
   run_id: "analysis_core_example"
@@ -35,17 +35,13 @@ production:
   af3_only: true
   latest_only: true
 
-  # Optional limits for smaller validation runs. Keep omitted in production.
-  include_targets:
-    - NAG4
-    - STA4
-    - STA6
+  # include_targets omitted on purpose to include all available ligands/targets.
 
   # Stage 6 clustering uses condition-local IFP columns filtered to this main
   # interaction policy. Full raw IFP matrices are still written for audit and
   # descriptive signatures.
   clustering:
-    minimum_clusterable_n: 10
+    minimum_clusterable_n: 5
     insufficient_clusterable_signal_label: "insufficient_clusterable_signal"
     hdbscan_min_cluster_size: 5
     hdbscan_min_samples: null
@@ -65,8 +61,8 @@ production:
   # Optional Stage 14 postprocess. When enabled, the main analysis writes
   # 10_predictive/ directly from the just-produced condition_table.tsv.
   predictive:
-    enabled: false
-    protein_metadata_path: "/cluster/work/projects/nn1003k/eirik/Masteroppgave/analyse/input_data/metadata_final_ec_fixed.tsv"
+    enabled: true
+    protein_metadata_path: "/cluster/work/projects/nn1003k/eirik/Masteroppgave_clean/analyse/input_data/metadata_final_ec_fixed.tsv"
     task: "all"
     n_folds: 5
     random_state: 42
