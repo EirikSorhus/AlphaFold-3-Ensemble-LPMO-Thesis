@@ -9,6 +9,8 @@ from lpmo_pipeline.analysis.family_residue_enrichment import (
     compute_family_residue_enrichment_outputs,
     write_family_aligned_residue_table,
     write_family_residue_enrichment,
+    write_family_substrate_residue_enrichment,
+    write_family_wrong_ligand_residue_enrichment,
 )
 
 
@@ -240,6 +242,28 @@ def test_compute_family_residue_enrichment_outputs_joins_alignment_and_stage16b_
             "n_negative_c1_minus_c4_delta": 0,
         },
     ]
+    substrate_rows = {
+        (
+            row["family_label"],
+            row["alignment_column"],
+            row["target_substrate"],
+        ): row
+        for row in outputs.family_substrate_residue_enrichment
+    }
+    chitin_col5 = substrate_rows[("AA10", "5", "chitin")]
+    assert chitin_col5["n_family_aggregation_units_with_target_substrate_rows"] == 1
+    assert chitin_col5["n_family_aggregation_units_with_other_substrate_rows"] == 1
+    assert chitin_col5["n_target_substrate_conditions"] == 2
+    assert chitin_col5["n_other_substrate_conditions"] == 1
+    assert chitin_col5["mean_target_substrate_residue_contact_score"] == pytest.approx(0.6)
+    assert chitin_col5["mean_other_substrate_residue_contact_score"] == pytest.approx(0.5)
+    assert chitin_col5["target_minus_other_substrate_residue_contact_delta"] == pytest.approx(0.1)
+    assert chitin_col5["substrate_group_status"] == "small_group"
+
+    cellulose_col9 = substrate_rows[("AA10", "9", "cellulose")]
+    assert cellulose_col9["n_family_aggregation_units_with_target_substrate_rows"] == 0
+    assert cellulose_col9["n_family_aggregation_units_with_other_substrate_rows"] == 1
+    assert cellulose_col9["substrate_group_status"] == "missing_target_substrate"
 
 
 def test_write_family_residue_outputs(tmp_path: Path) -> None:
@@ -277,8 +301,18 @@ def test_write_family_residue_outputs(tmp_path: Path) -> None:
 
     aligned_path = tmp_path / "family_aligned_residue_table.tsv"
     enrichment_path = tmp_path / "family_residue_enrichment.tsv"
+    substrate_enrichment_path = tmp_path / "family_substrate_residue_enrichment.tsv"
+    wrong_ligand_enrichment_path = tmp_path / "family_wrong_ligand_residue_enrichment.tsv"
     write_family_aligned_residue_table(outputs.family_aligned_residue_table, aligned_path)
     write_family_residue_enrichment(outputs.family_residue_enrichment, enrichment_path)
+    write_family_substrate_residue_enrichment(
+        outputs.family_substrate_residue_enrichment,
+        substrate_enrichment_path,
+    )
+    write_family_wrong_ligand_residue_enrichment(
+        outputs.family_wrong_ligand_residue_enrichment,
+        wrong_ligand_enrichment_path,
+    )
 
     assert _read_tsv(aligned_path) == [
         {
@@ -322,6 +356,124 @@ def test_write_family_residue_outputs(tmp_path: Path) -> None:
             "n_negative_c1_minus_c4_delta": "0",
         }
     ]
+    substrate_rows = _read_tsv(substrate_enrichment_path)
+    assert {row["target_substrate"] for row in substrate_rows} == {"cellulose", "chitin"}
+    wrong_rows = _read_tsv(wrong_ligand_enrichment_path)
+    assert {row["active_substrate"] for row in wrong_rows} == {"cellulose", "chitin"}
+    assert all("unknown_activity_excluded" in row["wrong_ligand_group_status"] for row in wrong_rows)
+
+
+def test_wrong_ligand_enrichment_uses_single_active_within_protein_contrast() -> None:
+    outputs = compute_family_residue_enrichment_outputs(
+        protein_condition_residue_score_rows=[
+            {
+                "protein_id": "Pcell",
+                "condition_id": "Pcell__domain_only__cellulose_DP4",
+                "residue_chain": "A",
+                "residue_number": 10,
+                "residue_name": "ASN",
+                "residue_label": "ASN10.A",
+                "residue_contact_score": 0.9,
+            },
+            {
+                "protein_id": "Pcell",
+                "condition_id": "Pcell__domain_only__chitin_DP4",
+                "residue_chain": "A",
+                "residue_number": 10,
+                "residue_name": "ASN",
+                "residue_label": "ASN10.A",
+                "residue_contact_score": 0.2,
+            },
+            {
+                "protein_id": "Pchi",
+                "condition_id": "Pchi__domain_only__chitin_DP4",
+                "residue_chain": "A",
+                "residue_number": 11,
+                "residue_name": "ASP",
+                "residue_label": "ASP11.A",
+                "residue_contact_score": 0.7,
+            },
+            {
+                "protein_id": "Pchi",
+                "condition_id": "Pchi__domain_only__cellulose_DP4",
+                "residue_chain": "A",
+                "residue_number": 11,
+                "residue_name": "ASP",
+                "residue_label": "ASP11.A",
+                "residue_contact_score": 0.1,
+            },
+            {
+                "protein_id": "Pdual",
+                "condition_id": "Pdual__domain_only__cellulose_DP4",
+                "residue_chain": "A",
+                "residue_number": 12,
+                "residue_name": "SER",
+                "residue_label": "SER12.A",
+                "residue_contact_score": 1.0,
+            },
+            {
+                "protein_id": "Pdual",
+                "condition_id": "Pdual__domain_only__chitin_DP4",
+                "residue_chain": "A",
+                "residue_number": 12,
+                "residue_name": "SER",
+                "residue_label": "SER12.A",
+                "residue_contact_score": 0.0,
+            },
+        ],
+        protein_residue_regio_delta_rows=[],
+        residue_alignment_rows=[
+            {
+                "protein_id": "Pcell",
+                "family_label": "AA10",
+                "alignment_column": 5,
+                "residue_chain": "A",
+                "residue_number": 10,
+                "residue_name": "ASN",
+                "residue_label": "ASN10.A",
+            },
+            {
+                "protein_id": "Pchi",
+                "family_label": "AA10",
+                "alignment_column": 5,
+                "residue_chain": "A",
+                "residue_number": 11,
+                "residue_name": "ASP",
+                "residue_label": "ASP11.A",
+            },
+            {
+                "protein_id": "Pdual",
+                "family_label": "AA10",
+                "alignment_column": 5,
+                "residue_chain": "A",
+                "residue_number": 12,
+                "residue_name": "SER",
+                "residue_label": "SER12.A",
+            },
+        ],
+        protein_metadata_rows=[
+            {"UniProt_ID": "Pcell", "CAZy_family": "AA10", "EC_Number": "1.14.99.54"},
+            {"UniProt_ID": "Pchi", "CAZy_family": "AA10", "EC_Number": "1.14.99.53"},
+            {"UniProt_ID": "Pdual", "CAZy_family": "AA10", "EC_Number": "1.14.99.54 1.14.99.53"},
+        ],
+    )
+
+    rows = {
+        (row["active_substrate"], row["wrong_prediction_substrate"]): row
+        for row in outputs.family_wrong_ligand_residue_enrichment
+    }
+    cellulose = rows[("cellulose", "chitin")]
+    assert cellulose["n_proteins_with_paired_right_wrong_rows"] == 1
+    assert cellulose["n_dual_active_proteins_excluded"] == 1
+    assert cellulose["mean_right_ligand_residue_contact_score"] == pytest.approx(0.9)
+    assert cellulose["mean_wrong_ligand_residue_contact_score"] == pytest.approx(0.2)
+    assert cellulose["right_minus_wrong_ligand_residue_contact_delta"] == pytest.approx(0.7)
+    assert cellulose["wrong_ligand_group_status"] == "small_paired_group;dual_active_excluded"
+
+    chitin = rows[("chitin", "cellulose")]
+    assert chitin["mean_right_ligand_residue_contact_score"] == pytest.approx(0.7)
+    assert chitin["mean_wrong_ligand_residue_contact_score"] == pytest.approx(0.1)
+    assert chitin["right_minus_wrong_ligand_residue_contact_delta"] == pytest.approx(0.6)
 
 
 def test_compute_family_residue_enrichment_outputs_aggregates_family_enrichment_by_sequence_group() -> None:

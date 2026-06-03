@@ -222,8 +222,12 @@ def test_staged_pipeline_synthetic_end_to_end_smoke(tmp_path: Path, monkeypatch)
         summary_path = root / "family_enrichment_summary.json"
         aligned = root / "family_aligned_residue_table.tsv"
         enrichment = root / "family_residue_enrichment.tsv"
+        substrate_enrichment = root / "family_substrate_residue_enrichment.tsv"
+        wrong_ligand_enrichment = root / "family_wrong_ligand_residue_enrichment.tsv"
         aligned.write_text("family\tpos\nAA9\t1\n")
         enrichment.write_text("family\tresidue\nAA9\tHIS1\n")
+        substrate_enrichment.write_text("family\tsubstrate\tresidue\nAA9\tchitin\tHIS1\n")
+        wrong_ligand_enrichment.write_text("family\tactive_substrate\tresidue\nAA9\tchitin\tHIS1\n")
         summary_path.write_text(json.dumps({"status": "synthetic"}, indent=2))
         return SimpleNamespace(
             summary_path=summary_path,
@@ -231,6 +235,8 @@ def test_staged_pipeline_synthetic_end_to_end_smoke(tmp_path: Path, monkeypatch)
             skipped_families={},
             family_aligned_residue_table_path=aligned,
             family_residue_enrichment_path=enrichment,
+            family_substrate_residue_enrichment_path=substrate_enrichment,
+            family_wrong_ligand_residue_enrichment_path=wrong_ligand_enrichment,
         )
 
     monkeypatch.setattr(collect_module, "run_predictive_postprocess", _fake_predictive)

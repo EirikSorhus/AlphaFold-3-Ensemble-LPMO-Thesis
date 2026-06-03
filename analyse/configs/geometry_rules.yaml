@@ -52,7 +52,7 @@ his_brace:
   fail_if_zero_found: true        # if NO N atoms within cutoff: geometry_not_computable
   partial_if_fewer_than: 3        # brace_identification_status = partial if n_found < 3
 
-  # Confidence levels assigned to brace_confidence field
+  # Confidence levels assigned to brace_confidence field. Not used at the moment.
   confidence_levels:
     high:   { n_found: 3, all_within_a: 2.5 }   # all 3 N atoms in tight coordination range
     medium: { n_found: 3, all_within_a: 3.0 }   # all 3 N atoms within search cutoff
@@ -114,7 +114,7 @@ virtual_oxyl:
   #   3. Project this vector onto the brace plane (defined by the 3 N atoms).
   #   4. Place oxyl at cu_oxyl_bond_length_a from Cu, along the projected vector,
   #      in the direction away from N-terminal N (trans across Cu).
-  cu_oxyl_bond_length_a: 1.80     # Cu–O(oxyl) bond length (Å)
+  cu_oxyl_bond_length_a: 1.90     # Cu–O(oxyl) bond length (Å)
   output_field: "virtual_oxyl_coordinates"
   output_status_field: "oxyl_placement_status"
 
@@ -158,14 +158,15 @@ geometry_metrics:
     description: "Distance from repositioned Cu to C4 of proximal sugar (Å)"
     output_field: "Cu_C4_distance"
 
-  # Attack angles
-  attack_angle_c1:
-    description: "Angle: oxyl–C1–H (°); reactive geometry at C1"
-    output_field: "attack_angle_C1"
+  # Cu-oxyl-H angles. The oxyl is the vertex; H is the virtual abstractable H
+  # on the target carbon.
+  cu_oxyl_h_c1_angle:
+    description: "Angle: Cu–oxyl–H(C1) (°); HAT approach geometry at C1"
+    output_field: "Cu_oxyl_H_C1_angle"
 
-  attack_angle_c4:
-    description: "Angle: oxyl–C4–H (°); reactive geometry at C4"
-    output_field: "attack_angle_C4"
+  cu_oxyl_h_c4_angle:
+    description: "Angle: Cu–oxyl–H(C4) (°); HAT approach geometry at C4"
+    output_field: "Cu_oxyl_H_C4_angle"
 
   # Sugar orientation relative to brace plane
   sugar_face_orientation:

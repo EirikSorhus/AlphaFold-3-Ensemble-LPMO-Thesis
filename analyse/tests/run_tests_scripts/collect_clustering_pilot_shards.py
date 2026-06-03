@@ -344,6 +344,12 @@ def _run_global_postprocesses(
             "skipped_families": family.skipped_families,
             "family_aligned_residue_table_path": str(family.family_aligned_residue_table_path),
             "family_residue_enrichment_path": str(family.family_residue_enrichment_path),
+            "family_substrate_residue_enrichment_path": str(
+                family.family_substrate_residue_enrichment_path
+            ),
+            "family_wrong_ligand_residue_enrichment_path": str(
+                family.family_wrong_ligand_residue_enrichment_path
+            ),
         }
     else:
         postprocess["family_enrichment"] = {

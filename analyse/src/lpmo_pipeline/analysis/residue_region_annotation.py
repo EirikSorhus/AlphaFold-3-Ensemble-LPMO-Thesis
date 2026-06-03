@@ -60,33 +60,49 @@ def _first_present(row: dict[str, Any], *keys: str) -> str:
     return ""
 
 
+def build_protein_region_definitions_from_rows(
+    rows: list[dict[str, Any]],
+) -> dict[str, ProteinRegionDefinition]:
+    """Build core/non-core residue ranges from protein metadata rows.
+
+    Metadata core ranges are stored as full-sequence positions. Production
+    structures are normalized so the catalytic His-brace residue is numbered 1.
+    The LPMO core start therefore defines the preferred offset; signal peptide
+    length is retained as a fallback for older metadata without a core start.
+    """
+    definitions: dict[str, ProteinRegionDefinition] = {}
+    for row in rows:
+        protein_id = _first_present(row, "protein_id", "uniprot_id", "UniProt_ID")
+        if not protein_id or protein_id in definitions:
+            continue
+        signal_end = _as_int(_first_present(row, "Signal_End", "signal_end")) or 0
+        core_start_full = _as_int(_first_present(row, "LPMO_Core_Start", "LPMO_CoreStart", "core_start"))
+        core_end_full = _as_int(_first_present(row, "LPMO_Core_End", "core_end"))
+        coordinate_offset = (core_start_full - 1) if core_start_full is not None else signal_end
+        core_start = (core_start_full - coordinate_offset) if core_start_full is not None else None
+        core_end = (core_end_full - coordinate_offset) if core_end_full is not None else None
+        if core_start is not None:
+            core_start = max(core_start, 1)
+        if core_end is not None:
+            core_end = max(core_end, 1)
+        definitions[protein_id] = ProteinRegionDefinition(
+            protein_id=protein_id,
+            core_start=core_start,
+            core_end=core_end,
+        )
+    return definitions
+
+
 def load_protein_region_definitions(path: Path | None) -> dict[str, ProteinRegionDefinition]:
     """Load metadata core ranges and convert full-sequence positions to mature-relative numbering."""
 
     if path is None or not Path(path).exists():
         return {}
 
-    definitions: dict[str, ProteinRegionDefinition] = {}
     with Path(path).open(newline="") as handle:
-        for row in csv.DictReader(handle, delimiter="\t"):
-            protein_id = _first_present(row, "protein_id", "uniprot_id", "UniProt_ID")
-            if not protein_id or protein_id in definitions:
-                continue
-            signal_end = _as_int(_first_present(row, "Signal_End", "signal_end")) or 0
-            core_start_full = _as_int(_first_present(row, "LPMO_Core_Start", "LPMO_CoreStart", "core_start"))
-            core_end_full = _as_int(_first_present(row, "LPMO_Core_End", "core_end"))
-            core_start = (core_start_full - signal_end) if core_start_full is not None else None
-            core_end = (core_end_full - signal_end) if core_end_full is not None else None
-            if core_start is not None:
-                core_start = max(core_start, 1)
-            if core_end is not None:
-                core_end = max(core_end, 1)
-            definitions[protein_id] = ProteinRegionDefinition(
-                protein_id=protein_id,
-                core_start=core_start,
-                core_end=core_end,
-            )
-    return definitions
+        return build_protein_region_definitions_from_rows(
+            list(csv.DictReader(handle, delimiter="\t"))
+        )
 
 
 def parse_protein_residue_label(protein_residue_label: str) -> tuple[str, int, str] | None:

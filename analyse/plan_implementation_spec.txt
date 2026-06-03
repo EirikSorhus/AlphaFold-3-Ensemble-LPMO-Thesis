@@ -331,8 +331,8 @@ Required per pose:
 - oxyl_H_C4_distance
 - Cu_C1_distance
 - Cu_C4_distance
-- attack_angle_C1 (if defined)
-- attack_angle_C4 (if defined)
+- Cu_oxyl_H_C1_angle (if defined)
+- Cu_oxyl_H_C4_angle (if defined)
 - sugar_face_orientation
 - optional ring_normal_vs_brace_normal
 
@@ -469,8 +469,8 @@ For each cluster compute:
 - IQR_Cu_C1
 - median_Cu_C4
 - IQR_Cu_C4
-- median_attack_angle_C1
-- median_attack_angle_C4
+- median_Cu_oxyl_H_C1_angle
+- median_Cu_oxyl_H_C4_angle
 - median_face_orientation
 - IFP_enrichment_features
 - cluster_type_annotation if assigned
@@ -516,8 +516,8 @@ Required columns:
 - median_oxyl_H_C4
 - median_Cu_C1
 - median_Cu_C4
-- median_attack_angle_C1
-- median_attack_angle_C4
+- median_Cu_oxyl_H_C1_angle
+- median_Cu_oxyl_H_C4_angle
 - face_orientation_summary
 - ifp_features_selected
 - cluster_diversity_metrics if relevant

@@ -216,6 +216,10 @@ def main():
         help="Family labels to include (default: AA9 AA10)",
     )
     family_parser.add_argument(
+        "--substrates", nargs="+", default=None,
+        help="Predicted substrate classes to evaluate for family substrate enrichment (default: cellulose chitin)",
+    )
+    family_parser.add_argument(
         "--mafft-executable", default=None,
         help="MAFFT executable used when precomputed alignments are absent",
     )
@@ -644,6 +648,10 @@ def cmd_family_enrichment(args):
         )
         alignment_dir = _resolve_optional(args, command_config, "alignment_dir", "alignment_dir")
         families = _resolve_optional(args, command_config, "families", "families") or ["AA9", "AA10"]
+        substrates = _resolve_optional(args, command_config, "substrates", "substrates") or [
+            "cellulose",
+            "chitin",
+        ]
         mafft_executable = str(
             _resolve_optional(args, command_config, "mafft_executable", "mafft_executable") or "mafft"
         )
@@ -659,6 +667,7 @@ def cmd_family_enrichment(args):
     print(f"  Protein metadata: {protein_metadata}")
     print(f"  Core FASTA: {core_fasta}")
     print(f"  Output: {output_dir}")
+    print(f"  Substrate enrichment targets: {', '.join(str(value) for value in substrates)}")
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -671,6 +680,7 @@ def cmd_family_enrichment(args):
             output_dir=output_dir,
             alignment_dir=alignment_path,
             families=tuple(str(value) for value in families),
+            substrate_classes=tuple(str(value) for value in substrates),
             mafft_executable=mafft_executable,
         )
     except Exception as exc:
@@ -680,6 +690,8 @@ def cmd_family_enrichment(args):
     print("[FAMILY] Family enrichment postprocess completed")
     print(f"  Family aligned residue table: {result.family_aligned_residue_table_path}")
     print(f"  Family residue enrichment: {result.family_residue_enrichment_path}")
+    print(f"  Family substrate residue enrichment: {result.family_substrate_residue_enrichment_path}")
+    print(f"  Family wrong-ligand residue enrichment: {result.family_wrong_ligand_residue_enrichment_path}")
     print(f"  Alignment manifest: {result.alignment_manifest_path}")
     print(f"  Summary: {result.summary_path}")
     return 0

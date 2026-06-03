@@ -75,7 +75,7 @@ kun implicit H-bonds. VdW-only/low-specific-contact-diagnostikk beholdes.
 11. **Geometri-planaritet** — Avklart 2026-05-22: separat planaritetsgate er
     ikke del av aktiv analysekontrakt. Sluttbrukerflaten bruker de implementerte
     downstream-feltene `sugar_face_orientation`, `ring_normal_vs_brace_normal`,
-    `attack_angle_C1/C4`, `oxyl_H_*_distance` og `geometry_status_C1/C4`.
+    `Cu_oxyl_H_C1/C4_angle`, `oxyl_H_*_distance` og `geometry_status_C1/C4`.
     Nye planaritetskrav skal bare legges til som en ny eksplisitt feature hvis
     biologisk terskel og metode bestemmes senere.
 

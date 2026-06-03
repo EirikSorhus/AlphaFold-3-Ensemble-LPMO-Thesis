@@ -68,7 +68,7 @@ geometry_plausibility:
   #   score = max(1.0 - abs(d - oxyl_h_optimum_a) / oxyl_h_score_normalization, 0.0)
   #   applied only when d is within [oxyl_h_min_a, oxyl_h_max_a]
   oxyl_h_optimum_a: 2.1         # reference optimum from DFT studies of Cu-oxyl HAT barriers
-  oxyl_h_score_normalization: 1.9  # denominator giving score = 0 at window boundaries.1.9 is the distance from Cu to oxyl
+  oxyl_h_score_normalization: 1.9  # denominator giving score = 0 at window boundaries on upper side.1.9 is the distance from Cu to oxyl
 
   # Tighter window for geometry_highly_plausible label
   oxyl_h_highly_plausible_min_a: 1.8
@@ -104,6 +104,7 @@ hdbscan:
   metric: jaccard
   cluster_selection_epsilon: 0.0
   cluster_selection_method: eom # excess-of-mass
+  allow_single_cluster: true
   locked: true
 
 # ── Agglomerative Jaccard clustering defaults (orthogonal sensitivity control) ──
@@ -147,7 +148,7 @@ geometry_rules:
   his_brace:
     max_search_dist_a: 3.0
   virtual_oxyl:
-    cu_oxyl_bond_length_a: 1.8
+    cu_oxyl_bond_length_a: 1.9
   virtual_h:
     c_h_bond_length_a: 1.1
 

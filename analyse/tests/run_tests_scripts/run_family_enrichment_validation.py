@@ -174,6 +174,12 @@ def main() -> int:
                 "n_merged_condition_rows": len(merged_scores_rows),
                 "n_merged_delta_rows": len(merged_delta_rows),
                 "family_enrichment_summary_path": str(result.summary_path),
+                "family_substrate_residue_enrichment_path": str(
+                    result.family_substrate_residue_enrichment_path
+                ),
+                "family_wrong_ligand_residue_enrichment_path": str(
+                    result.family_wrong_ligand_residue_enrichment_path
+                ),
                 "processed_families": result.processed_families,
                 "skipped_families": result.skipped_families,
                 "validation_status": validation_status,

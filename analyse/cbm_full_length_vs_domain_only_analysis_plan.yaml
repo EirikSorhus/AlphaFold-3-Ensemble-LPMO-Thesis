@@ -77,7 +77,7 @@ condition_summary_building:
       bridge_fraction: 0
     set_missing:
       - median_geometry_distances
-      - median_attack_angles
+      - median_Cu_oxyl_H_angles
       - active_site_ifp_weighted_vector
       - catalytic_domain_ifp_jaccard_distance
     add_flags:

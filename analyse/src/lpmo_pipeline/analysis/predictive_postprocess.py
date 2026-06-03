@@ -130,6 +130,13 @@ def _normalize_label(value: Any) -> str:
     return str(value or "").strip().lower()
 
 
+def _normalize_prediction_substrate(value: Any) -> str:
+    normalized = _normalize_label(value)
+    if normalized == "amylose":
+        return "starch"
+    return normalized
+
+
 def _first_present(row: dict[str, Any], keys: tuple[str, ...], default: str = "") -> str:
     for key in keys:
         value = row.get(key)
@@ -219,8 +226,8 @@ def _map_ec_token(token: str, family_raw: Any) -> dict[str, str] | None:
     if token == "1.14.99.53":
         return {
             "substrate_class": "chitin",
-            "regio_class": "mixed",
-            "activity_label": "chitin_C1_C4_mixed",
+            "regio_class": "C1",
+            "activity_label": "chitin_C1_hydroxylating",
             "mapping_rule": "exact_1.14.99.53",
         }
     if token == "1.14.99.55":
@@ -230,19 +237,33 @@ def _map_ec_token(token: str, family_raw: Any) -> dict[str, str] | None:
             "activity_label": "starch_C1_hydroxylating",
             "mapping_rule": "exact_1.14.99.55",
         }
+    if token == "1.14.99.-" and "AA10" in family:
+        return {
+            "substrate_class": "unknown",
+            "regio_class": "C4",
+            "activity_label": "unknown_substrate_C4",
+            "mapping_rule": "special_1.14.99.-_AA10",
+        }
+    if token == "1.14.99.-" and "AA14" in family:
+        return {
+            "substrate_class": "unknown",
+            "regio_class": "C1",
+            "activity_label": "unknown_substrate_C1",
+            "mapping_rule": "special_1.14.99.-_AA14",
+        }
     if token == "1.14.99.-" and "AA17" in family:
         return {
-            "substrate_class": "homogalacturonan",
+            "substrate_class": "unknown",
             "regio_class": "C4",
-            "activity_label": "homogalacturonan_C4_oxidation",
+            "activity_label": "unknown_substrate_C4",
             "mapping_rule": "special_1.14.99.-_AA17",
         }
     if token == "1.14.99.-":
         return {
-            "substrate_class": "xylan_or_other",
+            "substrate_class": "unknown",
             "regio_class": "unknown",
-            "activity_label": "xylan_like_oxidative",
-            "mapping_rule": "special_1.14.99.-_non_AA17",
+            "activity_label": "unknown",
+            "mapping_rule": "special_1.14.99.-_non_AA10_AA14_AA17",
         }
     return None
 
@@ -303,11 +324,7 @@ def _resolve_activity_annotation(metadata_row: dict[str, Any]) -> dict[str, str]
             else:
                 regio_label = "unknown"
 
-            prioritized_substrates = [
-                substrate
-                for substrate in ("chitin", "cellulose", "starch", "homogalacturonan", "xylan_or_other")
-                if substrate in substrate_set
-            ]
+            prioritized_substrates = [substrate for substrate in ("chitin", "cellulose", "starch") if substrate in substrate_set]
             derived = {
                 "regio_label": regio_label,
                 "substrate_label": "+".join(prioritized_substrates) if prioritized_substrates else "unknown",
@@ -370,9 +387,9 @@ def _occupancy_weighted_any_plausibility(row: dict[str, Any]) -> float | None:
     return max(values)
 
 
-def _occupancy_weighted_delta_attack_angle(row: dict[str, Any]) -> float | None:
-    c1 = _as_float(row.get("occupancy_weighted_attack_angle_C1_median"))
-    c4 = _as_float(row.get("occupancy_weighted_attack_angle_C4_median"))
+def _occupancy_weighted_delta_cu_oxyl_h_angle(row: dict[str, Any]) -> float | None:
+    c1 = _as_float(row.get("occupancy_weighted_Cu_oxyl_H_C1_angle_median"))
+    c4 = _as_float(row.get("occupancy_weighted_Cu_oxyl_H_C4_angle_median"))
     if c1 is None or c4 is None:
         return None
     return c1 - c4
@@ -444,11 +461,12 @@ def build_substrate_modeling_rows(
 
     selected_rows = filter_condition_rows_by_construct(condition_rows)
     metadata_by_protein = _index_by_protein(protein_metadata_rows)
+    target_substrate = _normalize_prediction_substrate(substrate_class)
     grouped: dict[str, list[dict[str, Any]]] = {}
     for row in selected_rows:
         protein_id = str(row.get("protein_id", "")).strip()
-        row_substrate = str(row.get("substrate_class", "")).strip().lower()
-        if protein_id and row_substrate == substrate_class:
+        row_substrate = _normalize_prediction_substrate(row.get("substrate_class", ""))
+        if protein_id and row_substrate == target_substrate:
             grouped.setdefault(protein_id, []).append(row)
 
     out: list[dict[str, Any]] = []
@@ -461,10 +479,10 @@ def build_substrate_modeling_rows(
         row_out = {
             "model_row_id": protein_id,
             "protein_id": protein_id,
-            "prediction_substrate": substrate_class,
+            "prediction_substrate": target_substrate,
             "construct_type": rows[0].get("construct_type", ""),
             "n_source_rows": len(rows),
-            "is_active_on_substrate": 1 if substrate_class in active_substrates else 0,
+            "is_active_on_substrate": 1 if target_substrate in active_substrates else 0,
             "occupancy_weighted_any_plausibility": _mean_numeric(
                 _occupancy_weighted_any_plausibility(row) for row in rows
             ),

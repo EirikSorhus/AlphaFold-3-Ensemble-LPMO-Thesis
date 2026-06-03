@@ -83,9 +83,12 @@ normalize_ec <- function(ec_raw) {
   if (is.na(ec) || ec == "") {
     return(character(0))
   }
-  tokens <- unlist(strsplit(ec, "[,;|]"))
-  tokens <- trimws(tokens)
-  tokens[nzchar(tokens)]
+  matches <- gregexpr("1\\.14\\.99\\.[0-9-]+", ec)
+  tokens <- regmatches(ec, matches)[[1]]
+  if (length(tokens) == 1 && identical(tokens, "")) {
+    return(character(0))
+  }
+  unique(tokens[nzchar(tokens)])
 }
 
 map_ec_token <- function(ec_token, family_raw) {
@@ -112,8 +115,8 @@ map_ec_token <- function(ec_token, family_raw) {
   if (identical(ec_token, "1.14.99.53")) {
     return(list(
       substrate_class = "chitin",
-      regio_class = "mixed",
-      activity_label = "chitin_C1_C4_mixed",
+      regio_class = "C1",
+      activity_label = "chitin_C1_hydroxylating",
       mapping_rule = "exact_1.14.99.53"
     ))
   }
@@ -128,19 +131,35 @@ map_ec_token <- function(ec_token, family_raw) {
   }
 
   if (identical(ec_token, "1.14.99.-")) {
+    if (grepl("AA10", family, fixed = TRUE)) {
+      return(list(
+        substrate_class = "unknown",
+        regio_class = "C4",
+        activity_label = "unknown_substrate_C4",
+        mapping_rule = "special_1.14.99.-_AA10"
+      ))
+    }
+    if (grepl("AA14", family, fixed = TRUE)) {
+      return(list(
+        substrate_class = "unknown",
+        regio_class = "C1",
+        activity_label = "unknown_substrate_C1",
+        mapping_rule = "special_1.14.99.-_AA14"
+      ))
+    }
     if (grepl("AA17", family, fixed = TRUE)) {
       return(list(
-        substrate_class = "homogalacturonan",
+        substrate_class = "unknown",
         regio_class = "C4",
-        activity_label = "homogalacturonan_C4_oxidation",
+        activity_label = "unknown_substrate_C4",
         mapping_rule = "special_1.14.99.-_AA17"
       ))
     }
     return(list(
-      substrate_class = "xylan_or_other",
+      substrate_class = "unknown",
       regio_class = "unknown",
-      activity_label = "xylan_like_oxidative",
-      mapping_rule = "special_1.14.99.-_non_AA17"
+      activity_label = "unknown",
+      mapping_rule = "special_1.14.99.-_non_AA10_AA14_AA17"
     ))
   }
 
@@ -158,12 +177,34 @@ map_ec_activity <- function(ec_raw, family_raw) {
     ))
   }
 
-  mapped <- NULL
+  mapped_items <- list()
   for (token in tokens) {
-    mapped <- map_ec_token(token, family_raw)
-    if (!is.null(mapped)) {
-      return(mapped)
+    mapped_item <- map_ec_token(token, family_raw)
+    if (!is.null(mapped_item)) {
+      mapped_items[[length(mapped_items) + 1]] <- mapped_item
     }
+  }
+
+  if (length(mapped_items) > 0) {
+    substrate_values <- unique(vapply(mapped_items, function(x) x$substrate_class, character(1)))
+    substrate_values <- substrate_values[substrate_values %in% c("chitin", "cellulose", "starch")]
+    regio_values <- unique(tolower(vapply(mapped_items, function(x) x$regio_class, character(1))))
+    has_c1 <- "c1" %in% regio_values
+    has_c4 <- "c4" %in% regio_values
+    regio_class <- "unknown"
+    if (has_c1 && has_c4) {
+      regio_class <- "C1/C4"
+    } else if (has_c1) {
+      regio_class <- "C1"
+    } else if (has_c4) {
+      regio_class <- "C4"
+    }
+    return(list(
+      substrate_class = if (length(substrate_values) > 0) paste(sort(substrate_values), collapse = "+") else "unknown",
+      regio_class = regio_class,
+      activity_label = paste(sort(unique(vapply(mapped_items, function(x) x$activity_label, character(1)))), collapse = "+"),
+      mapping_rule = paste(sort(unique(vapply(mapped_items, function(x) x$mapping_rule, character(1)))), collapse = "+")
+    ))
   }
 
   list(

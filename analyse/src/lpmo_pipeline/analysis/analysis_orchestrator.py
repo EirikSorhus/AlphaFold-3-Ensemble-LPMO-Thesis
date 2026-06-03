@@ -120,7 +120,7 @@ from lpmo_pipeline.io.gemmi_compat import gemmi
 from lpmo_pipeline.io.normalize_mmcif import NormalizeMMCIFRunner
 from lpmo_pipeline.qc.hard_qc_orchestrator import HardQCInput, run_hard_qc
 from lpmo_pipeline.qc.privateer_runner import prepare_privateer_input
-from lpmo_pipeline.qc.qc_report import write_qc_report
+from lpmo_pipeline.qc.qc_report import PoseQCVerdict, QCReport, write_qc_report
 from lpmo_pipeline.report.build_metrics_csv import build_metrics_csv, merge_pose_record
 from lpmo_pipeline.report.build_report_html import build_report_html
 from lpmo_pipeline.report.build_summary_json import build_summary, write_summary_json
@@ -200,6 +200,11 @@ class ProductionRunOptions:
     predictive: PredictiveAnalysisOptions = field(default_factory=PredictiveAnalysisOptions)
     n_jobs: int = 1
     collect_timing_events: bool = False
+    reuse_prepared_cases_from: Path | None = None
+    reuse_hard_qc_report_path: Path | None = None
+    reuse_ifp_table_path: Path | None = None
+    reuse_analysis_artifacts_from: Path | None = None
+    allow_reuse_fallback_generation: bool = True
 
 
 @dataclass(frozen=True)
@@ -253,6 +258,10 @@ class CrystalRepresentativeCandidate:
     cluster_id: int | str = ""
     protein_id: str = ""
     ligand_id: str = ""
+    normalized_cif: Path | None = None
+    complex_pdb: Path | None = None
+    ligand_pdb: Path | None = None
+    ifp_result: IFPResult | None = None
 
 
 @dataclass(frozen=True)
@@ -461,10 +470,14 @@ def load_production_options(
     include_proteins = tuple(str(value) for value in production.get("include_proteins", ()))
     run_posebusters = bool(production.get("run_posebusters", True))
     run_privateer = bool(production.get("run_privateer", True))
-    protein_metadata_path_raw = production.get("protein_metadata_path") or config.get("protein_metadata_path")
     production_n_jobs = int(production.get("n_jobs", 1) or 1)
     clustering_pilot_config = production.get("clustering_pilot") or {}
     predictive_config = production.get("predictive") or {}
+    protein_metadata_path_raw = (
+        production.get("protein_metadata_path")
+        or config.get("protein_metadata_path")
+        or predictive_config.get("protein_metadata_path")
+    )
     clustering_features_config = production.get("clustering_features") or clustering_pilot_config
     clustering_config = production.get("clustering") or production.get("primary_clustering") or clustering_pilot_config
     if clustering_features_config and not isinstance(clustering_features_config, dict):
@@ -637,6 +650,27 @@ def load_production_options(
         predictive=predictive_options,
         n_jobs=max(1, int(n_jobs if n_jobs is not None else production_n_jobs)),
         collect_timing_events=bool(production.get("collect_timing_events", False)),
+        reuse_prepared_cases_from=(
+            Path(production["reuse_prepared_cases_from"]).expanduser().resolve()
+            if production.get("reuse_prepared_cases_from")
+            else None
+        ),
+        reuse_hard_qc_report_path=(
+            Path(production["reuse_hard_qc_report_path"]).expanduser().resolve()
+            if production.get("reuse_hard_qc_report_path")
+            else None
+        ),
+        reuse_ifp_table_path=(
+            Path(production["reuse_ifp_table_path"]).expanduser().resolve()
+            if production.get("reuse_ifp_table_path")
+            else None
+        ),
+        reuse_analysis_artifacts_from=(
+            Path(production["reuse_analysis_artifacts_from"]).expanduser().resolve()
+            if production.get("reuse_analysis_artifacts_from")
+            else None
+        ),
+        allow_reuse_fallback_generation=bool(production.get("allow_reuse_fallback_generation", True)),
     )
 
 
@@ -653,6 +687,103 @@ def _make_ifp_failure_result(pose_id: str, error: str) -> IFPResult:
         error=error,
         interaction_counts={},
     )
+
+
+def _load_ifp_results_by_pose_id(table_path: Path) -> dict[str, IFPResult]:
+    if not table_path.is_file():
+        raise FileNotFoundError(f"reuse IFP table not found: {table_path}")
+
+    results: dict[str, IFPResult] = {}
+    with table_path.open(newline="") as handle:
+        reader = csv.DictReader(handle, delimiter="\t")
+        for row in reader:
+            pose_id = str(row.get("pose_id") or "").strip()
+            if not pose_id:
+                continue
+            feature_names = list(json.loads(row.get("ifp_feature_names") or "[]"))
+            flat_bitvector = [int(value) for value in json.loads(row.get("ifp_vector") or "[]")]
+            interaction_counts = {
+                str(key): int(value)
+                for key, value in (json.loads(row.get("ifp_interaction_counts") or "{}") or {}).items()
+            }
+            occurrence_counts = {
+                str(key): int(value)
+                for key, value in (
+                    json.loads(row.get("ifp_interaction_occurrence_counts") or "{}") or {}
+                ).items()
+            }
+            interaction_types = sorted(
+                {
+                    parse_ifp_feature_name(feature_name)[2]
+                    for feature_name in feature_names
+                    if feature_name.count("|") == 2
+                }
+            )
+            residue_names = sorted(
+                {
+                    parse_ifp_feature_name(feature_name)[1]
+                    for feature_name in feature_names
+                    if feature_name.count("|") == 2
+                }
+            )
+            results[pose_id] = IFPResult(
+                pose_id=pose_id,
+                status=str(row.get("ifp_generation_status") or "ok"),
+                error=str(row.get("ifp_error") or "") or None,
+                n_residues=len(residue_names),
+                n_interaction_types=len(interaction_types),
+                residue_names=residue_names,
+                interaction_types=interaction_types,
+                feature_names=feature_names,
+                flat_bitvector=flat_bitvector,
+                n_total_contacts=int(row.get("n_total_contacts") or 0),
+                interaction_counts=interaction_counts,
+                interaction_occurrence_counts=occurrence_counts or interaction_counts,
+            )
+    return results
+
+
+def _build_ifp_batch_from_results(
+    results: list[IFPResult],
+    *,
+    protein_id: str,
+    ligand_id: str,
+    model: str,
+) -> IFPBatch:
+    feature_names = sorted({feature_name for result in results for feature_name in result.feature_names})
+    matrix: list[list[int]] = []
+    for result in results:
+        feature_map = {
+            feature_name: int(value)
+            for feature_name, value in zip(result.feature_names, result.flat_bitvector)
+        }
+        matrix.append([int(feature_map.get(feature_name, 0)) for feature_name in feature_names])
+    return IFPBatch(
+        protein_id=protein_id,
+        ligand_id=ligand_id,
+        model=model,
+        results=results,
+        matrix=matrix,
+        feature_names=feature_names,
+    )
+
+
+def _existing_analysis_export_paths(case: dict[str, Any]) -> tuple[Path, Path] | None:
+    complex_candidates = [
+        Path(str(case.get("complex_for_prolif_pdb") or "")),
+        Path(str(case.get("case_dir") or "")) / "analysis_export" / "complex_for_prolif.pdb",
+    ]
+    ligand_candidates = [
+        Path(str(case.get("ligand_pdb") or "")),
+        Path(str(case.get("case_dir") or "")) / "analysis_export" / "ligand_only_for_prolif.pdb",
+    ]
+    for complex_pdb in complex_candidates:
+        if not str(complex_pdb):
+            continue
+        for ligand_pdb in ligand_candidates:
+            if complex_pdb.is_file() and ligand_pdb.is_file():
+                return complex_pdb.resolve(), ligand_pdb.resolve()
+    return None
 
 
 def _write_tsv_rows(output_path: Path, fieldnames: list[str], rows: list[dict[str, Any]]) -> None:
@@ -1258,6 +1389,97 @@ def _prepare_pose_case(
         return case, None
 
 
+def _load_reuse_cases_by_pose_id(reuse_root: Path) -> dict[str, dict[str, Any]]:
+    summary_path = reuse_root / "analysis_core_summary.json"
+    if not summary_path.is_file():
+        raise FileNotFoundError(f"reuse summary not found: {summary_path}")
+    payload = json.loads(summary_path.read_text())
+    cases = payload.get("cases")
+    if not isinstance(cases, list):
+        raise ValueError(f"reuse summary has no cases list: {summary_path}")
+
+    by_pose_id: dict[str, dict[str, Any]] = {}
+    for case in cases:
+        if not isinstance(case, dict):
+            continue
+        pose_id = str(case.get("pose_id") or "").strip()
+        if not pose_id:
+            continue
+        by_pose_id[pose_id] = case
+    return by_pose_id
+
+
+def _prepare_reused_pose_case(
+    pose: PoseInputRecord,
+    *,
+    index: int,
+    output_dir: Path,
+    reused_cases_by_pose_id: dict[str, dict[str, Any]],
+) -> tuple[dict[str, Any], PreparedPose | None]:
+    case_dir = output_dir / "cases" / f"{index:04d}_{_slug(pose.pose_id)}"
+    case_dir.mkdir(parents=True, exist_ok=True)
+    case: dict[str, Any] = {
+        "index": index,
+        "pose_id": pose.pose_id,
+        "protein_id": pose.protein_id,
+        "ligand_id": pose.ligand_id,
+        "model": pose.model,
+        "source_run_id": pose.source_run_id,
+        "discovered_run_id": pose.discovered_run_id,
+        "seed": pose.seed,
+        "sample": pose.sample,
+        "cif_path": str(pose.cif_path),
+        "case_dir": str(case_dir),
+        "status": "preparing_reuse",
+    }
+
+    try:
+        reused_case = reused_cases_by_pose_id.get(pose.pose_id)
+        if reused_case is None:
+            raise FileNotFoundError(f"pose_id not found in reuse summary: {pose.pose_id}")
+
+        normalized_cif = Path(str(reused_case.get("normalized_cif") or "")).resolve()
+        posebusters_pdb = Path(str(reused_case.get("posebusters_pdb") or "")).resolve()
+        privateer_input_cif = Path(str(reused_case.get("privateer_input_cif") or "")).resolve()
+        required_paths = {
+            "normalized_cif": normalized_cif,
+            "posebusters_pdb": posebusters_pdb,
+            "privateer_input_cif": privateer_input_cif,
+        }
+        missing = [f"{label}={path}" for label, path in required_paths.items() if not path.is_file()]
+        if missing:
+            raise FileNotFoundError("missing reuse artifacts: " + "; ".join(missing))
+
+        structure = gemmi.read_structure(str(normalized_cif))
+        prepared = PreparedPose(
+            pose=pose,
+            case_dir=case_dir,
+            normalized_cif=normalized_cif,
+            posebusters_pdb=posebusters_pdb,
+            privateer_input_cif=privateer_input_cif,
+            structure=structure,
+        )
+        case.update(
+            {
+                "status": "prepared_reused",
+                "reused_from_case_dir": str(reused_case.get("case_dir") or ""),
+                "normalized_cif": str(normalized_cif),
+                "posebusters_pdb": str(posebusters_pdb),
+                "privateer_input_cif": str(privateer_input_cif),
+            }
+        )
+        return case, prepared
+    except Exception as exc:
+        case.update(
+            {
+                "status": "prep_error",
+                "error": f"{exc.__class__.__name__}: {exc}",
+                "traceback": traceback.format_exc(),
+            }
+        )
+        return case, None
+
+
 def _prepare_pose_case_worker(args: tuple[int, PoseInputRecord, Path]) -> tuple[int, dict[str, Any], dict[str, str] | None]:
     index, pose, output_dir = args
     case, prepared = _prepare_pose_case(pose, index=index, output_dir=output_dir)
@@ -1295,7 +1517,24 @@ def _prepare_pose_cases(
     *,
     output_dir: Path,
     n_jobs: int,
+    reuse_prepared_cases_from: Path | None = None,
 ) -> tuple[list[dict[str, Any]], list[PreparedPose]]:
+    if reuse_prepared_cases_from is not None:
+        reused_cases_by_pose_id = _load_reuse_cases_by_pose_id(reuse_prepared_cases_from)
+        cases = []
+        prepared_poses = []
+        for index, pose in enumerate(pose_inputs, start=1):
+            case, prepared_pose = _prepare_reused_pose_case(
+                pose,
+                index=index,
+                output_dir=output_dir,
+                reused_cases_by_pose_id=reused_cases_by_pose_id,
+            )
+            cases.append(case)
+            if prepared_pose is not None:
+                prepared_poses.append(prepared_pose)
+        return cases, prepared_poses
+
     if n_jobs <= 1 or len(pose_inputs) <= 1:
         cases: list[dict[str, Any]] = []
         prepared_poses: list[PreparedPose] = []
@@ -1359,6 +1598,79 @@ def _hard_qc_input(prepared_pose: PreparedPose) -> HardQCInput:
         mol_pred_path=prepared_pose.posebusters_pdb,
         structure=prepared_pose.structure,
         privateer_cif_path=prepared_pose.privateer_input_cif,
+    )
+
+
+def _load_reused_qc_report(
+    qc_report_path: Path,
+    *,
+    pose_ids: list[str],
+    run_id: str,
+) -> QCReport:
+    if not qc_report_path.is_file():
+        raise FileNotFoundError(f"reuse QC report not found: {qc_report_path}")
+
+    payload = json.loads(qc_report_path.read_text())
+    verdicts_payload = payload.get("verdicts")
+    if not isinstance(verdicts_payload, list):
+        raise ValueError(f"reuse QC report has no verdicts list: {qc_report_path}")
+
+    pose_payload_by_id = {
+        str(item.get("pose_id")): item
+        for item in payload.get("poses", [])
+        if isinstance(item, dict) and item.get("pose_id")
+    }
+    verdict_payload_by_id = {
+        str(item.get("pose_id")): item
+        for item in verdicts_payload
+        if isinstance(item, dict) and item.get("pose_id")
+    }
+
+    missing = [pose_id for pose_id in pose_ids if pose_id not in verdict_payload_by_id]
+    if missing:
+        preview = ", ".join(missing[:10])
+        suffix = "" if len(missing) <= 10 else f", ... ({len(missing)} total)"
+        raise ValueError(f"reuse QC report missing pose verdicts: {preview}{suffix}")
+
+    verdicts: list[PoseQCVerdict] = []
+    for pose_id in pose_ids:
+        verdict_payload = verdict_payload_by_id[pose_id]
+        pose_payload = pose_payload_by_id.get(pose_id, {})
+        status = str(verdict_payload.get("status") or "").strip()
+        if status not in {"passed", "flagged", "dropped"}:
+            overall_status = str(pose_payload.get("overall_status") or "").strip()
+            status = (
+                "passed"
+                if overall_status == "pass"
+                else "flagged"
+                if overall_status == "soft_flag"
+                else "dropped"
+            )
+        verdicts.append(
+            PoseQCVerdict(
+                pose_id=pose_id,
+                status=status,
+                proximity_passed=bool(verdict_payload.get("proximity_passed", True)),
+                posebusters_passed=bool(verdict_payload.get("posebusters_passed", True)),
+                privateer_passed=bool(verdict_payload.get("privateer_passed", True)),
+                geometry_passed=bool(verdict_payload.get("geometry_passed", True)),
+                drop_reasons=list(verdict_payload.get("drop_reasons") or []),
+                warnings=list(verdict_payload.get("warnings") or []),
+                metrics=dict(verdict_payload.get("metrics") or {}),
+                posebusters=dict(pose_payload.get("posebusters") or {}),
+                privateer=dict(pose_payload.get("privateer") or {}),
+                cu_geometry=dict(pose_payload.get("cu_geometry") or {}),
+            )
+        )
+
+    return QCReport(
+        run_id=run_id,
+        verdicts=verdicts,
+        timing_events=[],
+        total=len(verdicts),
+        passed=sum(1 for verdict in verdicts if verdict.status == "passed"),
+        flagged=sum(1 for verdict in verdicts if verdict.status == "flagged"),
+        dropped=sum(1 for verdict in verdicts if verdict.status == "dropped"),
     )
 
 
@@ -1663,6 +1975,9 @@ def _choose_crystal_representatives(
     clustering_result: ClusteringResult,
     cluster_pose_ids: list[str],
     prepared_pose_by_id: dict[str, PreparedPose],
+    *,
+    case_by_pose_id: dict[str, dict[str, Any]],
+    ifp_result_by_pose_id: dict[str, IFPResult],
 ) -> list[CrystalRepresentativeCandidate]:
     representatives: list[CrystalRepresentativeCandidate] = []
     if not clustering_result.medoids or not cluster_pose_ids:
@@ -1676,15 +1991,22 @@ def _choose_crystal_representatives(
         prepared_pose = prepared_pose_by_id.get(pose_id)
         if prepared_pose is None:
             continue
+        case = case_by_pose_id.get(pose_id, {})
+        complex_pdb = Path(str(case.get("complex_for_prolif_pdb") or ""))
+        ligand_pdb = Path(str(case.get("ligand_pdb") or ""))
         representatives.append(
             CrystalRepresentativeCandidate(
                 pose_id=pose_id,
-                cif_path=prepared_pose.pose.cif_path,
+                cif_path=prepared_pose.normalized_cif,
                 role="cluster_medoid",
                 medoid_pose_id=pose_id,
                 cluster_id=cluster_id,
                 protein_id=prepared_pose.pose.protein_id,
                 ligand_id=prepared_pose.pose.ligand_id,
+                normalized_cif=prepared_pose.normalized_cif,
+                complex_pdb=complex_pdb if complex_pdb.is_file() else None,
+                ligand_pdb=ligand_pdb if ligand_pdb.is_file() else None,
+                ifp_result=ifp_result_by_pose_id.get(pose_id),
             )
         )
     return representatives
@@ -1695,12 +2017,34 @@ def _prepare_hard_qc_passing_top_model_fallback(
     *,
     output_dir: Path,
     options: ProductionRunOptions,
+    reused_cases_by_pose_id: dict[str, dict[str, Any]],
+    reused_ifp_by_pose_id: dict[str, IFPResult],
 ) -> tuple[CrystalRepresentativeCandidate | None, dict[str, Any]]:
-    case, prepared = _prepare_pose_case(
-        pose,
-        index=1,
-        output_dir=output_dir,
-    )
+    reused_case = reused_cases_by_pose_id.get(pose.pose_id)
+    if reused_case is not None:
+        case, prepared = _prepare_reused_pose_case(
+            pose,
+            index=1,
+            output_dir=output_dir,
+            reused_cases_by_pose_id=reused_cases_by_pose_id,
+        )
+        fallback_generated = False
+    else:
+        if not options.allow_reuse_fallback_generation:
+            return None, {
+                "pose_id": pose.pose_id,
+                "protein_id": pose.protein_id,
+                "ligand_id": pose.ligand_id,
+                "cif_path": str(pose.cif_path),
+                "selected": False,
+                "skip_reason": "fallback_artifacts_missing_and_generation_disabled",
+            }
+        case, prepared = _prepare_pose_case(
+            pose,
+            index=1,
+            output_dir=output_dir,
+        )
+        fallback_generated = True
     fallback_summary = {
         "pose_id": pose.pose_id,
         "protein_id": pose.protein_id,
@@ -1708,35 +2052,50 @@ def _prepare_hard_qc_passing_top_model_fallback(
         "cif_path": str(pose.cif_path),
         "case": case,
         "selected": False,
+        "reused_prepared": reused_case is not None,
+        "fallback_generated": fallback_generated,
     }
     if prepared is None:
         fallback_summary["skip_reason"] = "fallback_prepare_failed"
         return None, fallback_summary
 
-    qc_report = run_hard_qc(
-        [_hard_qc_input(prepared)],
-        run_id=f"{options.run_id}:crystal_fallback",
-        run_posebusters=options.run_posebusters,
-        run_privateer=options.run_privateer,
-        max_workers=1,
-        collect_timing_events=False,
-    )
-    verdict = qc_report.verdicts[0] if qc_report.verdicts else None
-    fallback_summary["qc_verdict"] = verdict.__dict__ if verdict is not None else {}
-    if verdict is None or verdict.status == "dropped":
+    verdict_status = ""
+    if reused_case is not None and isinstance(reused_case.get("qc_verdict"), dict):
+        fallback_summary["qc_verdict"] = reused_case.get("qc_verdict") or {}
+        verdict_status = str((reused_case.get("qc_verdict") or {}).get("status") or "")
+    else:
+        qc_report = run_hard_qc(
+            [_hard_qc_input(prepared)],
+            run_id=f"{options.run_id}:crystal_fallback",
+            run_posebusters=options.run_posebusters,
+            run_privateer=options.run_privateer,
+            max_workers=1,
+            collect_timing_events=False,
+        )
+        verdict = qc_report.verdicts[0] if qc_report.verdicts else None
+        fallback_summary["qc_verdict"] = verdict.__dict__ if verdict is not None else {}
+        verdict_status = verdict.status if verdict is not None else ""
+    if verdict_status == "dropped" or not verdict_status:
         fallback_summary["skip_reason"] = "fallback_hard_qc_failed"
         return None, fallback_summary
 
+    export_paths = _existing_analysis_export_paths(reused_case or {})
+    complex_pdb = export_paths[0] if export_paths else None
+    ligand_pdb = export_paths[1] if export_paths else None
     fallback_summary["selected"] = True
     return (
         CrystalRepresentativeCandidate(
             pose_id=pose.pose_id,
-            cif_path=pose.cif_path,
+            cif_path=prepared.normalized_cif,
             role="af3_top_model_fallback",
             medoid_pose_id="",
             cluster_id="",
             protein_id=pose.protein_id,
             ligand_id=pose.ligand_id,
+            normalized_cif=prepared.normalized_cif,
+            complex_pdb=complex_pdb,
+            ligand_pdb=ligand_pdb,
+            ifp_result=reused_ifp_by_pose_id.get(pose.pose_id),
         ),
         fallback_summary,
     )
@@ -1888,6 +2247,35 @@ def run_analysis_core(
         "include_proteins": list(options.include_proteins),
         "run_posebusters": options.run_posebusters,
         "run_privateer": options.run_privateer,
+        "reuse_prepared_cases_from": (
+            str(options.reuse_prepared_cases_from)
+            if options.reuse_prepared_cases_from is not None
+            else ""
+        ),
+        "reuse_hard_qc_report_path": (
+            str(options.reuse_hard_qc_report_path)
+            if options.reuse_hard_qc_report_path is not None
+            else ""
+        ),
+        "reuse_ifp_table_path": (
+            str(options.reuse_ifp_table_path)
+            if options.reuse_ifp_table_path is not None
+            else ""
+        ),
+        "reuse_analysis_artifacts_from": (
+            str(options.reuse_analysis_artifacts_from)
+            if options.reuse_analysis_artifacts_from is not None
+            else ""
+        ),
+        "allow_reuse_fallback_generation": options.allow_reuse_fallback_generation,
+        "reuse_counters": {
+            "n_reused_prepared_cases": 0,
+            "n_reused_hard_qc": 0,
+            "n_reused_ifp": 0,
+            "n_reused_analysis_export": 0,
+            "n_fallback_normalizations": 0,
+            "n_fallback_conversions": 0,
+        },
         "n_jobs": options.n_jobs,
         "collect_timing_events": options.collect_timing_events,
         "predictive": {
@@ -1953,6 +2341,7 @@ def run_analysis_core(
         pose_inputs,
         output_dir=options.output_dir,
         n_jobs=options.n_jobs,
+        reuse_prepared_cases_from=options.reuse_prepared_cases_from,
     )
     _record_timing(
         step="analysis.prepare_cases",
@@ -1964,6 +2353,17 @@ def run_analysis_core(
     case_by_pose_id: dict[str, dict[str, Any]] = {
         str(case["pose_id"]): case for case in cases
     }
+    analysis_summary["reuse_counters"]["n_reused_prepared_cases"] = sum(
+        1 for case in cases if case.get("status") == "prepared_reused"
+    )
+
+    reuse_artifact_root = options.reuse_analysis_artifacts_from or options.reuse_prepared_cases_from
+    reused_cases_by_pose_id: dict[str, dict[str, Any]] = {}
+    if reuse_artifact_root is not None:
+        reused_cases_by_pose_id = _load_reuse_cases_by_pose_id(reuse_artifact_root)
+    reused_ifp_by_pose_id: dict[str, IFPResult] = {}
+    if options.reuse_ifp_table_path is not None:
+        reused_ifp_by_pose_id = _load_ifp_results_by_pose_id(options.reuse_ifp_table_path)
 
     prepared_pose_by_id = {
         prepared_pose.pose.pose_id: prepared_pose
@@ -2015,14 +2415,22 @@ def run_analysis_core(
     if prepared_poses:
         qc_report_path = options.output_dir / "qc_report.json"
         hard_qc_start = perf_counter()
-        report = run_hard_qc(
-            [_hard_qc_input(prepared_pose) for prepared_pose in prepared_poses],
-            run_id=options.run_id,
-            run_posebusters=options.run_posebusters,
-            run_privateer=options.run_privateer,
-            max_workers=options.n_jobs,
-            collect_timing_events=options.collect_timing_events,
-        )
+        if options.reuse_hard_qc_report_path is not None:
+            report = _load_reused_qc_report(
+                options.reuse_hard_qc_report_path,
+                pose_ids=[prepared_pose.pose.pose_id for prepared_pose in prepared_poses],
+                run_id=options.run_id,
+            )
+            analysis_summary["reuse_counters"]["n_reused_hard_qc"] = len(report.verdicts)
+        else:
+            report = run_hard_qc(
+                [_hard_qc_input(prepared_pose) for prepared_pose in prepared_poses],
+                run_id=options.run_id,
+                run_posebusters=options.run_posebusters,
+                run_privateer=options.run_privateer,
+                max_workers=options.n_jobs,
+                collect_timing_events=options.collect_timing_events,
+            )
         _record_timing(
             step="analysis.hard_qc",
             start=hard_qc_start,
@@ -2061,6 +2469,7 @@ def run_analysis_core(
         summary_geometry_rows: list[dict[str, Any]] = []
         metrics_record_by_pose_id: dict[str, dict[str, Any]] = {}
         all_ifp_results: list[IFPResult] = []
+        ifp_result_by_pose_id: dict[str, IFPResult] = {}
         region_annotations_by_pose_id: dict[str, dict[tuple[str, int, str], Any]] = {}
         residue_contact_rows: list[dict[str, Any]] = []
         contact_eligibility_by_condition: dict[str, list[ContactEligibility]] = {}
@@ -2129,35 +2538,76 @@ def run_analysis_core(
 
                 analysis_export_dir = prepared_pose.case_dir / "analysis_export"
                 analysis_export_start = perf_counter()
-                analysis_export_ok, analysis_export_report = export_analysis_artifacts(
-                    prepared_pose.normalized_cif,
-                    analysis_export_dir,
-                )
+                reused_case = reused_cases_by_pose_id.get(pose.pose_id, {})
+                reused_export_paths = _existing_analysis_export_paths(reused_case)
+                reused_ifp_result = reused_ifp_by_pose_id.get(pose.pose_id)
+                analysis_export_report: dict[str, Any] | None = None
+                if reused_export_paths is not None:
+                    complex_pdb, ligand_pdb = reused_export_paths
+                    analysis_export_ok = True
+                    analysis_export_detail = "reused_analysis_export"
+                    analysis_summary["reuse_counters"]["n_reused_analysis_export"] += 1
+                    case["analysis_export_reused"] = True
+                    case["analysis_export_reused_from_case_dir"] = str(reused_case.get("case_dir") or "")
+                else:
+                    if reused_ifp_result is not None and not options.allow_reuse_fallback_generation:
+                        analysis_export_ok = False
+                        complex_pdb = analysis_export_dir / "complex_for_prolif.pdb"
+                        ligand_pdb = analysis_export_dir / "ligand_only_for_prolif.pdb"
+                        analysis_export_report = {"blockers": ["analysis_export_missing_and_fallback_generation_disabled"]}
+                    else:
+                        analysis_export_ok, analysis_export_report = export_analysis_artifacts(
+                            prepared_pose.normalized_cif,
+                            analysis_export_dir,
+                        )
+                        analysis_summary["reuse_counters"]["n_fallback_conversions"] += 1
+                        complex_pdb = analysis_export_dir / "complex_for_prolif.pdb"
+                        ligand_pdb = analysis_export_dir / "ligand_only_for_prolif.pdb"
+                    analysis_export_detail = ";".join((analysis_export_report or {}).get("blockers", []) or [])
+                    case["analysis_export_reused"] = False
                 _record_timing(
                     step="analysis.analysis_export",
                     start=analysis_export_start,
                     pose_id=pose.pose_id,
                     condition_id=condition_id,
                     status="ok" if analysis_export_ok else "failed",
-                    detail=";".join((analysis_export_report or {}).get("blockers", []) or []),
+                    detail=analysis_export_detail,
                 )
                 case["analysis_export_ok"] = bool(analysis_export_ok)
                 case["analysis_export_report_path"] = str(analysis_export_dir / "analysis_export_report.json")
                 case["analysis_export_blockers"] = (analysis_export_report or {}).get("blockers", []) if analysis_export_report else []
                 case["analysis_export_warnings"] = (analysis_export_report or {}).get("warnings", []) if analysis_export_report else []
-                case["complex_for_prolif_pdb"] = str(analysis_export_dir / "complex_for_prolif.pdb")
-                case["ligand_pdb"] = str(analysis_export_dir / "ligand_only_for_prolif.pdb")
+                case["complex_for_prolif_pdb"] = str(complex_pdb)
+                case["ligand_pdb"] = str(ligand_pdb)
+                if reused_ifp_result is not None:
+                    analysis_summary["reuse_counters"]["n_reused_ifp"] += 1
+                    case["ifp_reused"] = True
                 if analysis_export_ok:
                     ifp_pose_inputs_by_condition.setdefault(condition_id, []).append(
                         {
                             "pose_id": pose.pose_id,
-                            "complex_pdb": analysis_export_dir / "complex_for_prolif.pdb",
-                            "ligand_pdb": analysis_export_dir / "ligand_only_for_prolif.pdb",
+                            "complex_pdb": complex_pdb,
+                            "ligand_pdb": ligand_pdb,
                             "protein_id": pose.protein_id,
                             "ligand_id": pose.ligand_id,
                             "model": pose.model,
                             "seed": pose.seed,
                             "sample": pose.sample,
+                            "ifp_result": reused_ifp_result,
+                        }
+                    )
+                elif reused_ifp_result is not None:
+                    ifp_pose_inputs_by_condition.setdefault(condition_id, []).append(
+                        {
+                            "pose_id": pose.pose_id,
+                            "complex_pdb": complex_pdb,
+                            "ligand_pdb": ligand_pdb,
+                            "protein_id": pose.protein_id,
+                            "ligand_id": pose.ligand_id,
+                            "model": pose.model,
+                            "seed": pose.seed,
+                            "sample": pose.sample,
+                            "ifp_result": reused_ifp_result,
                         }
                     )
                 else:
@@ -2166,6 +2616,7 @@ def run_analysis_core(
                         "Analysis export blockers: " + ", ".join(case["analysis_export_blockers"] or ["unknown"]),
                     )
                     all_ifp_results.append(failed_ifp)
+                    ifp_result_by_pose_id[pose.pose_id] = failed_ifp
                     case["ifp_generation_status"] = failed_ifp.status
                     case["ifp_error"] = failed_ifp.error
             else:
@@ -2243,28 +2694,35 @@ def run_analysis_core(
             production_clustering_status = "no_ifp_inputs"
             formal_clustering_allowed = False
             if condition_pose_inputs:
+                convergence_inputs = [
+                    entry for entry in condition_pose_inputs if Path(entry["complex_pdb"]).is_file()
+                ]
                 convergence_start = perf_counter()
-                convergence_metrics, convergence_summary = compute_condition_convergence(
-                    [
-                        ConvergencePoseInput(
-                            pose_id=str(entry["pose_id"]),
-                            condition_id=condition_id,
-                            complex_pdb=Path(entry["complex_pdb"]),
-                            seed=int(entry["seed"]) if entry.get("seed") is not None else None,
-                            sample=int(entry["sample"]) if entry.get("sample") is not None else None,
-                        )
-                        for entry in condition_pose_inputs
-                    ]
-                )
+                if convergence_inputs:
+                    convergence_metrics, convergence_summary = compute_condition_convergence(
+                        [
+                            ConvergencePoseInput(
+                                pose_id=str(entry["pose_id"]),
+                                condition_id=condition_id,
+                                complex_pdb=Path(entry["complex_pdb"]),
+                                seed=int(entry["seed"]) if entry.get("seed") is not None else None,
+                                sample=int(entry["sample"]) if entry.get("sample") is not None else None,
+                            )
+                            for entry in convergence_inputs
+                        ]
+                    )
+                else:
+                    convergence_metrics, convergence_summary = [], None
                 _record_timing(
                     step="analysis.convergence",
                     start=convergence_start,
                     condition_id=condition_id,
                     status="ok",
-                    detail=f"n_poses={len(condition_pose_inputs)}",
+                    detail=f"n_poses={len(convergence_inputs)}",
                 )
                 pose_convergence_metrics.extend(convergence_metrics)
-                condition_convergence_summaries.append(convergence_summary)
+                if convergence_summary is not None:
+                    condition_convergence_summaries.append(convergence_summary)
                 for metric in convergence_metrics:
                     case_by_pose_id[metric.pose_id]["ligand_rmsd_to_reference"] = metric.ligand_rmsd_to_reference
                     case_by_pose_id[metric.pose_id]["convergent_flag"] = metric.convergent_flag
@@ -2272,28 +2730,56 @@ def run_analysis_core(
 
                 first_input = condition_pose_inputs[0]
                 ifp_start = perf_counter()
-                batch = compute_ifp_batch(
+                reused_entries = [entry for entry in condition_pose_inputs if entry.get("ifp_result") is not None]
+                compute_entries = [entry for entry in condition_pose_inputs if entry.get("ifp_result") is None]
+                computed_results: list[IFPResult] = []
+                if compute_entries:
+                    computed_batch = compute_ifp_batch(
+                        [
+                            {
+                                "pose_id": entry["pose_id"],
+                                "complex_pdb": entry["complex_pdb"],
+                                "ligand_pdb": entry["ligand_pdb"],
+                            }
+                            for entry in compute_entries
+                        ],
+                        protein_id=str(first_input["protein_id"]),
+                        ligand_id=str(first_input["ligand_id"]),
+                        model=str(first_input["model"]),
+                        max_workers=options.n_jobs,
+                    )
+                    computed_results = computed_batch.results
+                result_by_pose_id = {
+                    str(result.pose_id): result
+                    for result in [
+                        *(entry["ifp_result"] for entry in reused_entries),
+                        *computed_results,
+                    ]
+                    if result is not None
+                }
+                batch = _build_ifp_batch_from_results(
                     [
-                        {
-                            "pose_id": entry["pose_id"],
-                            "complex_pdb": entry["complex_pdb"],
-                            "ligand_pdb": entry["ligand_pdb"],
-                        }
+                        result_by_pose_id[str(entry["pose_id"])]
                         for entry in condition_pose_inputs
+                        if str(entry["pose_id"]) in result_by_pose_id
                     ],
                     protein_id=str(first_input["protein_id"]),
                     ligand_id=str(first_input["ligand_id"]),
                     model=str(first_input["model"]),
-                    max_workers=options.n_jobs,
                 )
                 _record_timing(
                     step="analysis.prolif_ifp_batch",
                     start=ifp_start,
                     condition_id=condition_id,
                     status="ok",
-                    detail=f"n_poses={len(condition_pose_inputs)}",
+                    detail=(
+                        f"n_poses={len(condition_pose_inputs)};"
+                        f"n_reused={len(reused_entries)};"
+                        f"n_computed={len(compute_entries)}"
+                    ),
                 )
                 all_ifp_results.extend(batch.results)
+                ifp_result_by_pose_id.update({result.pose_id: result for result in batch.results})
                 condition_region_annotations = build_region_annotations_for_ifp_results(
                     batch.results,
                     protein_id=batch.protein_id,
@@ -2446,6 +2932,8 @@ def run_analysis_core(
                     clustering_result,
                     cluster_pose_ids,
                     prepared_pose_by_id,
+                    case_by_pose_id=case_by_pose_id,
+                    ifp_result_by_pose_id=ifp_result_by_pose_id,
                 )
                 if not crystal_representatives:
                     fallback_pose = top_model_fallback_by_condition.get(condition_id)
@@ -2454,7 +2942,14 @@ def run_analysis_core(
                             fallback_pose,
                             output_dir=options.output_dir / "crystal_fallback_cases" / _slug(condition_id),
                             options=options,
+                            reused_cases_by_pose_id=reused_cases_by_pose_id,
+                            reused_ifp_by_pose_id=reused_ifp_by_pose_id,
                         )
+                        if fallback_summary.get("fallback_generated"):
+                            analysis_summary["reuse_counters"]["n_fallback_normalizations"] += 1
+                            analysis_summary["reuse_counters"]["n_fallback_conversions"] += 1
+                        elif fallback_summary.get("reused_prepared"):
+                            analysis_summary["reuse_counters"]["n_reused_prepared_cases"] += 1
                         analysis_summary["crystal_top_model_fallback_runs"].append(
                             {"condition_id": condition_id, **fallback_summary}
                         )
@@ -2471,12 +2966,20 @@ def run_analysis_core(
                     crystal_report_path = crystal_output_dir / "crystal_reference_screen.json"
                     try:
                         crystal_start = perf_counter()
+                        if representative.complex_pdb is None or representative.ligand_pdb is None:
+                            analysis_summary["reuse_counters"]["n_fallback_conversions"] += 1
+                            if representative.normalized_cif is None:
+                                analysis_summary["reuse_counters"]["n_fallback_normalizations"] += 1
                         crystal_report = run_crystal_reference_screen(
                             representative.cif_path,
                             protein_id=representative.protein_id,
                             ligand_id=representative.ligand_id,
                             representative_pose_id=representative.pose_id,
                             output_dir=crystal_output_dir,
+                            representative_normalized_cif=representative.normalized_cif,
+                            representative_complex_pdb=representative.complex_pdb,
+                            representative_ligand_pdb=representative.ligand_pdb,
+                            representative_ifp_result=representative.ifp_result,
                         )
                         _record_timing(
                             step="analysis.crystal_anchoring",

@@ -35,8 +35,8 @@ def test_build_predictive_cluster_table_uses_current_stage7_fields(tmp_path: Pat
                 "Cu_C4_distance_median": "6.2",
                 "oxyl_H_C1_distance_median": "2.2",
                 "oxyl_H_C4_distance_median": "4.8",
-                "attack_angle_C1_median": "142.0",
-                "attack_angle_C4_median": "91.0",
+                "Cu_oxyl_H_C1_angle_median": "142.0",
+                "Cu_oxyl_H_C4_angle_median": "91.0",
                 "ring_normal_vs_brace_normal_median": "36.0",
                 "convergent_fraction": "0.8",
                 "mean_ranking_score": "0.9",
@@ -52,7 +52,7 @@ def test_build_predictive_cluster_table_uses_current_stage7_fields(tmp_path: Pat
                 "protein_id": "P1",
                 "mapped_regio_class": "C1",
                 "mapped_substrate_class": "chitin",
-                "mapped_activity_label": "chitin_C1_C4_mixed",
+                "mapped_activity_label": "chitin_C1_hydroxylating",
                 "mapping_rule": "exact_1.14.99.53",
             }
         ],
@@ -79,4 +79,4 @@ def test_build_predictive_cluster_table_uses_current_stage7_fields(tmp_path: Pat
     with output_path.open(newline="") as handle:
         written = list(csv.DictReader(handle, delimiter="\t"))
     assert written[0]["analysis_id"] == "P1__domain_only__chitin_DP4__cluster0"
-    assert written[0]["experimental_activity_label"] == "chitin_C1_C4_mixed"
+    assert written[0]["experimental_activity_label"] == "chitin_C1_hydroxylating"

@@ -21,6 +21,10 @@ from typing import Any
 import numpy as np
 from scipy.stats import binomtest, wilcoxon
 
+from lpmo_pipeline.analysis.residue_region_annotation import (
+    build_protein_region_definitions_from_rows,
+)
+
 logger = logging.getLogger(__name__)
 
 NON_CORE_CONTACT_PRESENT_THRESHOLD = 0.10
@@ -479,6 +483,60 @@ def _index_protein_metadata(rows: list[dict[str, Any]]) -> dict[str, dict[str, A
         if protein_id and protein_id not in indexed:
             indexed[protein_id] = row
     return indexed
+
+
+def _construct_type_for_cluster_residue_row(row: dict[str, Any]) -> str:
+    construct_type = _first_present(row, "construct_type", "_construct_type")
+    if construct_type:
+        return construct_type
+    condition_id = str(row.get("condition_id", ""))
+    if "__domain_only__" in condition_id:
+        return "domain_only"
+    if "__full_length__" in condition_id:
+        return "full_length"
+    return ""
+
+
+def _annotate_cluster_residue_rows_from_metadata(
+    rows: list[dict[str, Any]],
+    protein_metadata_rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Overlay core/non-core flags from metadata onto cluster residue rows.
+
+    Older production outputs may have been generated without
+    ``production.protein_metadata_path`` even when metadata was supplied to the
+    predictive postprocess. In that case every observed residue was written as
+    core, which makes non-core and bridge fractions impossible. The CBM
+    postprocess receives the metadata table, so it can repair the region flags
+    from the residue number already present in ``cluster_residue_signature.tsv``.
+    """
+
+    definitions = build_protein_region_definitions_from_rows(protein_metadata_rows)
+    if not rows or not definitions:
+        return rows
+
+    annotated: list[dict[str, Any]] = []
+    for row in rows:
+        protein_id = str(row.get("protein_id", ""))
+        definition = definitions.get(protein_id)
+        if definition is None:
+            annotated.append(row)
+            continue
+        residue_number = _as_int(row.get("residue_number"))
+        if residue_number == 0:
+            annotated.append(row)
+            continue
+        flags = definition.flags_for(
+            str(row.get("residue_chain", "")),
+            residue_number,
+            str(row.get("residue_name", "")),
+            _construct_type_for_cluster_residue_row(row),
+        )
+        updated = dict(row)
+        updated["is_core_region"] = flags.is_core_region
+        updated["is_non_core_region"] = flags.is_non_core_region
+        annotated.append(updated)
+    return annotated
 
 
 def _write_tsv(path: Path, columns: list[str], rows: list[dict[str, Any]]) -> None:
@@ -1065,6 +1123,10 @@ def run_cbm_paired_analysis(
     cluster_rows = read_tsv(cluster_table_path)
     cluster_residue_rows = read_tsv(cluster_residue_signature_table_path)
     protein_metadata_rows = read_tsv(protein_metadata_path)
+    cluster_residue_rows = _annotate_cluster_residue_rows_from_metadata(
+        cluster_residue_rows,
+        protein_metadata_rows,
+    )
 
     construct_rows = build_cbm_construct_condition_summary_rows(
         condition_rows,

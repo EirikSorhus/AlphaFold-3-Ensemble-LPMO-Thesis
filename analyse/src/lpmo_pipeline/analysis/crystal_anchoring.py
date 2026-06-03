@@ -1547,29 +1547,49 @@ def _prepare_representative_pose_ifp(
     output_dir: Path,
     *,
     representative_pose_id: str,
+    representative_normalized_cif: Path | None = None,
+    representative_complex_pdb: Path | None = None,
+    representative_ligand_pdb: Path | None = None,
+    representative_ifp_result: IFPResult | None = None,
 ) -> tuple[IFPResult | None, str | None, tuple[Path, Path, Path, Path] | None, Path | None]:
-    try:
-        normalize_ok, normalized_cif = NormalizeMMCIFRunner(representative_pose_cif, output_dir / "normalize").run()
-    except Exception as exc:
-        return None, f"{exc.__class__.__name__}: {exc}", None, None
+    complex_pdb = Path(representative_complex_pdb).resolve() if representative_complex_pdb else None
+    ligand_pdb = Path(representative_ligand_pdb).resolve() if representative_ligand_pdb else None
+    if representative_ifp_result is not None and complex_pdb is not None and complex_pdb.exists():
+        ifp_artifacts = _write_ifp_artifacts(representative_ifp_result, output_dir / "ifp")
+        return representative_ifp_result, representative_ifp_result.error, ifp_artifacts, complex_pdb
 
-    if not normalize_ok or normalized_cif is None:
-        return None, "Normalization failed", None, None
+    if complex_pdb is None or ligand_pdb is None or not complex_pdb.exists() or not ligand_pdb.exists():
+        normalized_cif: Path | None = None
+        if representative_normalized_cif is not None and Path(representative_normalized_cif).is_file():
+            normalized_cif = Path(representative_normalized_cif).resolve()
+        else:
+            try:
+                normalize_ok, normalized_cif_raw = NormalizeMMCIFRunner(
+                    representative_pose_cif,
+                    output_dir / "normalize",
+                ).run()
+            except Exception as exc:
+                return None, f"{exc.__class__.__name__}: {exc}", None, None
 
-    try:
-        export_ok, export_report = export_analysis_artifacts(Path(normalized_cif), output_dir / "analysis_export")
-    except Exception as exc:
-        return None, f"{exc.__class__.__name__}: {exc}", None, None
+            if not normalize_ok or normalized_cif_raw is None:
+                return None, "Normalization failed", None, None
+            normalized_cif = Path(normalized_cif_raw)
 
-    if not export_ok or not export_report:
-        return None, "Analysis export failed", None, None
+        try:
+            export_ok, export_report = export_analysis_artifacts(Path(normalized_cif), output_dir / "analysis_export")
+        except Exception as exc:
+            return None, f"{exc.__class__.__name__}: {exc}", None, None
 
-    complex_pdb = Path(str(export_report.get("complex_for_prolif_pdb", ""))).resolve()
-    ligand_pdb = Path(str(export_report.get("ligand_pdb", ""))).resolve()
+        if not export_ok or not export_report:
+            return None, "Analysis export failed", None, None
+
+        complex_pdb = Path(str(export_report.get("complex_for_prolif_pdb", ""))).resolve()
+        ligand_pdb = Path(str(export_report.get("ligand_pdb", ""))).resolve()
+
     if not complex_pdb.exists() or not ligand_pdb.exists():
         return None, "Representative pose analysis export artifacts missing", None, None
 
-    pose_ifp = compute_ifp_single(
+    pose_ifp = representative_ifp_result or compute_ifp_single(
         complex_pdb=complex_pdb,
         ligand_pdb=ligand_pdb,
         pose_id=representative_pose_id,
@@ -1589,6 +1609,10 @@ def run_crystal_reference_screen(
     reference_index_csv: Path = DEFAULT_REFERENCE_INDEX_CSV,
     crystal_root: Path = DEFAULT_CRYSTAL_ROOT,
     records: Iterable[CrystalReferenceRecord] | None = None,
+    representative_normalized_cif: Path | None = None,
+    representative_complex_pdb: Path | None = None,
+    representative_ligand_pdb: Path | None = None,
+    representative_ifp_result: IFPResult | None = None,
 ) -> CrystalReferenceScreenReport:
     """Compare one representative pose against all crystal references for a protein."""
     representative_pose_path = Path(representative_pose_cif).resolve()
@@ -1604,6 +1628,10 @@ def run_crystal_reference_screen(
         representative_pose_path,
         output_dir / "representative_pose",
         representative_pose_id=representative_pose_id,
+        representative_normalized_cif=representative_normalized_cif,
+        representative_complex_pdb=representative_complex_pdb,
+        representative_ligand_pdb=representative_ligand_pdb,
+        representative_ifp_result=representative_ifp_result,
     )
     if representative_pose_ifp_artifacts is not None:
         _, ifp_result_json, pose_ifp_table_tsv, ifp_matrix_csv = representative_pose_ifp_artifacts

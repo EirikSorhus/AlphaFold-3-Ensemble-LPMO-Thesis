@@ -53,4 +53,5 @@ commands:
     output: "results/del_a"
     alignment_dir: null
     families: ["AA9", "AA10"]
+    substrates: ["cellulose", "chitin"]
     mafft_executable: "mafft"

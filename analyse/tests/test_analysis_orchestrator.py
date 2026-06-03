@@ -96,6 +96,7 @@ def test_load_production_options_selects_work_root_from_construct_type(tmp_path:
     assert options.agglomerative_distance_threshold == 0.35
     assert options.run_posebusters is False
     assert options.run_privateer is False
+    assert options.protein_metadata_path == metadata_path.resolve()
     assert options.clustering_pilot is not None
     assert options.clustering_pilot.enabled is True
     assert options.clustering_pilot.label == "pilot-a"
@@ -575,8 +576,8 @@ def test_run_analysis_core_writes_qc_geometry_and_reports(tmp_path, monkeypatch)
             cu_c4_distance=5.2,
             oxyl_h_c1_distance=2.1,
             oxyl_h_c4_distance=2.7,
-            attack_angle_c1=118.0,
-            attack_angle_c4=111.0,
+            cu_oxyl_h_c1_angle=118.0,
+            cu_oxyl_h_c4_angle=111.0,
             sugar_face_orientation="ambiguous",
             ring_normal_vs_brace_normal=90.0,
             oxyl_h_score_c1=0.95,

@@ -237,6 +237,7 @@ lpmo-pipeline family-enrichment \
   --protein-residue-regio-delta results/del_a/protein_residue_regio_delta.tsv \
   --protein-metadata input_data/metadata_final_ec_fixed.tsv \
   --core-fasta input_data/lpmo_core_domain_2026-03-14_06-52-15_deduplicated.fasta \
+  --substrates cellulose chitin \
   --output results/del_a
 
 # Sbatch-backed validation for the optional family enrichment layer
@@ -317,7 +318,7 @@ Select which to run via `construct_type: "domain_only"` or `construct_type: "ful
 - `--n-jobs` controls parallel workers for independent pose preparation, hard QC/Privateer dispatch, and ProLIF batch computation. Scaling is useful but not expected to be perfectly linear because process startup, container startup, filesystem I/O, and unequal per-pose runtime still contribute fixed overhead.
 - Production output must not contain `geometry_debug.pdb`; that file remains test-only.
 - Standalone crystal-anchoring harnesses may auto-select a best-ranked AF3 pose for test coverage. The production path compares all retained cluster medoids; if a condition has no retained clusters, it may compare the top-level AF3 model CIF only after that fallback passes hard QC.
-- The optional `family-enrichment` command is intentionally decoupled from `run`. It consumes existing Stage 16b TSVs plus metadata and the deduplicated catalytic-core FASTA, filters to AA9/AA10 domain-only rows, and writes outputs under `08_family_residue_enrichment/`. If no precomputed family alignment is provided and `mafft` is unavailable, the command records a clean skip reason instead of failing the production outputs.
+- The optional `family-enrichment` command is intentionally decoupled from `run`. It consumes existing Stage 16b TSVs plus metadata and the deduplicated catalytic-core FASTA, filters to AA9/AA10 domain-only rows, and writes outputs under `08_family_residue_enrichment/`. It writes C1/C4-style residue enrichment, predicted-substrate residue enrichment for requested ligand classes such as cellulose and chitin, and a stricter right-vs-wrong predicted ligand contrast for unambiguous cellulose-only/chitin-only proteins. Dual-active and unknown-activity proteins are counted but excluded from the wrong-ligand contrast. If no precomputed family alignment is provided and `mafft` is unavailable, the command records a clean skip reason instead of failing the production outputs.
 - Shared external tool paths and default asset references are controlled separately through [configs/runtime_paths.yaml](configs/runtime_paths.yaml).
 
 ## Config Files

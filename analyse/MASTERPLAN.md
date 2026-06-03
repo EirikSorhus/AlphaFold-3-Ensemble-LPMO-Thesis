@@ -152,7 +152,7 @@ Implementation order follows `IMPLEMENTATION_PLAYBOOK.md`.
 - Identify histidine-brace atoms, build brace plane.
 - Reposition Cu for geometry branch only (not fed back to IFP or main analysis).
 - Place virtual oxyl. Place virtual H for C1 and C4.
-- Compute: `oxyl_H_C1_distance`, `oxyl_H_C4_distance`, `Cu_C1_distance`, `Cu_C4_distance`, `attack_angle_C1`, `attack_angle_C4`, `sugar_face_orientation`, `ring_normal_vs_brace_normal`.
+- Compute: `oxyl_H_C1_distance`, `oxyl_H_C4_distance`, `Cu_C1_distance`, `Cu_C4_distance`, `Cu_oxyl_H_C1_angle`, `Cu_oxyl_H_C4_angle`, `sugar_face_orientation`, `ring_normal_vs_brace_normal`.
 - Geometry status: `geometry_not_computable` / `geometry_computable_implausible` / `geometry_plausible` / `geometry_highly_plausible`.
 - Downstream geometry is not a hard QC gate. If geometry metric computation raises after hard QC has retained the pose, the pose stays in downstream analysis-export/IFP and gets a flagged `geometry_not_computable` row instead of being removed.
 - Plausibility thresholds (operational, specified and locked in `thresholds.yaml: geometry_plausibility`): oxyl-H window 1.5–4.0 Å, reference optimum ~2.1 Å, tighter window 1.8–2.5 Å.
@@ -353,8 +353,8 @@ Minimum required columns:
 - median_oxyl_H_C4
 - median_Cu_C1
 - median_Cu_C4
-- median_attack_angle_C1
-- median_attack_angle_C4
+- median_Cu_oxyl_H_C1_angle
+- median_Cu_oxyl_H_C4_angle
 - face_orientation_summary
 - ifp_features_selected
 - experimental_regio_label

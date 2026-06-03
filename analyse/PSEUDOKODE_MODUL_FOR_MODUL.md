@@ -272,8 +272,8 @@ PROCEDURE ComputeGeometryBranch(post_qc_pose):
         oxyl_H_C4_distance,
         Cu_C1_distance,
         Cu_C4_distance,
-        attack_angle_C1,
-        attack_angle_C4,
+        Cu_oxyl_H_C1_angle,
+        Cu_oxyl_H_C4_angle,
         sugar_face_orientation,
         optional_ring_normal_vs_brace_normal
     }
@@ -318,8 +318,8 @@ PROCEDURE BuildClusterSignatures(final_clusters, pose_rows):
             IQR_Cu_C1,
             median_Cu_C4,
             IQR_Cu_C4,
-            median_attack_angle_C1,
-            median_attack_angle_C4,
+            median_Cu_oxyl_H_C1_angle,
+            median_Cu_oxyl_H_C4_angle,
             median_face_orientation,
             ifp_enrichment_features
         }
@@ -364,8 +364,8 @@ PROCEDURE BuildPredictiveClusterRows(cluster_signatures, metadata):
             median_oxyl_H_C4,
             median_Cu_C1,
             median_Cu_C4,
-            median_attack_angle_C1,
-            median_attack_angle_C4,
+            median_Cu_oxyl_H_C1_angle,
+            median_Cu_oxyl_H_C4_angle,
             face_orientation_summary,
             ifp_features_selected,
             experimental_regio_label,

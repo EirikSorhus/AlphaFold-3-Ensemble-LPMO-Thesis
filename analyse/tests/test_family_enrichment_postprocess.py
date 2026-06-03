@@ -167,6 +167,8 @@ def test_run_family_enrichment_postprocess_builds_outputs_from_precomputed_align
 
     aligned_rows = _read_tsv(result.family_aligned_residue_table_path)
     enrichment_rows = _read_tsv(result.family_residue_enrichment_path)
+    substrate_enrichment_rows = _read_tsv(result.family_substrate_residue_enrichment_path)
+    wrong_ligand_rows = _read_tsv(result.family_wrong_ligand_residue_enrichment_path)
     manifest_rows = _read_tsv(result.alignment_manifest_path)
     summary = json.loads(result.summary_path.read_text())
 
@@ -177,8 +179,16 @@ def test_run_family_enrichment_postprocess_builds_outputs_from_precomputed_align
     assert enrichment_rows[0]["family_label"] == "AA10"
     assert enrichment_rows[0]["n_proteins_observed"] == "2"
     assert enrichment_rows[0]["n_family_aggregation_units_observed"] == "2"
+    assert {row["target_substrate"] for row in substrate_enrichment_rows} == {
+        "cellulose",
+        "chitin",
+    }
+    assert {row["active_substrate"] for row in wrong_ligand_rows} == {"cellulose", "chitin"}
+    assert all(row["family_label"] == "AA10" for row in substrate_enrichment_rows)
     assert len(manifest_rows) == 2
     assert summary["processed_families"]["AA10"]["alignment_source"] == "precomputed"
+    assert summary["n_family_substrate_residue_enrichment_rows"] == len(substrate_enrichment_rows)
+    assert summary["n_family_wrong_ligand_residue_enrichment_rows"] == len(wrong_ligand_rows)
     assert "AA9" in summary["skipped_families"]
 
 
@@ -292,3 +302,5 @@ def test_run_family_enrichment_postprocess_skips_when_alignment_is_unavailable(t
     assert summary["skipped_families"]["AA10"]["reason"] == "mafft_not_available"
     assert _read_tsv(result.family_aligned_residue_table_path) == []
     assert _read_tsv(result.family_residue_enrichment_path) == []
+    assert _read_tsv(result.family_substrate_residue_enrichment_path) == []
+    assert _read_tsv(result.family_wrong_ligand_residue_enrichment_path) == []

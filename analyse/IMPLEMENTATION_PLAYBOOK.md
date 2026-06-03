@@ -372,7 +372,16 @@ Konfigurasjonsregel (gjeldende):
         `domain_only`, bruker den dedupliserte catalytic-core FASTA-en sammen
         med metadata for sekvensgruppe-resolusjon, og bygger family-alignments
         via precomputed aligned FASTA eller MAFFT uten å kobles inn i
-        `run_analysis_core()`. Verifisering: `tests/test_family_alignment.py`,
+        `run_analysis_core()`. Postprosessen skriver også
+        `family_substrate_residue_enrichment.tsv` for forespurte predikerte
+        substratklasser som cellulose og chitin, med eksplisitte
+        target-vs-other tellinger og status for små/ubalanserte grupper.
+        I tillegg skrives `family_wrong_ligand_residue_enrichment.tsv`, som
+        begrenser seg til entydig cellulose-only/chitin-only aktivitet og
+        sammenligner riktig prediksjonsligand mot motsatt prediksjonsligand
+        innen samme protein/alignmentposisjon; dual-active proteiner telles som
+        ekskluderte.
+        Verifisering: `tests/test_family_alignment.py`,
         `tests/test_family_residue_enrichment.py`,
         `tests/test_family_enrichment_postprocess.py` og
         `tests/test_cli_run.py::test_cmd_family_enrichment_calls_postprocess`

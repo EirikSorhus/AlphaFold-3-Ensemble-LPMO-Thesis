@@ -64,8 +64,8 @@ PROCEDURE KjorDeskriptiv(cluster_data):
             median_oxyl_H_C4,
             median_Cu_C1,
             median_Cu_C4,
-            median_attack_angle_C1,
-            median_attack_angle_C4
+            median_Cu_oxyl_H_C1_angle,
+            median_Cu_oxyl_H_C4_angle
         ],
         by=[cluster_type_annotation, family, cbm_status]
     )
@@ -99,8 +99,8 @@ PROCEDURE FitPrimaryRegioModel(cluster_data):
         median_oxyl_H_C4,
         median_Cu_C1,
         median_Cu_C4,
-        median_attack_angle_C1,
-        median_attack_angle_C4,
+        median_Cu_oxyl_H_C1_angle,
+        median_Cu_oxyl_H_C4_angle,
         convergence_support,
         cross_model_support,
         plausible_geometry_fraction,

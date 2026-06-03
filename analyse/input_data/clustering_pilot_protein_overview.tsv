@@ -13,4 +13,4 @@ pilot_rank	uniprot_id	family	protein_name	organism	ec_numbers	regio	ligand_categ
 12	A0A7H8R162	AA14	monooxygenase A	Talaromyces rugulosus	1.14.99.54	C1	cellulose			Nei	None	Kun katalytisk domene	true	false	AA14 cellulose/hemicellulose C1; en representant fra AA14.
 13	A0A2N8U5K6	AA15	Unknown	Thermobia domestica	1.14.99.53; 1.14.99.54	C1	chitin+cellulose			Nei	None	Kun katalytisk domene	true	false	AA15-representant; beholdes som katalytisk kandidat.
 14	A0A1L9X7U6	AA16	protein	Aspergillus aculeatus (strain ATCC 16872 / CBS 172.66 / WB 5094)	1.14.99.54	C1	cellulose	cello_oligosaccharide	cellohexaose	Nei	None	Kun katalytisk domene	true	false	AA16-kandidat.
-15	D0N2F7	AA17	Mucin-like protein	Phytophthora infestans (strain T30-4)	1.14.99.-	unknown	other/unknown	pectin_derived_oligosaccharide	oligogalacturonides	Nei	None	Kun katalytisk domene	true	false	Valgt AA17 pga. oligo + strukturdata.
+15	D0N2F7	AA17	Mucin-like protein	Phytophthora infestans (strain T30-4)	1.14.99.-	C4	unknown	pectin_derived_oligosaccharide	oligogalacturonides	Nei	None	Kun katalytisk domene	true	false	Valgt AA17 pga. oligo + strukturdata.

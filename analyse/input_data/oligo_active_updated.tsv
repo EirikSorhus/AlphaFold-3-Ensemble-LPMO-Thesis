@@ -1,0 +1,128 @@
+UniProt_ID	Family	Protein_Name	Organism	EC#	Regio	Ligandkategori_EC	Oligo_active	Oligo_active_classes
+A0A0S2GKZ1	AA9	AA9 family lytic polysaccharide monooxygenase A	Panus similis	1.14.99.54; 1.14.99.56	C1+C4	cellulose	Ja	cello_oligosaccharide; xylo_oligosaccharide
+A0A223GEC9	AA9	AA9 family lytic polysaccharide monooxygenase A	Collariella virescens	1.14.99.54; 1.14.99.56	C1+C4	cellulose	Ja	cello_oligosaccharide
+B2ADG1	AA9	AA9 family lytic polysaccharide monooxygenase H	Podospora anserina (strain S / ATCC MYA-4624 / DSM 980 / FGSC 10383)	1.14.99.54; 1.14.99.56	C1+C4	cellulose	Ja	cello_oligosaccharide
+G2Q7A5	AA9	lytic cellulose monooxygenase (C4-dehydrogenating)	Thermothelomyces thermophilus (strain ATCC 42464 / BCRC 31852 / DSM 1799)	1.14.99.56	C4	cellulose	Ja	cello_oligosaccharide
+Q7SHI8	AA9	AA9 family lytic polysaccharide monooxygenase C	Neurospora crassa (strain ATCC 24698 / 74-OR23-1A / CBS 708.71 / DSM 1257 / FGSC 987)	1.14.99.56	C4	cellulose	Ja	cello_oligosaccharide
+Q2SNS3	AA10	Unknown	Hahella chejuensis (strain KCTC 2396)	1.14.99.54	C1	cellulose	Ja	cello_oligosaccharide
+B6EQJ6	AA10	Unknown	Aliivibrio salmonicida (strain LFI1238)	1.14.99.53	C1	chitin	Nei	
+D5UGA8	AA10	Unknown	Cellulomonas flavigena (strain ATCC 482 / DSM 20109 / BCRC 11376 / JCM 18109 / NBRC 3775 / NCIMB 8073 / NRS 134)	1.14.99.54; 1.14.99.56	C1+C4	cellulose	Nei	
+D6Y7U3	AA10	Unknown	Thermobispora bispora (strain ATCC 19993 / DSM 43833 / CBS 139.67 / JCM 10125 / KCTC 9307 / NBRC 14880 / R51)	1.14.99.54; 1.14.99.56	C1+C4	cellulose	Nei	
+B0XZD3	AA11	AA11 family lytic polysaccharide monooxygenase A	Aspergillus fumigatus (strain CBS 144.89 / FGSC A1163 / CEA10)	1.14.99.53	C1	chitin	Nei	
+Q5B1W7	AA13	AA13 family lytic polysaccharide monooxygenase aasA	Emericella nidulans (strain FGSC A4 / ATCC 38163 / CBS 112.46 / NRRL 194 / M139)	1.14.99.55	C1	starch	Nei	
+A0A7H8R162	AA14	AA14 family lytic polysaccharide monooxygenase A	Talaromyces rugulosus	1.14.99.54	C1	cellulose	Nei	
+A0A2N8U5K6	AA15	Unknown	Thermobia domestica	1.14.99.53; 1.14.99.54	C1	chitin+cellulose	Nei	
+A0A1L9X7U6	AA16	Chitin-binding type-4 domain-containing protein	Aspergillus aculeatus (strain ATCC 16872 / CBS 172.66 / WB 5094)	1.14.99.54	C1	cellulose	Ja	cello_oligosaccharide
+D0N2F7	AA17	Mucin-like protein	Phytophthora infestans (strain T30-4)	1.14.99.-	C4	unknown	Ja	pectin_derived_oligosaccharide
+G2Q9F7	AA9	lytic cellulose monooxygenase (C4-dehydrogenating)	Thermothelomyces thermophilus (strain ATCC 42464 / BCRC 31852 / DSM 1799)	1.14.99.56	C4	cellulose	Ja	cello_oligosaccharide
+Q5BCX8	AA9	AA9 family lytic polysaccharide monooxygenase B	Emericella nidulans (strain FGSC A4 / ATCC 38163 / CBS 112.46 / NRRL 194 / M139)	1.14.99.56	C4	cellulose	Ja	cello_oligosaccharide
+A3KKC4	AA10	Lytic cellulose monooxygenase	Streptomyces ambofaciens (strain ATCC 23877 / 3486 / DSM 40053 / JCM 4204 / NBRC 12836 / NRRL B-2516)	1.14.99.54	C1	cellulose	Nei	
+Q47PB9	AA10	Unknown	Thermobifida fusca (strain YX)	1.14.99.54	C1	cellulose	Nei	
+Q9RFX5	AA10	cellulase	[Caldibacillus] cellulovorans	1.14.99.54	C1	cellulose	Nei	
+Q9RJY2	AA10	Unknown	Streptomyces coelicolor (strain ATCC BAA-471 / A3(2) / M145)	1.14.99.54	C1	cellulose	Nei	
+A0A7D5JVI4	AA10	Unknown	Pseudoalteromonas sp. CF6-2	1.14.99.53	C1	chitin	Nei	
+B3PJ79	AA10	Unknown	Cellvibrio japonicus (strain Ueda107)	1.14.99.53	C1	chitin	Nei	
+C7R4I0	AA10	chitinase	Jonesia denitrificans (strain ATCC 14870 / DSM 20603 / BCRC 15368 / CIP 55.134 / JCM 11481 / NBRC 15587 / NCTC 10816 / Prevot 55134)	1.14.99.53	C1	chitin	Nei	
+D0EW65	AA10	Unknown	Bacillus thuringiensis subsp. kurstaki	1.14.99.53	C1	chitin	Nei	
+D5UHY1	AA10	Unknown	Cellulomonas flavigena (strain ATCC 482 / DSM 20109 / BCRC 11376 / JCM 18109 / NBRC 3775 / NCIMB 8073 / NRS 134)	1.14.99.53	C1	chitin	Nei	
+Q8Y4H4	AA10	Unknown	Listeria monocytogenes serovar 1/2a (strain ATCC BAA-679 / EGD-e)	1.14.99.53	C1	chitin	Nei	
+B1VNK5	AA10	Unknown	Streptomyces griseus subsp. griseus (strain JCM 4626 / CBS 651.72 / NBRC 13350 / KCC S-0626 / ISP 5235)	1.14.99.53; 1.14.99.54	C1	chitin+cellulose	Nei	
+D5UH31	AA10	Unknown	Cellulomonas flavigena (strain ATCC 482 / DSM 20109 / BCRC 11376 / JCM 18109 / NBRC 3775 / NCIMB 8073 / NRS 134)	1.14.99.54; 1.14.99.56	C1+C4	cellulose	Nei	
+F4H6A3	AA10	Unknown	Cellulomonas fimi (strain ATCC 484 / DSM 20113 / JCM 1341 / CCUG 24087 / LMG 16345 / NBRC 15513 / NCIMB 8980 / NCTC 7547 / NRS-133)	1.14.99.54; 1.14.99.56	C1+C4	cellulose	Nei	
+A0A0A1ED04	AA10	Unknown	Paenibacillus curdlanolyticus	1.14.99.53; 1.14.99.54; 1.14.99.56; 1.14.99.-	C1+C4	chitin+cellulose	Nei	
+A0A8K1XN59	AA10	Unknown	Lyrodus pedicellatus	1.14.99.54	C1	cellulose	Nei	
+B3PDT6	AA10	Unknown	Cellvibrio japonicus (strain Ueda107)	1.14.99.54	C1	cellulose	Nei	
+A0A0C5K362	AA10	Unknown	Bacillus thuringiensis subsp. kurstaki	1.14.99.53	C1	chitin	Nei	
+A0A0D1CHL0	AA10	AA10 family lytic polysaccharide monooxygenase C	Mycosarcoma maydis	1.14.99.53	C1	chitin	Nei	
+A0A7U9DRA2	AA10	Unknown	Streptomyces lividans 1326	1.14.99.53	C1	chitin	Nei	
+A0A9P1NI18	AA10	Unknown	Bacillus amyloliquefaciens (strain ATCC 23350 / DSM 7 / BCRC 11601 / CCUG 28519 / NBRC 15535 / NRRL B-14393 / F)	1.14.99.53	C1	chitin	Nei	
+A3KIM2	AA10	Lytic chitin monooxygenase	Streptomyces ambofaciens (strain ATCC 23877 / 3486 / DSM 40053 / JCM 4204 / NBRC 12836 / NRRL B-2516)	1.14.99.53	C1	chitin	Nei	
+A6XA54	AA10	GlcNAc-binding protein A	Vibrio cholerae serotype O1 biovar El Tor	1.14.99.53	C1	chitin	Nei	
+A7N3J0	AA10	GlcNAc-binding protein A	Vibrio campbellii (strain ATCC BAA-1116)	1.14.99.53	C1	chitin	Nei	
+A9Y370	AA10	GlcNAc-binding protein A	Vibrio cholerae	1.14.99.53	C1	chitin	Nei	
+B1J2U9	AA10	Unknown	Pseudomonas putida (strain W619)	1.14.99.53	C1	chitin	Nei	
+B1VN59	AA10	Unknown	Streptomyces griseus subsp. griseus (strain JCM 4626 / CBS 651.72 / NBRC 13350 / KCC S-0626 / ISP 5235)	1.14.99.53	C1	chitin	Nei	
+B6EQB6	AA10	GlcNAc-binding protein A	Aliivibrio salmonicida (strain LFI1238)	1.14.99.53	C1	chitin	Nei	
+D0EW67	AA10	Unknown	Bacillus licheniformis	1.14.99.53	C1	chitin	Nei	
+O70709	AA10	Unknown	Alphaentomopoxvirus acuprea	1.14.99.53	C1	chitin	Nei	
+O83009	AA10	Unknown	Serratia marcescens	1.14.99.53	C1	chitin	Nei	
+P9WEM3	AA10	AA10 family lytic polysaccharide monooxygenase CBP21	Serratia marcescens	1.14.99.53	C1	chitin	Nei	
+Q02I11	AA10	Chitin-binding protein CbpD	Pseudomonas aeruginosa (strain UCBPP-PA14)	1.14.99.53	C1	chitin	Nei	
+Q59930	AA10	Unknown	Serratia marcescens	1.14.99.53	C1	chitin	Nei	
+Q62YN7	AA10	Unknown	Bacillus licheniformis (strain ATCC 14580 / DSM 13 / JCM 2505 / CCUG 7422 / NBRC 12200 / NCIMB 9375 / NCTC 10341 / NRRL NRS-1264 / Gibson 46)	1.14.99.53	C1	chitin	Nei	
+Q7N4I5	AA10	Unknown	Photorhabdus laumondii subsp. laumondii (strain DSM 15139 / CIP 105565 / TT01)	1.14.99.53	C1	chitin	Nei	
+Q81CE4	AA10	Unknown	Bacillus cereus (strain ATCC 14579 / DSM 31 / CCUG 7414 / JCM 2152 / NBRC 15305 / NCIMB 9373 / NCTC 2599 / NRRL B-3711)	1.14.99.53	C1	chitin	Nei	
+Q838S1	AA10	Lytic chitin monooxygenase	Enterococcus faecalis (strain ATCC 700802 / V583)	1.14.99.53	C1	chitin	Nei	
+Q9F9Q5	AA10	Unknown	Bacillus amyloliquefaciens	1.14.99.53	C1	chitin	Nei	
+Q9I589	AA10	Chitin-binding protein CbpD	Pseudomonas aeruginosa (strain ATCC 15692 / DSM 22644 / CIP 104116 / JCM 14847 / LMG 12228 / 1C / PRS 101 / PAO1)	1.14.99.53	C1	chitin	Nei	
+Q9KLD5	AA10	GlcNAc-binding protein A	Vibrio cholerae serotype O1 (strain ATCC 39315 / El Tor Inaba N16961)	1.14.99.53	C1	chitin	Nei	
+Q9RDB8	AA10	Unknown	Streptomyces coelicolor (strain ATCC BAA-471 / A3(2) / M145)	1.14.99.53	C1	chitin	Nei	
+Q9S296	AA10	Unknown	Streptomyces coelicolor (strain ATCC BAA-471 / A3(2) / M145)	1.14.99.53	C1	chitin	Nei	
+W5QLL4	AA10	Unknown	Tectaria macrodonta	1.14.99.53	C1	chitin	Nei	
+C5BKQ9	AA10	Unknown	Teredinibacter turnerae (strain ATCC 39867 / T7901)	1.14.99.54; 1.14.99.56	C1+C4	cellulose	Nei	
+Q47QG3	AA10	Unknown	Thermobifida fusca (strain YX)	1.14.99.54; 1.14.99.56	C1+C4	cellulose	Nei	
+Q9RJC1	AA10	Unknown	Streptomyces coelicolor (strain ATCC BAA-471 / A3(2) / M145)	1.14.99.54; 1.14.99.56	C1+C4	cellulose	Nei	
+A0A8D3WFW9	AA10	Unknown	Streptomyces pratensis (strain ATCC 33331 / IAF-45CD)	1.14.99.53; 1.14.99.54; 1.14.99.56; 1.14.99.-	C1+C4	chitin+cellulose	Nei	
+Q2UA85	AA11	AA11 family lytic polysaccharide monooxygenase	Aspergillus oryzae (strain ATCC 42149 / RIB 40)	1.14.99.53	C1	chitin	Nei	
+A0A1G4BH63	AA13	Unknown	Colletotrichum orchidophilum	1.14.99.55	C1	starch	Nei	
+A0A4Z1IKG2	AA13	CBM20 domain-containing protein	Botryotinia convoluta	1.14.99.55	C1	starch	Nei	
+C7Z3N0	AA13	CBM20 domain-containing protein	Fusarium vanettenii (strain ATCC MYA-4622 / CBS 123669 / FGSC 9596 / NRRL 45880 / 77-13-4)	1.14.99.55	C1	starch	Nei	
+Q0CGA6	AA13	AA13 family lytic polysaccharide monooxygenase A	Aspergillus terreus (strain NIH 2624 / FGSC A1156)	1.14.99.55	C1	starch	Nei	
+Q6MWQ3	AA13	Unknown	Neurospora crassa	1.14.99.55	C1	starch	Nei	
+Q7SCE9	AA13	AA13 family lytic polysaccharide monooxygenase NCU08746	Neurospora crassa (strain ATCC 24698 / 74-OR23-1A / CBS 708.71 / DSM 1257 / FGSC 987)	1.14.99.55	C1	starch	Nei	
+A0AAN4PGW3	AA13	Chitin-binding type-4 domain-containing protein	Aspergillus lentulus	1.14.99.55	C1	starch	Nei	
+G2QP40	AA13	Chitin-binding type-4 domain-containing protein	Thermothelomyces thermophilus (strain ATCC 42464 / BCRC 31852 / DSM 1799)	1.14.99.55	C1	starch	Nei	
+Q2U8Y3	AA13	Inactive AA13 family lytic polysaccharide monooxygenase	Aspergillus oryzae (strain ATCC 42149 / RIB 40)	1.14.99.55	C1	starch	Nei	
+A0A2I6QAZ5	AA14	AA14 family lytic polysaccharide monooxygenase A	Trametes coccinea (strain BRFM310)	1.14.99.-	C1	unknown	Nei	
+A0A2I6QB00	AA14	AA14 family lytic polysaccharide monooxygenase B	Trametes coccinea (strain BRFM310)	1.14.99.-	C1	unknown	Nei	
+A0A2N8U5I8	AA15	Unknown	Thermobia domestica	1.14.99.53	C1	chitin	Nei	
+W4GRV7	AA15	Chitin-binding type-4 domain-containing protein	Aphanomyces astaci	1.14.99.53	C1	chitin	Nei	
+A0A2R2JFH0	AA15	Unknown	Thermobia domestica	1.14.99.53; 1.14.99.54	C1	chitin+cellulose	Nei	
+A0A833WPX8	AA17	Unknown	Phytophthora infestans	1.14.99.-	C4	unknown	Ja	pectin_derived_oligosaccharide
+D0N2F6	AA17	Unknown	Phytophthora infestans (strain T30-4)	1.14.99.-	C4	unknown	Ja	pectin_derived_oligosaccharide
+G4YSM3	AA17	Mucin-like protein	Phytophthora sojae (strain P6497)	1.14.99.-	C4	unknown	Nei	
+G4YSM7	AA17	Mucin-like protein	Phytophthora sojae (strain P6497)	1.14.99.-	C4	unknown	Nei	
+A0A3S4B613	AA9	lytic cellulose monooxygenase (C4-dehydrogenating)	Thermothielavioides terrestris	1.14.99.54	C1	cellulose	Nei	
+A0A446B9M7	AA9	lytic cellulose monooxygenase (C4-dehydrogenating)	Thermothielavioides terrestris	1.14.99.54	C1	cellulose	Nei	
+A0A6C0PI79	AA9	AA9 family lytic polysaccharide monooxygenase	Ceriporiopsis subvermispora	1.14.99.54	C1	cellulose	Nei	
+A0A8F2FAB6	AA9	lytic cellulose monooxygenase (C4-dehydrogenating)	Sordaria brevicollis	1.14.99.54	C1	cellulose	Nei	
+B2ATL7	AA9	AA9 family lytic polysaccharide monooxygenase E	Podospora anserina (strain S / ATCC MYA-4624 / DSM 980 / FGSC 10383)	1.14.99.54	C1	cellulose	Nei	
+M2QEW2	AA9	AA9 family lytic polysaccharide monooxygenase	Ceriporiopsis subvermispora (strain B)	1.14.99.54	C1	cellulose	Nei	
+M2QX02	AA9	AA9 family lytic polysaccharide monooxygenase	Ceriporiopsis subvermispora (strain B)	1.14.99.54	C1	cellulose	Nei	
+Q6MGH2	AA9	lytic cellulose monooxygenase (C4-dehydrogenating)	Neurospora crassa	1.14.99.54	C1	cellulose	Nei	
+Q7RWN7	AA9	AA9 family lytic polysaccharide monooxygenase E	Neurospora crassa (strain ATCC 24698 / 74-OR23-1A / CBS 708.71 / DSM 1257 / FGSC 987)	1.14.99.54	C1	cellulose	Nei	
+Q7SCJ5	AA9	lytic cellulose monooxygenase (C4-dehydrogenating)	Neurospora crassa (strain ATCC 24698 / 74-OR23-1A / CBS 708.71 / DSM 1257 / FGSC 987)	1.14.99.54	C1	cellulose	Nei	
+Q7SHD9	AA9	AA9 family lytic polysaccharide monooxygenase J	Neurospora crassa (strain ATCC 24698 / 74-OR23-1A / CBS 708.71 / DSM 1257 / FGSC 987)	1.14.99.54	C1	cellulose	Nei	
+B2B629	AA9	AA9 family lytic polysaccharide monooxygenase A	Podospora anserina (strain S / ATCC MYA-4624 / DSM 980 / FGSC 10383)	1.14.99.54; 1.14.99.56	C1+C4	cellulose	Nei	
+G0R6T8	AA9	AA9 family lytic polysaccharide monooxygenase cel61A	Hypocrea jecorina (strain QM6a)	1.14.99.54; 1.14.99.56	C1+C4	cellulose	Nei	
+G2Q9T3	AA9	AA9 family lytic polysaccharide monooxygenase H	Thermothelomyces thermophilus (strain ATCC 42464 / BCRC 31852 / DSM 1799)	1.14.99.54; 1.14.99.56	C1+C4	cellulose	Nei	
+O14405	AA9	AA9 family lytic polysaccharide monooxygenase cel61A	Hypocrea jecorina	1.14.99.54; 1.14.99.56	C1+C4	cellulose	Nei	
+Q7S111	AA9	lytic cellulose monooxygenase (C4-dehydrogenating)	Neurospora crassa (strain ATCC 24698 / 74-OR23-1A / CBS 708.71 / DSM 1257 / FGSC 987)	1.14.99.54; 1.14.99.56	C1+C4	cellulose	Nei	
+B2AVF1	AA9	AA9 family lytic polysaccharide monooxygenase B	Podospora anserina (strain S / ATCC MYA-4624 / DSM 980 / FGSC 10383)	1.14.99.56	C4	cellulose	Nei	
+Q7S439	AA9	AA9 family lytic polysaccharide monooxygenase A	Neurospora crassa (strain ATCC 24698 / 74-OR23-1A / CBS 708.71 / DSM 1257 / FGSC 987)	1.14.99.56	C4	cellulose	Nei	
+A0A8F2JFW3	AA9	lytic cellulose monooxygenase (C4-dehydrogenating)	Sordaria brevicollis	1.14.99.54	C1	cellulose	Nei	
+B2ARG6	AA9	AA9 family lytic polysaccharide monooxygenase D	Podospora anserina (strain S / ATCC MYA-4624 / DSM 980 / FGSC 10383)	1.14.99.54	C1	cellulose	Nei	
+B2B403	AA9	AA9 family lytic polysaccharide monooxygenase F	Podospora anserina (strain S / ATCC MYA-4624 / DSM 980 / FGSC 10383)	1.14.99.54	C1	cellulose	Nei	
+G2QAB5	AA9	AA9 family lytic polysaccharide monooxygenase D	Thermothelomyces thermophilus (strain ATCC 42464 / BCRC 31852 / DSM 1799)	1.14.99.54	C1	cellulose	Nei	
+G2QI82	AA9	lytic cellulose monooxygenase (C4-dehydrogenating)	Thermothelomyces thermophilus (strain ATCC 42464 / BCRC 31852 / DSM 1799)	1.14.99.54	C1	cellulose	Nei	
+G3XAP7	AA9	AA9 family lytic polysaccharide monooxygenase A	Thermoascus aurantiacus	1.14.99.54	C1	cellulose	Nei	
+H1AE14	AA9	AA9 family lytic polysaccharide monooxygenase D	Phanerodontia chrysosporium	1.14.99.54	C1	cellulose	Nei	
+M2RAI8	AA9	lytic cellulose monooxygenase (C4-dehydrogenating)	Ceriporiopsis subvermispora (strain B)	1.14.99.54	C1	cellulose	Nei	
+Q1K4Q1	AA9	AA9 family lytic polysaccharide monooxygenase F	Neurospora crassa (strain ATCC 24698 / 74-OR23-1A / CBS 708.71 / DSM 1257 / FGSC 987)	1.14.99.54	C1	cellulose	Nei	
+Q873G1	AA9	lytic cellulose monooxygenase (C4-dehydrogenating)	Neurospora crassa	1.14.99.54	C1	cellulose	Nei	
+W4KMP1	AA9	AA9 family lytic polysaccharide monooxygenase B	Heterobasidion irregulare (strain TC 32-1)	1.14.99.54	C1	cellulose	Nei	
+A0A446BDM9	AA9	lytic cellulose monooxygenase (C4-dehydrogenating)	Thermothielavioides terrestris	1.14.99.54; 1.14.99.-	C1	cellulose	Nei	
+D0VWZ9	AA9	lytic cellulose monooxygenase (C4-dehydrogenating)	Thermothielavioides terrestris	1.14.99.54; 1.14.99.-	C1	cellulose	Nei	
+G2RGE5	AA9	AA9 family lytic polysaccharide monooxygenase E	Thermothielavioides terrestris (strain ATCC 38088 / NRRL 8126)	1.14.99.54; 1.14.99.-	C1	cellulose	Nei	
+A0A0H4K9X4	AA9	AA9 family lytic polysaccharide monooxygenase A	Thermothelomyces thermophilus	1.14.99.54; 1.14.99.56	C1+C4	cellulose	Nei	
+A0A167KNZ4	AA9	lytic cellulose monooxygenase (C4-dehydrogenating)	Pestalotiopsis sp. NCi6	1.14.99.54; 1.14.99.56	C1+C4	cellulose	Nei	
+A0A1C9ZP88	AA9	AA9 family lytic polysaccharide monooxygenase A	Gloeophyllum trabeum	1.14.99.54; 1.14.99.56	C1+C4	cellulose	Nei	
+A0A446BDM8	AA9	lytic cellulose monooxygenase (C4-dehydrogenating)	Thermothielavioides terrestris	1.14.99.54; 1.14.99.56	C1+C4	cellulose	Nei	
+A0A6C0M6J9	AA9	AA9 family lytic polysaccharide monooxygenase A	Penicillium parvum	1.14.99.54; 1.14.99.56	C1+C4	cellulose	Nei	
+Q4WP32	AA9	AA9 family lytic polysaccharide monooxygenase B	Aspergillus fumigatus (strain ATCC MYA-4609 / CBS 101355 / FGSC A1100 / Af293)	1.14.99.54; 1.14.99.56	C1+C4	cellulose	Nei	
+Q7SA19	AA9	lytic cellulose monooxygenase (C4-dehydrogenating)	Neurospora crassa (strain ATCC 24698 / 74-OR23-1A / CBS 708.71 / DSM 1257 / FGSC 987)	1.14.99.54; 1.14.99.56	C1+C4	cellulose	Nei	
+S7RK00	AA9	AA9 family lytic polysaccharide monooxygenase B	Gloeophyllum trabeum (strain ATCC 11539 / FP-39264 / Madison 617)	1.14.99.54; 1.14.99.56	C1+C4	cellulose	Nei	
+A0A167KNY8	AA9	lytic cellulose monooxygenase (C4-dehydrogenating)	Pestalotiopsis sp. NCi6	1.14.99.56	C4	cellulose	Nei	
+Q1K8B6	AA9	Lytic polysaccharide monooxygenase NCU01050	Neurospora crassa (strain ATCC 24698 / 74-OR23-1A / CBS 708.71 / DSM 1257 / FGSC 987)	1.14.99.56	C4	cellulose	Nei	
+Q8WZQ2	AA9	lytic cellulose monooxygenase (C4-dehydrogenating)	Neurospora crassa	1.14.99.56	C4	cellulose	Nei	
+A0A3S4ATQ2	AA9	lytic cellulose monooxygenase (C4-dehydrogenating)	Thermothielavioides terrestris	1.14.99.56; 1.14.99.-	C4	cellulose	Nei	

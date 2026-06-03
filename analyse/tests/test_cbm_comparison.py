@@ -260,6 +260,97 @@ def test_cbm_condition_summary_and_pairs_are_condition_level(tmp_path: Path) -> 
     assert construct_path.exists()
 
 
+def test_cbm_postprocess_reannotates_cluster_residue_regions_from_metadata(tmp_path: Path) -> None:
+    condition_path = tmp_path / "condition_table.tsv"
+    cluster_path = tmp_path / "cluster_table.tsv"
+    residue_path = tmp_path / "cluster_residue_signature.tsv"
+    metadata_path = tmp_path / "protein_metadata.tsv"
+
+    _write_merged_tsv(
+        condition_path,
+        [
+            {
+                "condition_id": "P1__domain_only__chitin_DP4",
+                "protein_id": "P1",
+                "construct_type": "domain_only",
+                "substrate_class": "chitin",
+                "dp": "4",
+                "n_generated": "10",
+                "n_stage1_pass": "8",
+                "n_ifp_success": "8",
+                "n_clusters": "1",
+            },
+            {
+                "condition_id": "P1__full_length__chitin_DP4",
+                "protein_id": "P1",
+                "construct_type": "full_length",
+                "substrate_class": "chitin",
+                "dp": "4",
+                "n_generated": "10",
+                "n_stage1_pass": "8",
+                "n_ifp_success": "8",
+                "n_clusters": "1",
+            },
+        ],
+    )
+    _write_merged_tsv(
+        cluster_path,
+        [
+            {
+                "condition_id": "P1__full_length__chitin_DP4",
+                "cluster_id": "0",
+                "cluster_type": "uncertain",
+                "occupancy": "1.0",
+            },
+        ],
+    )
+    _write_merged_tsv(
+        residue_path,
+        [
+            {
+                "_construct_type": "full_length",
+                "condition_id": "P1__full_length__chitin_DP4",
+                "cluster_id": "0",
+                "protein_id": "P1",
+                "residue_chain": "A",
+                "residue_number": "50",
+                "residue_name": "TYR",
+                "contact_frequency": "1.0",
+                "is_core_region": "True",
+                "is_non_core_region": "False",
+            },
+            {
+                "_construct_type": "full_length",
+                "condition_id": "P1__full_length__chitin_DP4",
+                "cluster_id": "0",
+                "protein_id": "P1",
+                "residue_chain": "A",
+                "residue_number": "250",
+                "residue_name": "GLU",
+                "contact_frequency": "1.0",
+                "is_core_region": "True",
+                "is_non_core_region": "False",
+            },
+        ],
+    )
+    metadata_path.write_text(
+        "UniProt_ID\tCAZy_family\tSignal_End\tLPMO_Core_Start\tLPMO_Core_End\tBinding_Modules\n"
+        "P1\tAA10\t0\t35\t225\tCBM1 (261-320)\n"
+    )
+
+    result = run_cbm_paired_analysis(
+        condition_table_path=condition_path,
+        cluster_table_path=cluster_path,
+        cluster_residue_signature_table_path=residue_path,
+        protein_metadata_path=metadata_path,
+        output_dir=tmp_path / "postprocess",
+    )
+
+    paired_rows = read_tsv(result.table_paths["paired_comparison"])
+    assert paired_rows[0]["non_core_ligand_contact_fraction_full_length"] == "1.0"
+    assert paired_rows[0]["bridge_fraction_full_length"] == "1.0"
+
+
 def test_cbm_paired_summaries_follow_sample_size_rules_and_figure_contract(tmp_path: Path) -> None:
     paired_rows = []
     for index in range(12):

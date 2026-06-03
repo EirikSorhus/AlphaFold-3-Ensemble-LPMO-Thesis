@@ -24,11 +24,11 @@ from lpmo_pipeline.analysis.family_alignment import (
     write_family_alignment_input_fasta,
 )
 from lpmo_pipeline.analysis.family_residue_enrichment import (
-    FAMILY_ALIGNED_RESIDUE_COLUMNS,
-    FAMILY_RESIDUE_ENRICHMENT_COLUMNS,
     compute_family_residue_enrichment_outputs,
     write_family_aligned_residue_table,
     write_family_residue_enrichment,
+    write_family_substrate_residue_enrichment,
+    write_family_wrong_ligand_residue_enrichment,
 )
 
 
@@ -50,6 +50,8 @@ class FamilyEnrichmentPostprocessResult:
     summary_path: Path
     family_aligned_residue_table_path: Path
     family_residue_enrichment_path: Path
+    family_substrate_residue_enrichment_path: Path
+    family_wrong_ligand_residue_enrichment_path: Path
     alignment_manifest_path: Path
     processed_families: dict[str, dict[str, Any]] = field(default_factory=dict)
     skipped_families: dict[str, dict[str, Any]] = field(default_factory=dict)
@@ -298,6 +300,7 @@ def run_family_enrichment_postprocess(
     output_dir: Path,
     alignment_dir: Path | None = None,
     families: tuple[str, ...] = TARGET_FAMILY_LABELS,
+    substrate_classes: tuple[str, ...] = ("cellulose", "chitin"),
     construct_type: str = "domain_only",
     min_family_aggregation_units: int = 2,
     mafft_executable: str = "mafft",
@@ -313,6 +316,8 @@ def run_family_enrichment_postprocess(
 
     family_aligned_residue_table_path = family_root / "family_aligned_residue_table.tsv"
     family_residue_enrichment_path = family_root / "family_residue_enrichment.tsv"
+    family_substrate_residue_enrichment_path = family_root / "family_substrate_residue_enrichment.tsv"
+    family_wrong_ligand_residue_enrichment_path = family_root / "family_wrong_ligand_residue_enrichment.tsv"
     alignment_manifest_path = family_root / "family_alignment_manifest.tsv"
     summary_path = family_root / "family_enrichment_summary.json"
 
@@ -344,6 +349,8 @@ def run_family_enrichment_postprocess(
 
     all_family_aligned_rows: list[dict[str, Any]] = []
     all_family_enrichment_rows: list[dict[str, Any]] = []
+    all_family_substrate_enrichment_rows: list[dict[str, Any]] = []
+    all_family_wrong_ligand_enrichment_rows: list[dict[str, Any]] = []
     alignment_manifest_rows: list[dict[str, Any]] = []
     processed_families: dict[str, dict[str, Any]] = {}
     skipped_families: dict[str, dict[str, Any]] = {}
@@ -408,9 +415,16 @@ def run_family_enrichment_postprocess(
             protein_residue_regio_delta_rows=family_delta_rows,
             residue_alignment_rows=residue_alignment_rows,
             protein_metadata_rows=metadata_rows,
+            substrate_classes=substrate_classes,
         )
         all_family_aligned_rows.extend(family_outputs.family_aligned_residue_table)
         all_family_enrichment_rows.extend(family_outputs.family_residue_enrichment)
+        all_family_substrate_enrichment_rows.extend(
+            family_outputs.family_substrate_residue_enrichment
+        )
+        all_family_wrong_ligand_enrichment_rows.extend(
+            family_outputs.family_wrong_ligand_residue_enrichment
+        )
 
         for group in family_groups:
             alignment_manifest_rows.append(
@@ -435,10 +449,24 @@ def run_family_enrichment_postprocess(
             "n_unresolved_residue_rows": len(unresolved_residue_rows),
             "n_family_aligned_residue_rows": len(family_outputs.family_aligned_residue_table),
             "n_family_enrichment_rows": len(family_outputs.family_residue_enrichment),
+            "n_family_substrate_enrichment_rows": len(
+                family_outputs.family_substrate_residue_enrichment
+            ),
+            "n_family_wrong_ligand_residue_enrichment_rows": len(
+                family_outputs.family_wrong_ligand_residue_enrichment
+            ),
         }
 
     write_family_aligned_residue_table(all_family_aligned_rows, family_aligned_residue_table_path)
     write_family_residue_enrichment(all_family_enrichment_rows, family_residue_enrichment_path)
+    write_family_substrate_residue_enrichment(
+        all_family_substrate_enrichment_rows,
+        family_substrate_residue_enrichment_path,
+    )
+    write_family_wrong_ligand_residue_enrichment(
+        all_family_wrong_ligand_enrichment_rows,
+        family_wrong_ligand_residue_enrichment_path,
+    )
     _write_tsv(alignment_manifest_path, alignment_manifest_rows, FAMILY_ALIGNMENT_MANIFEST_COLUMNS)
 
     summary_data = {
@@ -448,6 +476,7 @@ def run_family_enrichment_postprocess(
         "core_fasta": str(core_fasta_path),
         "alignment_dir": str(alignment_dir) if alignment_dir is not None else None,
         "families": list(families),
+        "substrate_classes": list(substrate_classes),
         "construct_type_filter": construct_type,
         "min_family_aggregation_units": min_family_aggregation_units,
         "unresolved_core_sequences": resolution.unresolved_rows,
@@ -455,9 +484,13 @@ def run_family_enrichment_postprocess(
         "skipped_families": skipped_families,
         "family_aligned_residue_table": str(family_aligned_residue_table_path),
         "family_residue_enrichment": str(family_residue_enrichment_path),
+        "family_substrate_residue_enrichment": str(family_substrate_residue_enrichment_path),
+        "family_wrong_ligand_residue_enrichment": str(family_wrong_ligand_residue_enrichment_path),
         "family_alignment_manifest": str(alignment_manifest_path),
         "n_family_aligned_residue_rows": len(all_family_aligned_rows),
         "n_family_residue_enrichment_rows": len(all_family_enrichment_rows),
+        "n_family_substrate_residue_enrichment_rows": len(all_family_substrate_enrichment_rows),
+        "n_family_wrong_ligand_residue_enrichment_rows": len(all_family_wrong_ligand_enrichment_rows),
     }
     summary_path.write_text(json.dumps(summary_data, indent=2))
 
@@ -466,6 +499,8 @@ def run_family_enrichment_postprocess(
         summary_path=summary_path,
         family_aligned_residue_table_path=family_aligned_residue_table_path,
         family_residue_enrichment_path=family_residue_enrichment_path,
+        family_substrate_residue_enrichment_path=family_substrate_residue_enrichment_path,
+        family_wrong_ligand_residue_enrichment_path=family_wrong_ligand_residue_enrichment_path,
         alignment_manifest_path=alignment_manifest_path,
         processed_families=processed_families,
         skipped_families=skipped_families,

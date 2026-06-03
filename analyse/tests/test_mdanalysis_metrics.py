@@ -76,9 +76,18 @@ def _thresholds() -> GeometryThresholds:
         oxyl_h_highly_plausible_min_a=1.8,
         oxyl_h_highly_plausible_max_a=2.5,
         his_brace_max_search_a=3.0,
-        cu_oxyl_bond_length_a=1.8,
+        cu_oxyl_bond_length_a=1.9,
         c_h_bond_length_a=1.1,
     )
+
+
+def test_default_geometry_thresholds_load_operational_oxyl_bond_length() -> None:
+    from lpmo_pipeline.analysis.mdanalysis_metrics import load_geometry_thresholds
+
+    load_geometry_thresholds.cache_clear()
+    thresholds = load_geometry_thresholds()
+
+    assert thresholds.cu_oxyl_bond_length_a == pytest.approx(1.9)
 
 
 def _build_structure(include_c4: bool = True) -> _FakeStructure:
@@ -194,6 +203,44 @@ def test_compute_pose_metrics_from_structure_populates_pose_geometry_fields() ->
         "ring_normal_toward_cu",
         "ring_normal_away_from_cu",
     }
+    assert metrics.cu_oxyl_h_c1_angle is not None
+    assert metrics.to_row()["Cu_oxyl_H_C1_angle"] == metrics.cu_oxyl_h_c1_angle
+
+
+def test_cu_oxyl_h_angle_uses_oxyl_vertex_not_target_carbon() -> None:
+    structure = _build_structure()
+    metrics = compute_pose_metrics_from_structure(
+        structure=structure,
+        pose_id="pose_geo",
+        thresholds=_thresholds(),
+    )
+    glycan = structure[0][2][0]
+    c1_atom = next(atom for atom in glycan if atom.name == "C1")
+
+    def _angle(a: tuple[float, float, float], b: tuple[float, float, float], c: tuple[float, float, float]) -> float:
+        ba = [a[index] - b[index] for index in range(3)]
+        bc = [c[index] - b[index] for index in range(3)]
+        dot = sum(ba[index] * bc[index] for index in range(3))
+        norm_ba = math.sqrt(sum(value * value for value in ba))
+        norm_bc = math.sqrt(sum(value * value for value in bc))
+        return math.degrees(math.acos(max(-1.0, min(1.0, dot / (norm_ba * norm_bc)))))
+
+    assert metrics.repositioned_cu_coordinates is not None
+    assert metrics.virtual_oxyl_coordinates is not None
+    assert metrics.virtual_h_c1_coordinates is not None
+
+    expected_cu_oxyl_h = _angle(
+        metrics.repositioned_cu_coordinates,
+        metrics.virtual_oxyl_coordinates,
+        metrics.virtual_h_c1_coordinates,
+    )
+    old_oxyl_c_h = _angle(
+        metrics.virtual_oxyl_coordinates,
+        (c1_atom.pos.x, c1_atom.pos.y, c1_atom.pos.z),
+        metrics.virtual_h_c1_coordinates,
+    )
+    assert metrics.cu_oxyl_h_c1_angle == pytest.approx(expected_cu_oxyl_h)
+    assert metrics.cu_oxyl_h_c1_angle != pytest.approx(old_oxyl_c_h)
 
 
 def test_compute_pose_metrics_marks_missing_target_not_computable() -> None:

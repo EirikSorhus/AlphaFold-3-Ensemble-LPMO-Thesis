@@ -27,6 +27,8 @@ The postprocess consumes four required inputs:
 Optional input:
 
 - `--alignment-dir` containing `AA9.aligned.fasta` and/or `AA10.aligned.fasta`
+- `--substrates`, the predicted ligand classes to summarize in the
+  substrate-enrichment table. The default is `cellulose chitin`.
 
 These files are not inferred from the production config. The command receives
 them explicitly.
@@ -63,6 +65,11 @@ The pipeline therefore keeps two levels at once:
 - per-protein provenance rows in `family_aligned_residue_table.tsv`
 - deduplicated family-level summary statistics over unique catalytic sequence
   groups in `family_residue_enrichment.tsv`
+- deduplicated target-vs-other substrate residue summaries in
+  `family_substrate_residue_enrichment.tsv`
+- deduplicated right-vs-wrong predicted ligand summaries for unambiguous
+  cellulose-only/chitin-only proteins in
+  `family_wrong_ligand_residue_enrichment.tsv`
 
 ## Alignment strategy
 
@@ -110,8 +117,28 @@ The command writes under `08_family_residue_enrichment/`:
 
 - `family_aligned_residue_table.tsv`
 - `family_residue_enrichment.tsv`
+- `family_substrate_residue_enrichment.tsv`
+- `family_wrong_ligand_residue_enrichment.tsv`
 - `family_alignment_manifest.tsv`
 - `family_enrichment_summary.json`
+
+`family_substrate_residue_enrichment.tsv` uses `substrate_class` from the
+condition-level Stage 16b rows as the predicted/input ligand type. For each
+requested target substrate and aligned residue position, it reports target and
+non-target condition counts, protein counts, family aggregation-unit counts,
+target-minus-other contact-score deltas, and `substrate_group_status`. Statuses
+flag missing target rows, target-only/no-contrast cases, small groups, and
+strongly unbalanced groups. The table is descriptive; it is not treated as a
+confirmatory statistical test.
+
+`family_wrong_ligand_residue_enrichment.tsv` is stricter. It derives active
+cellulose/chitin labels from explicit metadata labels when present, otherwise
+from EC numbers (`1.14.99.54`/`.56` for cellulose and `1.14.99.53` for
+chitin). It keeps only proteins with exactly one active substrate in the
+cellulose/chitin pair and compares that right predicted ligand against the
+opposite predicted ligand within the same protein/alignment position.
+Cellulose+chitin dual-active proteins and unknown-activity proteins are
+excluded from the contrast and counted in `wrong_ligand_group_status`.
 
 `family_alignment_manifest.tsv` is the bridge between the alignment input and
 the computed residue outputs. It records which family aggregation IDs were used,

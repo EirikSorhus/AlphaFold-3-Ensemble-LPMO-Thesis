@@ -692,11 +692,15 @@ Required fields:
 * `oxyl\_H\_C4\_distance`
 * `Cu\_C1\_distance`
 * `Cu\_C4\_distance`
-* `attack\_angle\_C1`
-* `attack\_angle\_C4`
+* `Cu\_oxyl\_H\_C1\_angle`
+* `Cu\_oxyl\_H\_C4\_angle`
 * `sugar\_face\_orientation`
 * `ring\_normal\_vs\_brace\_normal`
 * `proximal\_sugar\_id`
+
+The angle fields use the mechanistic `Cu-oxyl-H` definition, with virtual oxyl
+as the vertex and the target-specific virtual H (`H_C1` or `H_C4`) as the third
+atom. The older `oxyl-C-H` / `attack_angle_*` definition is explicitly retired.
 
 ### 12.4 Geometry scoring and status
 
@@ -1183,8 +1187,24 @@ Outputs:
 
 * `family\_aligned\_residue\_table.tsv`
 * `family\_residue\_enrichment.tsv`
+* `family\_substrate\_residue\_enrichment.tsv`
+* `family\_wrong\_ligand\_residue\_enrichment.tsv`
 
 This is optional but strongly recommended if family sample size supports it.
+The substrate-enrichment output is run for requested predicted ligand classes
+(default first-use targets: cellulose and chitin) and reports target-vs-other
+condition counts, aggregation-unit counts, deltas, and a status flag for
+missing, small, or strongly unbalanced groups. This is descriptive rather than
+confirmatory because most proteins have predictions for only one, or at most
+two, ligand classes.
+
+The wrong-ligand enrichment output is a stricter cellulose/chitin contrast. It
+uses activity metadata or EC-derived substrate labels to keep only proteins with
+unambiguous cellulose-only or chitin-only activity, then compares the right
+predicted ligand against the opposite predicted ligand within the same
+protein/alignment position. Proteins annotated as active on both cellulose and
+chitin, or with unknown cellulose/chitin activity, are excluded from the
+contrast and counted in explicit status columns.
 
 ### 16.5 Cross-dataset residue-property interpretation
 

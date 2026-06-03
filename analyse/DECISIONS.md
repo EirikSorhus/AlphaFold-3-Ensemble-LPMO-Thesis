@@ -566,7 +566,10 @@ For each target carbon separately, the active rules are:
 - Otherwise:
   - `Cu_C1_distance` or `Cu_C4_distance` is measured from the repositioned Cu
   - `oxyl_H_*_distance` is measured from the virtual oxyl to the virtual H
-  - `attack_angle_*` is measured from `virtual_oxyl -> target_carbon -> virtual_H`
+  - `Cu_oxyl_H_*_angle` is measured as `repositioned_Cu -> virtual_oxyl -> virtual_H`, with the oxyl as the vertex
+
+The older `attack_angle_*` / `oxyl-C-H` definition is not part of the current
+output contract.
 
 The oxyl-H score is currently:
 

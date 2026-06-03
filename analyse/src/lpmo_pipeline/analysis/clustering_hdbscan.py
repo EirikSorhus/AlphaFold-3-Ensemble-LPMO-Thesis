@@ -46,6 +46,7 @@ class HDBSCANConfig:
     metric: str = "jaccard"
     cluster_selection_epsilon: float = 0.0
     cluster_selection_method: str = "eom"
+    allow_single_cluster: bool = True
     locked: bool = False
 
 
@@ -128,6 +129,7 @@ def load_hdbscan_config(config_path: Path | None = None) -> HDBSCANConfig:
         metric=str(hdbscan_config.get("metric") or clustering_config.get("distance_metric") or "jaccard"),
         cluster_selection_epsilon=float(hdbscan_config.get("cluster_selection_epsilon", 0.0)),
         cluster_selection_method=str(hdbscan_config.get("cluster_selection_method", "eom")),
+        allow_single_cluster=bool(hdbscan_config.get("allow_single_cluster", True)),
         locked=bool(hdbscan_config.get("locked", False)),
     )
 
@@ -307,6 +309,7 @@ class HDBSCANClusterer:
         metric: str | None = None,
         cluster_selection_epsilon: float | None = None,
         cluster_selection_method: str | None = None,
+        allow_single_cluster: bool | None = None,
         output_dir: Path | None = None,
         config: HDBSCANConfig | None = None,
     ):
@@ -321,6 +324,11 @@ class HDBSCANClusterer:
                 else resolved.cluster_selection_epsilon
             ),
             cluster_selection_method=cluster_selection_method or resolved.cluster_selection_method,
+            allow_single_cluster=(
+                allow_single_cluster
+                if allow_single_cluster is not None
+                else resolved.allow_single_cluster
+            ),
             locked=resolved.locked,
         )
         self.output_dir = Path(output_dir) if output_dir else Path(".")
@@ -347,6 +355,7 @@ class HDBSCANClusterer:
                 "min_cluster_size": self.config.min_cluster_size,
                 "min_samples": self.config.min_samples,
                 "metric": self.config.metric,
+                "allow_single_cluster": self.config.allow_single_cluster,
             },
         )
 
@@ -441,6 +450,7 @@ class HDBSCANClusterer:
             metric="precomputed",
             cluster_selection_epsilon=self.config.cluster_selection_epsilon,
             cluster_selection_method=self.config.cluster_selection_method,
+            allow_single_cluster=self.config.allow_single_cluster,
         )
         return clusterer.fit_predict(distance_matrix)
 

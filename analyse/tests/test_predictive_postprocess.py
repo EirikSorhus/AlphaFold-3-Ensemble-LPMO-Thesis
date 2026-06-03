@@ -21,10 +21,11 @@ def test_build_c1_c4_modeling_rows_prefers_domain_only_and_aggregates_dp_rows() 
             "median_n_non_vdw_interactions": "6.0",
             "occupancy_weighted_c1_plausible_fraction": "0.8",
             "occupancy_weighted_c4_plausible_fraction": "0.2",
-            "occupancy_weighted_attack_angle_C1_median": "140.0",
-            "occupancy_weighted_attack_angle_C4_median": "90.0",
+            "occupancy_weighted_Cu_oxyl_H_C1_angle_median": "140.0",
+            "occupancy_weighted_Cu_oxyl_H_C4_angle_median": "90.0",
             "occupancy_weighted_Cu_C1_distance_median": "2.8",
             "occupancy_weighted_Cu_C4_distance_median": "5.8",
+            "occupancy_weighted_ring_normal_vs_brace_normal_median": "30.0",
             "hbond_contact_fraction": "0.40",
             "aromatic_contact_fraction": "0.30",
             "contact_eligible_fraction": "0.70",
@@ -39,10 +40,11 @@ def test_build_c1_c4_modeling_rows_prefers_domain_only_and_aggregates_dp_rows() 
             "median_n_non_vdw_interactions": "8.0",
             "occupancy_weighted_c1_plausible_fraction": "0.6",
             "occupancy_weighted_c4_plausible_fraction": "0.1",
-            "occupancy_weighted_attack_angle_C1_median": "150.0",
-            "occupancy_weighted_attack_angle_C4_median": "100.0",
+            "occupancy_weighted_Cu_oxyl_H_C1_angle_median": "150.0",
+            "occupancy_weighted_Cu_oxyl_H_C4_angle_median": "100.0",
             "occupancy_weighted_Cu_C1_distance_median": "3.0",
             "occupancy_weighted_Cu_C4_distance_median": "6.0",
+            "occupancy_weighted_ring_normal_vs_brace_normal_median": "40.0",
             "hbond_contact_fraction": "0.50",
             "aromatic_contact_fraction": "0.20",
             "contact_eligible_fraction": "0.60",
@@ -57,6 +59,9 @@ def test_build_c1_c4_modeling_rows_prefers_domain_only_and_aggregates_dp_rows() 
             "median_n_non_vdw_interactions": "1.0",
             "occupancy_weighted_c1_plausible_fraction": "0.1",
             "occupancy_weighted_c4_plausible_fraction": "0.9",
+            "occupancy_weighted_Cu_C1_distance_median": "7.0",
+            "occupancy_weighted_Cu_C4_distance_median": "2.0",
+            "occupancy_weighted_ring_normal_vs_brace_normal_median": "80.0",
             "hbond_contact_fraction": "0.90",
             "aromatic_contact_fraction": "0.90",
             "contact_eligible_fraction": "0.10",
@@ -81,6 +86,8 @@ def test_build_c1_c4_modeling_rows_prefers_domain_only_and_aggregates_dp_rows() 
     assert row["noise_fraction"] == pytest.approx(0.25)
     assert row["top_cluster_occupancy"] == pytest.approx(0.75)
     assert row["median_n_non_vdw_interactions"] == pytest.approx(7.0)
+    assert row["hbond_contact_fraction"] == pytest.approx(0.45)
+    assert row["aromatic_contact_fraction"] == pytest.approx(0.25)
 
 
 def test_build_substrate_modeling_rows_aggregates_by_protein_and_encodes_target() -> None:
@@ -98,6 +105,9 @@ def test_build_substrate_modeling_rows_aggregates_by_protein_and_encodes_target(
             "median_n_non_vdw_interactions": "6.0",
             "occupancy_weighted_c1_plausible_fraction": "0.60",
             "occupancy_weighted_c4_plausible_fraction": "0.20",
+            "occupancy_weighted_Cu_C1_distance_median": "3.0",
+            "occupancy_weighted_Cu_C4_distance_median": "5.0",
+            "occupancy_weighted_ring_normal_vs_brace_normal_median": "20.0",
         },
         {
             "protein_id": "P1",
@@ -112,6 +122,9 @@ def test_build_substrate_modeling_rows_aggregates_by_protein_and_encodes_target(
             "median_n_non_vdw_interactions": "8.0",
             "occupancy_weighted_c1_plausible_fraction": "0.40",
             "occupancy_weighted_c4_plausible_fraction": "0.10",
+            "occupancy_weighted_Cu_C1_distance_median": "2.0",
+            "occupancy_weighted_Cu_C4_distance_median": "6.0",
+            "occupancy_weighted_ring_normal_vs_brace_normal_median": "30.0",
         },
         {
             "protein_id": "P2",
@@ -126,6 +139,9 @@ def test_build_substrate_modeling_rows_aggregates_by_protein_and_encodes_target(
             "median_n_non_vdw_interactions": "2.0",
             "occupancy_weighted_c1_plausible_fraction": "0.10",
             "occupancy_weighted_c4_plausible_fraction": "0.05",
+            "occupancy_weighted_Cu_C1_distance_median": "6.0",
+            "occupancy_weighted_Cu_C4_distance_median": "4.0",
+            "occupancy_weighted_ring_normal_vs_brace_normal_median": "70.0",
         },
     ]
     protein_metadata_rows = [
@@ -147,6 +163,8 @@ def test_build_substrate_modeling_rows_aggregates_by_protein_and_encodes_target(
     assert p1_row["occupancy_weighted_any_plausibility"] == pytest.approx(0.5)
     assert p1_row["occupancy_weighted_C1_minus_C4_plausibility"] == pytest.approx(0.35)
     assert p1_row["median_n_non_vdw_interactions"] == pytest.approx(7.0)
+    assert p1_row["hbond_contact_fraction"] == pytest.approx(0.45)
+    assert p1_row["aromatic_contact_fraction"] == pytest.approx(0.25)
 
 
 def test_build_modeling_rows_use_actual_metadata_columns_and_ec_mapping() -> None:
@@ -236,6 +254,64 @@ def test_build_substrate_rows_use_chitin_mapping_from_actual_metadata_columns() 
 
     assert len(rows) == 1
     assert rows[0]["is_active_on_substrate"] == 1
+
+
+def test_build_substrate_rows_treat_amylose_predictions_as_starch_activity() -> None:
+    condition_rows = [
+        {
+            "protein_id": "PX3",
+            "construct_type": "domain_only",
+            "substrate_class": "amylose",
+            "dp": "4",
+            "contact_eligible_fraction": "0.80",
+            "noise_fraction": "0.10",
+            "top_cluster_occupancy": "0.70",
+            "hbond_contact_fraction": "0.30",
+            "aromatic_contact_fraction": "0.20",
+            "median_n_non_vdw_interactions": "5.0",
+            "occupancy_weighted_c1_plausible_fraction": "0.60",
+            "occupancy_weighted_c4_plausible_fraction": "0.20",
+        },
+        {
+            "protein_id": "PX4",
+            "construct_type": "domain_only",
+            "substrate_class": "amylose",
+            "dp": "6",
+            "contact_eligible_fraction": "0.50",
+            "noise_fraction": "0.20",
+            "top_cluster_occupancy": "0.40",
+            "hbond_contact_fraction": "0.10",
+            "aromatic_contact_fraction": "0.10",
+            "median_n_non_vdw_interactions": "3.0",
+            "occupancy_weighted_c1_plausible_fraction": "0.10",
+            "occupancy_weighted_c4_plausible_fraction": "0.20",
+        },
+    ]
+    protein_metadata_rows = [
+        {
+            "UniProt_ID": "PX3",
+            "CAZy_family": "AA13",
+            "EC_Number": "1.14.99.55",
+        },
+        {
+            "UniProt_ID": "PX4",
+            "CAZy_family": "AA10",
+            "EC_Number": "1.14.99.53",
+        },
+    ]
+
+    rows = build_substrate_modeling_rows(
+        condition_rows,
+        protein_metadata_rows,
+        substrate_class="starch",
+    )
+
+    assert len(rows) == 2
+    assert {row["prediction_substrate"] for row in rows} == {"starch"}
+    assert {row["protein_id"]: row["is_active_on_substrate"] for row in rows} == {
+        "PX3": 1,
+        "PX4": 0,
+    }
 
 
 def test_build_rows_prefer_mapped_labels_over_experimental_labels() -> None:

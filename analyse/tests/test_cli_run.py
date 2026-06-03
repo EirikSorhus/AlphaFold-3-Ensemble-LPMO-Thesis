@@ -317,6 +317,7 @@ def test_cmd_family_enrichment_calls_postprocess(tmp_path, monkeypatch) -> None:
         output_dir: Path,
         alignment_dir: Path | None,
         families: tuple[str, ...],
+        substrate_classes: tuple[str, ...],
         mafft_executable: str,
     ):
         called["protein_condition_residue_scores_path"] = protein_condition_residue_scores_path
@@ -326,6 +327,7 @@ def test_cmd_family_enrichment_calls_postprocess(tmp_path, monkeypatch) -> None:
         called["output_dir"] = output_dir
         called["alignment_dir"] = alignment_dir
         called["families"] = families
+        called["substrate_classes"] = substrate_classes
         called["mafft_executable"] = mafft_executable
         family_root = output_dir / "08_family_residue_enrichment"
         family_root.mkdir(parents=True, exist_ok=True)
@@ -334,12 +336,16 @@ def test_cmd_family_enrichment_calls_postprocess(tmp_path, monkeypatch) -> None:
             def __init__(self) -> None:
                 self.family_aligned_residue_table_path = family_root / "family_aligned_residue_table.tsv"
                 self.family_residue_enrichment_path = family_root / "family_residue_enrichment.tsv"
+                self.family_substrate_residue_enrichment_path = family_root / "family_substrate_residue_enrichment.tsv"
+                self.family_wrong_ligand_residue_enrichment_path = family_root / "family_wrong_ligand_residue_enrichment.tsv"
                 self.alignment_manifest_path = family_root / "family_alignment_manifest.tsv"
                 self.summary_path = family_root / "family_enrichment_summary.json"
 
         result = _Result()
         result.family_aligned_residue_table_path.write_text("\n")
         result.family_residue_enrichment_path.write_text("\n")
+        result.family_substrate_residue_enrichment_path.write_text("\n")
+        result.family_wrong_ligand_residue_enrichment_path.write_text("\n")
         result.alignment_manifest_path.write_text("\n")
         result.summary_path.write_text("{}\n")
         return result
@@ -357,6 +363,7 @@ def test_cmd_family_enrichment_calls_postprocess(tmp_path, monkeypatch) -> None:
         output=output_dir,
         alignment_dir=None,
         families=["AA9", "AA10"],
+        substrates=["cellulose", "chitin"],
         mafft_executable="mafft",
     )
 
@@ -370,6 +377,7 @@ def test_cmd_family_enrichment_calls_postprocess(tmp_path, monkeypatch) -> None:
     assert called["output_dir"] == output_dir
     assert called["alignment_dir"] is None
     assert called["families"] == ("AA9", "AA10")
+    assert called["substrate_classes"] == ("cellulose", "chitin")
     assert called["mafft_executable"] == "mafft"
 
 

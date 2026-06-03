@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from lpmo_pipeline.analysis import clustering_hdbscan as clustering_hdbscan_module
 from lpmo_pipeline.analysis.clustering_agglomerative import AgglomerativeJaccardClusterer
 from lpmo_pipeline.analysis.clustering_hdbscan import (
     HDBANSCANClusterer,
@@ -22,6 +23,7 @@ def test_config_from_yaml() -> None:
     assert config.min_samples is None
     assert config.metric == "jaccard"
     assert config.cluster_selection_method == "eom"
+    assert config.allow_single_cluster is True
     assert config.locked is True
 
 
@@ -35,6 +37,34 @@ def test_production_clusterer_uses_loaded_config_without_mutation() -> None:
     assert result.n_clusters == 0
     assert result.n_outliers == 2
     assert HDBANSCANClusterer is HDBSCANClusterer
+
+
+def test_hdbscan_constructor_receives_allow_single_cluster(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, object] = {}
+
+    class FakeHDBSCAN:
+        def __init__(self, **kwargs: object) -> None:
+            captured.update(kwargs)
+
+        def fit_predict(self, distance_matrix: np.ndarray) -> np.ndarray:
+            return np.full(distance_matrix.shape[0], -1, dtype=int)
+
+    monkeypatch.setattr(clustering_hdbscan_module.hdbscan, "HDBSCAN", FakeHDBSCAN)
+
+    clusterer = HDBSCANClusterer(min_cluster_size=2, min_samples=1, allow_single_cluster=True)
+    distance_matrix = np.array(
+        [
+            [0.0, 0.5],
+            [0.5, 0.0],
+        ],
+        dtype=float,
+    )
+
+    labels = clusterer._fit_labels(distance_matrix)
+
+    assert labels.tolist() == [-1, -1]
+    assert captured["metric"] == "precomputed"
+    assert captured["allow_single_cluster"] is True
 
 
 def test_single_cluster_from_identical_vectors() -> None:

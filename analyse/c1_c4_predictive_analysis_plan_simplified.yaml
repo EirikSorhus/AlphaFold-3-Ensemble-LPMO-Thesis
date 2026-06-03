@@ -107,13 +107,13 @@ predictors:
       reason: >
         Primary geometry contrast between C1-like and C4-like plausibility.
 
-    - predictor_name: occupancy_weighted_delta_attack_angle
+    - predictor_name: occupancy_weighted_delta_Cu_oxyl_H_angle
       source_columns:
-        - occupancy_weighted_attack_angle_C1_median
-        - occupancy_weighted_attack_angle_C4_median
+        - occupancy_weighted_Cu_oxyl_H_C1_angle_median
+        - occupancy_weighted_Cu_oxyl_H_C4_angle_median
       condition_formula: >
-        occupancy_weighted_attack_angle_C1_median -
-        occupancy_weighted_attack_angle_C4_median
+        occupancy_weighted_Cu_oxyl_H_C1_angle_median -
+        occupancy_weighted_Cu_oxyl_H_C4_angle_median
       protein_substrate_formula: >
         mean(condition_formula across available dp rows for the same protein_id
         and substrate_class)

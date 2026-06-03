@@ -573,11 +573,20 @@ Update 2026-05-21:
   `protein_summary_table.tsv` from existing production outputs and was verified
   on merged staged pilot domain-only shards, where it covered retained-cluster,
   no-valid-cluster, zero-contact-eligible, and null-IFP-signal conditions.
-- `family_aligned_residue_table.tsv` and `family_residue_enrichment.tsv` are
+- `family_aligned_residue_table.tsv`, `family_residue_enrichment.tsv`,
+  `family_substrate_residue_enrichment.tsv`, and
+  `family_wrong_ligand_residue_enrichment.tsv` are
   now implemented as outputs from the optional standalone postprocess
   `lpmo-pipeline family-enrichment`, backed by
   `analysis/family_alignment.py` and
   `analysis/family_enrichment_postprocess.py`.
+  The substrate table uses predicted/input `substrate_class` values such as
+  cellulose and chitin and records target-vs-other counts plus small/unbalanced
+  group status.
+  The wrong-ligand table restricts the contrast to unambiguous cellulose-only
+  or chitin-only proteins and compares right vs opposite predicted ligand
+  within protein/alignment position; dual-active proteins are excluded and
+  counted.
 - Real-data validation for that optional family layer now exists in
   `tests/run_tests_scripts/test_family_enrichment_validation.sh`. Verified
   2026-05-21 via sbatch jobb 1150831 on merged staged pilot `domain_only`

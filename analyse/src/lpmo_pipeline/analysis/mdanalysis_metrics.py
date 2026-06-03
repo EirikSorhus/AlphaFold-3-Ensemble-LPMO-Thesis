@@ -46,8 +46,8 @@ POSE_GEOMETRY_COLUMNS = [
     "Cu_C4_distance",
     "oxyl_H_C1_distance",
     "oxyl_H_C4_distance",
-    "attack_angle_C1",
-    "attack_angle_C4",
+    "Cu_oxyl_H_C1_angle",
+    "Cu_oxyl_H_C4_angle",
     "sugar_face_orientation",
     "ring_normal_vs_brace_normal",
     "oxyl_H_score_C1",
@@ -71,7 +71,7 @@ class GeometryThresholds:
     oxyl_h_highly_plausible_min_a: float = 1.8
     oxyl_h_highly_plausible_max_a: float = 2.5
     his_brace_max_search_a: float = 3.0
-    cu_oxyl_bond_length_a: float = 1.8
+    cu_oxyl_bond_length_a: float = 1.9
     c_h_bond_length_a: float = 1.1
 
 
@@ -91,8 +91,8 @@ class PoseGeometryMetrics:
     cu_c4_distance: float | None = None
     oxyl_h_c1_distance: float | None = None
     oxyl_h_c4_distance: float | None = None
-    attack_angle_c1: float | None = None
-    attack_angle_c4: float | None = None
+    cu_oxyl_h_c1_angle: float | None = None
+    cu_oxyl_h_c4_angle: float | None = None
     sugar_face_orientation: str = GEOMETRY_STATUS_NOT_COMPUTABLE
     ring_normal_vs_brace_normal: float | None = None
     oxyl_h_score_c1: float = math.nan
@@ -131,8 +131,8 @@ class PoseGeometryMetrics:
             "Cu_C4_distance": self.cu_c4_distance,
             "oxyl_H_C1_distance": self.oxyl_h_c1_distance,
             "oxyl_H_C4_distance": self.oxyl_h_c4_distance,
-            "attack_angle_C1": self.attack_angle_c1,
-            "attack_angle_C4": self.attack_angle_c4,
+            "Cu_oxyl_H_C1_angle": self.cu_oxyl_h_c1_angle,
+            "Cu_oxyl_H_C4_angle": self.cu_oxyl_h_c4_angle,
             "sugar_face_orientation": self.sugar_face_orientation,
             "ring_normal_vs_brace_normal": self.ring_normal_vs_brace_normal,
             "oxyl_H_score_C1": self.oxyl_h_score_c1,
@@ -184,7 +184,7 @@ class _ProximalSugar:
 class _TargetGeometry:
     cu_c_distance: float | None
     oxyl_h_distance: float | None
-    attack_angle: float | None
+    cu_oxyl_h_angle: float | None
     score: float
     status: str
     virtual_h_coordinates: tuple[float, float, float] | None = None
@@ -219,7 +219,7 @@ def load_geometry_thresholds(config_path: str | None = None) -> GeometryThreshol
             geometry.get("oxyl_h_highly_plausible_max_a", 2.5)
         ),
         his_brace_max_search_a=float(his_brace.get("max_search_dist_a", 3.0)),
-        cu_oxyl_bond_length_a=float(virtual_oxyl.get("cu_oxyl_bond_length_a", 1.8)),
+        cu_oxyl_bond_length_a=float(virtual_oxyl.get("cu_oxyl_bond_length_a", 1.9)),
         c_h_bond_length_a=float(virtual_h.get("c_h_bond_length_a", 1.1)),
     )
 
@@ -384,8 +384,8 @@ def compute_pose_metrics_from_structure(
     metrics.cu_c4_distance = c4_metrics.cu_c_distance
     metrics.oxyl_h_c1_distance = c1_metrics.oxyl_h_distance
     metrics.oxyl_h_c4_distance = c4_metrics.oxyl_h_distance
-    metrics.attack_angle_c1 = c1_metrics.attack_angle
-    metrics.attack_angle_c4 = c4_metrics.attack_angle
+    metrics.cu_oxyl_h_c1_angle = c1_metrics.cu_oxyl_h_angle
+    metrics.cu_oxyl_h_c4_angle = c4_metrics.cu_oxyl_h_angle
     metrics.oxyl_h_score_c1 = c1_metrics.score
     metrics.oxyl_h_score_c4 = c4_metrics.score
     metrics.geometry_status_c1 = c1_metrics.status
@@ -515,13 +515,13 @@ def _compute_target_geometry(
 
     cu_c_distance = float(np.linalg.norm(repositioned_cu - target_pos))
     oxyl_h_distance = float(np.linalg.norm(virtual_oxyl - virtual_h))
-    attack_angle = _angle_from_points_deg(virtual_oxyl, target_pos, virtual_h)
+    cu_oxyl_h_angle = _angle_from_points_deg(repositioned_cu, virtual_oxyl, virtual_h)
     score = _score_oxyl_h_distance(oxyl_h_distance, thresholds)
     status = _assign_geometry_status(oxyl_h_distance, score, thresholds)
     return _TargetGeometry(
         cu_c_distance,
         oxyl_h_distance,
-        attack_angle,
+        cu_oxyl_h_angle,
         score,
         status,
         tuple(virtual_h.tolist()),
