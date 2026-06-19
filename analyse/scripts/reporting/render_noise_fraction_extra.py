@@ -59,7 +59,7 @@ def centered_violin_boxplot(ax: plt.Axes, df: pd.DataFrame, *, value_col: str, y
             artist.set_linewidth(0.9)
 
     ax.set_xticks(range(len(substrates)))
-    ax.set_xticklabels(substrates)
+    ax.set_xticklabels([substrate.title() for substrate in substrates])
     ax.set_xlabel("Substrate")
     ax.set_ylabel(y_label)
     ax.set_ylim(-0.03, 1.03)
@@ -72,7 +72,7 @@ def centered_violin_boxplot(ax: plt.Axes, df: pd.DataFrame, *, value_col: str, y
 
 
 def panel_label(ax: plt.Axes, label: str) -> None:
-    ax.text(-0.08, 1.06, label, transform=ax.transAxes, ha="left", va="top", fontsize=13, weight="bold")
+    ax.text(-0.08, 1.06, label, transform=ax.transAxes, ha="left", va="top", fontsize=16, weight="bold")
 
 
 def main() -> None:
@@ -117,16 +117,22 @@ def main() -> None:
             "text.color": "#000000",
             "axes.grid": False,
             "legend.frameon": False,
-            "font.size": 9,
+            "font.size": 11.5,
+            "axes.labelsize": 12.1,
+            "xtick.labelsize": 11.0,
+            "ytick.labelsize": 11.0,
+            "legend.fontsize": 10.0,
+            "legend.title_fontsize": 10.0,
         }
     )
-    fig, ax = plt.subplots(figsize=(7.0, 5.3), constrained_layout=True)
+    fig, ax = plt.subplots(figsize=(6.3, 5.0), constrained_layout=True)
     centered_violin_boxplot(ax, df, value_col="noise_fraction", y_label="Noise fraction")
     panel_label(ax, "A")
     handles = [Patch(facecolor=DARK_PALETTE[c], edgecolor="#303030", label=CONSTRUCT_LABELS[c]) for c in CONSTRUCT_ORDER]
-    ax.legend(handles=handles, title="Construct", frameon=False, loc="upper left", bbox_to_anchor=(1.02, 1.0), borderaxespad=0)
+    ax.legend(handles=handles, title="Construct", frameon=False, loc="upper right")
+    fig.set_constrained_layout_pads(w_pad=0.015, h_pad=0.015, wspace=0.03, hspace=0.035)
     out = args.output_dir / "extra_noise_vs_clustered_pose_fraction.png"
-    fig.savefig(out, dpi=240, bbox_inches="tight")
+    fig.savefig(out, dpi=600, bbox_inches="tight")
     fig.savefig(out.with_suffix(".pdf"), bbox_inches="tight")
     plt.close(fig)
 
