@@ -1,8 +1,9 @@
 # Masteroppgave
 
-Master's thesis in structural biology and bioinformatics at the Norwegian University of Life Sciences (NMBU).
+Master's thesis in structural biology and bioinformatics at the Norwegian University of Life Sciences (NMBU). Created by Eirik Sørhus with Åsmund Røhr Kjendseth as supervisor.
 
 **Thesis title:** *Ensemble-Based Analysis of AlphaFold 3-Predicted LPMO–Oligosaccharide Complexes for Substrate Recognition*
+**Thesis handle:** https://hdl.handle.net/11250/5554967
 
 ---
 
@@ -28,4 +29,4 @@ Each subdirectory contains its own README with detailed usage instructions. Star
 
 ## Environment
 
-All heavy computation is designed for HPC execution with SLURM scheduling (tested on Olivia/Betzy). Conda environments are managed under `/cluster/work/projects/nn1003k/eirik/conda/` using containerised wrappers (`hpc-container-wrapper`).
+All heavy computation is designed for HPC execution with SLURM scheduling (tested on Olivia). Conda environments are managed under `/cluster/work/projects/nn1003k/eirik/conda/` using containerised wrappers (`hpc-container-wrapper`).
