@@ -3,6 +3,7 @@
 Master's thesis in structural biology and bioinformatics at the Norwegian University of Life Sciences (NMBU). Created by Eirik Sørhus with Åsmund Røhr Kjendseth as supervisor.
 
 **Thesis title:** *Ensemble-Based Analysis of AlphaFold 3-Predicted LPMO–Oligosaccharide Complexes for Substrate Recognition*
+
 **Thesis handle:** https://hdl.handle.net/11250/5554967
 
 ---
